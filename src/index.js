@@ -18,7 +18,8 @@ import enquiryRoutes from "./routes/enquiry.routes.js";
 import enrollmentRoutes from "./routes/enrollment.route.js";
 import subscriptionRoutes from "./routes/subscription.routes.js";
 import authRoutes from "./routes/auth.routes.js";
-import blogRoutes from "./routes/blog.routes.js"
+import blogRoutes from "./routes/blog.routes.js";
+import chatRoutes from "./routes/chat.routes.js";
 
 const app = express();
 
@@ -362,7 +363,8 @@ app.use('/', authRoutes);
 app.use('/', enquiryRoutes);
 app.use('/', enrollmentRoutes);
 app.use('/', subscriptionRoutes);
-app.use("/",blogRoutes)
+app.use("/", blogRoutes);
+app.use("/", chatRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
