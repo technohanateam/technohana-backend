@@ -322,22 +322,60 @@ router.delete("/courses/:id", authenticateAdmin, async (req, res) => {
   }
 });
 
-// POST /admin/courses/seed — one-time import from src/data/courses.json
+// DELETE /admin/courses/clear — clear all courses
+router.delete("/courses/clear", authenticateAdmin, async (req, res) => {
+  try {
+    const result = await Course.deleteMany({});
+    return res.json({ message: "Cleared all courses", deleted: result.deletedCount });
+  } catch (err) {
+    console.error("Admin clear courses error:", err);
+    return res.status(500).json({ message: "Server error", detail: err.message });
+  }
+});
+
+// POST /admin/courses/seed — import from src/data/courses.json (can reseed if force=true)
 router.post("/courses/seed", authenticateAdmin, async (req, res) => {
   try {
+    const { force } = req.body;
     const existing = await Course.countDocuments();
-    if (existing > 0) {
+
+    if (existing > 0 && !force) {
       return res.json({ message: "Already seeded", count: existing });
+    }
+
+    if (force && existing > 0) {
+      await Course.deleteMany({});
+      console.log(`Cleared ${existing} courses for reseed`);
     }
 
     const dataPath = path.join(__dirname, "../data/courses.json");
     const raw = fs.readFileSync(dataPath, "utf-8");
     const courses = JSON.parse(raw);
 
-    await Course.insertMany(courses, { ordered: false });
-    return res.status(201).json({ message: "Seeded", count: courses.length });
+    const result = await Course.insertMany(courses, { ordered: false });
+    const inserted = result.length;
+    return res.status(201).json({
+      message: `Seeded ${inserted} courses successfully`,
+      count: inserted,
+      total: courses.length,
+      failed: courses.length - inserted
+    });
   } catch (err) {
     console.error("Admin seed courses error:", err);
+
+    // If partialResult exists, some courses were inserted
+    if (err.writeErrors && err.writeErrors.length > 0) {
+      const successful = Course.countDocuments();
+      console.error(`Failed to insert ${err.writeErrors.length} courses:`,
+        err.writeErrors.map(e => ({ id: e.err.op?.id, error: e.err.errmsg }))
+      );
+      return res.status(207).json({
+        message: "Partial seed - some courses failed",
+        detail: err.writeErrors.map(e => e.err.errmsg),
+        errors: err.writeErrors.length
+      });
+    }
+
     return res.status(500).json({ message: "Server error", detail: err.message });
   }
 });
