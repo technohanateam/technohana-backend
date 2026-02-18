@@ -1,8 +1,8 @@
 import Enquiry from "../models/enquiry.model.js";
+import AiRiskReport from "../models/aiRiskReport.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateEnquiryTable } from "../utils/emailTemplate.js";
 import { generateContactUsEmail } from "../utils/emailTemplate.js";
-import { generateAIRiskReportRequestEmail, generateUserConfirmationEmail } from "../utils/emailTemplate.js";
 
 export const createEnquiry = async (req, res) => {
   try {
@@ -73,20 +73,24 @@ export const contactUs = async (req, res) => {
 export const handleAIRiskReportRequest = async (req, res) => {
   const { name, email, source, score, band, explanation, answers } = req.body;
 
-  // Validate required fields
-  if (!name || !email || !source || !score || !band || !explanation || !answers) {
+  // Validate required fields (use != null to safely handle score = 0)
+  if (!name || !email || !source || score == null || !band || !explanation || !answers) {
     return res.status(400).json({ error: "All fields are required." });
   }
 
   try {
-    // Generate email templates
+    // 1. Persist to DB first — lead is safe even if emails fail
+    const report = new AiRiskReport({ name, email, source, score, band, explanation, answers });
+    await report.save();
+
+    // 2. Build email content
     const adminEmailHtml = `
       <div style="font-family:sans-serif;line-height:1.6;">
         <h2 style="color:#1769ff;">New AI Career Risk Test Submission</h2>
         <p><strong>Name:</strong> ${name}</p>
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Source:</strong> ${source}</p>
-        <p><strong>Score:</strong> ${score}</p>
+        <p><strong>Score:</strong> ${score} / 18</p>
         <p><strong>Risk Band:</strong> ${band}</p>
         <p><strong>Explanation:</strong> ${explanation}</p>
         <p><strong>Answers:</strong></p>
@@ -106,7 +110,7 @@ export const handleAIRiskReportRequest = async (req, res) => {
       <div style="font-family:sans-serif;line-height:1.6;">
         <h2 style="color:#1769ff;">Thank You, ${name}!</h2>
         <p>We have received your AI Career Risk Test submission.</p>
-        <p><strong>Your Score:</strong> ${score}</p>
+        <p><strong>Your Score:</strong> ${score} / 18</p>
         <p><strong>Risk Band:</strong> ${band}</p>
         <p>${explanation}</p>
         <p>Our team will review your submission and provide a personalized roadmap to help you future-proof your career.</p>
@@ -114,25 +118,27 @@ export const handleAIRiskReportRequest = async (req, res) => {
       </div>
     `;
 
-    // Send email to admin
-    await sendEmail({
-      from: fromAddresses.connect,
-      to: fromAddresses.sales, // Replace with the admin email
-      subject: "New AI Career Risk Test Submission",
-      html: adminEmailHtml,
+    // 3. Send emails (non-blocking for the response — log failures but don't fail the request)
+    Promise.all([
+      sendEmail({
+        from: fromAddresses.connect,
+        to: "abdul@technohana.in",
+        subject: "New AI Career Risk Test Submission",
+        html: adminEmailHtml,
+      }),
+      sendEmail({
+        from: fromAddresses.connect,
+        to: email,
+        subject: "Thank You for Completing the AI Career Risk Test",
+        html: userEmailHtml,
+      }),
+    ]).catch((err) => {
+      console.error("AI risk report emails failed (lead already saved):", err);
     });
 
-    // Send confirmation email to the user
-    await sendEmail({
-      from: fromAddresses.connect,
-      to: email,
-      subject: "Thank You for Completing the AI Career Risk Test",
-      html: userEmailHtml,
-    });
-
-    res.status(200).json({ message: "Emails sent successfully." });
+    res.status(200).json({ message: "Report saved successfully." });
   } catch (error) {
-    console.error("Error sending emails:", error);
-    res.status(500).json({ error: "Failed to send emails. Please try again later." });
+    console.error("Error saving AI risk report:", error);
+    res.status(500).json({ error: "Failed to save report. Please try again later." });
   }
 };
