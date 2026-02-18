@@ -60,6 +60,21 @@ export const enrollUser = async (req,res) => {
 }
 
 
+export const getMyEnrollments = async (req, res) => {
+    try {
+        const { email } = req.user;
+        const enrollments = await User.find({
+            email,
+            courseTitle: { $exists: true, $ne: null }
+        }).sort({ _id: -1 }).lean();
+
+        return res.status(200).json({ success: true, data: enrollments });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
 export const getUsersByStatus = async (req, res) => {
     try {
         // Get the status from the request query parameters
