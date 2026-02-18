@@ -58,7 +58,7 @@ export const contactUs = async (req, res) => {
 
     await sendEmail({
       from: fromAddresses.connect,
-      to: "corporate@technohana.in",
+      to: ["corporate@technohana.in", "abdul@technohana.in"],
       subject: "You have a new message from " + name,
       html: generateContactUsEmail({ name, email, subject, message }),
     });
