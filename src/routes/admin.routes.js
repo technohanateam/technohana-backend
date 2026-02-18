@@ -1,0 +1,249 @@
+import express from "express";
+import jwt from "jsonwebtoken";
+import { User } from "../models/user.model.js";
+import Enquiry from "../models/enquiry.model.js";
+import AiRiskReport from "../models/aiRiskReport.model.js";
+import Subscription from "../models/subscription.model.js";
+import { Blogs } from "../models/blogs.model.js";
+import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
+
+const router = express.Router();
+
+// ─── POST /admin/login ────────────────────────────────────────────────────────
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required." });
+  }
+
+  if (
+    email !== process.env.ADMIN_EMAIL ||
+    password !== process.env.ADMIN_PASSWORD
+  ) {
+    return res.status(401).json({ message: "Invalid credentials." });
+  }
+
+  const token = jwt.sign(
+    { email, role: "admin" },
+    process.env.ADMIN_JWT_SECRET,
+    { expiresIn: "8h" }
+  );
+
+  return res.json({ token });
+});
+
+// ─── All routes below require admin auth ──────────────────────────────────────
+
+// GET /admin/stats
+router.get("/stats", authenticateAdmin, async (req, res) => {
+  try {
+    const [
+      totalEnrollments,
+      pendingPayment,
+      inProgress,
+      enrolled,
+      rejected,
+      enquiries,
+      aiRiskReports,
+      subscribers,
+      blogs,
+    ] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ status: "pending-payment" }),
+      User.countDocuments({ status: "in-progress" }),
+      User.countDocuments({ status: "enrolled" }),
+      User.countDocuments({ status: "rejected" }),
+      Enquiry.countDocuments(),
+      AiRiskReport.countDocuments(),
+      Subscription.countDocuments({ isActive: true }),
+      Blogs.countDocuments(),
+    ]);
+
+    return res.json({
+      enrollments: { total: totalEnrollments, pendingPayment, inProgress, enrolled, rejected },
+      enquiries,
+      aiRiskReports,
+      subscribers,
+      blogs,
+    });
+  } catch (err) {
+    console.error("Admin stats error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/enrollments?status=&search=&page=1&limit=20
+router.get("/enrollments", authenticateAdmin, async (req, res) => {
+  try {
+    const { status, search, page = 1, limit = 20 } = req.query;
+    const query = {};
+
+    if (status) query.status = status;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { courseTitle: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const [data, total] = await Promise.all([
+      User.find(query).sort({ _id: -1 }).skip(skip).limit(Number(limit)).lean(),
+      User.countDocuments(query),
+    ]);
+
+    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    console.error("Admin enrollments error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PATCH /admin/enrollments/:id/status
+router.patch("/enrollments/:id/status", authenticateAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const allowed = ["pending-payment", "in-progress", "enrolled", "rejected"];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ message: "Invalid status value." });
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: "Enrollment not found." });
+
+    return res.json({ data: updated });
+  } catch (err) {
+    console.error("Admin update status error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/enquiries?page=1&limit=20
+router.get("/enquiries", authenticateAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+    const [data, total] = await Promise.all([
+      Enquiry.find().sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
+      Enquiry.countDocuments(),
+    ]);
+    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    console.error("Admin enquiries error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/ai-risk-reports?page=1&limit=20
+router.get("/ai-risk-reports", authenticateAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+    const [data, total] = await Promise.all([
+      AiRiskReport.find().sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
+      AiRiskReport.countDocuments(),
+    ]);
+    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    console.error("Admin AI risk reports error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/subscribers?page=1&limit=20
+router.get("/subscribers", authenticateAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+    const [data, total] = await Promise.all([
+      Subscription.find().sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
+      Subscription.countDocuments(),
+    ]);
+    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    console.error("Admin subscribers error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/blogs
+router.get("/blogs", authenticateAdmin, async (req, res) => {
+  try {
+    const data = await Blogs.find().sort({ _id: -1 }).lean();
+    return res.json({ data });
+  } catch (err) {
+    console.error("Admin blogs error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/blogs
+router.post("/blogs", authenticateAdmin, async (req, res) => {
+  try {
+    const { title, slug, img, author, date, content, category } = req.body;
+    if (!title) return res.status(400).json({ message: "Title is required." });
+
+    const lastBlog = await Blogs.findOne().sort({ id: -1 }).lean();
+    const nextId = lastBlog ? (lastBlog.id || 0) + 1 : 1;
+
+    const generatedSlug =
+      slug ||
+      title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+
+    const blog = new Blogs({
+      id: nextId,
+      title,
+      slug: generatedSlug,
+      img: img || "",
+      author: author || "",
+      date: date || new Date().toISOString().split("T")[0],
+      content: content || "",
+      category: category || "",
+    });
+    await blog.save();
+    return res.status(201).json({ data: blog });
+  } catch (err) {
+    console.error("Admin create blog error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PUT /admin/blogs/:id
+router.put("/blogs/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const { title, slug, img, author, date, content, category } = req.body;
+    const updated = await Blogs.findByIdAndUpdate(
+      req.params.id,
+      { title, slug, img, author, date, content, category },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: "Blog not found." });
+    return res.json({ data: updated });
+  } catch (err) {
+    console.error("Admin update blog error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// DELETE /admin/blogs/:id
+router.delete("/blogs/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const deleted = await Blogs.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Blog not found." });
+    return res.json({ message: "Blog deleted." });
+  } catch (err) {
+    console.error("Admin delete blog error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+export default router;

@@ -21,6 +21,7 @@ import subscriptionRoutes from "./routes/subscription.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import blogRoutes from "./routes/blog.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 const app = express();
 
@@ -38,7 +39,7 @@ const corsOption = {
       return callback(new Error("Not allowed by CORS"));
     }
   },
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   allowedHeaders: [
     "Content-Type",
     "Authorization",
@@ -415,6 +416,7 @@ app.use('/', enrollmentRoutes);
 app.use('/', subscriptionRoutes);
 app.use("/", blogRoutes);
 app.use("/", chatRoutes);
+app.use("/admin", adminRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
