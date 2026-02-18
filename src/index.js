@@ -10,9 +10,7 @@ import { generateEnrollmentDetailsForSales, generatePaymentSuccessEmail } from "
 const stripe = new Stripe(process.env.STRIPE_SECRET);
 
 // --- CONFIGURATION ---
-dotenv.config({
-  path : "../.env"
-});
+dotenv.config();
 import "./config/passport.js"; 
 
 import connectDb from "./config/db.js";
