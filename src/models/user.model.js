@@ -31,15 +31,17 @@ const userSchema = new Schema({
     },
     status : {
         type : String,
-        enum :["in-progress","rejected","enrolled"]
+        enum :["pending-payment","in-progress","rejected","enrolled"]
+    },
+    orderId : {
+        type : String,
+        sparse : true
     },
     trainingPeriod :{
         type : String,
-        enum : ["4 hours per day","8 hours per day"],
     },
     trainingLocation :{
         type : String,
-        enum : ["Technohana-Office","onsite","online"],
     },
     trainingType: {
         type: String,

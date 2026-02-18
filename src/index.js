@@ -14,6 +14,7 @@ dotenv.config();
 import "./config/passport.js"; 
 
 import connectDb from "./config/db.js";
+import { User } from "./models/user.model.js";
 import enquiryRoutes from "./routes/enquiry.routes.js";
 import enrollmentRoutes from "./routes/enrollment.route.js";
 import subscriptionRoutes from "./routes/subscription.routes.js";
@@ -205,6 +206,25 @@ app.post('/stripe/checkout', async (req, res) => {
       },
     });
 
+    // Save lead to DB before redirecting — captures abandoned checkouts too
+    try {
+      await User.create({
+        name: learner?.fullName || '',
+        email: learner?.email || '',
+        phone: learner?.phone || '',
+        courseTitle: courseInfo?.title || String(courseId),
+        trainingLocation: learner?.trainingLocation || '',
+        trainingType: enrollmentType || 'individual',
+        price: Number.isFinite(Number(quote.expectedTotalMinor)) ? (quote.expectedTotalMinor / 100).toFixed(2) : '',
+        currency: quote.currency?.toUpperCase(),
+        orderId,
+        status: 'pending-payment',
+      });
+    } catch (dbErr) {
+      console.error('Failed to save pre-payment lead:', dbErr);
+      // Non-blocking — still proceed to Stripe
+    }
+
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
@@ -272,6 +292,36 @@ app.post('/payments/confirm', async (req, res) => {
       order.status = 'paid';
       order.paidAt = Date.now();
       orders.set(orderId, order);
+
+      // Upgrade the pre-payment lead to in-progress; fallback to create if missing
+      try {
+        const amountMajorStr = Number.isFinite(Number(amountTotal))
+          ? (Number(amountTotal) / 100).toFixed(2)
+          : '';
+        const updated = await User.findOneAndUpdate(
+          { orderId },
+          { status: 'in-progress', price: amountMajorStr },
+          { new: true }
+        );
+        if (!updated) {
+          // Pre-payment save may have failed — create fresh record
+          await User.create({
+            name: order.learner.fullName,
+            email: order.learner.email,
+            phone: order.learner.phone,
+            courseTitle: order.courseInfo.title,
+            trainingLocation: order.learner.trainingLocation,
+            trainingType: order.enrollmentType,
+            price: amountMajorStr,
+            currency: order.currency?.toUpperCase(),
+            orderId,
+            status: 'in-progress',
+          });
+        }
+      } catch (dbErr) {
+        console.error('Failed to update enrollment lead in DB:', dbErr);
+        // Non-blocking — payment is confirmed, we still send emails
+      }
     }
 
     // Send emails
