@@ -12,6 +12,7 @@ const answerSchema = new mongoose.Schema(
 const aiRiskReportSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true },
+  phone: { type: String, default: "" },
   source: { type: String, default: "AI Career Risk Test" },
   score: { type: Number, required: true },
   band: { type: String, enum: ["Low Risk", "Medium Risk", "High Risk"], required: true },

@@ -71,7 +71,7 @@ export const contactUs = async (req, res) => {
 };
 
 export const handleAIRiskReportRequest = async (req, res) => {
-  const { name, email, source, score, band, explanation, answers } = req.body;
+  const { name, email, phone, source, score, band, explanation, answers } = req.body;
 
   // Validate required fields (use != null to safely handle score = 0)
   if (!name || !email || !source || score == null || !band || !explanation || !answers) {
@@ -80,7 +80,7 @@ export const handleAIRiskReportRequest = async (req, res) => {
 
   try {
     // 1. Persist to DB first — lead is safe even if emails fail
-    const report = new AiRiskReport({ name, email, source, score, band, explanation, answers });
+    const report = new AiRiskReport({ name, email, phone: phone || "", source, score, band, explanation, answers });
     await report.save();
 
     // 2. Build email content
@@ -89,6 +89,7 @@ export const handleAIRiskReportRequest = async (req, res) => {
         <h2 style="color:#1769ff;">New AI Career Risk Test Submission</h2>
         <p><strong>Name:</strong> ${name}</p>
         <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone || "—"}</p>
         <p><strong>Source:</strong> ${source}</p>
         <p><strong>Score:</strong> ${score} / 18</p>
         <p><strong>Risk Band:</strong> ${band}</p>
