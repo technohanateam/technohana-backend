@@ -1,11 +1,18 @@
 import express from "express";
 import jwt from "jsonwebtoken";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { User } from "../models/user.model.js";
 import Enquiry from "../models/enquiry.model.js";
 import AiRiskReport from "../models/aiRiskReport.model.js";
 import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
+import Course from "../models/course.model.js";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
@@ -48,6 +55,7 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       aiRiskReports,
       subscribers,
       blogs,
+      courses,
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ status: "pending-payment" }),
@@ -58,6 +66,7 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       AiRiskReport.countDocuments(),
       Subscription.countDocuments({ isActive: true }),
       Blogs.countDocuments(),
+      Course.countDocuments(),
     ]);
 
     return res.json({
@@ -66,6 +75,7 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       aiRiskReports,
       subscribers,
       blogs,
+      courses,
     });
   } catch (err) {
     console.error("Admin stats error:", err);
@@ -243,6 +253,92 @@ router.delete("/blogs/:id", authenticateAdmin, async (req, res) => {
   } catch (err) {
     console.error("Admin delete blog error:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ─── Courses ──────────────────────────────────────────────────────────────────
+
+// GET /admin/courses?category=&search=&page=1&limit=20
+router.get("/courses", authenticateAdmin, async (req, res) => {
+  try {
+    const { category, search, page = 1, limit = 20 } = req.query;
+    const query = {};
+    if (category) query.category = category;
+    if (search) {
+      query.$or = [
+        { courseTitle: { $regex: search, $options: "i" } },
+        { instructor: { $regex: search, $options: "i" } },
+        { id: { $regex: search, $options: "i" } },
+      ];
+    }
+    const skip = (Number(page) - 1) * Number(limit);
+    const [data, total] = await Promise.all([
+      Course.find(query).sort({ category: 1, id: 1 }).skip(skip).limit(Number(limit)).lean(),
+      Course.countDocuments(query),
+    ]);
+    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    console.error("Admin courses error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/courses
+router.post("/courses", authenticateAdmin, async (req, res) => {
+  try {
+    const { courseTitle, id } = req.body;
+    if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
+
+    const course = new Course(req.body);
+    await course.save();
+    return res.status(201).json({ data: course });
+  } catch (err) {
+    console.error("Admin create course error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PUT /admin/courses/:id
+router.put("/courses/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const updated = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: "Course not found." });
+    return res.json({ data: updated });
+  } catch (err) {
+    console.error("Admin update course error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// DELETE /admin/courses/:id
+router.delete("/courses/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const deleted = await Course.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Course not found." });
+    return res.json({ message: "Course deleted." });
+  } catch (err) {
+    console.error("Admin delete course error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/courses/seed — one-time import from src/data/courses.json
+router.post("/courses/seed", authenticateAdmin, async (req, res) => {
+  try {
+    const existing = await Course.countDocuments();
+    if (existing > 0) {
+      return res.json({ message: "Already seeded", count: existing });
+    }
+
+    const dataPath = path.join(__dirname, "../data/courses.json");
+    const raw = fs.readFileSync(dataPath, "utf-8");
+    const courses = JSON.parse(raw);
+
+    await Course.insertMany(courses, { ordered: false });
+    return res.status(201).json({ message: "Seeded", count: courses.length });
+  } catch (err) {
+    console.error("Admin seed courses error:", err);
+    return res.status(500).json({ message: "Server error", detail: err.message });
   }
 });
 

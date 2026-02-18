@@ -1,7 +1,11 @@
 // index.js
 
-import express from "express";
 import dotenv from "dotenv";
+
+// --- LOAD ENV BEFORE OTHER IMPORTS ---
+dotenv.config();
+
+import express from "express";
 import cors from "cors";
 import passport from "passport";
 import Stripe from "stripe";
@@ -10,8 +14,7 @@ import { generateEnrollmentDetailsForSales, generatePaymentSuccessEmail } from "
 const stripe = new Stripe(process.env.STRIPE_SECRET);
 
 // --- CONFIGURATION ---
-dotenv.config();
-import "./config/passport.js"; 
+import "./config/passport.js";
 
 import connectDb from "./config/db.js";
 import { User } from "./models/user.model.js";
@@ -22,6 +25,7 @@ import authRoutes from "./routes/auth.routes.js";
 import blogRoutes from "./routes/blog.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import courseRoutes from "./routes/course.routes.js";
 
 const app = express();
 
@@ -139,15 +143,15 @@ connectDb();
 app.get('/api/ping', (req, res) => {
   // Get the current timestamp
   const timestamp = new Date().toISOString();
-  
+
   console.log(`Ping received at: ${timestamp}`);
-  
+
   // Respond with a JSON object confirming the server is awake.
   // This provides a clear, machine-readable confirmation.
-  res.status(200).json({ 
-    status: 'awake', 
+  res.status(200).json({
+    status: 'awake',
     message: 'Server is active and running.',
-    timestamp: timestamp 
+    timestamp: timestamp
   });
 });
 
@@ -416,6 +420,7 @@ app.use('/', enrollmentRoutes);
 app.use('/', subscriptionRoutes);
 app.use("/", blogRoutes);
 app.use("/", chatRoutes);
+app.use("/", courseRoutes);
 app.use("/admin", adminRoutes);
 
 const PORT = process.env.PORT || 3000;
