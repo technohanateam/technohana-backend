@@ -26,6 +26,8 @@ import blogRoutes from "./routes/blog.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import courseRoutes from "./routes/course.routes.js";
+import referralRoutes from "./routes/referral.routes.js";
+import abandonedEnrollmentRoutes from "./routes/abandoned-enrollment.routes.js";
 
 const app = express();
 
@@ -298,14 +300,22 @@ app.post('/payments/confirm', async (req, res) => {
       order.paidAt = Date.now();
       orders.set(orderId, order);
 
-      // Upgrade the pre-payment lead to in-progress; fallback to create if missing
+      // Generate enrollment token
+      const enrollmentToken = Buffer.from(`${orderId}|${order.learner.email}|${Date.now()}`).toString('base64');
+
+      // Upgrade the pre-payment lead to enrolled; fallback to create if missing
       try {
         const amountMajorStr = Number.isFinite(Number(amountTotal))
           ? (Number(amountTotal) / 100).toFixed(2)
           : '';
         const updated = await User.findOneAndUpdate(
           { orderId },
-          { status: 'in-progress', price: amountMajorStr },
+          {
+            status: 'enrolled',
+            price: amountMajorStr,
+            enrollmentToken,
+            enrolledAt: new Date()
+          },
           { new: true }
         );
         if (!updated) {
@@ -320,7 +330,9 @@ app.post('/payments/confirm', async (req, res) => {
             price: amountMajorStr,
             currency: order.currency?.toUpperCase(),
             orderId,
-            status: 'in-progress',
+            status: 'enrolled',
+            enrollmentToken,
+            enrolledAt: new Date()
           });
         }
       } catch (dbErr) {
@@ -375,6 +387,40 @@ app.post('/payments/confirm', async (req, res) => {
   }
 });
 
+// Get order details by orderId
+app.get('/payments/order/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    if (!orderId) {
+      return res.status(400).json({ error: 'Missing orderId' });
+    }
+
+    if (!orders.has(orderId)) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const order = orders.get(orderId);
+    return res.json({
+      orderId: order.orderId,
+      courseId: order.courseId,
+      courseInfo: order.courseInfo,
+      learner: order.learner,
+      enrollmentType: order.enrollmentType,
+      participants: order.participants,
+      currency: order.currency,
+      unitAmountMinor: order.unitAmountMinor,
+      quantity: order.quantity,
+      expectedTotalMinor: order.expectedTotalMinor,
+      status: order.status,
+      createdAt: order.createdAt,
+      paidAt: order.paidAt,
+    });
+  } catch (err) {
+    console.error('Get order error:', err);
+    return res.status(500).json({ error: 'Failed to retrieve order' });
+  }
+});
+
 // Stripe Webhook - must use raw body for signature verification
 app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
@@ -422,6 +468,8 @@ app.use("/", blogRoutes);
 app.use("/", chatRoutes);
 app.use("/", courseRoutes);
 app.use("/admin", adminRoutes);
+app.use("/api/referral", referralRoutes);
+app.use("/api/abandoned-enrollment", abandonedEnrollmentRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

@@ -100,6 +100,51 @@ const userSchema = new Schema({
     totalLessons: {
         type: Number,
         default: 0
+    },
+    // Referral Program
+    referralCode: {
+        type: String,
+        unique: true,
+        sparse: true,
+        index: true
+    },
+    referredBy: {
+        type: String, // Email of the referrer
+        sparse: true
+    },
+    referralCount: {
+        type: Number,
+        default: 0
+    },
+    referralDiscountApplied: {
+        type: Boolean,
+        default: false
+    },
+    referralDiscountPct: {
+        type: Number,
+        default: 10 // 10% default discount
+    },
+    // Abandoned Enrollment Recovery
+    enrollmentFormData: {
+        type: Object,
+        default: null,
+        // Stores: { courseTitle, trainingType, trainingLocation, trainingPeriod, specialRequest, etc }
+    },
+    enrollmentFormStartedAt: {
+        type: Date,
+        sparse: true
+    },
+    enrollmentFormAbandonedAt: {
+        type: Date,
+        sparse: true
+    },
+    enrollmentReminderSent: {
+        type: Boolean,
+        default: false
+    },
+    enrollmentReminderSentAt: {
+        type: Date,
+        sparse: true
     }
 })
 
