@@ -112,10 +112,32 @@ function computeQuote({ courseId, enrollmentType, participants, currency, coupon
   const appliedDiscountRate = getDiscountRate(enrollmentType, numParticipants);
   unitAmountMinor = Math.max(1, Math.round(originalUnitMinor * (1 - appliedDiscountRate)));
 
+  let couponApplied = false;
+  let appliedCouponCode = null;
+  let couponDiscountRate = 0;
+
   if (couponCode && typeof couponCode === 'string') {
     const code = couponCode.trim().toUpperCase();
-    if (code === 'FLAT10') {
-      unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * 0.9));
+
+    // Unified coupon map: matches frontend accepted coupons
+    const validCoupons = {
+      'SAVE20': 0.2,      // 20% off
+      'SAVE30': 0.3,      // 30% off
+      'TECH50': 0.5,      // 50% off
+      'WELCOME10': 0.1,   // 10% off
+      'SUMMER25': 0.25,   // 25% off
+      'FLAT10': 0.1,      // 10% off (legacy backend coupon)
+    };
+
+    const discountRate = validCoupons[code];
+    if (discountRate !== undefined) {
+      unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * (1 - discountRate)));
+      couponApplied = true;
+      appliedCouponCode = code;
+      couponDiscountRate = discountRate;
+    } else if (code) {
+      // Log invalid coupon codes for monitoring
+      console.warn(`Invalid coupon code attempted: ${code}`);
     }
   }
 
@@ -131,6 +153,10 @@ function computeQuote({ courseId, enrollmentType, participants, currency, coupon
     expectedTotalMinor,
     originalUnitMinor,
     discountPercent: Math.round(appliedDiscountRate * 100),
+    couponApplied,
+    couponCode: appliedCouponCode,
+    couponDiscountPercent: Math.round(couponDiscountRate * 100),
+    totalDiscountPercent: Math.round((appliedDiscountRate + couponDiscountRate) * 100),
   };
 }
 
@@ -173,12 +199,37 @@ app.post('/pricing/quote', async (req, res) => {
 
 app.post('/stripe/checkout', async (req, res) => {
   try {
-    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, learner, courseInfo } = req.body || {};
+    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo } = req.body || {};
 
     if (!courseId || !enrollmentType) {
       return res.status(400).json({ error: 'Missing required fields: courseId, enrollmentType' });
     }
     const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor });
+
+    // Validate client calculation vs backend calculation
+    const backendTotalMinor = quote.expectedTotalMinor;
+    const clientTotalMinor = clientCalculatedTotal ? Math.round(Number(clientCalculatedTotal) * 100) : backendTotalMinor;
+    const priceMismatchPercent = backendTotalMinor > 0
+      ? Math.abs((clientTotalMinor - backendTotalMinor) / backendTotalMinor) * 100
+      : 0;
+
+    if (priceMismatchPercent > 1) {
+      // Log significant price mismatches (> 1%) for monitoring
+      console.warn(`⚠️ Price mismatch for order ${generateOrderId()}:`, {
+        courseId,
+        enrollmentType,
+        participants,
+        couponCode: couponCode || 'none',
+        currency,
+        clientCalculatedTotal,
+        clientCalculatedCouponDiscount,
+        backendTotalMinor,
+        clientTotalMinor,
+        mismatchPercent: priceMismatchPercent.toFixed(2) + '%',
+        couponApplied: quote.couponApplied,
+        appliedCoupon: quote.couponCode || 'none',
+      });
+    }
 
     const frontendUrl = process.env.FRONTEND_URL || (process.env.WHITELISTED_URLS ? process.env.WHITELISTED_URLS.split(',')[0] : '');
     if (!frontendUrl) {
@@ -194,9 +245,15 @@ app.post('/stripe/checkout', async (req, res) => {
       enrollmentType: quote.enrollmentType,
       participants: quote.participants,
       currency: quote.currency,
+      basePriceMinor: quote.originalUnitMinor,
       unitAmountMinor: quote.unitAmountMinor,
       quantity: quote.quantity,
       expectedTotalMinor,
+      enrollmentDiscountPercent: quote.discountPercent,
+      couponApplied: quote.couponApplied,
+      couponCode: quote.couponCode || null,
+      couponDiscountPercent: quote.couponDiscountPercent,
+      totalDiscountPercent: quote.totalDiscountPercent,
       status: 'pending',
       createdAt: Date.now(),
       learner: {
