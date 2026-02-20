@@ -1,47 +1,51 @@
-import mongoose,{Schema} from "mongoose"
+import mongoose, { Schema } from "mongoose"
 //this schema is only used when user has submitted a enrollment form 
 const userSchema = new Schema({
-    name :{                         
-        type :String,
-        required : true
+    name: {
+        type: String,
+        required: true
     },
-    googleId : {
-        type : String,
-        unique : true,
-        sparse : true // allows for null values
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true // allows for null values
     },
-    email : {
-        type : String,
-        required : true
+    email: {
+        type: String,
+        required: true
     },
-    phone :{                               //kyc
-        type : String,
+    phone: {                               //kyc
+        type: String,
     },
-    company:{                              //kyc
-        type : String,
+    company: {                              //kyc
+        type: String,
         trim: true // Add trim to handle whitespace
     },
-    userType :{                            //kyc
-        type : String,
-        enum : ["professional","student","others"],
-        default : "student"
+    userType: {                            //kyc
+        type: String,
+        enum: ["professional", "student", "others"],
+        default: "student"
     },
-    courseTitle:{
-        type : String,
+    courseTitle: {
+        type: String,
     },
-    status : {
-        type : String,
-        enum :["pending-payment","in-progress","rejected","enrolled"]
+    status: {
+        type: String,
+        enum: ["pending-payment", "in-progress", "rejected", "enrolled", "completed"]
     },
-    orderId : {
-        type : String,
-        sparse : true
+    orderId: {
+        type: String,
+        sparse: true
     },
-    trainingPeriod :{
-        type : String,
+    enrollmentToken: {
+        type: String,
+        sparse: true
     },
-    trainingLocation :{
-        type : String,
+    trainingPeriod: {
+        type: String,
+    },
+    trainingLocation: {
+        type: String,
     },
     trainingType: {
         type: String,
@@ -50,16 +54,53 @@ const userSchema = new Schema({
     },
     price: { type: String },
     currency: { type: String, default: "INR" },
-    specialRequest :{
-        type : String,
+    specialRequest: {
+        type: String,
     },
-    password :{
-        type : String
+    password: {
+        type: String
     },
-    isKyc :{
-        type : Boolean,
-        default : false
+    isKyc: {
+        type: Boolean,
+        default: false
+    },
+    enrolledAt: {
+        type: Date,
+        sparse: true
+    },
+    // Progress tracking fields
+    progress: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100
+    },
+    lastAccessedAt: {
+        type: Date,
+        sparse: true
+    },
+    completedAt: {
+        type: Date,
+        sparse: true
+    },
+    // Certificate fields
+    certificateIssued: {
+        type: Boolean,
+        default: false
+    },
+    certificateNumber: {
+        type: String,
+        sparse: true
+    },
+    // Course materials tracking
+    lessonsCompleted: {
+        type: Number,
+        default: 0
+    },
+    totalLessons: {
+        type: Number,
+        default: 0
     }
 })
 
-export const User = mongoose.model("User",userSchema);
+export const User = mongoose.model("User", userSchema);
