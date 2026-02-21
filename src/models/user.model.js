@@ -57,6 +57,9 @@ const userSchema = new Schema({
     specialRequest: {
         type: String,
     },
+    picture: {
+        type: String
+    },
     password: {
         type: String
     },

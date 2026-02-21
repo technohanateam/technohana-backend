@@ -13,6 +13,7 @@ export const generateToken = (user) => {
         name : user.name,
         email : user.email,
         isKyc : user.isKyc,
+        picture : user.picture || null,
     }
 
     return jwt.sign(payload,JWT_SECRET,{expiresIn : "24h"});

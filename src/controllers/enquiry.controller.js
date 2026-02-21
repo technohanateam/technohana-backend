@@ -34,7 +34,7 @@ export const createEnquiry = async (req, res) => {
     // Send email to admin with the dynamic subject
     await sendEmail({
       from: fromAddresses.sales, // Specify the 'from' address
-      to: "sales@technohana.in", // Your internal recipient
+      to: process.env.MAIL_TO,
       subject: subject, // Use the dynamic subject
       html: generateEnquiryTable(req.body),
     });
@@ -58,7 +58,7 @@ export const contactUs = async (req, res) => {
 
     await sendEmail({
       from: fromAddresses.connect,
-      to: ["corporate@technohana.in", "abdul@technohana.in"],
+      to: process.env.MAIL_TO,
       subject: "You have a new message from " + name,
       html: generateContactUsEmail({ name, email, subject, message }),
     });
@@ -123,7 +123,7 @@ export const handleAIRiskReportRequest = async (req, res) => {
     Promise.all([
       sendEmail({
         from: fromAddresses.connect,
-        to: "abdul@technohana.in",
+        to: process.env.MAIL_TO,
         subject: "New AI Career Risk Test Submission",
         html: adminEmailHtml,
       }),

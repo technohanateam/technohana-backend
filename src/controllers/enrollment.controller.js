@@ -38,7 +38,7 @@ export const enrollUser = async (req, res) => {
         try {
             await sendEmail({
                 from: fromAddresses.sales,
-                to: "sales@technohana.in",
+                to: process.env.MAIL_TO,
                 subject: "New Course Enrollment: " + courseTitle,
                 html: generateEnquiryTable({ name, email, phone, company, trainingPeriod, specialRequest, trainingLocation, courseTitle, userType, trainingType, price, currency }),
             })

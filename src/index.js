@@ -64,6 +64,16 @@ const generateOrderId = () => `ord_${Math.random().toString(36).slice(2, 10)}`;
 
 // --- Pricing utilities (Replace with DB/config-backed logic) ---
 const allowedCurrencies = ['usd', 'inr', 'aed', 'eur', 'gbp'];
+
+// Coupon map — single source of truth for both validation and quote computation
+const validCoupons = {
+  'SAVE20':    0.2,   // 20% off
+  'SAVE30':    0.3,   // 30% off
+  'TECH2026':  0.5,   // 50% off — flash sale
+  'WELCOME10': 0.1,   // 10% off — new user welcome
+  'SUMMER25':  0.25,  // 25% off — seasonal
+  'FLAT10':    0.1,   // 10% off — legacy
+};
 const priceCatalog = {
   // courseId : base price (per individual) in MINOR units per currency
   default: { usd: 50000, inr: 400000, aed: 185000, eur: 46000, gbp: 39500 },
@@ -119,16 +129,6 @@ function computeQuote({ courseId, enrollmentType, participants, currency, coupon
   if (couponCode && typeof couponCode === 'string') {
     const code = couponCode.trim().toUpperCase();
 
-    // Unified coupon map: matches frontend accepted coupons
-    const validCoupons = {
-      'SAVE20': 0.2,      // 20% off
-      'SAVE30': 0.3,      // 30% off
-      'TECH50': 0.5,      // 50% off
-      'WELCOME10': 0.1,   // 10% off
-      'SUMMER25': 0.25,   // 25% off
-      'FLAT10': 0.1,      // 10% off (legacy backend coupon)
-    };
-
     const discountRate = validCoupons[code];
     if (discountRate !== undefined) {
       unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * (1 - discountRate)));
@@ -181,6 +181,19 @@ app.get('/api/ping', (req, res) => {
     message: 'Server is active and running.',
     timestamp: timestamp
   });
+});
+
+app.post('/api/coupons/validate', (req, res) => {
+  const { code } = req.body || {};
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ valid: false, error: 'Missing code' });
+  }
+  const normalized = code.trim().toUpperCase();
+  const rate = validCoupons[normalized];
+  if (rate !== undefined) {
+    return res.json({ valid: true, code: normalized, discountPercent: Math.round(rate * 100) });
+  }
+  return res.json({ valid: false });
 });
 
 app.post('/pricing/quote', async (req, res) => {
@@ -420,7 +433,7 @@ app.post('/payments/confirm', async (req, res) => {
 
       await sendEmail({
         from: fromAddresses.sales,
-        to: 'sales@technohana.in',
+        to: process.env.MAIL_TO,
         subject: `New Paid Enrollment - ${order.courseInfo?.title || order.courseId}`,
         html: generateEnrollmentDetailsForSales({
           orderId,
