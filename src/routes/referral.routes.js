@@ -12,8 +12,8 @@ const router = express.Router()
 // Generate a unique referral code for authenticated user
 router.post("/generate", authenticateJWT, generateReferralCode)
 
-// Validate and apply referral code during signup (public endpoint)
-router.post("/validate", validateAndApplyReferralCode)
+// Validate and apply referral code — requires auth so the caller's email is trusted
+router.post("/validate", authenticateJWT, validateAndApplyReferralCode)
 
 // Get referral statistics for authenticated user's dashboard
 router.get("/stats", authenticateJWT, getReferralStats)

@@ -86,7 +86,7 @@ function getBasePriceMinor(courseId, currency) {
   return typeof val === 'number' ? val : null;
 }
 
-function computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor }) {
+function computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate }) {
   const normalizedCurrency = String(currency || 'usd').toLowerCase();
   if (!allowedCurrencies.includes(normalizedCurrency)) {
     throw new Error('Unsupported currency');
@@ -141,6 +141,14 @@ function computeQuote({ courseId, enrollmentType, participants, currency, coupon
     }
   }
 
+  // Apply referral discount on top of enrollment type + coupon discounts
+  const appliedReferralRate = (Number.isFinite(Number(referralDiscountRate)) && Number(referralDiscountRate) > 0)
+    ? Math.min(0.5, Number(referralDiscountRate)) // cap at 50%
+    : 0;
+  if (appliedReferralRate > 0) {
+    unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * (1 - appliedReferralRate)));
+  }
+
   const expectedTotalMinor = unitAmountMinor * quantity;
 
   return {
@@ -156,7 +164,8 @@ function computeQuote({ courseId, enrollmentType, participants, currency, coupon
     couponApplied,
     couponCode: appliedCouponCode,
     couponDiscountPercent: Math.round(couponDiscountRate * 100),
-    totalDiscountPercent: Math.round((appliedDiscountRate + couponDiscountRate) * 100),
+    referralDiscountPercent: Math.round(appliedReferralRate * 100),
+    totalDiscountPercent: Math.round((appliedDiscountRate + couponDiscountRate + appliedReferralRate) * 100),
   };
 }
 
@@ -198,11 +207,21 @@ app.post('/api/coupons/validate', (req, res) => {
 
 app.post('/pricing/quote', async (req, res) => {
   try {
-    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor } = req.body || {};
+    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, referralCode } = req.body || {};
     if (!courseId || !enrollmentType) {
       return res.status(400).json({ error: 'Missing required fields: courseId, enrollmentType' });
     }
-    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor });
+
+    let referralDiscountRate = 0;
+    if (referralCode && typeof referralCode === 'string') {
+      const trimmed = referralCode.trim().toUpperCase();
+      const referrer = await User.findOne({ referralCode: trimmed }).lean();
+      if (referrer) {
+        referralDiscountRate = (referrer.referralDiscountPct || 10) / 100;
+      }
+    }
+
+    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
     return res.json(quote);
   } catch (err) {
     console.error('Quote error:', err.message);
@@ -212,12 +231,24 @@ app.post('/pricing/quote', async (req, res) => {
 
 app.post('/stripe/checkout', async (req, res) => {
   try {
-    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo } = req.body || {};
+    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode } = req.body || {};
 
     if (!courseId || !enrollmentType) {
       return res.status(400).json({ error: 'Missing required fields: courseId, enrollmentType' });
     }
-    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor });
+
+    let referralDiscountRate = 0;
+    if (referralCode && typeof referralCode === 'string') {
+      const trimmed = referralCode.trim().toUpperCase();
+      const referrer = await User.findOne({ referralCode: trimmed }).lean();
+      if (referrer) {
+        referralDiscountRate = (referrer.referralDiscountPct || 10) / 100;
+      } else {
+        console.warn(`Invalid referral code at checkout: ${trimmed}`);
+      }
+    }
+
+    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
 
     // Validate client calculation vs backend calculation
     const backendTotalMinor = quote.expectedTotalMinor;
@@ -266,6 +297,8 @@ app.post('/stripe/checkout', async (req, res) => {
       couponApplied: quote.couponApplied,
       couponCode: quote.couponCode || null,
       couponDiscountPercent: quote.couponDiscountPercent,
+      referralCode: referralCode ? referralCode.trim().toUpperCase() : null,
+      referralDiscountPercent: quote.referralDiscountPercent,
       totalDiscountPercent: quote.totalDiscountPercent,
       status: 'pending',
       createdAt: Date.now(),

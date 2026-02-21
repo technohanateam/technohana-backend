@@ -22,15 +22,21 @@ export const generateReferralCode = async (req, res) => {
       })
     }
 
-    // Generate unique referral code (8-12 characters, alphanumeric)
+    // Generate unique referral code (8 characters, alphanumeric)
     let referralCode = ""
     let isUnique = false
+    const MAX_ATTEMPTS = 10
+    let attempts = 0
     while (!isUnique) {
+      if (attempts >= MAX_ATTEMPTS) {
+        return res.status(500).json({ message: "Failed to generate a unique referral code. Please try again." })
+      }
       referralCode = crypto.randomBytes(6).toString("hex").toUpperCase().slice(0, 8)
       const existingCode = await User.findOne({ referralCode })
       if (!existingCode) {
         isUnique = true
       }
+      attempts++
     }
 
     user.referralCode = referralCode
@@ -49,10 +55,16 @@ export const generateReferralCode = async (req, res) => {
 // Validate and apply referral code during enrollment/signup
 export const validateAndApplyReferralCode = async (req, res) => {
   try {
-    const { referralCode, newUserEmail } = req.body
+    const { referralCode } = req.body
+    // Use the authenticated user's email — never trust a client-supplied email
+    const newUserEmail = req.user?.email
 
-    if (!referralCode || !newUserEmail) {
-      return res.status(400).json({ message: "Referral code and new user email are required" })
+    if (!referralCode) {
+      return res.status(400).json({ message: "Referral code is required" })
+    }
+
+    if (!newUserEmail) {
+      return res.status(401).json({ message: "User not authenticated" })
     }
 
     // Find the referrer by referral code
