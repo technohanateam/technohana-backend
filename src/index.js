@@ -7,11 +7,17 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
+import crypto from "crypto";
 import passport from "passport";
 import Stripe from "stripe";
+import Razorpay from "razorpay";
 import { sendEmail, fromAddresses } from "./config/emailService.js";
 import { generateEnrollmentDetailsForSales, generatePaymentSuccessEmail } from "./utils/emailTemplate.js";
 const stripe = new Stripe(process.env.STRIPE_SECRET);
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
 
 // --- CONFIGURATION ---
 import "./config/passport.js";
@@ -367,6 +373,225 @@ app.post('/stripe/checkout', async (req, res) => {
   } catch (err) {
     console.error('Stripe checkout error:', err);
     return res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+// Razorpay - Create order
+app.post('/razorpay/checkout', async (req, res) => {
+  try {
+    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode } = req.body || {};
+
+    if (!courseId || !enrollmentType) {
+      return res.status(400).json({ error: 'Missing required fields: courseId, enrollmentType' });
+    }
+
+    let referralDiscountRate = 0;
+    if (referralCode && typeof referralCode === 'string') {
+      const trimmed = referralCode.trim().toUpperCase();
+      const referrer = await User.findOne({ referralCode: trimmed }).lean();
+      if (referrer) {
+        referralDiscountRate = (referrer.referralDiscountPct || 10) / 100;
+      } else {
+        console.warn(`Invalid referral code at Razorpay checkout: ${trimmed}`);
+      }
+    }
+
+    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
+
+    const backendTotalMinor = quote.expectedTotalMinor;
+    const clientTotalMinor = clientCalculatedTotal ? Math.round(Number(clientCalculatedTotal) * 100) : backendTotalMinor;
+    const priceMismatchPercent = backendTotalMinor > 0
+      ? Math.abs((clientTotalMinor - backendTotalMinor) / backendTotalMinor) * 100
+      : 0;
+
+    if (priceMismatchPercent > 1) {
+      console.warn(`⚠️ Price mismatch for Razorpay order:`, {
+        courseId, enrollmentType, participants, couponCode: couponCode || 'none', currency,
+        clientCalculatedTotal, clientCalculatedCouponDiscount, backendTotalMinor, clientTotalMinor,
+        mismatchPercent: priceMismatchPercent.toFixed(2) + '%',
+        couponApplied: quote.couponApplied, appliedCoupon: quote.couponCode || 'none',
+      });
+    }
+
+    const orderId = generateOrderId();
+
+    const razorpayOrder = await razorpay.orders.create({
+      amount: quote.expectedTotalMinor,
+      currency: quote.currency.toUpperCase(),
+      receipt: orderId,
+      notes: {
+        courseId: String(courseId),
+        enrollmentType,
+        learnerEmail: learner?.email || '',
+        learnerName: learner?.fullName || '',
+      },
+    });
+
+    orders.set(orderId, {
+      orderId,
+      razorpayOrderId: razorpayOrder.id,
+      courseId: String(quote.courseId),
+      enrollmentType: quote.enrollmentType,
+      participants: quote.participants,
+      currency: quote.currency,
+      basePriceMinor: quote.originalUnitMinor,
+      unitAmountMinor: quote.unitAmountMinor,
+      quantity: quote.quantity,
+      expectedTotalMinor: quote.expectedTotalMinor,
+      enrollmentDiscountPercent: quote.discountPercent,
+      couponApplied: quote.couponApplied,
+      couponCode: quote.couponCode || null,
+      couponDiscountPercent: quote.couponDiscountPercent,
+      referralCode: referralCode ? referralCode.trim().toUpperCase() : null,
+      referralDiscountPercent: quote.referralDiscountPercent,
+      totalDiscountPercent: quote.totalDiscountPercent,
+      status: 'pending',
+      createdAt: Date.now(),
+      learner: {
+        fullName: learner?.fullName || '',
+        email: learner?.email || '',
+        phone: learner?.phone || '',
+        city: learner?.city || '',
+        trainingLocation: learner?.trainingLocation || '',
+      },
+      courseInfo: {
+        title: courseInfo?.title || String(courseId),
+        duration: courseInfo?.duration || '',
+        time: courseInfo?.time || '',
+      },
+    });
+
+    try {
+      await User.create({
+        name: learner?.fullName || '',
+        email: learner?.email || '',
+        phone: learner?.phone || '',
+        courseTitle: courseInfo?.title || String(courseId),
+        trainingLocation: learner?.trainingLocation || '',
+        trainingType: enrollmentType || 'individual',
+        price: Number.isFinite(Number(quote.expectedTotalMinor)) ? (quote.expectedTotalMinor / 100).toFixed(2) : '',
+        currency: quote.currency?.toUpperCase(),
+        orderId,
+        status: 'pending-payment',
+      });
+    } catch (dbErr) {
+      console.error('Failed to save pre-payment lead:', dbErr);
+    }
+
+    return res.json({
+      orderId,
+      razorpayOrderId: razorpayOrder.id,
+      amount: quote.expectedTotalMinor,
+      currency: quote.currency.toUpperCase(),
+      keyId: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (err) {
+    console.error('Razorpay checkout error:', err);
+    return res.status(500).json({ error: 'Failed to create Razorpay order' });
+  }
+});
+
+// Razorpay - Verify payment signature and mark paid
+app.post('/razorpay/verify', async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body || {};
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !orderId) {
+      return res.status(400).json({ error: 'Missing required payment verification fields' });
+    }
+
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ error: 'Invalid payment signature' });
+    }
+
+    if (!orders.has(orderId)) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const order = orders.get(orderId);
+
+    if (order.status !== 'paid') {
+      order.status = 'paid';
+      order.paidAt = Date.now();
+      order.razorpayPaymentId = razorpay_payment_id;
+      orders.set(orderId, order);
+
+      const enrollmentToken = Buffer.from(`${orderId}|${order.learner.email}|${Date.now()}`).toString('base64');
+      const amountMajorStr = Number.isFinite(Number(order.expectedTotalMinor))
+        ? (Number(order.expectedTotalMinor) / 100).toFixed(2)
+        : '';
+
+      try {
+        const updated = await User.findOneAndUpdate(
+          { orderId },
+          { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date() },
+          { new: true }
+        );
+        if (!updated) {
+          await User.create({
+            name: order.learner.fullName,
+            email: order.learner.email,
+            phone: order.learner.phone,
+            courseTitle: order.courseInfo.title,
+            trainingLocation: order.learner.trainingLocation,
+            trainingType: order.enrollmentType,
+            price: amountMajorStr,
+            currency: order.currency?.toUpperCase(),
+            orderId,
+            status: 'enrolled',
+            enrollmentToken,
+            enrolledAt: new Date(),
+          });
+        }
+      } catch (dbErr) {
+        console.error('Failed to update enrollment in DB:', dbErr);
+      }
+
+      try {
+        if (order.learner?.email) {
+          await sendEmail({
+            from: fromAddresses.sales,
+            to: order.learner.email,
+            subject: `Payment Received - ${order.courseInfo?.title || 'Technohana Course'}`,
+            html: generatePaymentSuccessEmail({
+              name: order.learner.fullName,
+              courseTitle: order.courseInfo?.title,
+              amountMajor: amountMajorStr,
+              currency: order.currency,
+              enrollmentType: order.enrollmentType,
+              participants: order.participants,
+              trainingLocation: order.learner.trainingLocation,
+            }),
+          });
+        }
+        await sendEmail({
+          from: fromAddresses.sales,
+          to: process.env.MAIL_TO,
+          subject: `New Paid Enrollment - ${order.courseInfo?.title || order.courseId}`,
+          html: generateEnrollmentDetailsForSales({
+            orderId,
+            learner: order.learner,
+            courseInfo: order.courseInfo,
+            amountMinor: order.expectedTotalMinor,
+            currency: order.currency,
+            enrollmentType: order.enrollmentType,
+            participants: order.participants,
+          }),
+        });
+      } catch (mailErr) {
+        console.error('Email send failed after Razorpay payment:', mailErr);
+      }
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Razorpay verify error:', err);
+    return res.status(500).json({ error: 'Payment verification failed' });
   }
 });
 
