@@ -1,195 +1,114 @@
-# Coupon Code Unification - Reference Guide
+# Coupon Codes Reference
 
-## ✅ Current Valid Coupon Codes
+## Valid Coupon Codes
 
-All coupon codes are now unified between frontend and backend:
+All codes are hardcoded in `src/index.js → validCoupons`. Coupons are enforced server-side only — the frontend sends the code and the backend validates + applies it.
 
-| Coupon Code | Discount | Use Case |
-|---|---|---|
-| `SAVE20` | 20% off | General promotion |
-| `SAVE30` | 30% off | Major promotional event |
-| `TECH50` | 50% off | Limited time flash sale |
-| `WELCOME10` | 10% off | New user welcome |
-| `SUMMER25` | 25% off | Seasonal promotion |
-| `FLAT10` | 10% off | Legacy/alternate coupon |
+| Code | Discount | Valid Currencies | Occasion |
+|---|---|---|---|
+| `DIWALI10` | 10% | INR only | Diwali (Oct–Nov) |
+| `HOLI5` | 5% | INR only | Holi (Mar) |
+| `EID10` | 10% | AED only | Eid Al-Fitr / Eid Al-Adha |
+| `RAMADAN8` | 8% | AED only | Ramadan |
+| `XMAS10` | 10% | USD, GBP, EUR | Christmas |
+| `THANKSGIVING7` | 7% | USD only | Thanksgiving |
+| `EASTER6` | 6% | GBP, EUR | Easter |
+| `NEWYEAR5` | 5% | Global (any) | New Year |
 
-## 📍 Implementation Locations
+> Coupons with a currency constraint silently reject if the user's currency doesn't match. The `/api/coupons/validate` endpoint returns `{ valid: false, error: 'Coupon not valid for your region' }`.
 
-### Backend Coupon Map
-**File:** `src/index.js` at `computeQuote()` function
-```javascript
+## Backend Implementation (`src/index.js`)
+
+```js
 const validCoupons = {
-  'SAVE20': 0.2,      // 20% off
-  'SAVE30': 0.3,      // 30% off
-  'TECH50': 0.5,      // 50% off
-  'WELCOME10': 0.1,   // 10% off
-  'SUMMER25': 0.25,   // 25% off
-  'FLAT10': 0.1,      // 10% off (legacy)
+  'DIWALI10':      { rate: 0.10, currencies: ['inr'] },
+  'HOLI5':         { rate: 0.05, currencies: ['inr'] },
+  'EID10':         { rate: 0.10, currencies: ['aed'] },
+  'RAMADAN8':      { rate: 0.08, currencies: ['aed'] },
+  'XMAS10':        { rate: 0.10, currencies: ['usd', 'gbp', 'eur'] },
+  'THANKSGIVING7': { rate: 0.07, currencies: ['usd'] },
+  'EASTER6':       { rate: 0.06, currencies: ['gbp', 'eur'] },
+  'NEWYEAR5':      { rate: 0.05, currencies: null }, // null = global
 };
 ```
 
-### Frontend Coupon Map
-**File:** `src/pages/EnrollmentPage.jsx`
-```javascript
-const couponMap = {
-  "SAVE20": 0.2,      // 20% off
-  "SAVE30": 0.3,      // 30% off
-  "TECH50": 0.5,      // 50% off
-  "WELCOME10": 0.1,   // 10% off
-  "SUMMER25": 0.25,   // 25% off
-  "FLAT10": 0.1,      // 10% off (also available)
-};
+## Coupon Validation Endpoint
+
+```
+POST /api/coupons/validate
+Rate limit: 10 requests per IP per 15 minutes
+
+Body: { "code": "DIWALI10", "currency": "inr" }
+
+Responses:
+  { "valid": true,  "code": "DIWALI10", "discountPercent": 10 }
+  { "valid": false, "error": "Coupon not valid for your region" }
+  { "valid": false }
+  429 Too Many Requests (rate limit exceeded)
 ```
 
-## 🔄 How to Add a New Coupon
+## Discount Application Order
 
-1. **Add to Backend Map** (`src/index.js`):
-   ```javascript
-   const validCoupons = {
-     // ... existing coupons
-     'NEWCODE20': 0.2,  // 20% off - New promotional code
-   };
-   ```
+Discounts compound sequentially — each is applied to the result of the previous:
 
-2. **Add to Frontend Map** (`src/pages/EnrollmentPage.jsx`):
-   ```javascript
-   const couponMap = {
-     // ... existing coupons
-     "NEWCODE20": 0.2,  // 20% off
-   };
-   ```
+1. **Enrollment type** (20% individual / 40% group 2–4 / 50% group 5+)
+2. **Coupon** (applied to post-enrollment price)
+3. **Referral** (applied to post-coupon price, capped at 50%)
 
-3. **If Using Database**:
-   - Add to `coupons` collection:
-     ```json
-     {
-       "code": "NEWCODE20",
-       "discountPercent": 20,
-       "startDate": "2026-02-21",
-       "endDate": "2026-03-21",
-       "maxUses": 1000,
-       "usedCount": 0,
-       "active": true
-     }
-     ```
+### Example
 
-4. **Redeploy Both**:
-   - Backend first
-   - Then frontend
-
-## 📊 Discount Application Order
-
-Discounts are applied in this order:
-
-1. **Enrollment Type Discount** (applied first):
-   - Individual: 20% off
-   - Group (2-4): 40% off  
-   - Group (5+): 50% off
-
-2. **Coupon Discount** (applied to already-discounted price):
-   - Multiplies the remaining price by `(1 - couponRate)`
-
-### Example Calculation
 ```
-Base Price: $100
-Enrollment: Group (3 people)
+Base:            ₹56,000
+Individual 20%:  ₹44,800
+DIWALI10 10%:    ₹40,320
+Referral 10%:    ₹36,288
 
-Step 1: Apply enrollment discount (40%)
-  Price per person: $100 × (1 - 0.4) = $60
-  Total for 3: $60 × 3 = $180
-
-Step 2: Apply coupon TECH50 (50%)
-  Final price: $180 × (1 - 0.5) = $90
+totalDiscountPercent = round(1 - 36288/56000) = 35%  (not 40%, because compounding)
 ```
 
-## 🔍 Validation & Logging
+## Testing a Coupon
 
-### Invalid Coupon Behavior
-- **Client-side (Frontend):** Shows error message "Invalid coupon code"
-- **Server-side (Backend):** Logs warning `Invalid coupon code attempted: XXX`
-- **Payment:** Processes without coupon (no error, just ignored)
-
-### Price Mismatch Logging
-Backend logs warnings when client and server prices differ > 1%:
-```
-⚠️ Price mismatch for order ABC123:
-  couponCode: 'TECH50'
-  clientCalculatedTotal: 90
-  backendTotalMinor: 90000
-  mismatchPercent: 0.00%
-```
-
-## 🧪 Testing a Coupon
-
-### Using /pricing/quote Endpoint
 ```bash
 curl -X POST http://localhost:5000/pricing/quote \
   -H "Content-Type: application/json" \
   -d '{
-    "courseId": "ai-fundamentals",
-    "enrollmentType": "group",
-    "participants": 3,
-    "couponCode": "TECH50",
-    "currency": "usd",
-    "baseMajor": 100
+    "courseId": "GENAI101",
+    "enrollmentType": "individual",
+    "participants": 1,
+    "couponCode": "DIWALI10",
+    "currency": "inr"
   }'
 ```
 
-### Expected Response
+Expected response:
 ```json
 {
-  "courseId": "ai-fundamentals",
-  "currency": "usd",
-  "enrollmentType": "group",
-  "participants": 3,
-  "unitAmountMinor": 15000,
-  "quantity": 3,
-  "expectedTotalMinor": 45000,
-  "originalUnitMinor": 100000,
-  "discountPercent": 40,
+  "courseId": "GENAI101",
+  "currency": "inr",
+  "unitAmountMinor": 4032000,
+  "originalUnitMinor": 5600000,
+  "discountPercent": 20,
   "couponApplied": true,
-  "couponCode": "TECH50",
-  "couponDiscountPercent": 50,
-  "totalDiscountPercent": 70
+  "couponCode": "DIWALI10",
+  "couponDiscountPercent": 10,
+  "totalDiscountPercent": 28
 }
 ```
 
-## 🚨 Critical Fields in Order
+## Adding a New Coupon
 
-Order now includes coupon details for auditing:
-- `couponApplied` - Was a coupon applied?
-- `couponCode` - Which coupon?
-- `couponDiscountPercent` - Discount %?
-- `totalDiscountPercent` - Total discount (enrollment + coupon)?
-- `enrollmentDiscountPercent` - Enrollment-only discount %?
+Edit only `src/index.js → validCoupons`. No frontend changes needed — the backend is the single source of truth.
 
-## 📱 Frontend User Experience
+```js
+'NEWSALE15': { rate: 0.15, currencies: ['usd', 'gbp'] },
+```
 
-### Coupon Input
-1. User enters coupon code
-2. Frontend validates against local map
-3. Shows discount percentage if valid
-4. Shows error if invalid
+## Related Files
 
-### Price Display
-- Shows base price
-- Shows discounted price (after enrollment discount)
-- Shows coupon savings (if coupon applied)
-- Shows final total
-
-### Checkout
-- Sends `couponCode` to backend for validation
-- Backend independently calculates final price
-- Backend logs any price mismatches
-
-## 🔗 Related Files
-
-- **Backend:** `src/index.js` (lines 115-165)
-- **Frontend:** `src/pages/EnrollmentPage.jsx` (lines 300-355)
-- **Monitoring:** Check backend logs for `⚠️ Price mismatch` warnings
-- **Documentation:** See `PAYMENT_FIXES_SUMMARY.md` for detailed analysis
+- `src/index.js` — `validCoupons`, `computeQuote()`, `/api/coupons/validate`
+- `PAYMENT_FIXES_SUMMARY.md` — pricing bug history
+- `CLAUDE.md` — canonical coupon list for quick reference
 
 ---
 
-**Last Updated:** February 21, 2026
-**Status:** ✅ All coupons unified and tested
+**Last Updated:** February 26, 2026

@@ -5,6 +5,9 @@ import dotenv from "dotenv";
 // --- LOAD ENV BEFORE OTHER IMPORTS ---
 dotenv.config();
 
+import rateLimit from "express-rate-limit";
+import mongoose from "mongoose";
+
 import express from "express";
 import cors from "cors";
 import crypto from "crypto";
@@ -34,6 +37,7 @@ import adminRoutes from "./routes/admin.routes.js";
 import courseRoutes from "./routes/course.routes.js";
 import referralRoutes from "./routes/referral.routes.js";
 import abandonedEnrollmentRoutes from "./routes/abandoned-enrollment.routes.js";
+import courseViewRoutes from "./routes/courseView.routes.js";
 
 const app = express();
 
@@ -64,25 +68,110 @@ const corsOption = {
 console.log(process.env.WHITELISTED_URLS);
 app.use(cors(corsOption));
 app.use(express.json());
-// --- Simple in-memory order store (replace with DB in production) ---
-const orders = new Map();
+// --- Persistent order store via MongoDB (24-hour TTL) ---
+
+const PendingOrderSchema = new mongoose.Schema({
+  orderId:   { type: String, required: true, unique: true, index: true },
+  provider:  { type: String, enum: ['stripe', 'razorpay'] },
+  razorpayOrderId: { type: String },
+  courseId:  { type: String },
+  enrollmentType: { type: String },
+  participants: { type: Number },
+  currency:  { type: String },
+  basePriceMinor: { type: Number },
+  unitAmountMinor: { type: Number },
+  quantity:  { type: Number },
+  expectedTotalMinor: { type: Number },
+  enrollmentDiscountPercent: { type: Number },
+  couponApplied: { type: Boolean },
+  couponCode: { type: String },
+  couponDiscountPercent: { type: Number },
+  referralCode: { type: String },
+  referralDiscountPercent: { type: Number },
+  totalDiscountPercent: { type: Number },
+  status:    { type: String, default: 'pending' },
+  paidAt:    { type: Number },
+  razorpayPaymentId: { type: String },
+  learner:   { type: Object },
+  courseInfo: { type: Object },
+  createdAt: { type: Date, default: Date.now, expires: 86400 },
+});
+const PendingOrder = mongoose.model('PendingOrder', PendingOrderSchema);
+
 const generateOrderId = () => `ord_${Math.random().toString(36).slice(2, 10)}`;
 
 // --- Pricing utilities (Replace with DB/config-backed logic) ---
 const allowedCurrencies = ['usd', 'inr', 'aed', 'eur', 'gbp'];
 
 // Coupon map — single source of truth for both validation and quote computation
+// currencies: null means global (any currency); otherwise array of allowed currency codes
 const validCoupons = {
-  'SAVE20':    0.2,   // 20% off
-  'SAVE30':    0.3,   // 30% off
-  'TECH2026':  0.5,   // 50% off — flash sale
-  'WELCOME10': 0.1,   // 10% off — new user welcome
-  'SUMMER25':  0.25,  // 25% off — seasonal
-  'FLAT10':    0.1,   // 10% off — legacy
+  'DIWALI10':      { rate: 0.10, currencies: ['inr'] },
+  'HOLI5':         { rate: 0.05, currencies: ['inr'] },
+  'EID10':         { rate: 0.10, currencies: ['aed'] },
+  'RAMADAN8':      { rate: 0.08, currencies: ['aed'] },
+  'XMAS10':        { rate: 0.10, currencies: ['usd', 'gbp', 'eur'] },
+  'THANKSGIVING7': { rate: 0.07, currencies: ['usd'] },
+  'EASTER6':       { rate: 0.06, currencies: ['gbp', 'eur'] },
+  'NEWYEAR5':      { rate: 0.05, currencies: null },
 };
+
 const priceCatalog = {
-  // courseId : base price (per individual) in MINOR units per currency
-  default: { usd: 50000, inr: 400000, aed: 185000, eur: 46000, gbp: 39500 },
+  // Per-course prices in MINOR units (major × 100) per currency
+  // Generated via scripts/generate-prices.js using PPP multipliers
+  'GENAI101':   { inr: 5600000,  usd: 48900,  aed: 207900, gbp: 43900, eur: 51900 },
+  'GENAI102':   { inr: 2000000,  usd: 17900,  aed: 74900,  gbp: 15900, eur: 18900 },
+  'GENAI103':   { inr: 900000,   usd: 7900,   aed: 33900,  gbp: 7900,  eur: 8900  },
+  'GENAI104':   { inr: 7500000,  usd: 65900,  aed: 277900, gbp: 57900, eur: 68900 },
+  'GENAI105':   { inr: 800000,   usd: 7900,   aed: 29900,  gbp: 6900,  eur: 7900  },
+  'GENAI106':   { inr: 2500000,  usd: 21900,  aed: 92900,  gbp: 19900, eur: 22900 },
+  'GENAI107':   { inr: 1500000,  usd: 13900,  aed: 55900,  gbp: 11900, eur: 13900 },
+  'GENAI108':   { inr: 3350000,  usd: 29900,  aed: 124900, gbp: 25900, eur: 30900 },
+  'GENAI109':   { inr: 5000000,  usd: 43900,  aed: 185900, gbp: 38900, eur: 45900 },
+  'DSML101':    { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'DSML102':    { inr: 3360000,  usd: 29900,  aed: 124900, gbp: 25900, eur: 30900 },
+  'DSML103':    { inr: 5600000,  usd: 48900,  aed: 207900, gbp: 43900, eur: 51900 },
+  'DSML104':    { inr: 5600000,  usd: 48900,  aed: 207900, gbp: 43900, eur: 51900 },
+  'DSML105':    { inr: 5600000,  usd: 48900,  aed: 207900, gbp: 43900, eur: 51900 },
+  'DSML106':    { inr: 5600000,  usd: 48900,  aed: 207900, gbp: 43900, eur: 51900 },
+  'DSML107':    { inr: 5600000,  usd: 48900,  aed: 207900, gbp: 43900, eur: 51900 },
+  'DSML108':    { inr: 5600000,  usd: 48900,  aed: 207900, gbp: 43900, eur: 51900 },
+  'DSML109':    { inr: 3360000,  usd: 29900,  aed: 124900, gbp: 25900, eur: 30900 },
+  'DSML110':    { inr: 3360000,  usd: 29900,  aed: 124900, gbp: 25900, eur: 30900 },
+  'DSML111':    { inr: 5600000,  usd: 48900,  aed: 207900, gbp: 43900, eur: 51900 },
+  'AR101':      { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'AR102':      { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'AR103':      { inr: 16800000, usd: 146900, aed: 622900, gbp: 129900,eur: 152900},
+  'AI100STARTUP':{ inr: 5600000, usd: 48900,  aed: 207900, gbp: 43900, eur: 51900 },
+  'AR104':      { inr: 2240000,  usd: 19900,  aed: 83900,  gbp: 17900, eur: 20900 },
+  'CP101':      { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'CP102':      { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'CP103':      { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'CP104':      { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'GPT101':     { inr: 2240000,  usd: 19900,  aed: 83900,  gbp: 17900, eur: 20900 },
+  'GPT102':     { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'GPT103':     { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'GPT104':     { inr: 500000,   usd: 4900,   aed: 18900,  gbp: 3900,  eur: 4900  },
+  'GPT105':     { inr: 560000,   usd: 5900,   aed: 20900,  gbp: 4900,  eur: 5900  },
+  'GPT106':     { inr: 4480000,  usd: 39900,  aed: 166900, gbp: 34900, eur: 40900 },
+  'AI-102':     { inr: 4480000,  usd: 39900,  aed: 166900, gbp: 34900, eur: 40900 },
+  'DP-100':     { inr: 4480000,  usd: 39900,  aed: 166900, gbp: 34900, eur: 40900 },
+  'AI-900':     { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'AI-050':     { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'AI-3002':    { inr: 840000,   usd: 7900,   aed: 31900,  gbp: 6900,  eur: 7900  },
+  'AI-3003':    { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'AI-3004':    { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'DP-3007':    { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'DP-3014':    { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  'PL-300':     { inr: 3360000,  usd: 29900,  aed: 124900, gbp: 25900, eur: 30900 },
+  'AZ-204':     { inr: 3360000,  usd: 29900,  aed: 124900, gbp: 25900, eur: 30900 },
+  'AZ-400T00':  { inr: 4480000,  usd: 39900,  aed: 166900, gbp: 34900, eur: 40900 },
+  'AZ-104T00':  { inr: 4480000,  usd: 39900,  aed: 166900, gbp: 34900, eur: 40900 },
+  'AZ-500T00':  { inr: 4480000,  usd: 39900,  aed: 166900, gbp: 34900, eur: 40900 },
+  'SC-300T00':  { inr: 4480000,  usd: 39900,  aed: 166900, gbp: 34900, eur: 40900 },
+  'AZ-900T00':  { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
+  // Fallback for unrecognised courseIds
+  default:      { inr: 1120000,  usd: 9900,   aed: 41900,  gbp: 8900,  eur: 10900 },
 };
 
 function getBasePriceMinor(courseId, currency) {
@@ -101,24 +190,21 @@ function computeQuote({ courseId, enrollmentType, participants, currency, coupon
     ? Math.min(50, Math.max(1, Number(participants)))
     : 1;
 
-  // Prefer explicit base price from client (major units), else fall back to catalog
+  // Always use server-side catalog — never trust client-supplied price
   let basePriceMinor = null;
-  if (Number.isFinite(Number(baseMajor)) && Number(baseMajor) > 0) {
-    basePriceMinor = Math.round(Number(baseMajor) * 100);
-  } else {
-    basePriceMinor = getBasePriceMinor(courseId, normalizedCurrency);
-  }
+  basePriceMinor = getBasePriceMinor(courseId, normalizedCurrency);
   if (!Number.isFinite(basePriceMinor) || basePriceMinor <= 0) {
     throw new Error('Price not configured for course/currency');
   }
 
   const getDiscountRate = (type, p) => {
     if (type === 'group') {
-      if (p >= 5) return 0.5; // 50% for 5+
-      if (p >= 2) return 0.4; // 40% for 2-4
-      return 0.2; // fallback if p < 2
+      if (p >= 10) return 0.35; // 35% for 10+
+      if (p >= 5)  return 0.25; // 25% for 5–9
+      if (p >= 2)  return 0.15; // 15% for 2–4
+      return 0.15; // fallback if p < 2
     }
-    return 0.2; // individual
+    return 0; // individual pays catalog price
   };
 
   let unitAmountMinor = 0;
@@ -134,15 +220,16 @@ function computeQuote({ courseId, enrollmentType, participants, currency, coupon
 
   if (couponCode && typeof couponCode === 'string') {
     const code = couponCode.trim().toUpperCase();
-
-    const discountRate = validCoupons[code];
-    if (discountRate !== undefined) {
-      unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * (1 - discountRate)));
-      couponApplied = true;
-      appliedCouponCode = code;
-      couponDiscountRate = discountRate;
+    const coupon = validCoupons[code];
+    if (coupon) {
+      const allowed = coupon.currencies;
+      if (!allowed || allowed.includes(normalizedCurrency)) {
+        unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * (1 - coupon.rate)));
+        couponApplied = true;
+        appliedCouponCode = code;
+        couponDiscountRate = coupon.rate;
+      }
     } else if (code) {
-      // Log invalid coupon codes for monitoring
       console.warn(`Invalid coupon code attempted: ${code}`);
     }
   }
@@ -171,7 +258,7 @@ function computeQuote({ courseId, enrollmentType, participants, currency, coupon
     couponCode: appliedCouponCode,
     couponDiscountPercent: Math.round(couponDiscountRate * 100),
     referralDiscountPercent: Math.round(appliedReferralRate * 100),
-    totalDiscountPercent: Math.round((appliedDiscountRate + couponDiscountRate + appliedReferralRate) * 100),
+    totalDiscountPercent: Math.round((1 - unitAmountMinor / originalUnitMinor) * 100),
   };
 }
 
@@ -198,15 +285,22 @@ app.get('/api/ping', (req, res) => {
   });
 });
 
-app.post('/api/coupons/validate', (req, res) => {
-  const { code } = req.body || {};
+const couponLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
+
+app.post('/api/coupons/validate', couponLimiter, (req, res) => {
+  const { code, currency } = req.body || {};
   if (!code || typeof code !== 'string') {
     return res.status(400).json({ valid: false, error: 'Missing code' });
   }
   const normalized = code.trim().toUpperCase();
-  const rate = validCoupons[normalized];
-  if (rate !== undefined) {
-    return res.json({ valid: true, code: normalized, discountPercent: Math.round(rate * 100) });
+  const coupon = validCoupons[normalized];
+  if (coupon) {
+    const curr = String(currency || '').toLowerCase();
+    const allowed = coupon.currencies;
+    if (allowed && curr && !allowed.includes(curr)) {
+      return res.json({ valid: false, error: 'Coupon not valid for your region' });
+    }
+    return res.json({ valid: true, code: normalized, discountPercent: Math.round(coupon.rate * 100) });
   }
   return res.json({ valid: false });
 });
@@ -289,8 +383,9 @@ app.post('/stripe/checkout', async (req, res) => {
     // Create order intent
     const orderId = generateOrderId();
     const expectedTotalMinor = quote.expectedTotalMinor;
-    orders.set(orderId, {
+    await PendingOrder.create({
       orderId,
+      provider: 'stripe',
       courseId: String(quote.courseId),
       enrollmentType: quote.enrollmentType,
       participants: quote.participants,
@@ -306,8 +401,6 @@ app.post('/stripe/checkout', async (req, res) => {
       referralCode: referralCode ? referralCode.trim().toUpperCase() : null,
       referralDiscountPercent: quote.referralDiscountPercent,
       totalDiscountPercent: quote.totalDiscountPercent,
-      status: 'pending',
-      createdAt: Date.now(),
       learner: {
         fullName: learner?.fullName || '',
         email: learner?.email || '',
@@ -427,8 +520,9 @@ app.post('/razorpay/checkout', async (req, res) => {
       },
     });
 
-    orders.set(orderId, {
+    await PendingOrder.create({
       orderId,
+      provider: 'razorpay',
       razorpayOrderId: razorpayOrder.id,
       courseId: String(quote.courseId),
       enrollmentType: quote.enrollmentType,
@@ -445,8 +539,6 @@ app.post('/razorpay/checkout', async (req, res) => {
       referralCode: referralCode ? referralCode.trim().toUpperCase() : null,
       referralDiscountPercent: quote.referralDiscountPercent,
       totalDiscountPercent: quote.totalDiscountPercent,
-      status: 'pending',
-      createdAt: Date.now(),
       learner: {
         fullName: learner?.fullName || '',
         email: learner?.email || '',
@@ -509,17 +601,13 @@ app.post('/razorpay/verify', async (req, res) => {
       return res.status(400).json({ error: 'Invalid payment signature' });
     }
 
-    if (!orders.has(orderId)) {
+    const order = await PendingOrder.findOne({ orderId }).lean();
+    if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    const order = orders.get(orderId);
-
     if (order.status !== 'paid') {
-      order.status = 'paid';
-      order.paidAt = Date.now();
-      order.razorpayPaymentId = razorpay_payment_id;
-      orders.set(orderId, order);
+      await PendingOrder.updateOne({ orderId }, { $set: { status: 'paid', paidAt: Date.now(), razorpayPaymentId: razorpay_payment_id } });
 
       const enrollmentToken = Buffer.from(`${orderId}|${order.learner.email}|${Date.now()}`).toString('base64');
       const amountMajorStr = Number.isFinite(Number(order.expectedTotalMinor))
@@ -610,11 +698,11 @@ app.post('/payments/confirm', async (req, res) => {
     const currency = session?.currency;
     const paymentStatus = session?.payment_status; // 'paid' expected
 
-    if (!orderId || !orders.has(orderId)) {
+    const order = orderId ? await PendingOrder.findOne({ orderId }).lean() : null;
+    if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    const order = orders.get(orderId);
     if (paymentStatus !== 'paid') {
       return res.status(400).json({ error: 'Payment not completed' });
     }
@@ -624,9 +712,7 @@ app.post('/payments/confirm', async (req, res) => {
 
     // Mark order paid if not already
     if (order.status !== 'paid') {
-      order.status = 'paid';
-      order.paidAt = Date.now();
-      orders.set(orderId, order);
+      await PendingOrder.updateOne({ orderId }, { $set: { status: 'paid', paidAt: Date.now() } });
 
       // Generate enrollment token
       const enrollmentToken = Buffer.from(`${orderId}|${order.learner.email}|${Date.now()}`).toString('base64');
@@ -723,11 +809,11 @@ app.get('/payments/order/:orderId', async (req, res) => {
       return res.status(400).json({ error: 'Missing orderId' });
     }
 
-    if (!orders.has(orderId)) {
+    const order = await PendingOrder.findOne({ orderId }).lean();
+    if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    const order = orders.get(orderId);
     return res.json({
       orderId: order.orderId,
       courseId: order.courseId,
@@ -768,17 +854,16 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
     const amountTotal = session.amount_total; // total in minor units
     const currency = session.currency;
 
-    if (orderId && orders.has(orderId)) {
-      const order = orders.get(orderId);
-      if (order.expectedTotalMinor === amountTotal && order.currency === currency) {
-        order.status = 'paid';
-        order.paidAt = Date.now();
-        orders.set(orderId, order);
-        console.log('Order marked paid:', orderId);
-      } else {
-        console.warn('Order totals mismatch. Expected:', order.expectedTotalMinor, 'Got:', amountTotal);
-        order.status = 'mismatch';
-        orders.set(orderId, order);
+    if (orderId) {
+      const order = await PendingOrder.findOne({ orderId }).lean();
+      if (order) {
+        if (order.expectedTotalMinor === amountTotal && order.currency === currency) {
+          await PendingOrder.updateOne({ orderId }, { $set: { status: 'paid', paidAt: Date.now() } });
+          console.log('Order marked paid:', orderId);
+        } else {
+          console.warn('Order totals mismatch. Expected:', order.expectedTotalMinor, 'Got:', amountTotal);
+          await PendingOrder.updateOne({ orderId }, { $set: { status: 'mismatch' } });
+        }
       }
     }
   }
@@ -796,6 +881,8 @@ app.use("/", blogRoutes);
 app.use("/", chatRoutes);
 app.use("/", courseRoutes);
 app.use("/admin", adminRoutes);
+app.use("/api", courseViewRoutes);
+app.use("/admin", courseViewRoutes);
 app.use("/api/referral", referralRoutes);
 app.use("/api/abandoned-enrollment", abandonedEnrollmentRoutes);
 
