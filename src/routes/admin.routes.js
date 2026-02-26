@@ -9,6 +9,7 @@ import AiRiskReport from "../models/aiRiskReport.model.js";
 import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
 import Course from "../models/course.model.js";
+import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -56,6 +57,7 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       subscribers,
       blogs,
       courses,
+      courseViews,
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ status: "pending-payment" }),
@@ -67,6 +69,7 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       Subscription.countDocuments({ isActive: true }),
       Blogs.countDocuments(),
       Course.countDocuments(),
+      CourseView.countDocuments(),
     ]);
 
     return res.json({
@@ -76,6 +79,7 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       subscribers,
       blogs,
       courses,
+      courseViews,
     });
   } catch (err) {
     console.error("Admin stats error:", err);
