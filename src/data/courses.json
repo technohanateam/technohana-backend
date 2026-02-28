@@ -6112,5 +6112,236 @@
         ]
       }
     ]
+  },
+  {
+    "id": "AWS-SA-PRO",
+    "courseSlug": "aws-solutions-architect-certification-training",
+    "logo": "course_thumb01.jpg",
+    "category": "Amazon Web Services",
+    "catdesc": "Master Amazon Web Services to build scalable, reliable, and cost-effective cloud solutions. These courses prepare you for AWS certifications and equip you with hands-on skills for real-world cloud architecture and DevOps practices.",
+    "catcls": "cat-nine",
+    "courseTitle": "AWS Solutions Architect Certification Training",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "08 Modules",
+    "noStudents": "15",
+    "instructor": "Industry Experts",
+    "price": "42000",
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.6",
+    "overview": "The AWS Solutions Architect Course focuses on making professionals understand the ways of system design and how solutions can be tuned for maximum effectiveness and minimal costs. Learners will acquire critical knowledge about AWS's Well-Architected Framework, enabling them to design highly efficient and reliable solutions from the ground up in line with best practices in the industry.",
+    "courseObjective": "Participants will gain a thorough understanding of AWS architecture best practices, advanced networking, data management, security, and large-scale application design to architect cloud solutions that are resilient, cost-optimized, and performant.",
+    "courseOutcomes": "Upon completion, participants will be able to design multi-account AWS environments, architect advanced network and data solutions, deploy scalable and resilient applications, and apply encryption and security best practices — preparing them for the AWS Certified Solutions Architect – Professional exam.",
+    "prerequisites": "Understanding of cloud computing concepts and AWS services. AWS Certified Solutions Architect – Associate certificate or equivalent knowledge is required. Working experience with AWS workloads is beneficial.",
+    "labs": "Hands-on labs are included across all modules using live AWS environments.",
+    "whatWillYouLearn": [
+      "AWS Well-Architected Framework and system design principles",
+      "Multi-account management, license management, and cost control",
+      "Advanced VPC design, AWS Direct Connect, and Transit Gateway",
+      "Application lifecycle management and container deployments",
+      "Amazon S3, ElastiCache, DynamoDB, and big data architectures",
+      "Large-scale application design with Auto Scaling and blue-green deployments",
+      "High availability and resilient architecture patterns",
+      "Data encryption at rest and in transit"
+    ],
+    "requirements": [
+      "AWS Certified Solutions Architect – Associate or equivalent knowledge",
+      "Familiarity with AWS core services (EC2, S3, VPC, IAM)",
+      "Basic understanding of networking and security concepts"
+    ],
+    "targetAudience": [
+      "Cloud Architects",
+      "Solutions Architects",
+      "Senior Cloud Engineers",
+      "DevOps Engineers working with AWS",
+      "IT professionals preparing for AWS Professional certification"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 0: Architecting on AWS",
+        "content": [
+          "Building systems on AWS",
+          "The Well-Architected Framework"
+        ]
+      },
+      {
+        "moduleTitle": "Module 1: AWS Account Management",
+        "content": [
+          "Multiple accounts and multi-account patterns",
+          "Licence management",
+          "Managing security with multiple accounts",
+          "AWS Directory Service for authentication management",
+          "Managing costs with multiple accounts"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Advanced Network Architectures",
+        "content": [
+          "Virtual Private Cloud design patterns review",
+          "Achieving maximum network performance on Amazon EC2",
+          "VPN connections over AWS",
+          "AWS Direct Connect",
+          "Building a global transit network on AWS",
+          "AWS Transit Gateway",
+          "Amazon Route 53 Resolver"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Deployment Management on AWS",
+        "content": [
+          "Application lifecycle management",
+          "AWS Elastic Beanstalk for large-scale website deployment",
+          "Deploying applications using containers"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Data",
+        "content": [
+          "Optimizing Amazon S3 storage",
+          "Using Amazon ElastiCache to handle and store data at scale",
+          "Moving data into AWS using AWS Snowball",
+          "Using AWS Storage Gateway to back up an on-premises datastore",
+          "AWS DataSync",
+          "Migrating databases into AWS",
+          "Designing for Big Data",
+          "Amazon DynamoDB for Big Data"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Designing for Large-Scale Applications",
+        "content": [
+          "Offloading web application traffic",
+          "AWS Auto Scaling",
+          "Blue-green deployments on AWS"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Building Resilient Architectures",
+        "content": [
+          "High availability using SQL Server on AWS",
+          "Handling scaling constraints",
+          "AWS Global Accelerator"
+        ]
+      },
+      {
+        "moduleTitle": "Module 7: Encryption and Security of Data",
+        "content": [
+          "Protecting data at rest",
+          "Protecting data in transit"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 42000,
+      "usd": 369,
+      "aed": 1549,
+      "gbp": 329,
+      "eur": 389
+    }
+  },
+  {
+    "id": "AWS-DEVOPS-PRO",
+    "courseSlug": "aws-devops-engineer-certification-training",
+    "logo": "course_thumb01.jpg",
+    "category": "Amazon Web Services",
+    "catdesc": "Master Amazon Web Services to build scalable, reliable, and cost-effective cloud solutions. These courses prepare you for AWS certifications and equip you with hands-on skills for real-world cloud architecture and DevOps practices.",
+    "catcls": "cat-nine",
+    "courseTitle": "AWS DevOps Engineer Certification Training",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "15",
+    "instructor": "Industry Experts",
+    "price": "42000",
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.5",
+    "overview": "The AWS DevOps Engineer Training course is designed to equip you with all the knowledge and skills you need in DevOps. This course helps you understand how to apply DevOps principles, practices, and tool chains to enable your organization to confidently build, release, and operate excellent applications and services. It covers CI/CD pipelines, infrastructure as code, micro-services, logging, monitoring, and security, with live AWS CloudFormation templates.",
+    "courseObjective": "Participants will learn to automate infrastructure, optimize software delivery pipelines, manage cloud environments at scale, and implement security and compliance controls on AWS — preparing them for the AWS Certified DevOps Engineer – Professional (DOP-C02) exam.",
+    "courseOutcomes": "Upon completion, participants will be able to implement CI/CD pipelines, manage infrastructure as code, build resilient and scalable cloud solutions, automate monitoring and incident response, and apply security and compliance automation on AWS.",
+    "prerequisites": "Two years of experience with AWS services and tools is recommended. Hands-on experience in at least one high-level programming language (Java, PHP, or Python) is beneficial.",
+    "labs": "Hands-on labs included for building CI/CD pipelines, CloudFormation templates, and monitoring configurations.",
+    "whatWillYouLearn": [
+      "Implementing and automating CI/CD pipelines on AWS",
+      "Infrastructure as Code (IaC) using AWS CloudFormation",
+      "Multi-account and multi-region automation strategies",
+      "Building highly available and scalable cloud solutions",
+      "Log aggregation, monitoring, and automated alerting",
+      "Incident and event response automation",
+      "Identity and access management at scale",
+      "Container tools including Docker and Kubernetes",
+      "Configuration management with Ansible, Chef, Salt, and Puppet"
+    ],
+    "requirements": [
+      "Two years of hands-on experience with AWS services",
+      "Experience with at least one programming language (Java, PHP, Python)",
+      "Familiarity with DevOps principles and CI/CD concepts"
+    ],
+    "targetAudience": [
+      "DevOps Engineers",
+      "Cloud Engineers",
+      "Software Developers working with AWS",
+      "Infrastructure Automation Engineers",
+      "IT professionals preparing for AWS DOP-C02 certification"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: SDLC Automation",
+        "content": [
+          "Implement CI/CD pipelines",
+          "Integrate automated testing into CI/CD pipelines",
+          "Build and manage artifacts",
+          "Implement deployment strategies for instance, container, and serverless environments"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Configuration Management and IaC",
+        "content": [
+          "Define cloud infrastructure and reusable components to provision and manage systems throughout their lifecycle",
+          "Deploy automation to create, onboard, and secure AWS accounts in a multi-account or multi-Region environment",
+          "Design and build automated solutions for complex tasks and large-scale environments"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Resilient Cloud Solutions",
+        "content": [
+          "Implement highly available solutions to meet resilience and business requirements",
+          "Implement solutions that are scalable to meet business requirements",
+          "Implement automated recovery processes to meet RTO and RPO requirements"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Monitoring and Logging",
+        "content": [
+          "Configure the collection, aggregation, and storage of logs and metrics",
+          "Audit, monitor, and analyze logs and metrics to detect issues",
+          "Automate monitoring and event management of complex environments"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Incident and Event Response",
+        "content": [
+          "Manage event sources to process, notify, and take action in response to events",
+          "Implement configuration changes in response to events",
+          "Troubleshoot system and application failures"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Security and Compliance",
+        "content": [
+          "Implement techniques for identity and access management at scale",
+          "Apply automation for security controls and data protection",
+          "Implement security monitoring and auditing solutions"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 42000,
+      "usd": 369,
+      "aed": 1549,
+      "gbp": 329,
+      "eur": 389
+    }
   }
 ]

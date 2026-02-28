@@ -3,7 +3,7 @@ import fs from 'fs';
 
 const ADMIN_EMAIL = 'admin@technohana.in';
 const ADMIN_PASSWORD = 'TechnoHana@Admin2024';
-const API_BASE = 'http://localhost:3000';
+const API_BASE = 'http://localhost:5000';
 
 async function seed() {
   try {

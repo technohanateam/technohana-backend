@@ -1,6 +1,6 @@
 import express from 'express';
 import upload from '../middleware/upload.js';
-import { enrollUser, getUsersByStatus, getMyEnrollments, updateEnrollmentProgress, issueCertificate } from '../controllers/enrollment.controller.js';
+import { enrollUser, getUsersByStatus, getMyEnrollments, updateEnrollmentProgress, issueCertificate, updateEnrollment, deleteEnrollment } from '../controllers/enrollment.controller.js';
 import { InstructorForm } from '../controllers/instructorForm.controller.js';
 import { authenticateJWT } from '../middleware/authenticateJWT.js';
 
@@ -9,6 +9,10 @@ const router = express.Router();
 router.post('/enroll', enrollUser);
 router.get('/status', getUsersByStatus);
 router.get('/enrollments/mine', authenticateJWT, getMyEnrollments);
+
+// Update and delete enrollment
+router.put('/enrollments/:enrollmentId', authenticateJWT, updateEnrollment);
+router.delete('/enrollments/:enrollmentId', authenticateJWT, deleteEnrollment);
 
 // Progress and certificate routes
 router.put('/enrollments/:enrollmentId/progress', authenticateJWT, updateEnrollmentProgress);

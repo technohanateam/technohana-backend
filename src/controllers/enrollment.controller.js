@@ -146,6 +146,68 @@ export const updateEnrollmentProgress = async (req, res) => {
     }
 };
 
+// Update enrollment details (only for in-progress enrollments)
+export const updateEnrollment = async (req, res) => {
+    try {
+        const { enrollmentId } = req.params;
+        const { email } = req.user;
+        const { trainingPeriod, trainingLocation, specialRequest } = req.body;
+
+        const enrollment = await User.findOne({ _id: enrollmentId, email });
+        if (!enrollment) {
+            return res.status(404).json({ success: false, message: "Enrollment not found" });
+        }
+
+        if (enrollment.status !== 'in-progress') {
+            return res.status(400).json({ success: false, message: "Only pending enrollments can be updated" });
+        }
+
+        if (trainingPeriod !== undefined) enrollment.trainingPeriod = trainingPeriod;
+        if (trainingLocation !== undefined) enrollment.trainingLocation = trainingLocation;
+        if (specialRequest !== undefined) enrollment.specialRequest = specialRequest;
+
+        await enrollment.save();
+
+        return res.status(200).json({ success: true, message: "Enrollment updated successfully", data: enrollment });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+// Delete enrollment (only for in-progress enrollments)
+export const deleteEnrollment = async (req, res) => {
+    try {
+        const { enrollmentId } = req.params;
+        const { email } = req.user;
+
+        const enrollment = await User.findOne({ _id: enrollmentId, email });
+        if (!enrollment) {
+            return res.status(404).json({ success: false, message: "Enrollment not found" });
+        }
+
+        if (enrollment.status !== 'in-progress') {
+            return res.status(400).json({ success: false, message: "Only pending enrollments can be cancelled" });
+        }
+
+        enrollment.courseTitle = null;
+        enrollment.status = undefined;
+        enrollment.trainingPeriod = undefined;
+        enrollment.trainingLocation = undefined;
+        enrollment.trainingType = undefined;
+        enrollment.specialRequest = undefined;
+        enrollment.price = undefined;
+        enrollment.currency = undefined;
+
+        await User.deleteOne({ _id: enrollmentId, email });
+
+        return res.status(200).json({ success: true, message: "Enrollment cancelled successfully" });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
 // Issue certificate for completed course
 export const issueCertificate = async (req, res) => {
     try {
