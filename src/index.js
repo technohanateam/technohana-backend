@@ -114,6 +114,7 @@ const validCoupons = {
   'THANKSGIVING7': { rate: 0.07, currencies: ['usd'] },
   'EASTER6':       { rate: 0.06, currencies: ['gbp', 'eur'] },
   'NEWYEAR5':      { rate: 0.05, currencies: null },
+  'LAUNCH10':      { rate: 0.10, currencies: null },
 };
 
 const priceCatalog = {
