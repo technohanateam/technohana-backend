@@ -83,28 +83,87 @@ export const handleAIRiskReportRequest = async (req, res) => {
     await report.save();
 
     // 2. Build email content
-    const adminEmailHtml = `
-      <div style="font-family:sans-serif;line-height:1.6;">
-        <h2 style="color:#1769ff;">New AI Career Risk Test Submission</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Phone:</strong> ${phone || "—"}</p>
-        <p><strong>Source:</strong> ${source}</p>
-        <p><strong>Score:</strong> ${score} / 18</p>
-        <p><strong>Risk Band:</strong> ${band}</p>
-        <p><strong>Explanation:</strong> ${explanation}</p>
-        <p><strong>Answers:</strong></p>
-        <ul>
-          ${Object.entries(answers)
-            .map(
-              ([questionId, answer]) =>
-                `<li><strong>${questionId}:</strong> ${answer.label} (${answer.risk} Risk, ${answer.points} Points)</li>`
-            )
-            .join("")}
-        </ul>
-        <p style="margin-top:2em;color:#888;">Best regards,<br/>Technohana System</p>
-      </div>
-    `;
+    const bandColor = band === 'High Risk' ? '#dc2626' : band === 'Medium Risk' ? '#d97706' : '#059669';
+    const bandBg = band === 'High Risk' ? '#fef2f2' : band === 'Medium Risk' ? '#fffbeb' : '#f0fdf4';
+    const answerRows = Object.entries(answers).map(([questionId, answer], i) => {
+      const bg = i % 2 === 1 ? '#f0f7ff' : '#ffffff';
+      return `<tr>
+        <td style="padding:8px 12px;background:${bg};border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;color:#475569;">${questionId}</td>
+        <td style="padding:8px 12px;background:${bg};border-bottom:1px solid #e2e8f0;font-size:12px;color:#1e293b;">${answer.label}</td>
+        <td style="padding:8px 12px;background:${bg};border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b;">${answer.risk} Risk · ${answer.points} pts</td>
+      </tr>`;
+    }).join('');
+
+    const adminEmailHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#153C85;padding:28px 32px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:2px;color:#93c5fd;text-transform:uppercase;">Career Shield · Admin</p>
+              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">Technohana</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">New AI Career Risk Test Submission</h2>
+              <p style="margin:0 0 20px;font-size:14px;color:#64748b;">A user has completed the AI Career Risk assessment.</p>
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:20px;">
+                <tr>
+                  <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;width:40%;font-size:13px;font-weight:600;color:#475569;">Name</td>
+                  <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${name}</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:600;color:#475569;">Email</td>
+                  <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${email}</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:600;color:#475569;">Phone</td>
+                  <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${phone || '—'}</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:600;color:#475569;">Source</td>
+                  <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${source}</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 12px;background:#ffffff;font-size:13px;font-weight:600;color:#475569;">Risk Band</td>
+                  <td style="padding:10px 12px;background:#ffffff;font-size:13px;">
+                    <span style="display:inline-block;background:${bandBg};color:${bandColor};font-size:12px;font-weight:700;padding:3px 12px;border-radius:12px;">${band}</span>
+                    &nbsp;<span style="font-size:13px;color:#1e293b;font-weight:600;">${score} / 18</span>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#153C85;text-transform:uppercase;letter-spacing:1px;">Answer Breakdown</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+                <tr>
+                  <td style="padding:8px 12px;background:#153C85;font-size:11px;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;">Question</td>
+                  <td style="padding:8px 12px;background:#153C85;font-size:11px;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;">Answer</td>
+                  <td style="padding:8px 12px;background:#153C85;font-size:11px;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;">Risk · Points</td>
+                </tr>
+                ${answerRows}
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#94a3b8;">© 2025 Technohana · <a href="https://technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 
     const userEmailHtml = generateAiRiskReportEmail({ name, score, band, explanation });
 

@@ -1,183 +1,254 @@
+// Shared layout helper — wraps content in the branded email shell
+function emailShell({ label, title = 'Technohana', body }) {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#153C85;padding:28px 32px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:2px;color:#93c5fd;text-transform:uppercase;">${label}</p>
+              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">${title}</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px;">
+              ${body}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Questions? <a href="mailto:connect@technohana.in" style="color:#27A8F5;text-decoration:none;">connect@technohana.in</a></p>
+              <p style="margin:0;font-size:11px;color:#94a3b8;">© 2025 Technohana · <a href="https://technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+// Renders a 2-column data table row
+function dataRow(label, value, shade) {
+  const bg = shade ? '#f0f7ff' : '#ffffff';
+  return `<tr>
+    <td style="padding:10px 12px;background:${bg};border-bottom:1px solid #e2e8f0;width:40%;font-size:13px;font-weight:600;color:#475569;">${label}</td>
+    <td style="padding:10px 12px;background:${bg};border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${value || '—'}</td>
+  </tr>`;
+}
+
+// CTA button
+function ctaButton(text, href) {
+  return `<div style="text-align:center;margin-top:28px;">
+    <a href="${href}" style="display:inline-block;background:#27A8F5;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:13px 32px;border-radius:8px;">${text}</a>
+  </div>`;
+}
+
+// ─── ENQUIRY / ADMIN TABLE ────────────────────────────────────────────────────
+
 export function generateEnquiryTable(data) {
   const fields = [
-    { label: "Name", key: "name" },
-    { label: "Email", key: "email" },
-    { label: "Phone", key: "phone" },
-    { label: "Company", key: "company" },
-    { label: "Callback Date/Time", key: "callBackDateTime" },
-    { label: "User Type", key: "userType" },
-    { label: "Training Type", key: "trainingType" },
-    { label: "Training Period", key: "trainingPeriod" },
-    { label: "Price", key: "price" },
-    { label: "Currency", key: "currency" },
-    { label: "Training Location", key: "trainingLocation" },
-    { label: "Special Request", key: "specialRequest" },
-    { label: "Description", key: "description" },
-    { label: "Course Title", key: "courseTitle" },
-    { label: "Course ID", key: "courseId" },
-    { label: "Created At", key: "createdAt" }
+    { label: 'Name', key: 'name' },
+    { label: 'Email', key: 'email' },
+    { label: 'Phone', key: 'phone' },
+    { label: 'Company', key: 'company' },
+    { label: 'Callback Date/Time', key: 'callBackDateTime' },
+    { label: 'User Type', key: 'userType' },
+    { label: 'Training Type', key: 'trainingType' },
+    { label: 'Training Period', key: 'trainingPeriod' },
+    { label: 'Price', key: 'price' },
+    { label: 'Currency', key: 'currency' },
+    { label: 'Training Location', key: 'trainingLocation' },
+    { label: 'Special Request', key: 'specialRequest' },
+    { label: 'Description', key: 'description' },
+    { label: 'Course Title', key: 'courseTitle' },
+    { label: 'Course ID', key: 'courseId' },
+    { label: 'Created At', key: 'createdAt' },
   ];
 
-  return `
-    <table style="border-collapse:collapse;width:100%;font-family:sans-serif;">
-      <thead>
-        <tr>
-          <th style="text-align:left;padding:8px;background:#f0f4fa;">Field</th>
-          <th style="text-align:left;padding:8px;background:#f0f4fa;">Value</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${fields
-          .map(
-            (f) =>
-              `<tr>
-                <td style="padding:8px;border-bottom:1px solid #eee;">${f.label}</td>
-                <td style="padding:8px;border-bottom:1px solid #eee;">${data[f.key] || ""}</td>
-              </tr>`
-          )
-          .join("")}
-      </tbody>
-    </table>
-  `;
+  const rows = fields
+    .filter((f) => data[f.key])
+    .map((f, i) => dataRow(f.label, data[f.key], i % 2 === 1))
+    .join('');
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">New Enquiry</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">A new submission has been received. Details below.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${rows}
+    </table>`;
+
+  return emailShell({ label: 'Admin Notification', body });
 }
 
-// Enrollment confirmation email template
+// ─── ENROLLMENT CONFIRMATION (user) ──────────────────────────────────────────
+
 export function generateEnrollmentConfirmationEmail({ name, courseTitle, trainingType, trainingPeriod, specialRequest, price, currency }) {
-  return `
-    <div style="font-family:sans-serif;line-height:1.6;">
-      <h2 style="color:#1769ff;">Thank you for enrolling${name ? ', ' + name : ''}!</h2>
-      <p>We have received your enrollment request for <strong>${courseTitle}</strong>.</p>
-      <p>Training Type: <strong>${trainingType || 'Individual'}</strong></p>
-      <p>Training Period: <strong>${trainingPeriod || 'Not specified'}</strong></p>
-      ${specialRequest ? `<p>Special Request: <strong>${specialRequest}</strong></p>` : ''}
-      <p>Price: <strong>${price || 'Contact for pricing'}</strong></p>
-      <p>Our team will be in contact with you shortly to confirm your enrollment and provide next steps.</p>
-      <p style="margin-top:2em;color:#888;">Best regards,<br/>Technohana Team</p>
-    </div>
-  `;
+  const rows = [
+    dataRow('Course', courseTitle, false),
+    dataRow('Training Type', trainingType || 'Individual', true),
+    dataRow('Training Period', trainingPeriod || 'Not specified', false),
+    specialRequest ? dataRow('Special Request', specialRequest, true) : '',
+    dataRow('Price', price ? `${price} ${String(currency || '').toUpperCase()}` : 'Contact for pricing', specialRequest ? false : true),
+  ].join('');
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Enrollment Received${name ? `, ${name}` : ''}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">We've received your enrollment request for <strong style="color:#1e293b;">${courseTitle}</strong>. Our team will be in touch shortly to confirm your place and provide next steps.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${rows}
+    </table>
+    ${ctaButton('View My Enrollments', `${process.env.FRONTEND_URL || 'https://technohana.in'}/my-enrollments`)}`;
+
+  return emailShell({ label: 'Enrollment Confirmation', body });
 }
+
+// ─── INSTRUCTOR APPLICATION ACK (applicant) ───────────────────────────────────
 
 export function generateResumeAcknowledgementEmail({ name }) {
-  return `
-    <div style="font-family:sans-serif;line-height:1.6;">
-      <h2 style="color:#1769ff;">Application Received${name ? ', ' + name : ''}!</h2>
-      <p>Thank you for applying to Technohana. We have received your resume successfully.</p>
-      <p>Our team will review your application, and we’ll connect with you if your profile matches our current opportunities.</p>
-      <p style="margin-top:2em;color:#888;">Best regards,<br/>Technohana Team</p>
-    </div>
-  `;
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Application Received${name ? `, ${name}` : ''}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">Thank you for applying to teach with Technohana. We've received your resume and cover letter successfully.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Status', 'Under Review', false)}
+      ${dataRow('Next Step', 'Our team will reach out if your profile matches current opportunities', true)}
+      ${dataRow('Expected Response', '5–7 business days', false)}
+    </table>
+    ${ctaButton('Visit Technohana', 'https://technohana.in')}`;
+
+  return emailShell({ label: 'Careers', body });
 }
 
-export function generateContactUsEmail({name,email,subject,message}){
-  return `
-    <div style="font-family:sans-serif;line-height:1.6;">
-      <h2 style="color:#1769ff;">You have a new message from ${name}!</h2>
-      <p>Email: <strong>${email}</strong></p>
-      <p>Subject: <strong>${subject}</strong></p>
-      <p>Message: <strong>${message}</strong></p>
-    </div>
-  `;
+// ─── CONTACT US (admin) ──────────────────────────────────────────────────────
+
+export function generateContactUsEmail({ name, email, subject, message }) {
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">New Contact Message</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Received via the Contact Us form.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('From', name, false)}
+      ${dataRow('Email', `<a href="mailto:${email}" style="color:#27A8F5;text-decoration:none;">${email}</a>`, true)}
+      ${dataRow('Subject', subject, false)}
+    </table>
+    <div style="margin-top:20px;background:#f8fafc;border-left:4px solid #27A8F5;border-radius:0 8px 8px 0;padding:16px 20px;">
+      <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Message</p>
+      <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.7;">${message}</p>
+    </div>`;
+
+  return emailShell({ label: 'Contact Form', body });
 }
 
-export function generateAIRiskReportRequestEmail({
-  name,
-  email,
-  phone,
-  jobRole,
-  experience,
-  industry,
-}) {
-  return `
-    <div style="font-family:sans-serif;line-height:1.6;">
-      <h2 style="color:#1769ff;">New AI Risk Report Request</h2>
-      <p><strong>Name:</strong> ${name}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Phone:</strong> ${phone}</p>
-      <p><strong>Current Job Role:</strong> ${jobRole}</p>
-      <p><strong>Years of Experience:</strong> ${experience}</p>
-      <p><strong>Preferred AI Career Path:</strong> ${industry}</p>
-      <p>This person has requested the AI Career Risk Report. Please follow up accordingly.</p>
-      <p style="margin-top:2em;color:#888;">Best regards,<br/>Technohana System</p>
-    </div>
-  `;
+// ─── AI RISK REPORT REQUEST (admin) ──────────────────────────────────────────
+
+export function generateAIRiskReportRequestEmail({ name, email, phone, jobRole, experience, industry }) {
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">New AI Risk Report Request</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">A user has submitted the AI Career Risk assessment. Details below.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Name', name, false)}
+      ${dataRow('Email', email, true)}
+      ${dataRow('Phone', phone, false)}
+      ${dataRow('Current Job Role', jobRole, true)}
+      ${dataRow('Years of Experience', experience, false)}
+      ${dataRow('Preferred AI Career Path', industry, true)}
+    </table>`;
+
+  return emailShell({ label: 'Career Shield · Admin', body });
 }
+
+// ─── USER CONFIRMATION (generic — currently unused) ───────────────────────────
 
 export function generateUserConfirmationEmail({ name }) {
-  return `
-    <div style="font-family:sans-serif;line-height:1.6;">
-      <h2 style="color:#1769ff;">Thank You${name ? ', ' + name : ''}!</h2>
-      <p>We have received your request for the AI Career Risk Report.</p>
-      <p>Our team will connect with you shortly to provide your personalized report and further assistance.</p>
-      <p style="margin-top:2em;color:#888;">Best regards,<br/>Technohana Team</p>
-    </div>
-  `;
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Thank You${name ? `, ${name}` : ''}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">We've received your request for the AI Career Risk Report. Our team will connect with you shortly to provide your personalised report and further assistance.</p>
+    ${ctaButton('Explore Courses', 'https://technohana.in/courses')}`;
+
+  return emailShell({ label: 'Career Shield', body });
 }
+
+// ─── AI CAREER RISK REPORT (user) — DO NOT MODIFY ────────────────────────────
 
 export function generateAiRiskReportEmail({ name, score, band, explanation }) {
   const bandColor =
-    band === "High Risk" ? "#dc2626" : band === "Medium Risk" ? "#d97706" : "#059669";
+    band === 'High Risk' ? '#dc2626' : band === 'Medium Risk' ? '#d97706' : '#059669';
   const bandBg =
-    band === "High Risk" ? "#fef2f2" : band === "Medium Risk" ? "#fffbeb" : "#f0fdf4";
+    band === 'High Risk' ? '#fef2f2' : band === 'Medium Risk' ? '#fffbeb' : '#f0fdf4';
   const bandBorder =
-    band === "High Risk" ? "#fca5a5" : band === "Medium Risk" ? "#fcd34d" : "#6ee7b7";
+    band === 'High Risk' ? '#fca5a5' : band === 'Medium Risk' ? '#fcd34d' : '#6ee7b7';
 
   const bandInsights = {
-    "High Risk": [
-      "Roles with repetitive or support-level tasks are being automated fastest.",
-      "Learning AI co-piloting skills now puts you ahead of 80% of your peers.",
-      "The next 90 days are your best window to pivot before the market shifts.",
+    'High Risk': [
+      'Roles with repetitive or support-level tasks are being automated fastest.',
+      'Learning AI co-piloting skills now puts you ahead of 80% of your peers.',
+      'The next 90 days are your best window to pivot before the market shifts.',
     ],
-    "Medium Risk": [
-      "You have a solid foundation — AI skills will accelerate your career significantly.",
-      "Developers who integrate AI into their workflow are 2× more productive.",
-      "Close your skill gaps now while demand for AI-augmented developers is surging.",
+    'Medium Risk': [
+      'You have a solid foundation — AI skills will accelerate your career significantly.',
+      'Developers who integrate AI into their workflow are 2× more productive.',
+      'Close your skill gaps now while demand for AI-augmented developers is surging.',
     ],
-    "Low Risk": [
-      "You're ahead of the curve — keep building to maintain your lead.",
-      "Deepening AI leadership skills positions you for architect and principal roles.",
-      "Your experience makes you uniquely suited to mentor and lead AI adoption.",
+    'Low Risk': [
+      'You\'re ahead of the curve — keep building to maintain your lead.',
+      'Deepening AI leadership skills positions you for architect and principal roles.',
+      'Your experience makes you uniquely suited to mentor and lead AI adoption.',
     ],
   };
 
   const actionPlan = {
-    "High Risk": [
-      { weeks: "Weeks 1–4", action: "Python basics + prompt engineering fundamentals" },
-      { weeks: "Weeks 5–8", action: "Automation tools — APIs, scripts, no-code AI platforms" },
-      { weeks: "Weeks 9–12", action: "Complete a real AI integration project for your portfolio" },
+    'High Risk': [
+      { weeks: 'Weeks 1–4', action: 'Python basics + prompt engineering fundamentals' },
+      { weeks: 'Weeks 5–8', action: 'Automation tools — APIs, scripts, no-code AI platforms' },
+      { weeks: 'Weeks 9–12', action: 'Complete a real AI integration project for your portfolio' },
     ],
-    "Medium Risk": [
-      { weeks: "Weeks 1–4", action: "AI integration patterns for your current tech stack" },
-      { weeks: "Weeks 5–8", action: "Cloud platforms + MLOps fundamentals" },
-      { weeks: "Weeks 9–12", action: "Ship an AI-powered feature in a live or side project" },
+    'Medium Risk': [
+      { weeks: 'Weeks 1–4', action: 'AI integration patterns for your current tech stack' },
+      { weeks: 'Weeks 5–8', action: 'Cloud platforms + MLOps fundamentals' },
+      { weeks: 'Weeks 9–12', action: 'Ship an AI-powered feature in a live or side project' },
     ],
-    "Low Risk": [
-      { weeks: "Weeks 1–4", action: "LLM architecture, fine-tuning & RAG systems deep-dive" },
-      { weeks: "Weeks 5–8", action: "AI product strategy and cross-functional leadership" },
-      { weeks: "Weeks 9–12", action: "Lead an AI initiative or mentor junior team members" },
+    'Low Risk': [
+      { weeks: 'Weeks 1–4', action: 'LLM architecture, fine-tuning & RAG systems deep-dive' },
+      { weeks: 'Weeks 5–8', action: 'AI product strategy and cross-functional leadership' },
+      { weeks: 'Weeks 9–12', action: 'Lead an AI initiative or mentor junior team members' },
     ],
   };
 
   const courses = {
-    "High Risk": [
-      { title: "Python for Machine Learning", duration: "4 weeks", id: "DSML104" },
-      { title: "Prompt Engineering with ChatGPT", duration: "2 weeks", id: "GPT102" },
-      { title: "Complete Artificial Intelligence for Beginners", duration: "3 weeks", id: "AR103" },
+    'High Risk': [
+      { title: 'Python for Machine Learning', duration: '4 weeks', id: 'DSML104' },
+      { title: 'Prompt Engineering with ChatGPT', duration: '2 weeks', id: 'GPT102' },
+      { title: 'Complete Artificial Intelligence for Beginners', duration: '3 weeks', id: 'AR103' },
     ],
-    "Medium Risk": [
-      { title: "Generative AI Essentials", duration: "6 weeks", id: "GENAI108" },
-      { title: "Mastering MLOps: Complete Course on ML Operations", duration: "5 weeks", id: "DSML110" },
-      { title: "Data Science with Python", duration: "4 weeks", id: "DSML105" },
+    'Medium Risk': [
+      { title: 'Generative AI Essentials', duration: '6 weeks', id: 'GENAI108' },
+      { title: 'Mastering MLOps: Complete Course on ML Operations', duration: '5 weeks', id: 'DSML110' },
+      { title: 'Data Science with Python', duration: '4 weeks', id: 'DSML105' },
     ],
-    "Low Risk": [
-      { title: "Generative AI Specialty", duration: "8 weeks", id: "GENAI101" },
-      { title: "Quantization of Large Language Models", duration: "3 weeks", id: "GENAI105" },
-      { title: "Build Your AI-Powered Product Startup with Just $100", duration: "4 weeks", id: "AI100STARTUP" },
+    'Low Risk': [
+      { title: 'Generative AI Specialty', duration: '8 weeks', id: 'GENAI101' },
+      { title: 'Quantization of Large Language Models', duration: '3 weeks', id: 'GENAI105' },
+      { title: 'Build Your AI-Powered Product Startup with Just $100', duration: '4 weeks', id: 'AI100STARTUP' },
     ],
   };
 
-  const insights = bandInsights[band] ?? bandInsights["Medium Risk"];
-  const plan = actionPlan[band] ?? actionPlan["Medium Risk"];
-  const recs = courses[band] ?? courses["Medium Risk"];
+  const insights = bandInsights[band] ?? bandInsights['Medium Risk'];
+  const plan = actionPlan[band] ?? actionPlan['Medium Risk'];
+  const recs = courses[band] ?? courses['Medium Risk'];
 
   const insightRows = insights
     .map(
@@ -189,7 +260,7 @@ export function generateAiRiskReportEmail({ name, score, band, explanation }) {
         </td>
       </tr>`
     )
-    .join("");
+    .join('');
 
   const planRows = plan
     .map(
@@ -201,7 +272,7 @@ export function generateAiRiskReportEmail({ name, score, band, explanation }) {
         </td>
       </tr>`
     )
-    .join("");
+    .join('');
 
   const courseCards = recs
     .map(
@@ -214,7 +285,7 @@ export function generateAiRiskReportEmail({ name, score, band, explanation }) {
         </div>
       </td>`
     )
-    .join("");
+    .join('');
 
   return `
 <!DOCTYPE html>
@@ -317,71 +388,65 @@ export function generateAiRiskReportEmail({ name, score, band, explanation }) {
   `;
 }
 
-// --- New templates for Enrollment + Payment Success ---
-export function generatePaymentSuccessEmail({
-  name,
-  courseTitle,
-  amountMajor,
-  currency,
-  enrollmentType,
-  participants,
-  trainingLocation,
-}) {
+// ─── PAYMENT SUCCESS (learner) ────────────────────────────────────────────────
+
+export function generatePaymentSuccessEmail({ name, courseTitle, amountMajor, currency, enrollmentType, participants, trainingLocation }) {
   const prettyCurrency = String(currency || '').toUpperCase();
-  return `
-    <div style="font-family:sans-serif;line-height:1.7;color:#111">
-      <h2 style="color:#1769ff;margin:0 0 12px">Payment Successful${name ? ', ' + name : ''}!</h2>
-      <p style="margin:0 0 10px">We’ve received your payment for <strong>${courseTitle || 'your course'}</strong>.</p>
-      <p style="margin:0 0 10px">Amount Paid: <strong>${amountMajor != null ? amountMajor : ''} ${prettyCurrency}</strong></p>
-      <p style="margin:0 0 10px">Enrollment: <strong>${enrollmentType || 'individual'}</strong>${participants ? ` • Participants: <strong>${participants}</strong>` : ''}</p>
-      ${trainingLocation ? `<p style="margin:0 0 10px">Training Location: <strong>${trainingLocation}</strong></p>` : ''}
-      <p style="margin:12px 0 0">All the details regarding the course are on the way. Our team will contact you shortly.</p>
-      <p style="margin:18px 0 0;color:#666">Best regards,<br/>Technohana Team</p>
+
+  const body = `
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="display:inline-block;background:#f0fdf4;border:2px solid #6ee7b7;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;margin-bottom:12px;">✓</div>
+      <h2 style="margin:0 0 6px;font-size:22px;color:#0f172a;">Payment Confirmed${name ? `, ${name}` : ''}!</h2>
+      <p style="margin:0;font-size:14px;color:#64748b;">Your enrollment is confirmed. We'll be in touch shortly.</p>
     </div>
-  `;
+    <div style="background:#f0f7ff;border-radius:10px;padding:20px 24px;text-align:center;margin-bottom:24px;">
+      <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Amount Paid</p>
+      <p style="margin:0;font-size:36px;font-weight:800;color:#153C85;">${amountMajor != null ? amountMajor : ''} <span style="font-size:18px;font-weight:500;">${prettyCurrency}</span></p>
+    </div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Course', courseTitle || 'Your course', false)}
+      ${dataRow('Enrollment Type', enrollmentType || 'Individual', true)}
+      ${participants ? dataRow('Participants', participants, false) : ''}
+      ${trainingLocation ? dataRow('Training Location', trainingLocation, participants ? true : false) : ''}
+    </table>
+    ${ctaButton('View My Dashboard', `${process.env.FRONTEND_URL || 'https://technohana.in'}/dashboard`)}`;
+
+  return emailShell({ label: 'Payment Confirmation', body });
 }
 
-export function generateEnrollmentDetailsForSales({
-  orderId,
-  learner,
-  courseInfo,
-  amountMinor,
-  currency,
-  enrollmentType,
-  participants,
-}) {
+// ─── ENROLLMENT DETAILS FOR SALES (admin) ────────────────────────────────────
+
+export function generateEnrollmentDetailsForSales({ orderId, learner, courseInfo, amountMinor, currency, enrollmentType, participants }) {
   const amountMajor = Number.isFinite(Number(amountMinor)) ? (Number(amountMinor) / 100).toFixed(2) : '';
-  const rows = [
-    ["Order ID", orderId],
-    ["Name", learner?.fullName],
-    ["Email", learner?.email],
-    ["Phone", learner?.phone],
-    ["City", learner?.city],
-    ["Training Location", learner?.trainingLocation],
-    ["Course Title", courseInfo?.title],
-    ["Course Duration", courseInfo?.duration],
-    ["Course Time", courseInfo?.time],
-    ["Enrollment Type", enrollmentType],
-    ["Participants", participants],
-    ["Amount Paid", `${amountMajor} ${String(currency || '').toUpperCase()}`],
-  ];
+  const prettyCurrency = String(currency || '').toUpperCase();
 
-  const tableRows = rows
-    .map(
-      ([label, value]) => `
-      <tr>
-        <td style="padding:8px;border-bottom:1px solid #eee;width:180px;background:#f8fafc"><strong>${label}</strong></td>
-        <td style="padding:8px;border-bottom:1px solid #eee;">${value ?? ''}</td>
-      </tr>`
-    )
-    .join("");
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">New Paid Enrollment</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">A payment has been confirmed. Full details below.</p>
 
-  return `
-    <div style="font-family:sans-serif;line-height:1.6;color:#111">
-      <h2 style="color:#1769ff;margin:0 0 12px">New Paid Enrollment</h2>
-      <p style="margin:0 0 14px">A Stripe checkout session has completed successfully. Details below:</p>
-      <table style="border-collapse:collapse;width:100%;font-family:sans-serif">${tableRows}</table>
-      <p style="margin-top:16px;color:#666">Generated by Technohana system.</p>
-    </div>
-  `;
+    <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#153C85;text-transform:uppercase;letter-spacing:1px;">Order</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:20px;">
+      ${dataRow('Order ID', orderId, false)}
+      ${dataRow('Amount Paid', `${amountMajor} ${prettyCurrency}`, true)}
+      ${dataRow('Enrollment Type', enrollmentType, false)}
+      ${participants ? dataRow('Participants', participants, true) : ''}
+    </table>
+
+    <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#153C85;text-transform:uppercase;letter-spacing:1px;">Learner</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:20px;">
+      ${dataRow('Full Name', learner?.fullName, false)}
+      ${dataRow('Email', learner?.email, true)}
+      ${dataRow('Phone', learner?.phone, false)}
+      ${dataRow('City', learner?.city, true)}
+      ${dataRow('Training Location', learner?.trainingLocation, false)}
+    </table>
+
+    <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#153C85;text-transform:uppercase;letter-spacing:1px;">Course</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Title', courseInfo?.title, false)}
+      ${dataRow('Duration', courseInfo?.duration, true)}
+      ${dataRow('Time', courseInfo?.time, false)}
+    </table>`;
+
+  return emailShell({ label: 'Sales Notification', body });
 }

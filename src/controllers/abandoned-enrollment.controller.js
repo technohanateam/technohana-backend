@@ -96,39 +96,67 @@ export const sendEnrollmentReminder = async (req, res) => {
       }
     }
 
-    // Compose email
-    const formDataStr =
-      user.enrollmentFormData && Object.keys(user.enrollmentFormData).length > 0
-        ? Object.entries(user.enrollmentFormData)
-          .map(([key, value]) => `${key}: ${value}`)
-          .join("\n")
-        : "No form data available"
+    // Build branded form data table rows
+    const formFields = user.enrollmentFormData && Object.keys(user.enrollmentFormData).length > 0
+      ? Object.entries(user.enrollmentFormData)
+      : []
 
-    const emailTemplate = `
-        <h2>You Left Something Behind!</h2>
-        <p>Hi ${user.name || "there"},</p>
-        <p>We noticed you started an enrollment but didn't finish. We'd love to help you complete your course registration!</p>
-        
-        <h3>Your Form Details:</h3>
-        <pre>${formDataStr}</pre>
-        
-        <p>
-            <a href="${process.env.FRONTEND_URL}/my-enrollments" 
-               style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                Resume Your Enrollment
-            </a>
-        </p>
-        
-        <p>If you have any questions, feel free to reach out to our support team.</p>
-        <p>Best regards,<br>TechnoHana Team</p>
-        `
+    const formRows = formFields.length > 0
+      ? formFields.map(([key, value], i) => {
+          const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())
+          const bg = i % 2 === 1 ? '#f0f7ff' : '#ffffff'
+          return `<tr>
+            <td style="padding:10px 12px;background:${bg};border-bottom:1px solid #e2e8f0;width:40%;font-size:13px;font-weight:600;color:#475569;">${label}</td>
+            <td style="padding:10px 12px;background:${bg};border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${value || '—'}</td>
+          </tr>`
+        }).join('')
+      : `<tr><td colspan="2" style="padding:12px;font-size:13px;color:#64748b;text-align:center;">No form data available</td></tr>`
+
+    const subject = "You Left Something Behind! Resume Your Enrollment"
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#153C85;padding:28px 32px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:2px;color:#93c5fd;text-transform:uppercase;">Enrollment Recovery</p>
+              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">Technohana</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">You left something behind${user.name ? `, ${user.name}` : ''}!</h2>
+              <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">We noticed you started an enrollment but didn't finish. Your progress is saved — pick up right where you left off.</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:28px;">
+                ${formRows}
+              </table>
+              <div style="text-align:center;">
+                <a href="${process.env.FRONTEND_URL || 'https://technohana.in'}/my-enrollments" style="display:inline-block;background:#27A8F5;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:13px 32px;border-radius:8px;">Resume My Enrollment →</a>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Questions? <a href="mailto:connect@technohana.in" style="color:#27A8F5;text-decoration:none;">connect@technohana.in</a></p>
+              <p style="margin:0;font-size:11px;color:#94a3b8;">© 2025 Technohana · <a href="https://technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
 
     // Send email
-    await sendEmail(
-      email,
-      "You Left Something Behind! Resume Your Enrollment",
-      emailTemplate
-    )
+    await sendEmail({ from: 'Sales <sales@technohana.in>', to: email, subject, html })
 
     // Update user document
     user.enrollmentReminderSent = true
