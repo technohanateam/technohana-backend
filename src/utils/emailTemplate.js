@@ -113,6 +113,210 @@ export function generateUserConfirmationEmail({ name }) {
   `;
 }
 
+export function generateAiRiskReportEmail({ name, score, band, explanation }) {
+  const bandColor =
+    band === "High Risk" ? "#dc2626" : band === "Medium Risk" ? "#d97706" : "#059669";
+  const bandBg =
+    band === "High Risk" ? "#fef2f2" : band === "Medium Risk" ? "#fffbeb" : "#f0fdf4";
+  const bandBorder =
+    band === "High Risk" ? "#fca5a5" : band === "Medium Risk" ? "#fcd34d" : "#6ee7b7";
+
+  const bandInsights = {
+    "High Risk": [
+      "Roles with repetitive or support-level tasks are being automated fastest.",
+      "Learning AI co-piloting skills now puts you ahead of 80% of your peers.",
+      "The next 90 days are your best window to pivot before the market shifts.",
+    ],
+    "Medium Risk": [
+      "You have a solid foundation — AI skills will accelerate your career significantly.",
+      "Developers who integrate AI into their workflow are 2× more productive.",
+      "Close your skill gaps now while demand for AI-augmented developers is surging.",
+    ],
+    "Low Risk": [
+      "You're ahead of the curve — keep building to maintain your lead.",
+      "Deepening AI leadership skills positions you for architect and principal roles.",
+      "Your experience makes you uniquely suited to mentor and lead AI adoption.",
+    ],
+  };
+
+  const actionPlan = {
+    "High Risk": [
+      { weeks: "Weeks 1–4", action: "Python basics + prompt engineering fundamentals" },
+      { weeks: "Weeks 5–8", action: "Automation tools — APIs, scripts, no-code AI platforms" },
+      { weeks: "Weeks 9–12", action: "Complete a real AI integration project for your portfolio" },
+    ],
+    "Medium Risk": [
+      { weeks: "Weeks 1–4", action: "AI integration patterns for your current tech stack" },
+      { weeks: "Weeks 5–8", action: "Cloud platforms + MLOps fundamentals" },
+      { weeks: "Weeks 9–12", action: "Ship an AI-powered feature in a live or side project" },
+    ],
+    "Low Risk": [
+      { weeks: "Weeks 1–4", action: "LLM architecture, fine-tuning & RAG systems deep-dive" },
+      { weeks: "Weeks 5–8", action: "AI product strategy and cross-functional leadership" },
+      { weeks: "Weeks 9–12", action: "Lead an AI initiative or mentor junior team members" },
+    ],
+  };
+
+  const courses = {
+    "High Risk": [
+      { title: "Python for Machine Learning", duration: "4 weeks", id: "DSML104" },
+      { title: "Prompt Engineering with ChatGPT", duration: "2 weeks", id: "GPT102" },
+      { title: "Complete Artificial Intelligence for Beginners", duration: "3 weeks", id: "AR103" },
+    ],
+    "Medium Risk": [
+      { title: "Generative AI Essentials", duration: "6 weeks", id: "GENAI108" },
+      { title: "Mastering MLOps: Complete Course on ML Operations", duration: "5 weeks", id: "DSML110" },
+      { title: "Data Science with Python", duration: "4 weeks", id: "DSML105" },
+    ],
+    "Low Risk": [
+      { title: "Generative AI Specialty", duration: "8 weeks", id: "GENAI101" },
+      { title: "Quantization of Large Language Models", duration: "3 weeks", id: "GENAI105" },
+      { title: "Build Your AI-Powered Product Startup with Just $100", duration: "4 weeks", id: "AI100STARTUP" },
+    ],
+  };
+
+  const insights = bandInsights[band] ?? bandInsights["Medium Risk"];
+  const plan = actionPlan[band] ?? actionPlan["Medium Risk"];
+  const recs = courses[band] ?? courses["Medium Risk"];
+
+  const insightRows = insights
+    .map(
+      (point) => `
+      <tr>
+        <td style="padding:6px 0;vertical-align:top;">
+          <span style="color:${bandColor};font-weight:700;margin-right:8px;">✓</span>
+          <span style="color:#374151;font-size:14px;">${point}</span>
+        </td>
+      </tr>`
+    )
+    .join("");
+
+  const planRows = plan
+    .map(
+      (step) => `
+      <tr>
+        <td style="padding:10px 0;vertical-align:top;border-bottom:1px solid #f3f4f6;">
+          <span style="display:inline-block;background:#153C85;color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 8px;margin-bottom:4px;">${step.weeks}</span><br/>
+          <span style="color:#374151;font-size:14px;">${step.action}</span>
+        </td>
+      </tr>`
+    )
+    .join("");
+
+  const courseCards = recs
+    .map(
+      (c) => `
+      <td style="width:33%;padding:6px;">
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;text-align:center;">
+          <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#1e293b;">${c.title}</p>
+          <p style="margin:0 0 10px;font-size:11px;color:#64748b;">${c.duration}</p>
+          <a href="https://technohana.in/courses/${c.id}" style="display:inline-block;background:#27A8F5;color:#fff;font-size:11px;font-weight:600;text-decoration:none;padding:5px 12px;border-radius:5px;">View Course</a>
+        </div>
+      </td>`
+    )
+    .join("");
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#153C85;padding:28px 32px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:2px;color:#93c5fd;text-transform:uppercase;">Career Shield</p>
+              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">Technohana</p>
+            </td>
+          </tr>
+
+          <!-- Greeting -->
+          <tr>
+            <td style="padding:32px 32px 0;">
+              <h1 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Hi ${name},</h1>
+              <p style="margin:0;font-size:15px;color:#475569;line-height:1.6;">Your AI Career Risk assessment is complete. Here's everything you need to know — and exactly what to do next.</p>
+            </td>
+          </tr>
+
+          <!-- Score Card -->
+          <tr>
+            <td style="padding:24px 32px;">
+              <div style="background:${bandBg};border:1px solid ${bandBorder};border-radius:10px;padding:24px;text-align:center;">
+                <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Your AI Career Risk Score</p>
+                <p style="margin:0 0 10px;font-size:48px;font-weight:800;color:#0f172a;">${score}<span style="font-size:22px;font-weight:400;color:#64748b;"> / 18</span></p>
+                <span style="display:inline-block;background:${bandColor};color:#fff;font-size:13px;font-weight:700;padding:5px 18px;border-radius:20px;">${band}</span>
+                <p style="margin:14px 0 0;font-size:14px;color:#374151;line-height:1.6;max-width:440px;margin-left:auto;margin-right:auto;">${explanation}</p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- What This Means -->
+          <tr>
+            <td style="padding:0 32px 24px;">
+              <h2 style="margin:0 0 14px;font-size:16px;color:#0f172a;">What this means for your career</h2>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                ${insightRows}
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td style="padding:0 32px;"><div style="border-top:1px solid #e2e8f0;"></div></td></tr>
+
+          <!-- 90-Day Action Plan -->
+          <tr>
+            <td style="padding:24px 32px;">
+              <h2 style="margin:0 0 4px;font-size:16px;color:#0f172a;">Your personalised 90-day action plan</h2>
+              <p style="margin:0 0 14px;font-size:13px;color:#64748b;">Tailored for a <strong>${band}</strong> profile.</p>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                ${planRows}
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td style="padding:0 32px;"><div style="border-top:1px solid #e2e8f0;"></div></td></tr>
+
+          <!-- Course Recommendations -->
+          <tr>
+            <td style="padding:24px 32px;">
+              <h2 style="margin:0 0 4px;font-size:16px;color:#0f172a;">Recommended courses for your risk level</h2>
+              <p style="margin:0 0 16px;font-size:13px;color:#64748b;">Hand-picked based on your ${band} score.</p>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>${courseCards}</tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA -->
+          <tr>
+            <td style="padding:8px 32px 32px;text-align:center;">
+              <a href="https://technohana.in/courses" style="display:inline-block;background:#27A8F5;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:8px;">Explore All AI-Proof Courses →</a>
+              <p style="margin:12px 0 0;font-size:12px;color:#94a3b8;">Live instructor-led · Regional pricing · 35% group discount</p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Questions? Email us at <a href="mailto:connect@technohana.in" style="color:#27A8F5;text-decoration:none;">connect@technohana.in</a></p>
+              <p style="margin:0;font-size:11px;color:#94a3b8;">Technohana · <a href="https://technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
+
 // --- New templates for Enrollment + Payment Success ---
 export function generatePaymentSuccessEmail({
   name,

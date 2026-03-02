@@ -1,8 +1,7 @@
 import Enquiry from "../models/enquiry.model.js";
 import AiRiskReport from "../models/aiRiskReport.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
-import { generateEnquiryTable } from "../utils/emailTemplate.js";
-import { generateContactUsEmail } from "../utils/emailTemplate.js";
+import { generateEnquiryTable, generateContactUsEmail, generateAiRiskReportEmail } from "../utils/emailTemplate.js";
 
 export const createEnquiry = async (req, res) => {
   try {
@@ -107,17 +106,7 @@ export const handleAIRiskReportRequest = async (req, res) => {
       </div>
     `;
 
-    const userEmailHtml = `
-      <div style="font-family:sans-serif;line-height:1.6;">
-        <h2 style="color:#1769ff;">Thank You, ${name}!</h2>
-        <p>We have received your AI Career Risk Test submission.</p>
-        <p><strong>Your Score:</strong> ${score} / 18</p>
-        <p><strong>Risk Band:</strong> ${band}</p>
-        <p>${explanation}</p>
-        <p>Our team will review your submission and provide a personalized roadmap to help you future-proof your career.</p>
-        <p style="margin-top:2em;color:#888;">Best regards,<br/>Technohana Team</p>
-      </div>
-    `;
+    const userEmailHtml = generateAiRiskReportEmail({ name, score, band, explanation });
 
     // 3. Send emails (non-blocking for the response — log failures but don't fail the request)
     Promise.all([
@@ -130,7 +119,7 @@ export const handleAIRiskReportRequest = async (req, res) => {
       sendEmail({
         from: fromAddresses.connect,
         to: email,
-        subject: "Thank You for Completing the AI Career Risk Test",
+        subject: `${name}, your AI Career Risk Score is ${score}/18 — here's your roadmap`,
         html: userEmailHtml,
       }),
     ]).catch((err) => {
