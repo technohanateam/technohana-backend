@@ -138,6 +138,18 @@ router.patch("/enrollments/:id/status", authenticateAdmin, async (req, res) => {
   }
 });
 
+// DELETE /admin/enrollments/:id
+router.delete("/enrollments/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const deleted = await User.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Enrollment not found." });
+    return res.json({ message: "Enrollment deleted.", data: deleted });
+  } catch (err) {
+    console.error("Admin delete enrollment error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 // GET /admin/enquiries?page=1&limit=20
 router.get("/enquiries", authenticateAdmin, async (req, res) => {
   try {
@@ -150,6 +162,29 @@ router.get("/enquiries", authenticateAdmin, async (req, res) => {
     return res.json({ data, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     console.error("Admin enquiries error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// DELETE /admin/enquiries/clear
+router.delete("/enquiries/clear", authenticateAdmin, async (req, res) => {
+  try {
+    const result = await Enquiry.deleteMany({});
+    return res.json({ message: "Cleared all enquiries", deleted: result.deletedCount });
+  } catch (err) {
+    console.error("Admin clear enquiries error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// DELETE /admin/enquiries/:id
+router.delete("/enquiries/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const deleted = await Enquiry.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Enquiry not found." });
+    return res.json({ message: "Enquiry deleted." });
+  } catch (err) {
+    console.error("Admin delete enquiry error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });
