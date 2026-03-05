@@ -23,6 +23,15 @@ const enquirySchema = new mongoose.Schema({
   description : {type : String},
   courseTitle: { type: String},
   courseId: { type: String},
+  enquiryType: { type: String },
+  requirements: { type: String },
+  timeline: { type: String },
+  selectedPackage: { type: String },
+  source: { type: String },
+  campaign: { type: String },
+  landingPage: { type: String },
+  pipeline: { type: String },
+  serviceLine: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
 

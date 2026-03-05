@@ -1,21 +1,15 @@
 import Enquiry from "../models/enquiry.model.js";
 import AiRiskReport from "../models/aiRiskReport.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
-import { generateEnquiryTable, generateContactUsEmail, generateAiRiskReportEmail } from "../utils/emailTemplate.js";
+import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContactUsEmail, generateAiRiskReportEmail } from "../utils/emailTemplate.js";
 
 export const createEnquiry = async (req, res) => {
   try {
-    const {
-      // ... other fields
-      courseTitle,
-      enquiryType, // <-- GET THE NEW FIELD
-    } = req.body;
+    const { name, email, courseTitle, enquiryType, selectedPackage, timeline } = req.body;
 
-    // ... your validation and database saving logic ...
     const enquiry = new Enquiry(req.body);
     await enquiry.save();
 
-    // --- DYNAMIC SUBJECT LOGIC ---
     let subject;
     switch (enquiryType) {
       case "Quote Request":
@@ -24,19 +18,29 @@ export const createEnquiry = async (req, res) => {
       case "Syllabus Download":
         subject = `Syllabus Downloaded for: ${courseTitle}`;
         break;
+      case "AI Agent Build":
+        subject = `New AI Agent Build Request${selectedPackage ? ` — ${selectedPackage} package` : ""}`;
+        break;
       case "General Enquiry":
-      default: // A good default in case enquiryType is not sent
+      default:
         subject = `New General Enquiry for: ${courseTitle}`;
         break;
     }
 
-    // Send email to admin with the dynamic subject
+    // Admin notification + user confirmation in parallel (non-blocking on user email failure)
     await sendEmail({
-      from: fromAddresses.sales, // Specify the 'from' address
+      from: fromAddresses.sales,
       to: process.env.MAIL_TO,
-      subject: subject, // Use the dynamic subject
+      subject,
       html: generateEnquiryTable(req.body),
     });
+
+    sendEmail({
+      from: fromAddresses.sales,
+      to: email,
+      subject: `We received your request — Technohana will be in touch within 24 hours`,
+      html: generateEnquiryConfirmationEmail({ name, enquiryType, courseTitle, selectedPackage, timeline }),
+    }).catch((err) => console.error("Enquiry confirmation email failed (lead already saved):", err));
 
     res
       .status(201)

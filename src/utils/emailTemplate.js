@@ -67,6 +67,10 @@ export function generateEnquiryTable(data) {
     { label: 'Email', key: 'email' },
     { label: 'Phone', key: 'phone' },
     { label: 'Company', key: 'company' },
+    { label: 'Enquiry Type', key: 'enquiryType' },
+    { label: 'Selected Package', key: 'selectedPackage' },
+    { label: 'Timeline', key: 'timeline' },
+    { label: 'Requirements', key: 'requirements' },
     { label: 'Callback Date/Time', key: 'callBackDateTime' },
     { label: 'User Type', key: 'userType' },
     { label: 'Training Type', key: 'trainingType' },
@@ -78,6 +82,10 @@ export function generateEnquiryTable(data) {
     { label: 'Description', key: 'description' },
     { label: 'Course Title', key: 'courseTitle' },
     { label: 'Course ID', key: 'courseId' },
+    { label: 'Pipeline', key: 'pipeline' },
+    { label: 'Service Line', key: 'serviceLine' },
+    { label: 'Campaign', key: 'campaign' },
+    { label: 'Landing Page', key: 'landingPage' },
     { label: 'Created At', key: 'createdAt' },
   ];
 
@@ -94,6 +102,30 @@ export function generateEnquiryTable(data) {
     </table>`;
 
   return emailShell({ label: 'Admin Notification', body });
+}
+
+// ─── ENQUIRY CONFIRMATION (user) ─────────────────────────────────────────────
+
+export function generateEnquiryConfirmationEmail({ name, enquiryType, courseTitle, selectedPackage, timeline }) {
+  const subject = enquiryType || courseTitle || 'your request';
+  const packageRow = selectedPackage ? dataRow('Selected Package', selectedPackage, true) : '';
+  const timelineRow = timeline ? dataRow('Your Timeline', timeline, !!selectedPackage) : '';
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">We've received your request${name ? `, ${name}` : ''}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
+      Thank you for reaching out about <strong style="color:#1e293b;">${subject}</strong>.
+      Our team will contact you within <strong style="color:#1e293b;">24 hours</strong> to schedule a discovery call.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Status', 'Under Review', false)}
+      ${packageRow}
+      ${timelineRow}
+      ${dataRow('Next Step', 'Discovery call — we will send a calendar invite', selectedPackage ? true : false)}
+    </table>
+    ${ctaButton('View Build Packages', `${process.env.FRONTEND_URL || 'https://technohana.in'}/build/ai-agent#packages`)}`;
+
+  return emailShell({ label: 'Enquiry Confirmation', body });
 }
 
 // ─── ENROLLMENT CONFIRMATION (user) ──────────────────────────────────────────
