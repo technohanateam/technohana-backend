@@ -11,6 +11,8 @@ import { Blogs } from "../models/blogs.model.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
+import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
+import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -418,5 +420,42 @@ router.post("/courses/seed", authenticateAdmin, async (req, res) => {
     return res.status(500).json({ message: "Server error", detail: err.message });
   }
 });
+
+// ─── Coupons ──────────────────────────────────────────────────────────────────
+
+// GET /admin/coupons?search=&isActive=&page=1&limit=10
+router.get("/coupons", authenticateAdmin, getAllCoupons);
+
+// GET /admin/coupons/stats
+router.get("/coupons/stats", authenticateAdmin, getCouponStats);
+
+// POST /admin/coupons
+router.post("/coupons", authenticateAdmin, createCoupon);
+
+// GET /admin/coupons/:id
+router.get("/coupons/:id", authenticateAdmin, getCoupon);
+
+// PUT /admin/coupons/:id
+router.put("/coupons/:id", authenticateAdmin, updateCoupon);
+
+// DELETE /admin/coupons/:id
+router.delete("/coupons/:id", authenticateAdmin, deleteCoupon);
+
+// POST /admin/coupons/:id/reset-usage
+router.post("/coupons/:id/reset-usage", authenticateAdmin, resetCouponUsage);
+
+// ─── Referrals ───────────────────────────────────────────────────────────────
+
+// GET /admin/referrals/analytics - Overview stats
+router.get("/referrals/analytics", authenticateAdmin, getReferralAnalytics);
+
+// GET /admin/referrals/metrics - Distribution & metrics
+router.get("/referrals/metrics", authenticateAdmin, getReferralMetrics);
+
+// GET /admin/referrals - List all referrers with pagination
+router.get("/referrals", authenticateAdmin, getReferralsList);
+
+// GET /admin/referrals/:userId - Details for specific referrer
+router.get("/referrals/:userId", authenticateAdmin, getReferrerDetails);
 
 export default router;
