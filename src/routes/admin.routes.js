@@ -13,6 +13,7 @@ import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
+import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize } from "../controllers/campaign.controller.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -457,5 +458,40 @@ router.get("/referrals", authenticateAdmin, getReferralsList);
 
 // GET /admin/referrals/:userId - Details for specific referrer
 router.get("/referrals/:userId", authenticateAdmin, getReferrerDetails);
+
+// ─── Email Campaigns ──────────────────────────────────────────────────────────
+
+// GET /admin/campaigns - List all campaigns
+router.get("/campaigns", authenticateAdmin, getAllCampaigns);
+
+// POST /admin/campaigns - Create new campaign
+router.post("/campaigns", authenticateAdmin, createCampaign);
+
+// GET /admin/campaigns/:id - Get single campaign
+router.get("/campaigns/:id", authenticateAdmin, getCampaign);
+
+// PUT /admin/campaigns/:id - Update campaign
+router.put("/campaigns/:id", authenticateAdmin, updateCampaign);
+
+// DELETE /admin/campaigns/:id - Delete campaign
+router.delete("/campaigns/:id", authenticateAdmin, deleteCampaign);
+
+// POST /admin/campaigns/:id/send - Send campaign immediately
+router.post("/campaigns/:id/send", authenticateAdmin, sendCampaignNow);
+
+// POST /admin/campaigns/:id/schedule - Schedule campaign for later
+router.post("/campaigns/:id/schedule", authenticateAdmin, scheduleCampaign);
+
+// POST /admin/campaigns/:id/pause - Pause running campaign
+router.post("/campaigns/:id/pause", authenticateAdmin, pauseCampaign);
+
+// POST /admin/campaigns/:id/resume - Resume paused campaign
+router.post("/campaigns/:id/resume", authenticateAdmin, resumeCampaign);
+
+// GET /admin/campaigns/:id/analytics - Get campaign metrics
+router.get("/campaigns/:id/analytics", authenticateAdmin, getCampaignAnalytics);
+
+// POST /admin/campaigns/estimate-segment - Preview segment size
+router.post("/campaigns/estimate-segment", authenticateAdmin, estimateSegmentSize);
 
 export default router;
