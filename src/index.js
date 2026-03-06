@@ -40,6 +40,8 @@ import abandonedEnrollmentRoutes from "./routes/abandoned-enrollment.routes.js";
 import courseViewRoutes from "./routes/courseView.routes.js";
 import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
+import { handleResendWebhook } from "./services/resendWebhook.js";
+import { registerCampaignEventListeners, emitCampaignEvent } from "./services/campaignEventTrigger.js";
 
 const app = express();
 
@@ -669,6 +671,27 @@ app.post('/razorpay/verify', async (req, res) => {
       } catch (mailErr) {
         console.error('Email send failed after Razorpay payment:', mailErr);
       }
+
+      // Emit campaign event for automation (welcome emails, etc.)
+      try {
+        emitCampaignEvent('PAYMENT_RECEIVED', {
+          email: order.learner.email,
+          name: order.learner.fullName,
+          courseTitle: order.courseInfo?.title,
+          amount: amountMajorStr,
+          currency: order.currency,
+        });
+        // Also emit enrollment complete event
+        emitCampaignEvent('ENROLLMENT_COMPLETE', {
+          email: order.learner.email,
+          name: order.learner.fullName,
+          courseTitle: order.courseInfo?.title,
+          enrolledAt: new Date(),
+        });
+      } catch (eventErr) {
+        console.error('Failed to emit payment event:', eventErr);
+        // Non-blocking — payment is confirmed regardless of event emission
+      }
     }
 
     return res.json({ success: true });
@@ -796,6 +819,27 @@ app.post('/payments/confirm', async (req, res) => {
       return res.status(500).json({ error: 'Failed to send emails' });
     }
 
+    // Emit campaign event for automation (welcome emails, etc.)
+    try {
+      emitCampaignEvent('PAYMENT_RECEIVED', {
+        email: order.learner.email,
+        name: order.learner.fullName,
+        courseTitle: order.courseInfo?.title,
+        amount: amountMajor,
+        currency,
+      });
+      // Also emit enrollment complete event
+      emitCampaignEvent('ENROLLMENT_COMPLETE', {
+        email: order.learner.email,
+        name: order.learner.fullName,
+        courseTitle: order.courseInfo?.title,
+        enrolledAt: new Date(),
+      });
+    } catch (eventErr) {
+      console.error('Failed to emit payment event:', eventErr);
+      // Non-blocking — payment is confirmed regardless of event emission
+    }
+
     return res.json({ success: true });
   } catch (err) {
     console.error('payments/confirm error:', err);
@@ -887,6 +931,16 @@ app.use("/api", courseViewRoutes);
 app.use("/admin", courseViewRoutes);
 app.use("/api/referral", referralRoutes);
 app.use("/api/abandoned-enrollment", abandonedEnrollmentRoutes);
+
+// ─── Campaign Automation ───────────────────────────────────────────────────────
+
+// POST /webhooks/resend - Webhook for Resend email events (opened, clicked, bounced, etc.)
+app.post("/webhooks/resend", handleResendWebhook);
+
+// Register campaign event listeners (enrollment, referral, payment, etc.)
+registerCampaignEventListeners();
+
+// ─── Server Startup ────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

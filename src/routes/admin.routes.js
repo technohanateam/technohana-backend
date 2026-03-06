@@ -13,7 +13,8 @@ import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
-import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize } from "../controllers/campaign.controller.js";
+import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
+import { getAllSocialPosts, getSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, publishToBuffer, generateSocialCopy } from "../controllers/social-post.controller.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -493,5 +494,31 @@ router.get("/campaigns/:id/analytics", authenticateAdmin, getCampaignAnalytics);
 
 // POST /admin/campaigns/estimate-segment - Preview segment size
 router.post("/campaigns/estimate-segment", authenticateAdmin, estimateSegmentSize);
+
+// GET /admin/campaigns/queue/stats - Get Bull queue stats
+router.get("/campaigns/queue/stats", authenticateAdmin, getCampaignQueueStats);
+
+// ─── Social Media Posts ────────────────────────────────────────────────────────
+
+// POST /admin/social-posts/generate-copy - AI copy generation (before :id routes)
+router.post("/social-posts/generate-copy", authenticateAdmin, generateSocialCopy);
+
+// GET /admin/social-posts
+router.get("/social-posts", authenticateAdmin, getAllSocialPosts);
+
+// POST /admin/social-posts
+router.post("/social-posts", authenticateAdmin, createSocialPost);
+
+// GET /admin/social-posts/:id
+router.get("/social-posts/:id", authenticateAdmin, getSocialPost);
+
+// PUT /admin/social-posts/:id
+router.put("/social-posts/:id", authenticateAdmin, updateSocialPost);
+
+// DELETE /admin/social-posts/:id
+router.delete("/social-posts/:id", authenticateAdmin, deleteSocialPost);
+
+// POST /admin/social-posts/:id/publish - Send to Buffer
+router.post("/social-posts/:id/publish", authenticateAdmin, publishToBuffer);
 
 export default router;

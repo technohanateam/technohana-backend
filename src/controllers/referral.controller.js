@@ -100,6 +100,21 @@ export const validateAndApplyReferralCode = async (req, res) => {
     await newUser.save()
     await referrer.save()
 
+    // Emit campaign event for referral automation
+    try {
+      const { emitCampaignEvent } = await import("../services/campaignEventTrigger.js");
+      emitCampaignEvent('REFERRAL_MADE', {
+        email: referrer.email,
+        name: referrer.name,
+        referredUserEmail: newUser.email,
+        referredUserName: newUser.name,
+        courseTitle: newUser.courseTitle,
+      });
+    } catch (eventErr) {
+      console.error('Failed to emit referral event:', eventErr);
+      // Non-blocking — referral is applied regardless of event emission
+    }
+
     res.status(200).json({
       message: "Referral code applied successfully",
       discountPct: 10,

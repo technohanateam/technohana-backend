@@ -1,6 +1,7 @@
 import Campaign from "../models/campaign.model.js";
 import { Resend } from "resend";
 import { getSegmentedUsers } from "../utils/segmentationEngine.js";
+import { scheduleCampaignJob, getQueueStats } from "../services/campaignQueue.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -200,7 +201,7 @@ export const deleteCampaign = async (req, res) => {
   }
 };
 
-// Send campaign immediately (manual trigger)
+// Send campaign immediately (via queue)
 export const sendCampaignNow = async (req, res) => {
   try {
     const { id } = req.params;
@@ -220,91 +221,36 @@ export const sendCampaignNow = async (req, res) => {
       });
     }
 
-    // Get segmented users
-    const { users } = await getSegmentedUsers(campaign.segments, {
-      limit: 50000,
+    // Verify segment has users
+    const { users, total } = await getSegmentedUsers(campaign.segments, {
+      limit: 100,
     });
 
-    if (users.length === 0) {
+    if (total === 0) {
       return res.status(400).json({
         success: false,
         message: "No users matched the campaign segments",
       });
     }
 
-    // Send emails via Resend
-    campaign.status = "running";
-    campaign.metrics.totalSent = users.length;
+    // Schedule via Bull queue (send immediately = delay 0)
+    const job = await scheduleCampaignJob(campaign._id.toString(), new Date());
 
-    try {
-      for (const user of users) {
-        try {
-          // Select variant (if A/B testing)
-          let emailSubject = campaign.subject;
-          let emailContent = campaign.htmlContent;
+    campaign.status = "scheduled";
+    campaign.sentAt = new Date();
+    await campaign.save();
 
-          if (campaign.variants && campaign.variants.length > 0) {
-            const variant = campaign.variants[Math.floor(Math.random() * campaign.variants.length)];
-            emailSubject = variant.subject || campaign.subject;
-            emailContent = variant.htmlContent || campaign.htmlContent;
-          }
-
-          // Send via Resend
-          const response = await resend.emails.send({
-            from: `${campaign.fromName} <${campaign.fromEmail}>`,
-            to: user.email,
-            subject: emailSubject,
-            html: emailContent,
-            // Custom headers for tracking
-            headers: {
-              "X-Campaign-ID": campaign._id.toString(),
-              "X-User-ID": user._id?.toString() || user.email,
-            },
-          });
-
-          // Log recipient
-          campaign.recipientMetrics.push({
-            userId: user._id,
-            email: user.email,
-            status: "sent",
-            sentAt: new Date(),
-            variant: campaign.variants?.length > 0 ? "variant" : "default",
-          });
-
-          campaign.metrics.delivered++;
-        } catch (sendError) {
-          console.error(`Failed to send to ${user.email}:`, sendError);
-          campaign.recipientMetrics.push({
-            email: user.email,
-            status: "failed",
-            sentAt: new Date(),
-          });
-          campaign.metrics.bounced++;
-        }
-      }
-
-      campaign.status = "completed";
-      campaign.sentAt = new Date();
-      campaign.completedAt = new Date();
-      await campaign.save();
-
-      return res.json({
-        success: true,
-        message: `Campaign sent to ${campaign.metrics.delivered} recipients`,
-        data: campaign,
-      });
-    } catch (sendError) {
-      campaign.status = "failed";
-      campaign.lastError = sendError.message;
-      await campaign.save();
-
-      throw sendError;
-    }
+    return res.json({
+      success: true,
+      message: `Campaign queued for sending to ~${total} recipients`,
+      data: campaign,
+      jobId: job.id,
+    });
   } catch (error) {
     console.error("Error sending campaign:", error);
     return res.status(500).json({
       success: false,
-      message: "Error sending campaign",
+      message: "Error queuing campaign",
       error: error.message,
     });
   }
@@ -340,12 +286,14 @@ export const scheduleCampaign = async (req, res) => {
 
     await campaign.save();
 
-    // TODO: Queue job with Bull/job queue to send at scheduled time
+    // Schedule job with Bull queue
+    const job = await scheduleCampaignJob(campaign._id.toString(), sendAt);
 
     return res.json({
       success: true,
       message: `Campaign scheduled for ${sendAt}`,
       data: campaign,
+      jobId: job.id,
     });
   } catch (error) {
     console.error("Error scheduling campaign:", error);
@@ -503,6 +451,24 @@ export const estimateSegmentSize = async (req, res) => {
   }
 };
 
+// Get queue stats (admin only)
+export const getCampaignQueueStats = async (req, res) => {
+  try {
+    const stats = await getQueueStats();
+
+    return res.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    console.error("Error fetching queue stats:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching queue stats",
+    });
+  }
+};
+
 export default {
   getAllCampaigns,
   getCampaign,
@@ -515,4 +481,5 @@ export default {
   resumeCampaign,
   getCampaignAnalytics,
   estimateSegmentSize,
+  getCampaignQueueStats,
 };
