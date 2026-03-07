@@ -175,6 +175,47 @@ const priceCatalog = {
   'AZ-500T00': { inr: 4480000, usd: 39900, aed: 166900, gbp: 34900, eur: 40900 },
   'SC-300T00': { inr: 4480000, usd: 39900, aed: 166900, gbp: 34900, eur: 40900 },
   'AZ-900T00': { inr: 1120000, usd: 9900, aed: 41900, gbp: 8900, eur: 10900 },
+  // ServiceNow
+  'SN101': { inr: 3200000, usd: 27900, aed: 129900, gbp: 24900, eur: 29900 },
+  'SN102': { inr: 4500000, usd: 38900, aed: 184900, gbp: 34900, eur: 41900 },
+  'SN103': { inr: 3800000, usd: 32900, aed: 154900, gbp: 29900, eur: 34900 },
+  // Salesforce
+  'SF101': { inr: 4200000, usd: 36500, aed: 171900, gbp: 32900, eur: 38900 },
+  'SF102': { inr: 5600000, usd: 48900, aed: 229900, gbp: 43900, eur: 51900 },
+  'SF103': { inr: 3200000, usd: 27900, aed: 129900, gbp: 24900, eur: 29900 },
+  'SF104': { inr: 3800000, usd: 32900, aed: 154900, gbp: 29900, eur: 34900 },
+  // Agile & Project Management
+  'AGILE101': { inr: 2200000, usd: 18900, aed: 89900, gbp: 16900, eur: 19900 },
+  'AGILE102': { inr: 3500000, usd: 29900, aed: 142900, gbp: 26900, eur: 31900 },
+  'AGILE103': { inr: 5200000, usd: 44900, aed: 212900, gbp: 40900, eur: 47900 },
+  'AGILE104': { inr: 1800000, usd: 15900, aed: 73900, gbp: 13900, eur: 16900 },
+  // DevOps & Containers
+  'DEVOPS101': { inr: 2000000, usd: 17500, aed: 81900, gbp: 15500, eur: 18500 },
+  'DEVOPS102': { inr: 4800000, usd: 41900, aed: 196900, gbp: 37500, eur: 44900 },
+  'DEVOPS103': { inr: 3200000, usd: 27900, aed: 129900, gbp: 24900, eur: 29900 },
+  'DEVOPS104': { inr: 3500000, usd: 29900, aed: 142900, gbp: 26900, eur: 31900 },
+  'DEVOPS105': { inr: 3200000, usd: 27900, aed: 129900, gbp: 24900, eur: 29900 },
+  // Data Visualization
+  'VIZ101': { inr: 3000000, usd: 25900, aed: 122900, gbp: 23500, eur: 27900 },
+  'VIZ102': { inr: 3000000, usd: 25900, aed: 122900, gbp: 23500, eur: 27900 },
+  // Cybersecurity
+  'CY101': { inr: 5200000, usd: 44900, aed: 212900, gbp: 40900, eur: 47900 },
+  'CY102': { inr: 4500000, usd: 38900, aed: 184900, gbp: 34900, eur: 41900 },
+  'CY103': { inr: 5800000, usd: 49900, aed: 237900, gbp: 44900, eur: 53900 },
+  // Python for Automation
+  'PYAUTO101': { inr: 2800000, usd: 24500, aed: 114900, gbp: 21900, eur: 25900 },
+  'PYAUTO102': { inr: 3000000, usd: 25900, aed: 122900, gbp: 23500, eur: 27900 },
+  'PYAUTO103': { inr: 2000000, usd: 17500, aed: 81900, gbp: 15500, eur: 18500 },
+  // SAP
+  'SAP101': { inr: 3200000, usd: 27900, aed: 129900, gbp: 24900, eur: 29900 },
+  'SAP102': { inr: 4200000, usd: 36500, aed: 171900, gbp: 32900, eur: 38900 },
+  // GitHub & Version Control
+  'GIT101': { inr: 1800000, usd: 15900, aed: 73900, gbp: 13900, eur: 16900 },
+  'GIT102': { inr: 2200000, usd: 18900, aed: 89900, gbp: 16900, eur: 19900 },
+  // AI for Business
+  'AIBIZ101': { inr: 1800000, usd: 15900, aed: 73900, gbp: 13900, eur: 16900 },
+  'AIBIZ102': { inr: 1800000, usd: 15900, aed: 73900, gbp: 13900, eur: 16900 },
+  'AIBIZ103': { inr: 1800000, usd: 15900, aed: 73900, gbp: 13900, eur: 16900 },
   // Fallback for unrecognised courseIds
   default: { inr: 1120000, usd: 9900, aed: 41900, gbp: 8900, eur: 10900 },
 };
