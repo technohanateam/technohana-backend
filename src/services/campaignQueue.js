@@ -1,6 +1,6 @@
 import Bull from "bull";
 import Campaign from "../models/campaign.model.js";
-import { getSegmentedUsers } from "./segmentationEngine.js";
+import { getSegmentedUsers } from "../utils/segmentationEngine.js";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
