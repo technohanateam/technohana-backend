@@ -122,15 +122,18 @@ router.get("/enrollments", authenticateAdmin, async (req, res) => {
 // PATCH /admin/enrollments/:id/status
 router.patch("/enrollments/:id/status", authenticateAdmin, async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, rejectionReason } = req.body;
     const allowed = ["pending-payment", "in-progress", "enrolled", "rejected"];
     if (!allowed.includes(status)) {
       return res.status(400).json({ message: "Invalid status value." });
     }
 
+    const update = { status };
+    if (status === "rejected" && rejectionReason) update.rejectionReason = rejectionReason;
+
     const updated = await User.findByIdAndUpdate(
       req.params.id,
-      { status },
+      update,
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "Enrollment not found." });

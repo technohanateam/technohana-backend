@@ -57,6 +57,9 @@ const userSchema = new Schema({
     specialRequest: {
         type: String,
     },
+    rejectionReason: {
+        type: String,
+    },
     picture: {
         type: String
     },
