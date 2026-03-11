@@ -15,6 +15,7 @@ import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, res
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
 import { getAllSocialPosts, getSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, publishToBuffer, generateSocialCopy } from "../controllers/social-post.controller.js";
+import Campaign from "../models/campaign.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,6 +63,9 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       blogs,
       courses,
       courseViews,
+      abandonedEnrollments,
+      activeReferrers,
+      activeCampaigns,
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ status: "pending-payment" }),
@@ -74,6 +78,9 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       Blogs.countDocuments(),
       Course.countDocuments(),
       CourseView.countDocuments(),
+      User.countDocuments({ enrollmentFormAbandonedAt: { $ne: null }, enrollmentReminderSent: false }),
+      User.countDocuments({ referralCode: { $ne: null }, referralCount: { $gt: 0 } }),
+      Campaign.countDocuments({ status: { $ne: "deleted" }, isPaused: false }),
     ]);
 
     return res.json({
@@ -84,6 +91,9 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       blogs,
       courses,
       courseViews,
+      abandonedEnrollments,
+      activeReferrers,
+      activeCampaigns,
     });
   } catch (err) {
     console.error("Admin stats error:", err);
