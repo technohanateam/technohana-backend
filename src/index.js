@@ -15,7 +15,7 @@ import passport from "passport";
 import Stripe from "stripe";
 import Razorpay from "razorpay";
 import { sendEmail, fromAddresses } from "./config/emailService.js";
-import { generateEnrollmentDetailsForSales, generatePaymentSuccessEmail } from "./utils/emailTemplate.js";
+import { generateEnrollmentDetailsForSales, generatePaymentSuccessEmail, generateAbandonedCartEmail, generateDay3Email, generateDay7Email } from "./utils/emailTemplate.js";
 const stripe = new Stripe(process.env.STRIPE_SECRET);
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -42,6 +42,8 @@ import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
 import { handleResendWebhook } from "./services/resendWebhook.js";
 import { registerCampaignEventListeners, emitCampaignEvent } from "./services/campaignEventTrigger.js";
+import Enquiry from "./models/enquiry.model.js";
+import { authenticateAdmin } from "./middleware/authenticateAdmin.js";
 
 const app = express();
 
@@ -98,6 +100,7 @@ const PendingOrderSchema = new mongoose.Schema({
   razorpayPaymentId: { type: String },
   learner: { type: Object },
   courseInfo: { type: Object },
+  utm: { type: Object },
   createdAt: { type: Date, default: Date.now, expires: 86400 },
 });
 const PendingOrder = mongoose.model('PendingOrder', PendingOrderSchema);
@@ -362,7 +365,7 @@ app.post('/pricing/quote', async (req, res) => {
 
 app.post('/stripe/checkout', async (req, res) => {
   try {
-    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode } = req.body || {};
+    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode, utm } = req.body || {};
 
     if (!courseId || !enrollmentType) {
       return res.status(400).json({ error: 'Missing required fields: courseId, enrollmentType' });
@@ -444,6 +447,7 @@ app.post('/stripe/checkout', async (req, res) => {
         duration: courseInfo?.duration || '',
         time: courseInfo?.time || '',
       },
+      utm: utm && typeof utm === 'object' ? utm : undefined,
     });
 
     // Save lead to DB before redirecting — captures abandoned checkouts too
@@ -459,6 +463,7 @@ app.post('/stripe/checkout', async (req, res) => {
         currency: quote.currency?.toUpperCase(),
         orderId,
         status: 'pending-payment',
+        utm: utm && typeof utm === 'object' ? utm : undefined,
       });
     } catch (dbErr) {
       console.error('Failed to save pre-payment lead:', dbErr);
@@ -503,7 +508,7 @@ app.post('/stripe/checkout', async (req, res) => {
 // Razorpay - Create order
 app.post('/razorpay/checkout', async (req, res) => {
   try {
-    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode } = req.body || {};
+    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode, utm } = req.body || {};
 
     if (!courseId || !enrollmentType) {
       return res.status(400).json({ error: 'Missing required fields: courseId, enrollmentType' });
@@ -582,6 +587,7 @@ app.post('/razorpay/checkout', async (req, res) => {
         duration: courseInfo?.duration || '',
         time: courseInfo?.time || '',
       },
+      utm: utm && typeof utm === 'object' ? utm : undefined,
     });
 
     try {
@@ -596,6 +602,7 @@ app.post('/razorpay/checkout', async (req, res) => {
         currency: quote.currency?.toUpperCase(),
         orderId,
         status: 'pending-payment',
+        utm: utm && typeof utm === 'object' ? utm : undefined,
       });
     } catch (dbErr) {
       console.error('Failed to save pre-payment lead:', dbErr);
@@ -958,6 +965,84 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
   res.json({ received: true });
 });
 
+// ─── UTM Attribution Report ───────────────────────────────────────────────────
+
+app.get('/admin/utm-report', authenticateAdmin, async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const dateFilter = {};
+    if (from) dateFilter.$gte = new Date(from);
+    if (to) {
+      const end = new Date(to);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.$lte = end;
+    }
+
+    const enquiryMatch = { ...(from || to ? { createdAt: dateFilter } : {}) };
+    const enrollmentMatch = {
+      status: { $in: ['enrolled', 'in-progress', 'completed', 'pending-payment'] },
+      ...(from || to ? { createdAt: dateFilter } : {}),
+    };
+
+    const [enquiryRows, enrollmentRows] = await Promise.all([
+      Enquiry.aggregate([
+        { $match: { ...enquiryMatch, 'utm.utm_source': { $exists: true } } },
+        {
+          $group: {
+            _id: {
+              source: '$utm.utm_source',
+              medium: '$utm.utm_medium',
+              campaign: '$utm.utm_campaign',
+            },
+            enquiries: { $sum: 1 },
+          },
+        },
+        { $sort: { enquiries: -1 } },
+      ]),
+      User.aggregate([
+        { $match: enrollmentMatch },
+        {
+          $group: {
+            _id: {
+              source: { $ifNull: ['$utm.utm_source', '(direct)'] },
+              medium: { $ifNull: ['$utm.utm_medium', '(none)'] },
+              campaign: { $ifNull: ['$utm.utm_campaign', '(none)'] },
+            },
+            leads: { $sum: 1 },
+            enrolled: {
+              $sum: {
+                $cond: [{ $in: ['$status', ['enrolled', 'in-progress', 'completed']] }, 1, 0],
+              },
+            },
+          },
+        },
+        { $sort: { leads: -1 } },
+      ]),
+    ]);
+
+    // Merge enquiry and enrollment rows by source/medium/campaign key
+    const map = new Map();
+    for (const row of enrollmentRows) {
+      const key = `${row._id.source}|${row._id.medium}|${row._id.campaign}`;
+      map.set(key, { source: row._id.source, medium: row._id.medium, campaign: row._id.campaign, enquiries: 0, leads: row.leads, enrolled: row.enrolled });
+    }
+    for (const row of enquiryRows) {
+      const key = `${row._id.source}|${row._id.medium}|${row._id.campaign}`;
+      if (map.has(key)) {
+        map.get(key).enquiries = row.enquiries;
+      } else {
+        map.set(key, { source: row._id.source, medium: row._id.medium, campaign: row._id.campaign, enquiries: row.enquiries, leads: 0, enrolled: 0 });
+      }
+    }
+
+    const rows = Array.from(map.values()).sort((a, b) => (b.enquiries + b.leads) - (a.enquiries + a.leads));
+    res.json({ rows });
+  } catch (err) {
+    console.error('[UTM Report] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- ROUTES ---
 // We can now safely use our routes
 app.use('/', authRoutes);
@@ -980,6 +1065,101 @@ app.post("/webhooks/resend", handleResendWebhook);
 
 // Register campaign event listeners (enrollment, referral, payment, etc.)
 registerCampaignEventListeners();
+
+// ─── Automated Email Sequences ────────────────────────────────────────────────
+
+// Abandoned cart: check every 30 minutes, send re-engagement email after 2h
+const ABANDONED_CART_DELAY_MS = 2 * 60 * 60 * 1000;
+setInterval(async () => {
+  try {
+    const cutoff = new Date(Date.now() - ABANDONED_CART_DELAY_MS);
+    const users = await User.find({
+      enrollmentFormAbandonedAt: { $lte: cutoff },
+      enrollmentReminderSent: false,
+      enrollmentFormData: { $ne: null },
+    }).limit(50);
+
+    for (const user of users) {
+      try {
+        await sendEmail({
+          from: fromAddresses.sales,
+          to: user.email,
+          subject: "You left something behind — complete your enrollment",
+          html: generateAbandonedCartEmail({
+            name: user.name,
+            courseTitle: user.enrollmentFormData?.courseTitle,
+          }),
+        });
+        user.enrollmentReminderSent = true;
+        user.enrollmentReminderSentAt = new Date();
+        await user.save();
+      } catch (e) {
+        console.error(`[AutoEmail] Abandoned cart send failed for ${user.email}:`, e.message);
+      }
+    }
+    if (users.length > 0) console.log(`[AutoEmail] Sent ${users.length} abandoned cart emails`);
+  } catch (e) {
+    console.error('[AutoEmail] Abandoned cart check error:', e.message);
+  }
+}, 30 * 60 * 1000);
+
+// Post-enrollment Day 3 + Day 7 sequences: check every hour
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+setInterval(async () => {
+  try {
+    const now = Date.now();
+    const day3Cutoff = new Date(now - THREE_DAYS_MS);
+    const day7Cutoff = new Date(now - SEVEN_DAYS_MS);
+
+    // Day 3 emails
+    const day3Users = await User.find({
+      enrolledAt: { $lte: day3Cutoff },
+      day3EmailSent: false,
+    }).limit(50);
+
+    for (const user of day3Users) {
+      try {
+        await sendEmail({
+          from: fromAddresses.connect,
+          to: user.email,
+          subject: "3 days in — tips to get the most from your training",
+          html: generateDay3Email({ name: user.name, courseTitle: user.enrollmentFormData?.courseTitle }),
+        });
+        user.day3EmailSent = true;
+        await user.save();
+      } catch (e) {
+        console.error(`[AutoEmail] Day 3 send failed for ${user.email}:`, e.message);
+      }
+    }
+
+    // Day 7 emails
+    const day7Users = await User.find({
+      enrolledAt: { $lte: day7Cutoff },
+      day7EmailSent: false,
+    }).limit(50);
+
+    for (const user of day7Users) {
+      try {
+        await sendEmail({
+          from: fromAddresses.connect,
+          to: user.email,
+          subject: "One week in — you're doing great",
+          html: generateDay7Email({ name: user.name, courseTitle: user.enrollmentFormData?.courseTitle }),
+        });
+        user.day7EmailSent = true;
+        await user.save();
+      } catch (e) {
+        console.error(`[AutoEmail] Day 7 send failed for ${user.email}:`, e.message);
+      }
+    }
+
+    const total = day3Users.length + day7Users.length;
+    if (total > 0) console.log(`[AutoEmail] Post-enrollment: ${day3Users.length} day-3, ${day7Users.length} day-7 emails sent`);
+  } catch (e) {
+    console.error('[AutoEmail] Post-enrollment check error:', e.message);
+  }
+}, 60 * 60 * 1000);
 
 // ─── Server Startup ────────────────────────────────────────────────────────────
 

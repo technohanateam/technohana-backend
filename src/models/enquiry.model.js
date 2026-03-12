@@ -35,6 +35,7 @@ const enquirySchema = new mongoose.Schema({
   landingPage: { type: String },
   pipeline: { type: String },
   serviceLine: { type: String },
+  utm: { type: Object },
   createdAt: { type: Date, default: Date.now },
 });
 

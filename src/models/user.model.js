@@ -151,7 +151,16 @@ const userSchema = new Schema({
     enrollmentReminderSentAt: {
         type: Date,
         sparse: true
-    }
+    },
+    day3EmailSent: {
+        type: Boolean,
+        default: false
+    },
+    day7EmailSent: {
+        type: Boolean,
+        default: false
+    },
+    utm: { type: Object }
 })
 
 export const User = mongoose.model("User", userSchema);

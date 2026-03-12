@@ -1,5 +1,6 @@
 import { User } from "../models/user.model.js"
 import { sendEmail } from "../config/emailService.js"
+import { emitCampaignEvent, CAMPAIGN_EVENTS } from "../services/campaignEventTrigger.js"
 
 // Save enrollment form progress (called on every field change)
 export const saveEnrollmentFormProgress = async (req, res) => {
@@ -57,7 +58,15 @@ export const markFormAbandoned = async (req, res) => {
 
     await user.save()
 
-    // Optionally send reminder email (will be done by scheduled job or manual trigger)
+    // Emit event so campaign system can trigger automated follow-up sequences
+    try {
+      emitCampaignEvent(CAMPAIGN_EVENTS.ENROLLMENT_ABANDONED, {
+        email,
+        name: user.name,
+        courseTitle: user.enrollmentFormData?.courseTitle,
+      });
+    } catch (_) {}
+
     res.status(200).json({
       message: "Form marked as abandoned successfully"
     })

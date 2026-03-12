@@ -195,7 +195,8 @@ Write a single social media post (under ${limit} characters). Return ONLY the po
     const copy = response.data.content?.[0]?.text?.trim() || "";
     return res.json({ copy });
   } catch (err) {
-    console.error("AI copy generation error:", err?.response?.data || err.message);
-    return res.status(500).json({ message: "Failed to generate copy" });
+    const detail = err?.response?.data?.error?.message || err?.response?.data || err.message;
+    console.error("AI copy generation error:", detail);
+    return res.status(500).json({ message: "Failed to generate copy", detail });
   }
 };

@@ -482,3 +482,80 @@ export function generateEnrollmentDetailsForSales({ orderId, learner, courseInfo
 
   return emailShell({ label: 'Sales Notification', body });
 }
+
+// ─── ABANDONED CART RECOVERY (learner) ───────────────────────────────────────
+
+export function generateAbandonedCartEmail({ name, courseTitle, couponCode = 'LAUNCH10' }) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const courseLine = courseTitle
+    ? `<p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">You started enrolling in <strong style="color:#1e293b;">${courseTitle}</strong> but didn't complete your payment. Your spot is not confirmed yet.</p>`
+    : `<p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">You started an enrollment but didn't complete your payment. Your spot is not confirmed yet.</p>`;
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Still thinking it over${name ? `, ${name}` : ''}?</h2>
+    ${courseLine}
+    <div style="background:#fdf4ff;border:1px solid #e9d5ff;border-radius:10px;padding:20px 24px;text-align:center;margin-bottom:24px;">
+      <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#7c3aed;text-transform:uppercase;letter-spacing:1px;">Exclusive offer just for you</p>
+      <p style="margin:0 0 4px;font-size:28px;font-weight:800;color:#4c1d95;letter-spacing:0.05em;">${couponCode}</p>
+      <p style="margin:0;font-size:13px;color:#6d28d9;">Use this code at checkout for <strong>10% off</strong></p>
+    </div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:24px;">
+      ${dataRow('Live instructor-led training', '✓ Not pre-recorded videos', false)}
+      ${dataRow('Group discounts', 'Up to 35% off for teams of 10+', true)}
+      ${dataRow('Regional pricing', 'INR · AED · USD · GBP · EUR', false)}
+      ${dataRow('Career Shield', 'Job support + interview prep included', true)}
+    </table>
+    ${ctaButton('Complete My Enrollment →', `${frontendUrl}/courses`)}
+    <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;text-align:center;">Questions? Reply to this email or chat with us at <a href="${frontendUrl}" style="color:#7c3aed;text-decoration:none;">technohana.in</a></p>`;
+
+  return emailShell({ label: 'Enrollment Recovery', title: 'Technohana', body });
+}
+
+// ─── POST-ENROLLMENT DAY 3 — Getting Started Tips (learner) ──────────────────
+
+export function generateDay3Email({ name, courseTitle }) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">3 days in — how's it going${name ? `, ${name}` : ''}?</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
+      You've just started <strong style="color:#1e293b;">${courseTitle || 'your Technohana course'}</strong>. Here are a few things that help learners get the most out of live training:
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:24px;">
+      ${dataRow('1. Block time on your calendar', 'Treat each session like a meeting you can\'t skip. Consistency beats intensity.', false)}
+      ${dataRow('2. Take notes in your own words', 'Don\'t just copy slides — summarise concepts in your own language. It accelerates retention.', true)}
+      ${dataRow('3. Ask questions live', 'Your instructor is there in real time. No question is too basic — it helps everyone.', false)}
+      ${dataRow('4. Do the exercises the same day', 'Hands-on practice within 24h of each session doubles retention.', true)}
+      ${dataRow('5. Join the alumni community', 'Connect with your cohort. They\'re your network after graduation.', false)}
+    </table>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
+      If you need anything — reschedule, materials, or a question between sessions — just reply to this email.
+    </p>
+    ${ctaButton('Go to My Dashboard →', `${frontendUrl}/dashboard`)}`;
+
+  return emailShell({ label: 'Learning Tips', title: 'Technohana', body });
+}
+
+// ─── POST-ENROLLMENT DAY 7 — What's Next (learner) ───────────────────────────
+
+export function generateDay7Email({ name, courseTitle }) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">One week in — you're doing great${name ? `, ${name}` : ''}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
+      You're one week into <strong style="color:#1e293b;">${courseTitle || 'your course'}</strong>. This is typically when the most impactful learning happens — real concepts, real practice.
+    </p>
+    <div style="background:#f0fdf4;border:1px solid #6ee7b7;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:1px;">Thinking ahead?</p>
+      <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.6;">
+        Many of our learners complete one course and immediately enrol in a complementary track. Explore our full catalog — and remember, teams of 5+ save 25%, teams of 10+ save 35%.
+      </p>
+    </div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:24px;">
+      ${dataRow('Refer a colleague', 'Earn a discount on your next course for every successful referral.', false)}
+      ${dataRow('Bring your team', 'Group enrollment gets up to 35% off — share with your manager.', true)}
+      ${dataRow('Career Shield', 'Our career support programme is available to all learners post-completion.', false)}
+    </table>
+    ${ctaButton('Explore More Courses →', `${frontendUrl}/courses`)}`;
+
+  return emailShell({ label: 'Week 1 Update', title: 'Technohana', body });
+}
