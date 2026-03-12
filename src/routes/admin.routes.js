@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { User } from "../models/user.model.js";
 import Enquiry from "../models/enquiry.model.js";
+import Instructor from "../models/instructor.js";
 import AiRiskReport from "../models/aiRiskReport.model.js";
 import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
@@ -533,5 +534,33 @@ router.delete("/social-posts/:id", authenticateAdmin, deleteSocialPost);
 
 // POST /admin/social-posts/:id/publish - Send to Buffer
 router.post("/social-posts/:id/publish", authenticateAdmin, publishToBuffer);
+
+// ─── Instructors (Trainer Pool) ───────────────────────────────────────────────
+
+// GET /admin/instructors - List instructor applications
+router.get("/instructors", authenticateAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+    const data = await Instructor.find(filter).sort({ submittedAt: -1 }).lean();
+    return res.json({ data });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PATCH /admin/instructors/:id/status - Update instructor application status
+router.patch("/instructors/:id/status", authenticateAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!["pending", "shortlisted", "rejected"].includes(status))
+      return res.status(400).json({ message: "Invalid status." });
+    const updated = await Instructor.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!updated) return res.status(404).json({ message: "Instructor not found." });
+    return res.json({ data: updated });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
 
 export default router;
