@@ -30,7 +30,7 @@ const campaignSchema = new Schema({
   },
   fromEmail: {
     type: String,
-    default: "noreply@technohana.com",
+    default: "noreply@technohana.in",
   },
 
   // A/B Testing Variants

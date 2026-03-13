@@ -150,11 +150,11 @@ export const updateCampaign = async (req, res) => {
       });
     }
 
-    // Can only edit if in draft status
-    if (campaign.status !== "draft") {
+    // Can only edit if not already sent/running
+    if (!["draft", "scheduled"].includes(campaign.status)) {
       return res.status(400).json({
         success: false,
-        message: "Can only edit campaigns in draft status",
+        message: "Can only edit campaigns in draft or scheduled status",
       });
     }
 
@@ -201,7 +201,7 @@ export const deleteCampaign = async (req, res) => {
   }
 };
 
-// Send campaign immediately (via queue)
+// Send campaign immediately (direct send via Resend, no queue required)
 export const sendCampaignNow = async (req, res) => {
   try {
     const { id } = req.params;
@@ -221,9 +221,9 @@ export const sendCampaignNow = async (req, res) => {
       });
     }
 
-    // Verify segment has users
+    // Get all segmented users (no limit cap for actual send)
     const { users, total } = await getSegmentedUsers(campaign.segments, {
-      limit: 100,
+      limit: 50000,
     });
 
     if (total === 0) {
@@ -233,24 +233,70 @@ export const sendCampaignNow = async (req, res) => {
       });
     }
 
-    // Schedule via Bull queue (send immediately = delay 0)
-    const job = await scheduleCampaignJob(campaign._id.toString(), new Date());
-
-    campaign.status = "scheduled";
+    campaign.status = "running";
     campaign.sentAt = new Date();
+    campaign.metrics.totalSent = total;
     await campaign.save();
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    // Send in batches of 100
+    const batchSize = 100;
+    for (let i = 0; i < users.length; i += batchSize) {
+      const batch = users.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(async (user) => {
+          try {
+            await resend.emails.send({
+              from: `${campaign.fromName} <${campaign.fromEmail}>`,
+              to: user.email,
+              subject: campaign.subject,
+              html: campaign.htmlContent,
+              headers: {
+                "X-Campaign-ID": campaign._id.toString(),
+                "X-User-ID": user._id?.toString() || user.email,
+              },
+            });
+            campaign.recipientMetrics.push({
+              userId: user._id,
+              email: user.email,
+              status: "sent",
+              sentAt: new Date(),
+              variant: "default",
+            });
+            campaign.metrics.delivered++;
+            sentCount++;
+          } catch (sendError) {
+            console.error(`[Campaign] Failed to send to ${user.email}:`, sendError.message);
+            campaign.recipientMetrics.push({
+              email: user.email,
+              status: "failed",
+              sentAt: new Date(),
+            });
+            campaign.metrics.bounced++;
+            failedCount++;
+          }
+        })
+      );
+    }
+
+    campaign.status = "completed";
+    campaign.completedAt = new Date();
+    await campaign.save();
+
+    console.log(`[Campaign] "${campaign.name}" completed: ${sentCount} sent, ${failedCount} failed`);
 
     return res.json({
       success: true,
-      message: `Campaign queued for sending to ~${total} recipients`,
-      data: campaign,
-      jobId: job.id,
+      message: `Campaign sent: ${sentCount} delivered, ${failedCount} failed`,
+      data: { sentCount, failedCount, total },
     });
   } catch (error) {
     console.error("Error sending campaign:", error);
     return res.status(500).json({
       success: false,
-      message: "Error queuing campaign",
+      message: "Error sending campaign",
       error: error.message,
     });
   }

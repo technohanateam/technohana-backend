@@ -11,7 +11,7 @@ import { User } from "../models/user.model.js";
 export const getEnrolledUsers = async (options = {}) => {
   try {
     const query = {
-      status: { $in: ["enrolled", "learning"] },
+      status: { $in: ["enrolled", "in-progress"] },
       email: { $exists: true, $ne: null },
     };
 
@@ -41,7 +41,7 @@ export const getUsersByCourses = async (courseIds = [], options = {}) => {
 
     const query = {
       courseId: { $in: courseIds },
-      status: { $in: ["enrolled", "learning"] },
+      status: { $in: ["enrolled", "in-progress"] },
       email: { $exists: true, $ne: null },
     };
 
@@ -100,8 +100,8 @@ export const getInactiveUsers = async (daysInactive = 30, options = {}) => {
     cutoffDate.setDate(cutoffDate.getDate() - daysInactive);
 
     const query = {
-      status: { $in: ["enrolled", "learning"] },
-      lastLoginAt: { $lt: cutoffDate },
+      status: { $in: ["enrolled", "in-progress"] },
+      lastAccessedAt: { $lt: cutoffDate },
       email: { $exists: true, $ne: null },
     };
 
@@ -109,7 +109,7 @@ export const getInactiveUsers = async (daysInactive = 30, options = {}) => {
     const skip = options.skip || 0;
 
     const users = await User.find(query)
-      .select("email name lastLoginAt enrolledAt status")
+      .select("email name lastAccessedAt enrolledAt status")
       .limit(limit)
       .skip(skip)
       .lean();
