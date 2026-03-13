@@ -1,4 +1,5 @@
 import express from "express";
+import axios from "axios";
 import jwt from "jsonwebtoken";
 import fs from "fs";
 import path from "path";
@@ -253,7 +254,7 @@ router.get("/blogs", authenticateAdmin, async (req, res) => {
 // POST /admin/blogs
 router.post("/blogs", authenticateAdmin, async (req, res) => {
   try {
-    const { title, slug, img, author, date, content, category } = req.body;
+    const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin } = req.body;
     if (!title) return res.status(400).json({ message: "Title is required." });
 
     const lastBlog = await Blogs.findOne().sort({ id: -1 }).lean();
@@ -275,6 +276,12 @@ router.post("/blogs", authenticateAdmin, async (req, res) => {
       date: date || new Date().toISOString().split("T")[0],
       content: content || "",
       category: category || "",
+      excerpt: excerpt || "",
+      metaTitle: metaTitle || "",
+      metaDescription: metaDescription || "",
+      focusKeyword: focusKeyword || "",
+      tags: tags || [],
+      readTimeMin: readTimeMin || null,
     });
     await blog.save();
     return res.status(201).json({ data: blog });
@@ -287,10 +294,10 @@ router.post("/blogs", authenticateAdmin, async (req, res) => {
 // PUT /admin/blogs/:id
 router.put("/blogs/:id", authenticateAdmin, async (req, res) => {
   try {
-    const { title, slug, img, author, date, content, category } = req.body;
+    const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin } = req.body;
     const updated = await Blogs.findByIdAndUpdate(
       req.params.id,
-      { title, slug, img, author, date, content, category },
+      { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin },
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "Blog not found." });
@@ -310,6 +317,97 @@ router.delete("/blogs/:id", authenticateAdmin, async (req, res) => {
   } catch (err) {
     console.error("Admin delete blog error:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/blogs/seed-static — bulk import static blog posts, skip existing slugs
+router.post("/blogs/seed-static", authenticateAdmin, async (req, res) => {
+  try {
+    const posts = req.body;
+    if (!Array.isArray(posts) || posts.length === 0) {
+      return res.status(400).json({ message: "Expected array of blog posts." });
+    }
+    const existing = await Blogs.find({}, { slug: 1 }).lean();
+    const existingSlugs = new Set(existing.map((b) => b.slug));
+    const toInsert = posts
+      .filter((p) => p.slug && !existingSlugs.has(p.slug))
+      .map(({ id, _id, ...rest }) => rest); // strip static id fields
+    if (toInsert.length === 0) {
+      return res.json({ inserted: 0, skipped: posts.length, message: "All posts already exist in the database." });
+    }
+    await Blogs.insertMany(toInsert, { ordered: false });
+    return res.json({ inserted: toInsert.length, skipped: posts.length - toInsert.length });
+  } catch (err) {
+    console.error("Blog seed error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/blogs/generate-from-course — AI-generate a blog post for a course
+router.post("/blogs/generate-from-course", authenticateAdmin, async (req, res) => {
+  try {
+    const { courseId, courseTitle, category, description } = req.body;
+    if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return res.status(503).json({ message: "AI generation not configured. Add ANTHROPIC_API_KEY to .env" });
+
+    const prompt = `You are an SEO content writer for Technohana, an online tech training company based in India with global students.
+
+Write a complete, high-quality blog post for the following course:
+Course: ${courseTitle}
+Category: ${category || "Technology"}
+${description ? `Description: ${description}` : ""}
+
+Return ONLY a valid JSON object (no markdown, no code fences, no explanation) with these exact keys:
+- "title": compelling blog post title (NOT the course title; e.g. "Why Every Professional Should Learn [Topic]" or "The Complete Guide to [Topic] in 2025")
+- "slug": URL-friendly slug derived from the title
+- "excerpt": 2–3 sentence summary (aim for 140–160 characters)
+- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, a practical tips section, conclusion paragraph with a call-to-action to explore Technohana courses at https://technohana.in/courses. Naturally include 2 internal links: one using <a href="/courses/${courseId || "COURSE_ID"}">${courseTitle}</a> and one to <a href="/blog/">related Technohana blog posts</a>.
+- "metaTitle": SEO meta title, 50–60 characters, includes focus keyword
+- "metaDescription": SEO meta description, 140–160 characters, includes focus keyword and a benefit
+- "focusKeyword": primary target keyword phrase (2–4 words)
+- "tags": array of 4–6 relevant tag strings
+- "readTimeMin": estimated reading time in minutes (number)
+- "author": "Technohana Team"
+- "category": "${category || "Technology"}"
+
+Writing rules:
+- No emojis anywhere
+- Clean, professional prose — no hype words ("game-changing", "revolutionary")
+- Focus keyword must appear in title, first paragraph, and at least one <h2>
+- HTML must be valid and well-structured`;
+
+    const response = await axios.post(
+      "https://api.anthropic.com/v1/messages",
+      {
+        model: "claude-opus-4-6",
+        max_tokens: 8192,
+        messages: [{ role: "user", content: prompt }],
+      },
+      {
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const raw = response.data.content?.[0]?.text?.trim() || "";
+    let generated;
+    try {
+      generated = JSON.parse(raw);
+    } catch {
+      const match = raw.match(/\{[\s\S]*\}/);
+      generated = match ? JSON.parse(match[0]) : null;
+    }
+    if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw });
+    return res.json({ data: generated });
+  } catch (err) {
+    const detail = err?.response?.data?.error?.message || err.message;
+    console.error("Blog generation error:", detail);
+    return res.status(500).json({ message: "Failed to generate blog.", detail });
   }
 });
 
@@ -559,6 +657,50 @@ router.patch("/instructors/:id/status", authenticateAdmin, async (req, res) => {
     if (!updated) return res.status(404).json({ message: "Instructor not found." });
     return res.json({ data: updated });
   } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/enquiries/migrate-instructors
+// Moves all Enquiries with enquiryType "Become Instructor" into the Instructor collection.
+router.post("/enquiries/migrate-instructors", authenticateAdmin, async (req, res) => {
+  try {
+    const leads = await Enquiry.find({ enquiryType: "Become Instructor" }).lean();
+    if (leads.length === 0) return res.json({ migrated: 0, skipped: 0 });
+
+    const existingEmails = new Set(
+      (await Instructor.find({ email: { $in: leads.map((l) => l.email) } }, "email").lean()).map((i) => i.email)
+    );
+
+    const toCreate = [];
+    const toDeleteIds = [];
+
+    for (const lead of leads) {
+      if (existingEmails.has(lead.email)) continue;
+      toCreate.push({
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone || "",
+        expertise: lead.expertise || "",
+        experience: lead.experience || "",
+        linkedinUrl: lead.linkedinUrl || "",
+        coverLetter: lead.description || "",
+        resumeUrl: "",
+        resumePublicId: "",
+        status: "pending",
+        submittedAt: lead.createdAt || new Date(),
+      });
+      toDeleteIds.push(lead._id);
+    }
+
+    if (toCreate.length > 0) {
+      await Instructor.insertMany(toCreate);
+      await Enquiry.deleteMany({ _id: { $in: toDeleteIds } });
+    }
+
+    return res.json({ migrated: toCreate.length, skipped: leads.length - toCreate.length });
+  } catch (err) {
+    console.error("Migrate instructors error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });

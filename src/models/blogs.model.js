@@ -24,6 +24,25 @@ const blogSchema = new mongoose.Schema({
     },
     category :{
         type : String
+    },
+    excerpt: {
+        type: String
+    },
+    metaTitle: {
+        type: String
+    },
+    metaDescription: {
+        type: String
+    },
+    focusKeyword: {
+        type: String
+    },
+    tags: {
+        type: [String],
+        default: []
+    },
+    readTimeMin: {
+        type: Number
     }
 })
 
