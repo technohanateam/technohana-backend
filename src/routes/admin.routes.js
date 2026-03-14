@@ -411,6 +411,103 @@ Writing rules:
   }
 });
 
+// POST /admin/blogs/rewrite — AI-rewrite and improve an existing blog post
+router.post("/blogs/rewrite", authenticateAdmin, async (req, res) => {
+  try {
+    const { title, content, excerpt, category, focusKeyword, author } = req.body;
+    if (!title || !content) return res.status(400).json({ message: "title and content are required." });
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return res.status(503).json({ message: "AI rewrite not configured. Add ANTHROPIC_API_KEY to .env" });
+
+    const prompt = `You are an SEO content editor for Technohana, an online tech training company based in India with global students.
+
+Rewrite and significantly improve the following existing blog post. Keep the same topic and core message but make it substantially better.
+
+Current post:
+Title: ${title}
+Category: ${category || "Technology"}
+Focus keyword: ${focusKeyword || ""}
+Excerpt: ${excerpt || ""}
+Content:
+${content}
+
+Improvements required:
+- Deepen the content with specific data, statistics, real examples, and step-by-step guidance
+- Improve SEO: place focus keyword naturally in title, first paragraph, and at least one <h2>
+- Sharpen readability: shorter paragraphs, clear prose, no hype words ("game-changing", "revolutionary")
+- Structure: intro paragraph, 4–5 sections with <h2> headings, conclusion with CTA to https://technohana.in/courses
+- Include 2 internal links: one to <a href="/courses/">Technohana courses</a> and one to <a href="/blog/">related blog posts</a>
+- Minimum 700 words, valid semantic HTML
+
+Return ONLY a valid JSON object (no markdown, no code fences, no explanation) with these exact keys:
+- "title": improved blog post title
+- "slug": URL-friendly slug derived from the title
+- "excerpt": 2–3 sentence summary (aim for 140–160 characters)
+- "content": full rewritten blog post in clean HTML using <h2>, <p>, <ul>, <li> tags
+- "metaTitle": SEO meta title, 50–60 characters, includes focus keyword
+- "metaDescription": SEO meta description, 140–160 characters, includes focus keyword and a benefit
+- "focusKeyword": primary target keyword phrase (2–4 words)
+- "tags": array of 4–6 relevant tag strings
+- "readTimeMin": estimated reading time in minutes (number)
+- "author": "${author || "Technohana Team"}"
+- "category": "${category || "Technology"}"
+
+Writing rules:
+- No emojis anywhere
+- Clean, professional prose
+- HTML must be valid and well-structured`;
+
+    const response = await axios.post(
+      "https://api.anthropic.com/v1/messages",
+      {
+        model: "claude-opus-4-6",
+        max_tokens: 8192,
+        messages: [{ role: "user", content: prompt }],
+      },
+      {
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const raw = response.data.content?.[0]?.text?.trim() || "";
+    let generated;
+    try {
+      generated = JSON.parse(raw);
+    } catch {
+      const match = raw.match(/\{[\s\S]*\}/);
+      generated = match ? JSON.parse(match[0]) : null;
+    }
+    if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw });
+    return res.json({ data: generated });
+  } catch (err) {
+    const detail = err?.response?.data?.error?.message || err.message;
+    console.error("Blog rewrite error:", detail);
+    return res.status(500).json({ message: "Failed to rewrite blog.", detail });
+  }
+});
+
+// POST /admin/blogs/cleanup-2026 — remove stale posts + update data science title
+router.post("/blogs/cleanup-2026", authenticateAdmin, async (req, res) => {
+  const slugsToRemove = [
+    "how-entrepreneurs-can-use-chatgpt-as-their-business-coach",
+    "microsofts-3-billion-ai-investment-a-game-changer-for-india",
+    "bridging-the-ai-skills-gap-how-indias-workforce-is-evolving-to-lead-the-ai-revolution",
+    "real-world-applications-of-ai-driving-business-impact",
+    "top-5-microsoft-ai-certifications-to-boost-your-career-in-2025",
+  ];
+  const deleted = await Blog.deleteMany({ slug: { $in: slugsToRemove } });
+  const updated = await Blog.updateOne(
+    { slug: "how-to-build-a-career-in-data-science-in-india-2025-roadmap" },
+    { $set: { title: "How to Build a Career in Data Science in India: 2026 Roadmap" } }
+  );
+  return res.json({ deleted: deleted.deletedCount, updated: updated.modifiedCount });
+});
+
 // ─── Courses ──────────────────────────────────────────────────────────────────
 
 // GET /admin/courses?category=&search=&page=1&limit=20
