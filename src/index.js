@@ -343,6 +343,41 @@ const couponLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHea
 // Use the new database-backed coupon validation from controller
 app.post('/api/coupons/validate', couponLimiter, validateCoupon);
 
+// Public: return the best active global coupon (no auth required)
+app.get('/api/coupons/public', async (req, res) => {
+  try {
+    const now = new Date();
+    const candidates = await Coupon.find({
+      isActive: true,
+      $and: [
+        { $or: [{ expiryDate: null }, { expiryDate: { $gt: now } }] },
+        { $or: [{ validCurrencies: null }, { validCurrencies: { $size: 0 } }] },
+      ],
+    }).sort({ discountPercent: -1 }).limit(10).lean();
+
+    const coupon = candidates.find(c =>
+      c.maxUsageCount == null || c.currentUsageCount < c.maxUsageCount
+    );
+
+    if (!coupon) return res.json({ coupon: null });
+    return res.json({
+      coupon: {
+        code: coupon.code,
+        discountPercent: coupon.discountPercent,
+        description: coupon.description || "",
+        expiryDate: coupon.expiryDate,
+        isActive: coupon.isActive,
+        currentUsageCount: coupon.currentUsageCount,
+        maxUsageCount: coupon.maxUsageCount,
+        createdAt: coupon.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error("Public coupon fetch error:", err);
+    return res.status(500).json({ coupon: null });
+  }
+});
+
 app.post('/pricing/quote', async (req, res) => {
   try {
     const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, referralCode } = req.body || {};
