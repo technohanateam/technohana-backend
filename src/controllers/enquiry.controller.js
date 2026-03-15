@@ -60,7 +60,7 @@ export const createEnquiry = async (req, res) => {
 
 export const contactUs = async (req, res) => {
   try {
-    const { name, email, subject, message } = req.body;
+    const { name, email, phone, subject, message } = req.body;
 
     if (!name || !email || !subject || !message) {
       return res.status(400).json({ message: "All fields are required" });
