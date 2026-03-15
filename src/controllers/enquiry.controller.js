@@ -5,9 +5,16 @@ import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContact
 
 export const createEnquiry = async (req, res) => {
   try {
-    const { name, email, courseTitle, enquiryType, selectedPackage, timeline } = req.body;
+    const body = { ...req.body };
+    if (body.message   && !body.description)  body.description  = body.message;
+    if (body.type      && !body.enquiryType)   body.enquiryType  = body.type;
+    if (body.organization && !body.company)    body.company      = body.organization;
+    if (body.courseInterest && !body.courseTitle) body.courseTitle = body.courseInterest;
+    delete body.message; delete body.type; delete body.organization; delete body.courseInterest;
 
-    const enquiry = new Enquiry(req.body);
+    const { name, email, courseTitle, enquiryType, selectedPackage, timeline } = body;
+
+    const enquiry = new Enquiry(body);
     await enquiry.save();
 
     let subject;
@@ -59,7 +66,7 @@ export const contactUs = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const enquiry = new Enquiry({ name, email, enquiryType: "Contact Us", courseTitle: subject, description: message });
+    const enquiry = new Enquiry({ name, email, phone, enquiryType: "Contact Us", courseTitle: subject, description: message });
     await enquiry.save();
 
     await sendEmail({
@@ -77,7 +84,7 @@ export const contactUs = async (req, res) => {
 };
 
 export const handleAIRiskReportRequest = async (req, res) => {
-  const { name, email, phone, source, score, band, explanation, answers } = req.body;
+  const { name, email, phone, jobRole, experience, industry, source, score, band, explanation, answers } = req.body;
 
   // Validate required fields (use != null to safely handle score = 0)
   if (!name || !email || !source || score == null || !band || !explanation || !answers) {
@@ -86,7 +93,7 @@ export const handleAIRiskReportRequest = async (req, res) => {
 
   try {
     // 1. Persist to DB first — lead is safe even if emails fail
-    const report = new AiRiskReport({ name, email, phone: phone || "", source, score, band, explanation, answers });
+    const report = new AiRiskReport({ name, email, phone: phone || "", jobRole: jobRole || "", experience: experience || "", industry: industry || "", source, score, band, explanation, answers });
     await report.save();
 
     // 2. Build email content
