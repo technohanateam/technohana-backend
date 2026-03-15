@@ -8,11 +8,12 @@ import { User } from "../models/user.model.js";
 import Enquiry from "../models/enquiry.model.js";
 import Instructor from "../models/instructor.js";
 import AiRiskReport from "../models/aiRiskReport.model.js";
+import Testimonial from "../models/testimonial.model.js";
 import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
-import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
+import { authenticateAdmin, requireAdmin } from "../middleware/authenticateAdmin.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
@@ -32,15 +33,19 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ message: "Email and password are required." });
   }
 
-  if (
-    email !== process.env.ADMIN_EMAIL ||
-    password !== process.env.ADMIN_PASSWORD
-  ) {
+  let role = null;
+  if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
+    role = "admin";
+  } else if (process.env.SALES_EMAIL && email === process.env.SALES_EMAIL && password === process.env.SALES_PASSWORD) {
+    role = "sales";
+  }
+
+  if (!role) {
     return res.status(401).json({ message: "Invalid credentials." });
   }
 
   const token = jwt.sign(
-    { email, role: "admin" },
+    { email, role },
     process.env.ADMIN_JWT_SECRET,
     { expiresIn: "8h" }
   );
@@ -132,7 +137,7 @@ router.get("/enrollments", authenticateAdmin, async (req, res) => {
 });
 
 // PATCH /admin/enrollments/:id/status
-router.patch("/enrollments/:id/status", authenticateAdmin, async (req, res) => {
+router.patch("/enrollments/:id/status", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const { status, rejectionReason } = req.body;
     const allowed = ["pending-payment", "in-progress", "enrolled", "rejected"];
@@ -158,7 +163,7 @@ router.patch("/enrollments/:id/status", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/enrollments/:id
-router.delete("/enrollments/:id", authenticateAdmin, async (req, res) => {
+router.delete("/enrollments/:id", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const deleted = await User.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Enrollment not found." });
@@ -186,7 +191,7 @@ router.get("/enquiries", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/enquiries/clear
-router.delete("/enquiries/clear", authenticateAdmin, async (req, res) => {
+router.delete("/enquiries/clear", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const result = await Enquiry.deleteMany({});
     return res.json({ message: "Cleared all enquiries", deleted: result.deletedCount });
@@ -197,13 +202,72 @@ router.delete("/enquiries/clear", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/enquiries/:id
-router.delete("/enquiries/:id", authenticateAdmin, async (req, res) => {
+router.delete("/enquiries/:id", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const deleted = await Enquiry.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Enquiry not found." });
     return res.json({ message: "Enquiry deleted." });
   } catch (err) {
     console.error("Admin delete enquiry error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PATCH /admin/enquiries/:id — update status, notes, assignedTo
+router.patch("/enquiries/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const { status, notes, assignedTo } = req.body;
+    const allowed = {};
+    if (status !== undefined) allowed.status = status;
+    if (notes !== undefined) allowed.notes = notes;
+    if (assignedTo !== undefined) allowed.assignedTo = assignedTo;
+    const updated = await Enquiry.findByIdAndUpdate(req.params.id, allowed, { new: true });
+    if (!updated) return res.status(404).json({ message: "Enquiry not found." });
+    return res.json(updated);
+  } catch (err) {
+    console.error("Admin patch enquiry error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/testimonials?page=1&limit=20&status=pending
+router.get("/testimonials", authenticateAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const filter = status && status !== "all" ? { status } : {};
+    const skip = (Number(page) - 1) * Number(limit);
+    const [data, total] = await Promise.all([
+      Testimonial.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
+      Testimonial.countDocuments(filter),
+    ]);
+    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    console.error("Admin testimonials error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PATCH /admin/testimonials/:id — update status (approved/rejected/pending)
+router.patch("/testimonials/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const updated = await Testimonial.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!updated) return res.status(404).json({ message: "Testimonial not found." });
+    return res.json(updated);
+  } catch (err) {
+    console.error("Admin patch testimonial error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// DELETE /admin/testimonials/:id
+router.delete("/testimonials/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const deleted = await Testimonial.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Testimonial not found." });
+    return res.json({ message: "Testimonial deleted." });
+  } catch (err) {
+    console.error("Admin delete testimonial error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });
@@ -252,7 +316,7 @@ router.get("/blogs", authenticateAdmin, async (req, res) => {
 });
 
 // POST /admin/blogs
-router.post("/blogs", authenticateAdmin, async (req, res) => {
+router.post("/blogs", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin } = req.body;
     if (!title) return res.status(400).json({ message: "Title is required." });
@@ -309,7 +373,7 @@ router.put("/blogs/:id", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/blogs/:id
-router.delete("/blogs/:id", authenticateAdmin, async (req, res) => {
+router.delete("/blogs/:id", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const deleted = await Blogs.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Blog not found." });
@@ -321,7 +385,7 @@ router.delete("/blogs/:id", authenticateAdmin, async (req, res) => {
 });
 
 // POST /admin/blogs/seed-static — bulk import static blog posts, skip existing slugs
-router.post("/blogs/seed-static", authenticateAdmin, async (req, res) => {
+router.post("/blogs/seed-static", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const posts = req.body;
     if (!Array.isArray(posts) || posts.length === 0) {
@@ -344,7 +408,7 @@ router.post("/blogs/seed-static", authenticateAdmin, async (req, res) => {
 });
 
 // POST /admin/blogs/generate-from-course — AI-generate a blog post for a course
-router.post("/blogs/generate-from-course", authenticateAdmin, async (req, res) => {
+router.post("/blogs/generate-from-course", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const { courseId, courseTitle, category, description } = req.body;
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
@@ -412,7 +476,7 @@ Writing rules:
 });
 
 // POST /admin/blogs/rewrite — AI-rewrite and improve an existing blog post
-router.post("/blogs/rewrite", authenticateAdmin, async (req, res) => {
+router.post("/blogs/rewrite", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const { title, content, excerpt, category, focusKeyword, author } = req.body;
     if (!title || !content) return res.status(400).json({ message: "title and content are required." });
@@ -492,7 +556,7 @@ Writing rules:
 });
 
 // POST /admin/blogs/cleanup-2026 — remove stale posts + update data science title
-router.post("/blogs/cleanup-2026", authenticateAdmin, async (req, res) => {
+router.post("/blogs/cleanup-2026", authenticateAdmin, requireAdmin, async (req, res) => {
   const slugsToRemove = [
     "how-entrepreneurs-can-use-chatgpt-as-their-business-coach",
     "microsofts-3-billion-ai-investment-a-game-changer-for-india",
@@ -536,7 +600,7 @@ router.get("/courses", authenticateAdmin, async (req, res) => {
 });
 
 // POST /admin/courses
-router.post("/courses", authenticateAdmin, async (req, res) => {
+router.post("/courses", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const { courseTitle, id } = req.body;
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
@@ -563,7 +627,7 @@ router.put("/courses/:id", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/courses/:id
-router.delete("/courses/:id", authenticateAdmin, async (req, res) => {
+router.delete("/courses/:id", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const deleted = await Course.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Course not found." });
@@ -575,7 +639,7 @@ router.delete("/courses/:id", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/courses/clear — clear all courses
-router.delete("/courses/clear", authenticateAdmin, async (req, res) => {
+router.delete("/courses/clear", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const result = await Course.deleteMany({});
     return res.json({ message: "Cleared all courses", deleted: result.deletedCount });
@@ -586,7 +650,7 @@ router.delete("/courses/clear", authenticateAdmin, async (req, res) => {
 });
 
 // POST /admin/courses/seed — import from src/data/courses.json (can reseed if force=true)
-router.post("/courses/seed", authenticateAdmin, async (req, res) => {
+router.post("/courses/seed", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const { force } = req.body;
     const existing = await Course.countDocuments();
@@ -641,19 +705,19 @@ router.get("/coupons", authenticateAdmin, getAllCoupons);
 router.get("/coupons/stats", authenticateAdmin, getCouponStats);
 
 // POST /admin/coupons
-router.post("/coupons", authenticateAdmin, createCoupon);
+router.post("/coupons", authenticateAdmin, requireAdmin, createCoupon);
 
 // GET /admin/coupons/:id
 router.get("/coupons/:id", authenticateAdmin, getCoupon);
 
 // PUT /admin/coupons/:id
-router.put("/coupons/:id", authenticateAdmin, updateCoupon);
+router.put("/coupons/:id", authenticateAdmin, requireAdmin, updateCoupon);
 
 // DELETE /admin/coupons/:id
-router.delete("/coupons/:id", authenticateAdmin, deleteCoupon);
+router.delete("/coupons/:id", authenticateAdmin, requireAdmin, deleteCoupon);
 
 // POST /admin/coupons/:id/reset-usage
-router.post("/coupons/:id/reset-usage", authenticateAdmin, resetCouponUsage);
+router.post("/coupons/:id/reset-usage", authenticateAdmin, requireAdmin, resetCouponUsage);
 
 // ─── Referrals ───────────────────────────────────────────────────────────────
 
@@ -675,28 +739,28 @@ router.get("/referrals/:userId", authenticateAdmin, getReferrerDetails);
 router.get("/campaigns", authenticateAdmin, getAllCampaigns);
 
 // POST /admin/campaigns - Create new campaign
-router.post("/campaigns", authenticateAdmin, createCampaign);
+router.post("/campaigns", authenticateAdmin, requireAdmin, createCampaign);
 
 // GET /admin/campaigns/:id - Get single campaign
 router.get("/campaigns/:id", authenticateAdmin, getCampaign);
 
 // PUT /admin/campaigns/:id - Update campaign
-router.put("/campaigns/:id", authenticateAdmin, updateCampaign);
+router.put("/campaigns/:id", authenticateAdmin, requireAdmin, updateCampaign);
 
 // DELETE /admin/campaigns/:id - Delete campaign
-router.delete("/campaigns/:id", authenticateAdmin, deleteCampaign);
+router.delete("/campaigns/:id", authenticateAdmin, requireAdmin, deleteCampaign);
 
 // POST /admin/campaigns/:id/send - Send campaign immediately
-router.post("/campaigns/:id/send", authenticateAdmin, sendCampaignNow);
+router.post("/campaigns/:id/send", authenticateAdmin, requireAdmin, sendCampaignNow);
 
 // POST /admin/campaigns/:id/schedule - Schedule campaign for later
-router.post("/campaigns/:id/schedule", authenticateAdmin, scheduleCampaign);
+router.post("/campaigns/:id/schedule", authenticateAdmin, requireAdmin, scheduleCampaign);
 
 // POST /admin/campaigns/:id/pause - Pause running campaign
-router.post("/campaigns/:id/pause", authenticateAdmin, pauseCampaign);
+router.post("/campaigns/:id/pause", authenticateAdmin, requireAdmin, pauseCampaign);
 
 // POST /admin/campaigns/:id/resume - Resume paused campaign
-router.post("/campaigns/:id/resume", authenticateAdmin, resumeCampaign);
+router.post("/campaigns/:id/resume", authenticateAdmin, requireAdmin, resumeCampaign);
 
 // GET /admin/campaigns/:id/analytics - Get campaign metrics
 router.get("/campaigns/:id/analytics", authenticateAdmin, getCampaignAnalytics);
@@ -710,25 +774,25 @@ router.get("/campaigns/queue/stats", authenticateAdmin, getCampaignQueueStats);
 // ─── Social Media Posts ────────────────────────────────────────────────────────
 
 // POST /admin/social-posts/generate-copy - AI copy generation (before :id routes)
-router.post("/social-posts/generate-copy", authenticateAdmin, generateSocialCopy);
+router.post("/social-posts/generate-copy", authenticateAdmin, requireAdmin, generateSocialCopy);
 
 // GET /admin/social-posts
 router.get("/social-posts", authenticateAdmin, getAllSocialPosts);
 
 // POST /admin/social-posts
-router.post("/social-posts", authenticateAdmin, createSocialPost);
+router.post("/social-posts", authenticateAdmin, requireAdmin, createSocialPost);
 
 // GET /admin/social-posts/:id
 router.get("/social-posts/:id", authenticateAdmin, getSocialPost);
 
 // PUT /admin/social-posts/:id
-router.put("/social-posts/:id", authenticateAdmin, updateSocialPost);
+router.put("/social-posts/:id", authenticateAdmin, requireAdmin, updateSocialPost);
 
 // DELETE /admin/social-posts/:id
-router.delete("/social-posts/:id", authenticateAdmin, deleteSocialPost);
+router.delete("/social-posts/:id", authenticateAdmin, requireAdmin, deleteSocialPost);
 
 // POST /admin/social-posts/:id/publish - Send to Buffer
-router.post("/social-posts/:id/publish", authenticateAdmin, publishToBuffer);
+router.post("/social-posts/:id/publish", authenticateAdmin, requireAdmin, publishToBuffer);
 
 // ─── Instructors (Trainer Pool) ───────────────────────────────────────────────
 

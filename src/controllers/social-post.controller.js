@@ -140,7 +140,7 @@ export const publishToBuffer = async (req, res) => {
 // Uses Anthropic API to generate platform-optimized post copy
 export const generateSocialCopy = async (req, res) => {
   try {
-    const { courseTitle, courseDescription, platform, style } = req.body;
+    const { courseTitle, courseDescription, courseId, platform, style } = req.body;
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -148,20 +148,24 @@ export const generateSocialCopy = async (req, res) => {
       return res.status(503).json({ message: "AI generation not configured. Add ANTHROPIC_API_KEY to .env" });
     }
 
+    const courseUrl = courseId
+      ? `https://technohana.in/courses/${courseId}`
+      : "https://technohana.in/courses";
+
     const charLimits = { linkedin: 3000, instagram: 2200, facebook: 63000, x: 280 };
     const limit = charLimits[platform] || 500;
 
     const styleGuides = {
-      promotional: "Write a promotional post with a strong CTA (e.g., 'Enroll now', 'Limited seats'). Include a discount mention if relevant.",
+      promotional: "Write a promotional post with a strong CTA (e.g., 'Enroll now', 'Limited seats'). Mention group discounts up to 35% off if relevant.",
       educational: "Share a key insight or learning outcome from the course. Be informative and valuable, not salesy.",
       engagement: "Ask a thought-provoking question to spark discussion. Be conversational and relatable.",
     };
 
     const platformGuides = {
-      linkedin: "Professional tone. Use relevant industry hashtags (3-5). Paragraph breaks for readability.",
-      instagram: "Casual, energetic tone. Use 10-15 hashtags. Use relevant emojis. Story-driven hook in first line.",
-      facebook: "Friendly, community-focused tone. Keep it concise. One clear CTA.",
-      x: `Ultra-concise (max ${limit} chars). Punchy hook. 1-2 relevant hashtags.`,
+      linkedin: `Professional, authoritative tone. Open with a compelling hook (bold statement or question). Use short paragraphs (2-3 lines max). Include 3-5 relevant industry hashtags at the end. End with a clear CTA and the course link: ${courseUrl}`,
+      instagram: `Energetic, benefit-focused tone. Start with a strong single-line hook. Follow with 2-3 short lines on key benefits. Use 10-15 relevant hashtags at the end. End caption with the course link: ${courseUrl}`,
+      facebook: `Conversational, friendly tone. Use a problem-to-solution format. Keep it under 150 words. One clear CTA. Include the course link: ${courseUrl}`,
+      x: `Ultra-concise (max ${limit} chars). Punchy one-line hook. 1-2 hashtags. Include link: ${courseUrl}`,
     };
 
     const prompt = `You are a social media copywriter for Technohana, an online tech training platform.
@@ -174,12 +178,18 @@ Style: ${style || "promotional"}
 Style guide: ${styleGuides[style] || styleGuides.promotional}
 Platform guide: ${platformGuides[platform] || platformGuides.linkedin}
 
+Rules:
+- Do NOT use emojis, emoji symbols, or decorative checkmarks (e.g. ✅, 🎓, 🚀, ✔️)
+- Do NOT use bullet points with dashes or asterisks unless it is a LinkedIn post
+- Write plain, confident, human copy — no hype words like "game-changing" or "revolutionary"
+- Always include the course link naturally within the post
+
 Write a single social media post (under ${limit} characters). Return ONLY the post text, no explanations.`;
 
     const response = await axios.post(
       "https://api.anthropic.com/v1/messages",
       {
-        model: "claude-haiku-4-5-20251001",
+        model: "claude-opus-4-6",
         max_tokens: 500,
         messages: [{ role: "user", content: prompt }],
       },

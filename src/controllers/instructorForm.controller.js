@@ -32,36 +32,52 @@ const sendEmail = async(to,subject,html,attachment = null)=>{
 
 export const InstructorForm = async(req,res)=>{
     try {
-        const {name,email,coverLetter} = req.body;
+        const {name,email,coverLetter,phone,expertise,experience,linkedinUrl,dailyRate,availability,deliveryMode,certifications} = req.body;
         const file = req.file;
 
-        if(!name || !email || !file){
+        if(!name || !email){
             return res.status(400).json({
                 success : false,
-                message : "All fields are required"
+                message : "Name and email are required"
             })
         }
-        let uploadResult;
-        try {
-            uploadResult = await cloudinary.uploader.upload(file.path,{
-                folder : "technohana/instructor-resumes",
-                resource_type : "raw"
-            })
-        } catch (error) {
-            console.log("Error in uploading resume",error);
-            return res.status(500).json({
-                success : false,
-                message : "Error in uploading resume",
-                error : error.message
-            })
+
+        let resumeUrl = "";
+        let resumePublicId = "";
+
+        if (file) {
+            let uploadResult;
+            try {
+                uploadResult = await cloudinary.uploader.upload(file.path,{
+                    folder : "technohana/instructor-resumes",
+                    resource_type : "raw"
+                })
+                resumeUrl = uploadResult.secure_url;
+                resumePublicId = uploadResult.public_id;
+            } catch (error) {
+                console.log("Error in uploading resume",error);
+                return res.status(500).json({
+                    success : false,
+                    message : "Error in uploading resume",
+                    error : error.message
+                })
+            }
         }
 
         const instructor = new Instructor({
             name,
             email,
+            phone,
+            expertise,
+            experience,
+            linkedinUrl,
+            dailyRate,
+            availability,
+            deliveryMode,
+            certifications,
             coverLetter,
-            resumeUrl : uploadResult.secure_url,
-            resumePublicId : uploadResult.public_id
+            resumeUrl,
+            resumePublicId
         })
 
         await instructor.save();
@@ -70,12 +86,32 @@ export const InstructorForm = async(req,res)=>{
         await sendEmail(email,"Your application has been received.",generateResumeAcknowledgementEmail({name}))
         console.log("confirmation email sent to ",email);
 
-        // Send application with resume attachment to careers team
-        const resumeAttachment = {
+        // Send application with optional resume attachment to careers team
+        const resumeAttachment = file ? {
             filename: `${name}_resume.pdf`,
             content: fs.readFileSync(file.path).toString('base64'),
             contentType: 'application/pdf'
-        };
+        } : null;
+
+        const rows = [
+            ["Name", name],
+            ["Email", `<a href="mailto:${email}" style="color:#27A8F5;text-decoration:none;">${email}</a>`],
+            ["Phone", phone],
+            ["Expertise", expertise],
+            ["Experience", experience],
+            ["Daily Rate", dailyRate],
+            ["Availability", availability],
+            ["Delivery Mode", deliveryMode],
+            ["LinkedIn", linkedinUrl ? `<a href="${linkedinUrl}" style="color:#27A8F5;text-decoration:none;">${linkedinUrl}</a>` : null],
+            ["Resume", file ? `Attached · <a href="${resumeUrl}" style="color:#27A8F5;text-decoration:none;">Cloudinary link</a>` : "Not provided"],
+        ].filter(([, v]) => v);
+
+        const rowsHtml = rows.map(([label, val], i) =>
+            `<tr>
+              <td style="padding:10px 12px;background:${i % 2 === 0 ? '#ffffff' : '#f0f7ff'};border-bottom:1px solid #e2e8f0;width:40%;font-size:13px;font-weight:600;color:#475569;">${label}</td>
+              <td style="padding:10px 12px;background:${i % 2 === 0 ? '#ffffff' : '#f0f7ff'};border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${val}</td>
+            </tr>`
+        ).join('');
 
         const careersEmailContent = `<!DOCTYPE html>
 <html>
@@ -96,24 +132,17 @@ export const InstructorForm = async(req,res)=>{
           </tr>
           <tr>
             <td style="padding:32px;">
-              <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">New Instructor Application</h2>
-              <p style="margin:0 0 20px;font-size:14px;color:#64748b;">A new instructor application has been submitted. Resume is attached.</p>
+              <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">New Freelance Instructor Application</h2>
+              <p style="margin:0 0 20px;font-size:14px;color:#64748b;">A new instructor application has been submitted.</p>
               <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:20px;">
-                <tr>
-                  <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;width:40%;font-size:13px;font-weight:600;color:#475569;">Name</td>
-                  <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${name}</td>
-                </tr>
-                <tr>
-                  <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:600;color:#475569;">Email</td>
-                  <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;"><a href="mailto:${email}" style="color:#27A8F5;text-decoration:none;">${email}</a></td>
-                </tr>
-                <tr>
-                  <td style="padding:10px 12px;background:#ffffff;font-size:13px;font-weight:600;color:#475569;">Resume</td>
-                  <td style="padding:10px 12px;background:#ffffff;font-size:13px;color:#1e293b;">Attached to this email</td>
-                </tr>
+                ${rowsHtml}
               </table>
+              ${certifications ? `<div style="background:#f8fafc;border-left:4px solid #8b5cf6;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:16px;">
+                <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Certifications</p>
+                <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.7;">${certifications}</p>
+              </div>` : ''}
               ${coverLetter ? `<div style="background:#f8fafc;border-left:4px solid #27A8F5;border-radius:0 8px 8px 0;padding:16px 20px;">
-                <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Cover Letter</p>
+                <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Cover Letter / Background</p>
                 <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.7;">${coverLetter}</p>
               </div>` : ''}
             </td>
@@ -135,14 +164,15 @@ export const InstructorForm = async(req,res)=>{
             console.log("application email sent to careers team");
         } catch (emailError) {
             console.error("Failed to send application email to careers team:", emailError);
-            // Continue with the process even if email fails
         }
 
         // Delete the local file after sending emails
-        try {
-            fs.unlinkSync(file.path);
-        } catch (fileError) {
-            console.error("Failed to delete local file:", fileError);
+        if (file) {
+            try {
+                fs.unlinkSync(file.path);
+            } catch (fileError) {
+                console.error("Failed to delete local file:", fileError);
+            }
         }
 
         return res.status(200).json({

@@ -9,16 +9,24 @@ const instructorSchema = new Schema({
         type : String,
         required :true,
     },
+    phone : { type : String },
+    expertise : { type : String },
+    experience : { type : String },
+    linkedinUrl : { type : String },
+    dailyRate : { type : String },
+    availability : { type : String },
+    deliveryMode : { type : String },
+    certifications : { type : String },
     coverLetter : {
         type : String
     },
     resumeUrl :{
         type : String,
-        required : true
+        default : ""
     },
     resumePublicId: {
         type : String,
-        required : true
+        default : ""
     },
     status : {
         type : String,

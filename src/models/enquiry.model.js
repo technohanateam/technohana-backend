@@ -36,6 +36,13 @@ const enquirySchema = new mongoose.Schema({
   pipeline: { type: String },
   serviceLine: { type: String },
   utm: { type: Object },
+  status: {
+    type: String,
+    enum: ["new", "contacted", "quoted", "won", "lost"],
+    default: "new",
+  },
+  notes: { type: String, default: "" },
+  assignedTo: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now },
 });
 

@@ -17,3 +17,11 @@ export const authenticateAdmin = (req, res, next) => {
     return res.status(401).json({ message: "Invalid or expired admin token" });
   }
 };
+
+// Requires full admin role — blocks sales role from destructive operations
+export const requireAdmin = (req, res, next) => {
+  if (req.admin?.role !== "admin") {
+    return res.status(403).json({ message: "Access denied. Admin role required." });
+  }
+  next();
+};

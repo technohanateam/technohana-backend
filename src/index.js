@@ -38,12 +38,15 @@ import courseRoutes from "./routes/course.routes.js";
 import referralRoutes from "./routes/referral.routes.js";
 import abandonedEnrollmentRoutes from "./routes/abandoned-enrollment.routes.js";
 import courseViewRoutes from "./routes/courseView.routes.js";
+import testimonialRoutes from "./routes/testimonial.routes.js";
 import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
 import { handleResendWebhook } from "./services/resendWebhook.js";
 import { registerCampaignEventListeners, emitCampaignEvent } from "./services/campaignEventTrigger.js";
 import Enquiry from "./models/enquiry.model.js";
 import { authenticateAdmin } from "./middleware/authenticateAdmin.js";
+import { authenticateJWT } from "./middleware/authenticateJWT.js";
+import { Order } from "./models/order.model.js";
 
 const app = express();
 
@@ -98,6 +101,7 @@ const PendingOrderSchema = new mongoose.Schema({
   status: { type: String, default: 'pending' },
   paidAt: { type: Number },
   razorpayPaymentId: { type: String },
+  cartOrderIds: { type: [String], default: undefined }, // for multi-item cart (Razorpay)
   learner: { type: Object },
   courseInfo: { type: Object },
   utm: { type: Object },
@@ -621,6 +625,187 @@ app.post('/razorpay/checkout', async (req, res) => {
   }
 });
 
+// ---- CART CHECKOUT ENDPOINTS ----
+
+// Stripe: multi-course cart checkout
+app.post('/stripe/cart-checkout', async (req, res) => {
+  try {
+    const { items, enrollmentType, participants, couponCode, referralCode, currency, learner, utm } = req.body || {};
+    if (!items?.length || !enrollmentType) {
+      return res.status(400).json({ error: 'Missing items or enrollmentType' });
+    }
+
+    let referralDiscountRate = 0;
+    if (referralCode && typeof referralCode === 'string') {
+      const trimmed = referralCode.trim().toUpperCase();
+      const referrer = await User.findOne({ referralCode: trimmed }).lean();
+      if (referrer) referralDiscountRate = (referrer.referralDiscountPct || 10) / 100;
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || (process.env.WHITELISTED_URLS ? process.env.WHITELISTED_URLS.split(',')[0] : '');
+    const lineItems = [];
+    const orderIds = [];
+
+    for (const item of items) {
+      const quote = computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
+      const orderId = generateOrderId();
+      orderIds.push(orderId);
+      lineItems.push({
+        price_data: {
+          currency: quote.currency,
+          product_data: { name: item.courseTitle || item.courseId },
+          unit_amount: quote.unitAmountMinor,
+        },
+        quantity: quote.quantity,
+      });
+      await PendingOrder.create({
+        orderId, provider: 'stripe',
+        courseId: String(item.courseId),
+        enrollmentType: quote.enrollmentType, participants: quote.participants,
+        currency: quote.currency,
+        basePriceMinor: quote.originalUnitMinor, unitAmountMinor: quote.unitAmountMinor,
+        quantity: quote.quantity, expectedTotalMinor: quote.expectedTotalMinor,
+        enrollmentDiscountPercent: quote.discountPercent,
+        couponApplied: quote.couponApplied, couponCode: quote.couponCode || null,
+        couponDiscountPercent: quote.couponDiscountPercent,
+        referralCode: referralCode ? referralCode.trim().toUpperCase() : null,
+        referralDiscountPercent: quote.referralDiscountPercent,
+        totalDiscountPercent: quote.totalDiscountPercent,
+        learner: { fullName: learner?.fullName || '', email: learner?.email || '', phone: learner?.phone || '', city: learner?.city || '', trainingLocation: learner?.trainingLocation || '' },
+        courseInfo: { title: item.courseTitle || String(item.courseId), duration: item.courseInfo?.duration || '', time: item.courseInfo?.time || '' },
+        utm: utm && typeof utm === 'object' ? utm : undefined,
+      });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      line_items: lineItems,
+      mode: 'payment',
+      success_url: `${frontendUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/cart`,
+      metadata: { orderIds: JSON.stringify(orderIds), learnerEmail: learner?.email || '', learnerName: learner?.fullName || '' },
+    });
+
+    return res.json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe cart-checkout error:', err);
+    return res.status(500).json({ error: 'Failed to create cart checkout session' });
+  }
+});
+
+// Razorpay: multi-course cart checkout (single Razorpay order for combined total)
+app.post('/razorpay/cart-checkout', async (req, res) => {
+  try {
+    const { items, enrollmentType, participants, couponCode, referralCode, currency, learner, utm } = req.body || {};
+    if (!items?.length || !enrollmentType) {
+      return res.status(400).json({ error: 'Missing items or enrollmentType' });
+    }
+
+    let referralDiscountRate = 0;
+    if (referralCode && typeof referralCode === 'string') {
+      const trimmed = referralCode.trim().toUpperCase();
+      const referrer = await User.findOne({ referralCode: trimmed }).lean();
+      if (referrer) referralDiscountRate = (referrer.referralDiscountPct || 10) / 100;
+    }
+
+    const orderIds = [];
+    let combinedTotalMinor = 0;
+    let combinedCurrency = (currency || 'INR').toLowerCase();
+
+    for (const item of items) {
+      const quote = computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
+      const orderId = generateOrderId();
+      orderIds.push(orderId);
+      combinedTotalMinor += quote.expectedTotalMinor;
+      combinedCurrency = quote.currency;
+      await PendingOrder.create({
+        orderId, provider: 'razorpay',
+        courseId: String(item.courseId),
+        enrollmentType: quote.enrollmentType, participants: quote.participants,
+        currency: quote.currency,
+        basePriceMinor: quote.originalUnitMinor, unitAmountMinor: quote.unitAmountMinor,
+        quantity: quote.quantity, expectedTotalMinor: quote.expectedTotalMinor,
+        enrollmentDiscountPercent: quote.discountPercent,
+        couponApplied: quote.couponApplied, couponCode: quote.couponCode || null,
+        couponDiscountPercent: quote.couponDiscountPercent,
+        referralCode: referralCode ? referralCode.trim().toUpperCase() : null,
+        referralDiscountPercent: quote.referralDiscountPercent,
+        totalDiscountPercent: quote.totalDiscountPercent,
+        learner: { fullName: learner?.fullName || '', email: learner?.email || '', phone: learner?.phone || '', city: learner?.city || '', trainingLocation: learner?.trainingLocation || '' },
+        courseInfo: { title: item.courseTitle || String(item.courseId), duration: item.courseInfo?.duration || '', time: item.courseInfo?.time || '' },
+        utm: utm && typeof utm === 'object' ? utm : undefined,
+      });
+    }
+
+    // Update primary (first) order to store all orderIds for verify
+    const primaryOrderId = orderIds[0];
+    await PendingOrder.updateOne({ orderId: primaryOrderId }, { $set: { cartOrderIds: orderIds } });
+
+    const razorpayOrder = await razorpay.orders.create({
+      amount: combinedTotalMinor,
+      currency: combinedCurrency.toUpperCase(),
+      receipt: primaryOrderId,
+      notes: { orderIds: orderIds.join(','), learnerEmail: learner?.email || '', learnerName: learner?.fullName || '' },
+    });
+
+    // Store razorpayOrderId on primary pending order
+    await PendingOrder.updateOne({ orderId: primaryOrderId }, { $set: { razorpayOrderId: razorpayOrder.id } });
+
+    return res.json({ orderIds, primaryOrderId, razorpayOrderId: razorpayOrder.id, amount: combinedTotalMinor, currency: combinedCurrency.toUpperCase(), keyId: process.env.RAZORPAY_KEY_ID });
+  } catch (err) {
+    console.error('Razorpay cart-checkout error:', err);
+    return res.status(500).json({ error: 'Failed to create Razorpay cart order' });
+  }
+});
+
+// Razorpay: verify cart payment — marks all cart orders paid
+app.post('/razorpay/cart-verify', async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderIds, primaryOrderId } = req.body || {};
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !orderIds?.length) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ error: 'Invalid payment signature' });
+    }
+
+    const paidAt = Date.now();
+    let firstOrderId = primaryOrderId || orderIds[0];
+    for (const orderId of orderIds) {
+      const order = await PendingOrder.findOne({ orderId }).lean();
+      if (!order || order.status === 'paid') continue;
+      await PendingOrder.updateOne({ orderId }, { $set: { status: 'paid', paidAt, razorpayPaymentId: razorpay_payment_id } });
+      const invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${orderId.slice(-6).toUpperCase()}`;
+      try {
+        await Order.create({ ...order, _id: undefined, invoiceNumber, status: 'paid', paidAt, razorpayPaymentId: razorpay_payment_id });
+      } catch { /* duplicate, skip */ }
+      if (order.couponCode) await incrementCouponUsage(order.couponCode).catch(() => {});
+      const enrollmentToken = Buffer.from(`${orderId}|${order.learner.email}|${paidAt}`).toString('base64');
+      const amountMajorStr = (order.expectedTotalMinor / 100).toFixed(2);
+      try {
+        const updated = await User.findOneAndUpdate({ orderId }, { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date() }, { new: true });
+        if (!updated) {
+          await User.create({ name: order.learner.fullName, email: order.learner.email, phone: order.learner.phone, courseTitle: order.courseInfo.title, trainingLocation: order.learner.trainingLocation, trainingType: order.enrollmentType, price: amountMajorStr, currency: order.currency?.toUpperCase(), orderId, status: 'enrolled', enrollmentToken, enrolledAt: new Date() });
+        }
+      } catch { /* non-blocking */ }
+      if (order.learner?.email) {
+        try {
+          await sendEmail({ from: fromAddresses.sales, to: order.learner.email, subject: `Payment Received - ${order.courseInfo?.title || 'Technohana Course'}`, html: generatePaymentSuccessEmail({ name: order.learner.fullName, courseTitle: order.courseInfo?.title, amountMajor: amountMajorStr, currency: order.currency, enrollmentType: order.enrollmentType, participants: order.participants, trainingLocation: order.learner.trainingLocation }) });
+        } catch { /* non-blocking */ }
+      }
+    }
+
+    return res.json({ success: true, primaryOrderId: firstOrderId });
+  } catch (err) {
+    console.error('Razorpay cart-verify error:', err);
+    return res.status(500).json({ error: 'Cart payment verification failed' });
+  }
+});
+
+// ---- END CART CHECKOUT ENDPOINTS ----
+
 // Razorpay - Verify payment signature and mark paid
 app.post('/razorpay/verify', async (req, res) => {
   try {
@@ -644,8 +829,18 @@ app.post('/razorpay/verify', async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
+    let invoiceNumber = '';
     if (order.status !== 'paid') {
-      await PendingOrder.updateOne({ orderId }, { $set: { status: 'paid', paidAt: Date.now(), razorpayPaymentId: razorpay_payment_id } });
+      const paidAt = Date.now();
+      await PendingOrder.updateOne({ orderId }, { $set: { status: 'paid', paidAt, razorpayPaymentId: razorpay_payment_id } });
+
+      // Archive to permanent Order collection
+      invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${orderId.slice(-6).toUpperCase()}`;
+      try {
+        await Order.create({ ...order, _id: undefined, invoiceNumber, status: 'paid', paidAt, razorpayPaymentId: razorpay_payment_id });
+      } catch (archiveErr) {
+        console.error('Failed to archive Order:', archiveErr);
+      }
 
       // Increment coupon usage if a coupon was applied
       if (order.couponCode) {
@@ -742,7 +937,7 @@ app.post('/razorpay/verify', async (req, res) => {
       }
     }
 
-    return res.json({ success: true });
+    return res.json({ success: true, orderId, invoiceNumber });
   } catch (err) {
     console.error('Razorpay verify error:', err);
     return res.status(500).json({ error: 'Payment verification failed' });
@@ -759,26 +954,65 @@ app.post('/payments/confirm', async (req, res) => {
 
     // Retrieve the session from Stripe
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-    const orderId = session?.metadata?.orderId;
     const amountTotal = session?.amount_total;
     const currency = session?.currency;
-    const paymentStatus = session?.payment_status; // 'paid' expected
-
-    const order = orderId ? await PendingOrder.findOne({ orderId }).lean() : null;
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
+    const paymentStatus = session?.payment_status;
 
     if (paymentStatus !== 'paid') {
       return res.status(400).json({ error: 'Payment not completed' });
+    }
+
+    // Cart checkout: session has orderIds array in metadata
+    const rawOrderIds = session?.metadata?.orderIds;
+    if (rawOrderIds) {
+      let parsedIds = [];
+      try { parsedIds = JSON.parse(rawOrderIds); } catch { /* ignore */ }
+      const paidAt = Date.now();
+      let firstInvoiceNumber = '';
+      for (const oid of parsedIds) {
+        const o = await PendingOrder.findOne({ orderId: oid }).lean();
+        if (!o || o.status === 'paid') continue;
+        await PendingOrder.updateOne({ orderId: oid }, { $set: { status: 'paid', paidAt } });
+        const inv = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${oid.slice(-6).toUpperCase()}`;
+        if (!firstInvoiceNumber) firstInvoiceNumber = inv;
+        try { await Order.create({ ...o, _id: undefined, invoiceNumber: inv, status: 'paid', paidAt }); } catch { /* dup */ }
+        if (o.couponCode) await incrementCouponUsage(o.couponCode).catch(() => {});
+        const enrollmentToken = Buffer.from(`${oid}|${o.learner.email}|${paidAt}`).toString('base64');
+        const amtStr = (o.expectedTotalMinor / 100).toFixed(2);
+        try {
+          const updated = await User.findOneAndUpdate({ orderId: oid }, { status: 'enrolled', price: amtStr, enrollmentToken, enrolledAt: new Date() }, { new: true });
+          if (!updated) await User.create({ name: o.learner.fullName, email: o.learner.email, phone: o.learner.phone, courseTitle: o.courseInfo.title, trainingLocation: o.learner.trainingLocation, trainingType: o.enrollmentType, price: amtStr, currency: o.currency?.toUpperCase(), orderId: oid, status: 'enrolled', enrollmentToken, enrolledAt: new Date() });
+        } catch { /* non-blocking */ }
+        if (o.learner?.email) {
+          try { await sendEmail({ from: fromAddresses.sales, to: o.learner.email, subject: `Payment Received - ${o.courseInfo?.title || 'Technohana Course'}`, html: generatePaymentSuccessEmail({ name: o.learner.fullName, courseTitle: o.courseInfo?.title, amountMajor: amtStr, currency: o.currency, enrollmentType: o.enrollmentType, participants: o.participants, trainingLocation: o.learner.trainingLocation }) }); } catch { /* non-blocking */ }
+        }
+      }
+      return res.json({ success: true, orderId: parsedIds[0], invoiceNumber: firstInvoiceNumber });
+    }
+
+    // Single order checkout
+    const orderId = session?.metadata?.orderId;
+    const order = orderId ? await PendingOrder.findOne({ orderId }).lean() : null;
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
     }
     if (order.expectedTotalMinor !== amountTotal || order.currency !== currency) {
       return res.status(400).json({ error: 'Amount or currency mismatch' });
     }
 
     // Mark order paid if not already
+    let invoiceNumber = '';
     if (order.status !== 'paid') {
-      await PendingOrder.updateOne({ orderId }, { $set: { status: 'paid', paidAt: Date.now() } });
+      const paidAt = Date.now();
+      await PendingOrder.updateOne({ orderId }, { $set: { status: 'paid', paidAt } });
+
+      // Archive to permanent Order collection
+      invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${orderId.slice(-6).toUpperCase()}`;
+      try {
+        await Order.create({ ...order, _id: undefined, invoiceNumber, status: 'paid', paidAt });
+      } catch (archiveErr) {
+        console.error('Failed to archive Order:', archiveErr);
+      }
 
       // Increment coupon usage if a coupon was applied
       if (order.couponCode) {
@@ -888,7 +1122,7 @@ app.post('/payments/confirm', async (req, res) => {
       // Non-blocking — payment is confirmed regardless of event emission
     }
 
-    return res.json({ success: true });
+    return res.json({ success: true, orderId, invoiceNumber });
   } catch (err) {
     console.error('payments/confirm error:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -903,22 +1137,29 @@ app.get('/payments/order/:orderId', async (req, res) => {
       return res.status(400).json({ error: 'Missing orderId' });
     }
 
-    const order = await PendingOrder.findOne({ orderId }).lean();
+    const order = (await Order.findOne({ orderId }).lean()) || (await PendingOrder.findOne({ orderId }).lean());
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
     return res.json({
       orderId: order.orderId,
+      invoiceNumber: order.invoiceNumber || '',
       courseId: order.courseId,
       courseInfo: order.courseInfo,
       learner: order.learner,
       enrollmentType: order.enrollmentType,
       participants: order.participants,
       currency: order.currency,
+      basePriceMinor: order.basePriceMinor,
       unitAmountMinor: order.unitAmountMinor,
       quantity: order.quantity,
       expectedTotalMinor: order.expectedTotalMinor,
+      enrollmentDiscountPercent: order.enrollmentDiscountPercent,
+      couponCode: order.couponCode,
+      couponDiscountPercent: order.couponDiscountPercent,
+      referralDiscountPercent: order.referralDiscountPercent,
+      totalDiscountPercent: order.totalDiscountPercent,
       status: order.status,
       createdAt: order.createdAt,
       paidAt: order.paidAt,
@@ -926,6 +1167,37 @@ app.get('/payments/order/:orderId', async (req, res) => {
   } catch (err) {
     console.error('Get order error:', err);
     return res.status(500).json({ error: 'Failed to retrieve order' });
+  }
+});
+
+// Get all paid orders for the authenticated learner
+app.get('/payments/my-orders', authenticateJWT, async (req, res) => {
+  try {
+    const email = req.user?.email;
+    if (!email) return res.status(401).json({ error: 'Unauthorized' });
+    const orders = await Order.find({ 'learner.email': email }).sort({ paidAt: -1 }).lean();
+    return res.json(orders.map(o => ({
+      orderId: o.orderId,
+      invoiceNumber: o.invoiceNumber,
+      courseInfo: o.courseInfo,
+      enrollmentType: o.enrollmentType,
+      participants: o.participants,
+      currency: o.currency,
+      expectedTotalMinor: o.expectedTotalMinor,
+      basePriceMinor: o.basePriceMinor,
+      unitAmountMinor: o.unitAmountMinor,
+      enrollmentDiscountPercent: o.enrollmentDiscountPercent,
+      couponCode: o.couponCode,
+      couponDiscountPercent: o.couponDiscountPercent,
+      referralDiscountPercent: o.referralDiscountPercent,
+      totalDiscountPercent: o.totalDiscountPercent,
+      learner: o.learner,
+      paidAt: o.paidAt,
+      createdAt: o.createdAt,
+    })));
+  } catch (err) {
+    console.error('my-orders error:', err);
+    return res.status(500).json({ error: 'Failed to fetch orders' });
   }
 });
 
@@ -959,6 +1231,21 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
           await PendingOrder.updateOne({ orderId }, { $set: { status: 'mismatch' } });
         }
       }
+    }
+
+    // Cart checkout: metadata has orderIds (plural) instead of orderId
+    const rawOrderIds = session.metadata?.orderIds;
+    if (!orderId && rawOrderIds) {
+      let ids = [];
+      try { ids = JSON.parse(rawOrderIds); } catch { /* ignore */ }
+      const paidAt = Date.now();
+      for (const oid of ids) {
+        await PendingOrder.updateOne(
+          { orderId: oid, status: { $ne: 'paid' } },
+          { $set: { status: 'paid', paidAt } }
+        );
+      }
+      console.log('Cart orders marked paid via webhook:', ids);
     }
   }
 
@@ -1057,6 +1344,7 @@ app.use("/api", courseViewRoutes);
 app.use("/admin", courseViewRoutes);
 app.use("/api/referral", referralRoutes);
 app.use("/api/abandoned-enrollment", abandonedEnrollmentRoutes);
+app.use("/", testimonialRoutes);
 
 // ─── Campaign Automation ───────────────────────────────────────────────────────
 
