@@ -213,19 +213,53 @@ router.delete("/enquiries/:id", authenticateAdmin, requireAdmin, async (req, res
   }
 });
 
-// PATCH /admin/enquiries/:id — update status, notes, assignedTo
+// PATCH /admin/enquiries/:id — update status, notes, assignedTo, nextFollowUp, lostReason
 router.patch("/enquiries/:id", authenticateAdmin, async (req, res) => {
   try {
-    const { status, notes, assignedTo } = req.body;
+    const { status, notes, assignedTo, nextFollowUp, lostReason } = req.body;
     const allowed = {};
     if (status !== undefined) allowed.status = status;
     if (notes !== undefined) allowed.notes = notes;
     if (assignedTo !== undefined) allowed.assignedTo = assignedTo;
+    if (nextFollowUp !== undefined) allowed.nextFollowUp = nextFollowUp || null;
+    if (lostReason !== undefined) allowed.lostReason = lostReason;
     const updated = await Enquiry.findByIdAndUpdate(req.params.id, allowed, { new: true });
     if (!updated) return res.status(404).json({ message: "Enquiry not found." });
     return res.json(updated);
   } catch (err) {
     console.error("Admin patch enquiry error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/pipeline-stats — stage breakdown, stale counts, win rate, follow-up due today
+router.get("/pipeline-stats", authenticateAdmin, async (req, res) => {
+  try {
+    const now = new Date();
+    const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+    const staleNewCutoff = new Date(now - 3 * 24 * 60 * 60 * 1000);
+    const staleContactedCutoff = new Date(now - 7 * 24 * 60 * 60 * 1000);
+    const weekStart = new Date(now); weekStart.setDate(now.getDate() - 7);
+
+    const [stageCounts, staleNew, staleContacted, winsThisWeek, totalWon, totalLost, followUpDueToday] = await Promise.all([
+      Enquiry.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+      Enquiry.countDocuments({ status: "new", createdAt: { $lt: staleNewCutoff } }),
+      Enquiry.countDocuments({ status: "contacted", createdAt: { $lt: staleContactedCutoff } }),
+      Enquiry.countDocuments({ status: "won", createdAt: { $gte: weekStart } }),
+      Enquiry.countDocuments({ status: "won" }),
+      Enquiry.countDocuments({ status: "lost" }),
+      Enquiry.countDocuments({ nextFollowUp: { $lte: todayEnd, $ne: null } }),
+    ]);
+
+    const stages = { new: 0, contacted: 0, quoted: 0, won: 0, lost: 0 };
+    for (const { _id, count } of stageCounts) if (_id in stages) stages[_id] = count;
+
+    const closedDeals = totalWon + totalLost;
+    const winRate = closedDeals > 0 ? Math.round((totalWon / closedDeals) * 100) : 0;
+
+    return res.json({ stages, staleNew, staleContacted, winsThisWeek, winRate, followUpDueToday });
+  } catch (err) {
+    console.error("Pipeline stats error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });

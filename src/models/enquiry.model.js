@@ -46,8 +46,10 @@ const enquirySchema = new mongoose.Schema({
     enum: ["new", "contacted", "quoted", "won", "lost"],
     default: "new",
   },
+  lostReason: { type: String, default: "" },
   notes: { type: String, default: "" },
   assignedTo: { type: String, default: "" },
+  nextFollowUp: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 
