@@ -129,7 +129,7 @@ const validCoupons = {
 };
 
 const priceCatalog = {
-  // Per-course prices in MINOR units (major × 100) per currency
+  // Per-course prices in MINOR units (major x 100) per currency
   // Generated via scripts/generate-prices.js using PPP multipliers
   'GENAI101': { inr: 6720000, usd: 58900, aed: 249900, gbp: 51900, eur: 61900 },
   'GENAI102': { inr: 2400000, usd: 21900, aed: 89900, gbp: 18900, eur: 21900 },
@@ -274,6 +274,7 @@ const priceCatalog = {
   'GENAI115': { inr: 4000000, usd: 34900, aed: 148900, gbp: 30900, eur: 36900 },
   'GENAI116': { inr: 3500000, usd: 30900, aed: 129900, gbp: 27900, eur: 31900 },
   'GENAI117': { inr: 3000000, usd: 26900, aed: 111900, gbp: 23900, eur: 27900 },
+  'OIC101': { inr: 4800000, usd: 41900, aed: 177900, gbp: 37900, eur: 43900 },
   // Fallback for unrecognised courseIds
   default: { inr: 1120000, usd: 9900, aed: 41900, gbp: 8900, eur: 10900 },
 };

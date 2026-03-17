@@ -17005,5 +17005,182 @@
             "gbp": 239,
             "eur": 279
         }
+    },
+    {
+        "id": "OIC101",
+        "courseSlug": "oracle-integration-cloud-oic-ai",
+        "logo": "course_thumb01.jpg",
+        "category": "Oracle Integration Cloud",
+        "catdesc": "Master Oracle Integration Cloud (OIC) and learn how to integrate AI services — from REST API calls to Generative AI workflows — into enterprise integration solutions.",
+        "catcls": "cat-one",
+        "courseTitle": "Oracle Integration Cloud (OIC) AI",
+        "courseDays": "04 Days",
+        "courseTime": "32 Hours",
+        "courseModules": "13 Modules",
+        "noStudents": "12",
+        "instructor": "Industry Experts",
+        "price": "48000",
+        "language": "English",
+        "difficulty": "Intermediate",
+        "rating": "4.6",
+        "overview": "This comprehensive course covers Oracle Integration Cloud (OIC) from the ground up and extends into cutting-edge AI integration — including calling AI and Generative AI services, automating business workflows with AI, and building event-driven AI-powered integrations. Participants gain hands-on experience building real-world enterprise integration solutions enriched with AI capabilities.",
+        "courseObjective": "Equip integration professionals and enterprise architects with the skills to design, build, and manage OIC integrations — including AI service integrations, GenAI workflow automation, and API management — so they can deliver intelligent, automated enterprise solutions.",
+        "courseOutcomes": "Participants will be able to create and manage integrations on Oracle Integration Cloud, call AI and Generative AI APIs from OIC workflows, build event-driven and scheduled automations, implement fault handling and performance optimisation, manage APIs with OIC API Management, and apply security and governance best practices.",
+        "prerequisites": "Basic understanding of REST APIs and web services. Familiarity with enterprise application concepts is helpful. No prior OIC experience required.",
+        "labs": "Hands-on labs include: creating REST and SOAP integrations, configuring adapters, building data mapping flows, calling AI APIs (sentiment analysis, image recognition), integrating Generative AI LLMs into workflows, automated email generation, document processing automation, and monitoring and debugging integrations.",
+        "whatWillYouLearn": [
+            "Oracle Integration Cloud architecture, components, and navigation",
+            "Creating and managing integrations using OIC adapters (REST, SOAP, FTP, Database, SaaS)",
+            "Advanced integration development: lookup tables, fault handling, parallel processing",
+            "API management in OIC: creating, securing, and throttling REST APIs",
+            "Integrating AI services (sentiment analysis, image recognition) via REST APIs in OIC",
+            "Using Generative AI and Large Language Models (LLMs) in enterprise OIC workflows",
+            "AI-powered automation: document processing, classification, decision workflows",
+            "Event-driven architectures and real-time AI automation scenarios",
+            "Monitoring, troubleshooting, security, governance, and performance optimisation"
+        ],
+        "requirements": [
+            "Laptop with internet access",
+            "Access to an Oracle Integration Cloud trial or sandbox environment",
+            "Basic familiarity with REST APIs and JSON/XML concepts"
+        ],
+        "targetAudience": [
+            "Integration developers and enterprise architects building OIC solutions",
+            "Oracle ERP/SaaS administrators wanting to extend platforms with custom integrations",
+            "Developers looking to incorporate AI and Generative AI into enterprise workflows",
+            "IT professionals transitioning into iPaaS and cloud integration roles"
+        ],
+        "modules": [
+            {
+                "moduleTitle": "Module 1: Introduction to Oracle Integration Cloud",
+                "content": [
+                    "Overview of Oracle Integration Cloud (OIC)",
+                    "Integration Platform as a Service (iPaaS) concepts",
+                    "OIC architecture and components",
+                    "OIC environments and navigation",
+                    "Understanding enterprise integration use cases"
+                ]
+            },
+            {
+                "moduleTitle": "Module 2: OIC Platform Fundamentals",
+                "content": [
+                    "OIC console overview",
+                    "Creating and managing connections",
+                    "Understanding adapters",
+                    "Security and authentication in OIC",
+                    "Integration patterns in OIC",
+                    "Adapters: REST Adapter, SOAP Adapter, FTP Adapter, Database Adapter, Oracle SaaS Adapters"
+                ]
+            },
+            {
+                "moduleTitle": "Module 3: Creating Integrations in OIC",
+                "content": [
+                    "App-driven orchestration",
+                    "Scheduled integrations",
+                    "Basic routing integrations",
+                    "Integration canvas overview",
+                    "Data mapping and transformation",
+                    "Using the mapper tool",
+                    "Hands-on: Creating REST APIs and basic integration flows"
+                ]
+            },
+            {
+                "moduleTitle": "Module 4: Advanced Integration Development",
+                "content": [
+                    "Lookup tables",
+                    "Fault handling and error management",
+                    "Tracking fields and business identifiers",
+                    "Variables and scope actions",
+                    "For-each loops and conditional logic",
+                    "Parallel processing"
+                ]
+            },
+            {
+                "moduleTitle": "Module 5: API Management in OIC",
+                "content": [
+                    "Creating REST APIs in OIC",
+                    "API exposure and security",
+                    "API throttling and rate limiting",
+                    "Managing API endpoints"
+                ]
+            },
+            {
+                "moduleTitle": "Module 6: AI Concepts for Integration",
+                "content": [
+                    "Introduction to AI in enterprise integrations",
+                    "AI-driven automation concepts",
+                    "Using AI services through APIs",
+                    "Understanding AI response processing in integrations"
+                ]
+            },
+            {
+                "moduleTitle": "Module 7: Integrating AI Services with OIC",
+                "content": [
+                    "Calling AI services through REST APIs",
+                    "Configuring AI service endpoints",
+                    "Passing input payloads to AI services",
+                    "Processing AI responses in OIC",
+                    "Use case: Sentiment analysis integration",
+                    "Use case: Image recognition workflow"
+                ]
+            },
+            {
+                "moduleTitle": "Module 8: Generative AI Integration",
+                "content": [
+                    "Overview of Generative AI",
+                    "Using Large Language Models (LLMs) in enterprise workflows",
+                    "Prompt engineering basics",
+                    "Calling Generative AI APIs from OIC workflows",
+                    "Use cases: AI-powered chatbots, automated email generation, content summarization"
+                ]
+            },
+            {
+                "moduleTitle": "Module 9: AI-Powered Automation Workflows",
+                "content": [
+                    "Automating business processes with AI",
+                    "AI-based decision workflows",
+                    "Document processing automation",
+                    "AI-driven classification systems",
+                    "Example: Customer feedback sentiment analysis",
+                    "Example: Resume screening automation"
+                ]
+            },
+            {
+                "moduleTitle": "Module 10: Event-Driven Integrations",
+                "content": [
+                    "Event-driven architecture concepts",
+                    "Triggering AI workflows through events",
+                    "Real-time automation scenarios"
+                ]
+            },
+            {
+                "moduleTitle": "Module 11: Monitoring and Troubleshooting",
+                "content": [
+                    "Monitoring integrations",
+                    "Activity streams and logs",
+                    "Error handling and debugging",
+                    "Integration instance tracking"
+                ]
+            },
+            {
+                "moduleTitle": "Module 12: Security and Governance",
+                "content": [
+                    "Identity and access management concepts",
+                    "Securing APIs and integrations",
+                    "Governance best practices for integrations",
+                    "Compliance considerations"
+                ]
+            },
+            {
+                "moduleTitle": "Module 13: Performance Optimization",
+                "content": [
+                    "Best practices for OIC integrations",
+                    "Optimizing API calls to AI services",
+                    "Handling large payloads",
+                    "Performance tuning strategies"
+                ]
+            }
+        ],
+        "categoryGroup": "AI & Generative AI"
     }
 ]
