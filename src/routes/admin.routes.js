@@ -3,6 +3,8 @@ import axios from "axios";
 import jwt from "jsonwebtoken";
 import fs from "fs";
 import path from "path";
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
 import { fileURLToPath } from "url";
 import { User } from "../models/user.model.js";
 import Enquiry from "../models/enquiry.model.js";
@@ -38,6 +40,8 @@ router.post("/login", async (req, res) => {
     role = "admin";
   } else if (process.env.SALES_EMAIL && email === process.env.SALES_EMAIL && password === process.env.SALES_PASSWORD) {
     role = "sales";
+  } else if (process.env.MARKETING_EMAIL && email === process.env.MARKETING_EMAIL && password === process.env.MARKETING_PASSWORD) {
+    role = "marketing";
   }
 
   if (!role) {
@@ -318,6 +322,29 @@ router.get("/ai-risk-reports", authenticateAdmin, async (req, res) => {
     return res.json({ data, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     console.error("Admin AI risk reports error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// DELETE /admin/ai-risk-reports/clear
+router.delete("/ai-risk-reports/clear", authenticateAdmin, requireAdmin, async (req, res) => {
+  try {
+    const { deletedCount } = await AiRiskReport.deleteMany({});
+    return res.json({ message: "Cleared all AI risk reports", deleted: deletedCount });
+  } catch (err) {
+    console.error("Clear AI risk reports error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// DELETE /admin/ai-risk-reports/:id
+router.delete("/ai-risk-reports/:id", authenticateAdmin, requireAdmin, async (req, res) => {
+  try {
+    const result = await AiRiskReport.findByIdAndDelete(req.params.id);
+    if (!result) return res.status(404).json({ message: "Not found" });
+    return res.json({ message: "Deleted" });
+  } catch (err) {
+    console.error("Delete AI risk report error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });
@@ -683,49 +710,41 @@ router.delete("/courses/clear", authenticateAdmin, requireAdmin, async (req, res
   }
 });
 
-// POST /admin/courses/seed — import from src/data/courses.json (can reseed if force=true)
+// POST /admin/courses/seed — additive sync from src/data/courses.json (only inserts missing courses by id)
 router.post("/courses/seed", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
-    const { force } = req.body;
-    const existing = await Course.countDocuments();
-
-    if (existing > 0 && !force) {
-      return res.json({ message: "Already seeded", count: existing });
-    }
-
-    if (force && existing > 0) {
-      await Course.deleteMany({});
-      console.log(`Cleared ${existing} courses for reseed`);
-    }
-
     const dataPath = path.join(__dirname, "../data/courses.json");
     const raw = fs.readFileSync(dataPath, "utf-8");
     const courses = JSON.parse(raw);
 
-    const result = await Course.insertMany(courses, { ordered: false });
-    const inserted = result.length;
+    const existingIds = new Set(
+      (await Course.find({}, { id: 1, _id: 0 })).map(c => c.id)
+    );
+    const toInsert = courses.filter(c => c.id && !existingIds.has(c.id));
+
+    if (toInsert.length === 0) {
+      const total = await Course.countDocuments();
+      return res.json({ message: `All courses already in DB`, count: total });
+    }
+
+    const result = await Course.insertMany(toInsert, { ordered: false });
+    const total = await Course.countDocuments();
     return res.status(201).json({
-      message: `Seeded ${inserted} courses successfully`,
-      count: inserted,
-      total: courses.length,
-      failed: courses.length - inserted
+      message: `Seeded ${result.length} new courses successfully`,
+      inserted: result.length,
+      total,
     });
   } catch (err) {
     console.error("Admin seed courses error:", err);
-
-    // If partialResult exists, some courses were inserted
-    if (err.writeErrors && err.writeErrors.length > 0) {
-      const successful = Course.countDocuments();
-      console.error(`Failed to insert ${err.writeErrors.length} courses:`,
-        err.writeErrors.map(e => ({ id: e.err.op?.id, error: e.err.errmsg }))
-      );
+    if (err.writeErrors?.length > 0) {
+      const total = await Course.countDocuments();
       return res.status(207).json({
         message: "Partial seed - some courses failed",
         detail: err.writeErrors.map(e => e.err.errmsg),
-        errors: err.writeErrors.length
+        errors: err.writeErrors.length,
+        total,
       });
     }
-
     return res.status(500).json({ message: "Server error", detail: err.message });
   }
 });
@@ -784,17 +803,17 @@ router.put("/campaigns/:id", authenticateAdmin, requireAdmin, updateCampaign);
 // DELETE /admin/campaigns/:id - Delete campaign
 router.delete("/campaigns/:id", authenticateAdmin, requireAdmin, deleteCampaign);
 
-// POST /admin/campaigns/:id/send - Send campaign immediately
-router.post("/campaigns/:id/send", authenticateAdmin, requireAdmin, sendCampaignNow);
+// POST /admin/campaigns/:id/send - Send campaign immediately (admin + marketing)
+router.post("/campaigns/:id/send", authenticateAdmin, sendCampaignNow);
 
-// POST /admin/campaigns/:id/schedule - Schedule campaign for later
-router.post("/campaigns/:id/schedule", authenticateAdmin, requireAdmin, scheduleCampaign);
+// POST /admin/campaigns/:id/schedule - Schedule campaign for later (admin + marketing)
+router.post("/campaigns/:id/schedule", authenticateAdmin, scheduleCampaign);
 
-// POST /admin/campaigns/:id/pause - Pause running campaign
-router.post("/campaigns/:id/pause", authenticateAdmin, requireAdmin, pauseCampaign);
+// POST /admin/campaigns/:id/pause - Pause running campaign (admin + marketing)
+router.post("/campaigns/:id/pause", authenticateAdmin, pauseCampaign);
 
-// POST /admin/campaigns/:id/resume - Resume paused campaign
-router.post("/campaigns/:id/resume", authenticateAdmin, requireAdmin, resumeCampaign);
+// POST /admin/campaigns/:id/resume - Resume paused campaign (admin + marketing)
+router.post("/campaigns/:id/resume", authenticateAdmin, resumeCampaign);
 
 // GET /admin/campaigns/:id/analytics - Get campaign metrics
 router.get("/campaigns/:id/analytics", authenticateAdmin, getCampaignAnalytics);
@@ -808,25 +827,53 @@ router.get("/campaigns/queue/stats", authenticateAdmin, getCampaignQueueStats);
 // ─── Social Media Posts ────────────────────────────────────────────────────────
 
 // POST /admin/social-posts/generate-copy - AI copy generation (before :id routes)
-router.post("/social-posts/generate-copy", authenticateAdmin, requireAdmin, generateSocialCopy);
+router.post("/social-posts/generate-copy", authenticateAdmin, generateSocialCopy);
 
 // GET /admin/social-posts
 router.get("/social-posts", authenticateAdmin, getAllSocialPosts);
 
 // POST /admin/social-posts
-router.post("/social-posts", authenticateAdmin, requireAdmin, createSocialPost);
+router.post("/social-posts", authenticateAdmin, createSocialPost);
 
 // GET /admin/social-posts/:id
 router.get("/social-posts/:id", authenticateAdmin, getSocialPost);
 
 // PUT /admin/social-posts/:id
-router.put("/social-posts/:id", authenticateAdmin, requireAdmin, updateSocialPost);
+router.put("/social-posts/:id", authenticateAdmin, updateSocialPost);
 
 // DELETE /admin/social-posts/:id
-router.delete("/social-posts/:id", authenticateAdmin, requireAdmin, deleteSocialPost);
+router.delete("/social-posts/:id", authenticateAdmin, deleteSocialPost);
 
-// POST /admin/social-posts/:id/publish - Send to Buffer
-router.post("/social-posts/:id/publish", authenticateAdmin, requireAdmin, publishToBuffer);
+// POST /admin/social-posts/:id/publish - Send to Buffer (admin + marketing)
+router.post("/social-posts/:id/publish", authenticateAdmin, publishToBuffer);
+
+// ─── Image Upload (Cloudinary) ────────────────────────────────────────────────
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// POST /admin/upload-image
+router.post("/upload-image", authenticateAdmin, upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded." });
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "technohana/social", resource_type: "image" },
+        (err, result) => (err ? reject(err) : resolve(result))
+      );
+      stream.end(req.file.buffer);
+    });
+    return res.json({ url: result.secure_url });
+  } catch (err) {
+    console.error("Image upload error:", err);
+    return res.status(500).json({ message: "Upload failed" });
+  }
+});
 
 // ─── Instructors (Trainer Pool) ───────────────────────────────────────────────
 
