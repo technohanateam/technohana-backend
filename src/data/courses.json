@@ -17182,5 +17182,414 @@
             }
         ],
         "categoryGroup": "AI & Generative AI"
+    },
+    {
+        "id": "CY410",
+        "courseSlug": "gicsp-global-industrial-cybersecurity-professional",
+        "category": "Cybersecurity",
+        "courseTitle": "GICSP - Global Industrial Cybersecurity Professional",
+        "courseDays": "06 Days",
+        "courseTime": "24 Hours",
+        "courseModules": "06 Modules",
+        "price": "55200",
+        "rating": "4.7",
+        "overview": "This comprehensive 24-hour intensive course provides participants with in-depth knowledge of industrial cybersecurity aligned with SANS ICS410 principles. Participants will explore the industrial control system security landscape, SCADA systems vulnerabilities, threat modeling, defense mechanisms, governance frameworks, and incident response strategies specific to critical infrastructure protection.",
+        "courseObjective": "Participants will gain a thorough understanding of industrial cybersecurity fundamentals, threat landscapes, defensive technologies, and incident response capabilities. They will be equipped to identify vulnerabilities in ICS environments and implement comprehensive security frameworks for critical infrastructure.",
+        "courseOutcomes": "Upon completion, participants will be able to assess ICS security posture, design defense-in-depth strategies, analyze SCADA/ICS vulnerabilities, implement industrial governance frameworks, and respond effectively to industrial cybersecurity incidents.",
+        "prerequisites": "Basic networking knowledge and understanding of IT security concepts recommended. Familiarity with control systems advantageous but not required.",
+        "labs": "Hands-on labs simulating ICS environments, SCADA system operations, and security incident scenarios.",
+        "toc": "CY410-GICSP-Industrial-Cybersecurity.pdf",
+        "logo": "course_thumb_ics.jpg",
+        "noStudents": "15",
+        "instructor": "Industry Experts",
+        "language": "English",
+        "difficulty": "Intermediate",
+        "whatWillYouLearn": [
+            "Industrial Control System (ICS) architecture and components",
+            "SCADA systems, PLCs, RTUs, and HMI vulnerabilities",
+            "Threat landscape and attack vectors in critical infrastructure",
+            "Defense-in-depth strategies for ICS environments",
+            "Network security and segmentation for industrial systems",
+            "Incident response and forensics in ICS environments",
+            "Governance, risk, and compliance frameworks for critical infrastructure"
+        ],
+        "requirements": [
+            "Basic networking knowledge",
+            "Understanding of IT security concepts",
+            "Familiarity with control systems is beneficial"
+        ],
+        "targetAudience": [
+            "Critical Infrastructure Security Professionals",
+            "Industrial Control System Administrators",
+            "Cybersecurity Engineers",
+            "Process Safety Engineers",
+            "Plant Managers in Manufacturing and Utilities"
+        ],
+        "modules": [
+            {
+                "moduleTitle": "Module 01: Industrial Control Systems Landscape",
+                "content": [
+                    "Overview of ICS and SCADA architectures",
+                    "Critical infrastructure sectors and their importance",
+                    "Historical ICS security incidents and impact analysis",
+                    "ICS vs IT infrastructure differences",
+                    "Regulatory environment and compliance requirements"
+                ]
+            },
+            {
+                "moduleTitle": "Module 02: SCADA Systems and Vulnerabilities",
+                "content": [
+                    "SCADA system components: PLCs, RTUs, HMIs, and communication protocols",
+                    "Common vulnerabilities in SCADA systems",
+                    "Legacy system challenges and modernization",
+                    "Operational technology (OT) networks and isolation requirements",
+                    "Hands-on: SCADA system analysis and vulnerability assessment"
+                ]
+            },
+            {
+                "moduleTitle": "Module 03: Threat Modeling and Attack Vectors",
+                "content": [
+                    "Industrial threat landscape analysis",
+                    "Nation-state and APT targeting critical infrastructure",
+                    "Attack vectors specific to ICS environments",
+                    "Insider threats and social engineering in industrial settings",
+                    "Case studies: Stuxnet, NotPetya, and other industrial attacks"
+                ]
+            },
+            {
+                "moduleTitle": "Module 04: Defense-in-Depth and Network Security",
+                "content": [
+                    "Defense-in-depth strategy for ICS environments",
+                    "Network segmentation and demilitarized zones (DMZs)",
+                    "Firewall configurations for industrial networks",
+                    "Intrusion detection and prevention in ICS",
+                    "Secure remote access and VPN deployments"
+                ]
+            },
+            {
+                "moduleTitle": "Module 05: Governance, Risk, and Compliance",
+                "content": [
+                    "IEC 62443 industrial automation and control systems security standard",
+                    "NIST Cybersecurity Framework for critical infrastructure",
+                    "Risk assessment methodologies for ICS",
+                    "Security governance and policy frameworks",
+                    "Auditing and compliance verification"
+                ]
+            },
+            {
+                "moduleTitle": "Module 06: Incident Response and Forensics",
+                "content": [
+                    "Industrial incident response planning and procedures",
+                    "Detection and containment strategies",
+                    "Forensic techniques for ICS systems",
+                    "Recovery and resumption of operations",
+                    "Hands-on: Incident response in simulated ICS environments"
+                ]
+            }
+        ],
+        "prices": {
+            "inr": 55200,
+            "usd": 489,
+            "aed": 2099,
+            "gbp": 429,
+            "eur": 509
+        },
+        "categoryGroup": "Management & Security"
+    },
+    {
+        "id": "CCMP101",
+        "courseSlug": "ccmp-certified-change-management-professional",
+        "category": "Change Management",
+        "catdesc": "Master the art of managing organizational change with ACMP-aligned certification training",
+        "courseTitle": "CCMP™ Certified Change Management Professional",
+        "catcls": "cat-four",
+        "courseDays": "04 Days",
+        "courseTime": "32 Hours",
+        "courseModules": "09 Modules",
+        "price": "52800",
+        "rating": "4.8",
+        "overview": "This comprehensive 4-day course prepares participants for the CCMP™ certification, covering the ACMP® Standard Second Edition (2025). Participants will develop expertise in change impact assessment, strategic planning, plan development and execution, and organizational readiness. The course includes exam preparation and a mock exam to ensure readiness for the certification.",
+        "courseObjective": "To equip participants with the knowledge, skills, and competencies required to effectively lead and manage organizational change initiatives aligned with the ACMP® Standard. Participants will develop strategies to minimize resistance, maximize adoption, and ensure sustainable change outcomes.",
+        "courseOutcomes": "Upon completion, participants will be able to assess change impact and readiness, formulate comprehensive change management strategies, develop and execute change plans, manage stakeholder engagement, and apply the ACMP® Code of Ethics in professional practice.",
+        "prerequisites": "3+ years of professional experience. Background in organizational development, project management, or HR is beneficial but not required.",
+        "labs": "Interactive case studies, group discussions, real-world organizational change scenarios, and mock exam practice.",
+        "toc": "CCMP101-Certified-Change-Management-Professional.pdf",
+        "logo": "course_thumb12.jpg",
+        "noStudents": "15",
+        "instructor": "ACMP® Certified Change Management Practitioners",
+        "language": "English",
+        "difficulty": "Intermediate",
+        "whatWillYouLearn": [
+            "ACMP® Standard Second Edition (2025) framework and competencies",
+            "Change impact assessment and organizational readiness evaluation",
+            "Stakeholder analysis, resistance management, and communication strategies",
+            "Change management strategy formulation and planning",
+            "Change plan development, execution, monitoring, and adjustment",
+            "Organizational capacity assessment and capability building",
+            "ACMP® Code of Ethics and professional responsibility",
+            "Exam preparation and certification readiness"
+        ],
+        "requirements": [
+            "3+ years of professional experience",
+            "Understanding of organizational structures and dynamics",
+            "Basic change management knowledge is helpful"
+        ],
+        "targetAudience": [
+            "Change Management Professionals",
+            "Project Managers",
+            "Human Resources Managers",
+            "Organizational Development Specialists",
+            "Business Analysts",
+            "IT Leaders",
+            "Executive Leaders",
+            "Certification Seekers"
+        ],
+        "modules": [
+            {
+                "moduleTitle": "Module 01: Foundations & ACMP® Standard Overview",
+                "content": [
+                    "Introduction to change management and organizational change",
+                    "ACMP® Standard Second Edition (2025) framework",
+                    "Key concepts: planned change, unplanned change, adaptability",
+                    "Change management vs project management",
+                    "Roles and responsibilities in change management"
+                ]
+            },
+            {
+                "moduleTitle": "Module 02: Concepts & Change Fundamentals",
+                "content": [
+                    "Understanding organizational structure and culture",
+                    "Change readiness and organizational capacity",
+                    "Stakeholder analysis and mapping",
+                    "Resistance to change: causes and management",
+                    "Communication principles and strategies"
+                ]
+            },
+            {
+                "moduleTitle": "Module 03: Process Group 1 — Evaluate Change Impact & Readiness",
+                "content": [
+                    "Assessing business case and change drivers",
+                    "Impact analysis: operational, technical, organizational",
+                    "Readiness assessment: individual, team, organizational levels",
+                    "Risk identification in change initiatives",
+                    "Creating readiness improvement plans"
+                ]
+            },
+            {
+                "moduleTitle": "Module 04: Process Group 2 — Formulate Change Management Strategy",
+                "content": [
+                    "Defining change management vision and objectives",
+                    "Stakeholder engagement strategy development",
+                    "Communication plan formulation",
+                    "Building change sponsorship and coalition",
+                    "Strategy alignment with business goals"
+                ]
+            },
+            {
+                "moduleTitle": "Module 05: Process Group 3 — Develop the Change Management Plan",
+                "content": [
+                    "Creating comprehensive change management plans",
+                    "Resistance management planning",
+                    "Training and capability building plans",
+                    "Change control procedures and governance",
+                    "Metrics and success criteria definition"
+                ]
+            },
+            {
+                "moduleTitle": "Module 06: Process Group 4 — Execute the Change Management Plan",
+                "content": [
+                    "Change implementation execution",
+                    "Managing stakeholder engagement during transition",
+                    "Monitoring change adoption and impact",
+                    "Managing resistance and obstacles",
+                    "Adjustment and course correction strategies"
+                ]
+            },
+            {
+                "moduleTitle": "Module 07: Process Group 5 — Close the Change Management Effort",
+                "content": [
+                    "Transition to steady-state operations",
+                    "Sustain change and prevent reverting",
+                    "Organizational learning and documentation",
+                    "Closure and celebration activities",
+                    "Post-implementation review and lessons learned"
+                ]
+            },
+            {
+                "moduleTitle": "Module 08: ACMP® Code of Ethics",
+                "content": [
+                    "Professional responsibility and accountability",
+                    "Ethical decision-making in change management",
+                    "Conflict of interest management",
+                    "Confidentiality and integrity in practice",
+                    "Continuing professional development"
+                ]
+            },
+            {
+                "moduleTitle": "Module 09: Exam Preparation, Application & Mock Exam",
+                "content": [
+                    "CCMP™ certification exam format and requirements",
+                    "Test-taking strategies and time management",
+                    "Mock exam simulation and practice",
+                    "Review of key concepts and competencies",
+                    "Application submission guidance"
+                ]
+            }
+        ],
+        "prices": {
+            "inr": 52800,
+            "usd": 469,
+            "aed": 1999,
+            "gbp": 409,
+            "eur": 489
+        },
+        "categoryGroup": "Management & Security"
+    },
+    {
+        "id": "GAIA101",
+        "courseSlug": "generative-ai-agentic-ai-foundations-to-frontier",
+        "category": "Generative AI",
+        "catdesc": "From Foundations to Frontier: Generative AI and Agentic AI in real-world applications",
+        "courseTitle": "Generative AI and Agentic AI: Foundations to Frontier",
+        "catcls": "cat-one",
+        "courseDays": "03 Days",
+        "courseTime": "24 Hours",
+        "courseModules": "08 Modules",
+        "price": "42800",
+        "rating": "4.9",
+        "overview": "A 24-hour intensive program that bridges generative and agentic AI, covering theory, hands-on labs, and production-grade design patterns. Ideal for engineers, data scientists, and tech leaders who want to build advanced AI systems.",
+        "courseObjective": "Develop foundational mastery of generative AI models and agentic systems, and design deployable AI solutions with safety, monitoring, and governance.",
+        "courseOutcomes": "Learners will be able to architect LLM-based systems, implement RAG and tool-using agents, orchestrate multi-agent workflows, and apply responsible deployment practices.",
+        "prerequisites": "Basic Python and machine learning fundamentals, familiarity with neural networks.",
+        "labs": "Hands-on labs with Hugging Face, Claude/OpenAI APIs, LangChain, LangGraph, and vector DB integration.",
+        "toc": "GAIA101-GenerativeAIAgenticAIFoundationsFrontier.pdf",
+        "logo": "course_thumb06.jpg",
+        "noStudents": "20",
+        "instructor": "Industry Experts",
+        "language": "English",
+        "difficulty": "Advanced",
+        "whatWillYouLearn": [
+            "Architecture and training of LLMs and generative models",
+            "Prompt engineering for robust and reliable outputs",
+            "RAG pipelines with vector search and evaluation metrics",
+            "Agentic AI fundamentals, planning, and memory design",
+            "Tool use and function calling for autonomous agents",
+            "Multi-agent orchestration and collaboration patterns",
+            "Safety, ethics, and governance for production AI",
+            "Deployment, observability, and cost optimization"
+        ],
+        "requirements": [
+            "Python 3.9+",
+            "Machine learning basics",
+            "Familiarity with transformers and deep learning concepts"
+        ],
+        "targetAudience": [
+            "Software engineers",
+            "Data scientists",
+            "ML practitioners",
+            "Tech leads",
+            "AI enthusiasts"
+        ],
+        "modules": [
+            {
+                "moduleTitle": "Module 01: Foundations of Generative AI",
+                "content": [
+                    "AI evolution: rules, ML, deep learning, generative AI",
+                    "Discriminative vs generative models",
+                    "Autoencoders, VAEs, GANs, Transformers, Diffusion models",
+                    "Transformer deep dive: attention, positional encoding, scaling",
+                    "Pre-training objectives and tokenization strategies",
+                    "Foundation model landscape: GPT, Claude, Gemini, LLaMA, Mistral",
+                    "Lab: model architecture exploration and tokenization with Hugging Face"
+                ]
+            },
+            {
+                "moduleTitle": "Module 02: LLMs and Prompt Engineering",
+                "content": [
+                    "LLM training pipeline: pre-training, SFT, RLHF/RLAIF",
+                    "Alignment and Constitutional AI principles",
+                    "Inference tuning: temperature, top-k/top-p, beam search",
+                    "Prompt engineering: zero/few-shot, chain-of-thought, self-consistency",
+                    "Advanced prompts: ReAct, Tree of Thought, structured outputs",
+                    "Context window strategies for long documents",
+                    "Lab: prompt experiments with Claude API"
+                ]
+            },
+            {
+                "moduleTitle": "Module 03: Multimodal Generative AI",
+                "content": [
+                    "Image generation with Stable Diffusion, DALL-E, Midjourney",
+                    "Diffusion internals, noise schedules, classifier-free guidance",
+                    "Video generation challenges and techniques",
+                    "Audio generation and voice cloning",
+                    "Code generation models and evaluation",
+                    "Vision-language models: GPT-4V, Claude Vision, Gemini",
+                    "Lab: build a multimodal app with image+text"
+                ]
+            },
+            {
+                "moduleTitle": "Module 04: Retrieval-Augmented Generation (RAG)",
+                "content": [
+                    "RAG architecture and hallucination mitigation",
+                    "Embeddings, vector DBs, and chunking strategies",
+                    "Hybrid retrieval, re-ranking, query transformation",
+                    "Multi-hop RAG and iterative retrieval",
+                    "RAG evaluation: faithfulness, relevance, context recall",
+                    "Lab: end-to-end RAG pipeline with document ingestion"
+                ]
+            },
+            {
+                "moduleTitle": "Module 05: Foundations of Agentic AI",
+                "content": [
+                    "AI agent definition, autonomy, and goal-directed behaviour",
+                    "Agent components: perception, reasoning, planning, action, memory",
+                    "Classical vs modern agents (BDI, SOAR, LLM agents)",
+                    "Reasoning frameworks: chain-of-thought, ReAct, Reflexion",
+                    "Planning strategies and memory systems",
+                    "Lab: basic ReAct agent implementation"
+                ]
+            },
+            {
+                "moduleTitle": "Module 06: Tool Use and Agent Frameworks",
+                "content": [
+                    "Tool paradigm and function calling APIs",
+                    "Model Context Protocol (MCP) for tool integration",
+                    "Frameworks: LangChain, LangGraph, AutoGen, CrewAI",
+                    "Agentic RAG and dynamic retrieval decision-making",
+                    "Error handling and retry strategies",
+                    "Lab: tool-augmented agent with LangGraph"
+                ]
+            },
+            {
+                "moduleTitle": "Module 07: Multi-Agent Systems",
+                "content": [
+                    "Multi-agent motivations: specialization and emergent behavior",
+                    "Architectures: hierarchical, peer-to-peer, blackboard",
+                    "Communication protocols and orchestration patterns",
+                    "Role-based design and agent debate/verification",
+                    "Human-in-the-loop handoff and approvals",
+                    "Lab: multi-agent research/writing workflow"
+                ]
+            },
+            {
+                "moduleTitle": "Module 08: Safety, Ethics, and Deployment",
+                "content": [
+                    "Generative and agentic safety risk assessment",
+                    "Guardrails, filtering, and safety classifiers",
+                    "Responsible AI frameworks and governance",
+                    "Production architecture, scaling, monitoring, and cost",
+                    "Drift detection, quality metrics, and observability",
+                    "Capstone: design an end-to-end agentic AI solution"
+                ]
+            }
+        ],
+        "prices": {
+            "inr": 42800,
+            "usd": 379,
+            "aed": 1599,
+            "gbp": 319,
+            "eur": 349
+        },
+        "categoryGroup": "AI & Generative AI"
     }
 ]
