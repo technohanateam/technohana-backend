@@ -117,15 +117,37 @@ const allowedCurrencies = ['usd', 'inr', 'aed', 'eur', 'gbp'];
 // Coupon map — single source of truth for both validation and quote computation
 // currencies: null means global (any currency); otherwise array of allowed currency codes
 const validCoupons = {
-  'DIWALI10': { rate: 0.10, currencies: ['inr'] },
-  'HOLI5': { rate: 0.05, currencies: ['inr'] },
-  'EID10': { rate: 0.10, currencies: ['aed'] },
-  'RAMADAN8': { rate: 0.08, currencies: ['aed'] },
-  'XMAS10': { rate: 0.10, currencies: ['usd', 'gbp', 'eur'] },
-  'THANKSGIVING7': { rate: 0.07, currencies: ['usd'] },
-  'EASTER6': { rate: 0.06, currencies: ['gbp', 'eur'] },
-  'NEWYEAR5': { rate: 0.05, currencies: null },
-  'LAUNCH10': { rate: 0.10, currencies: null },
+  // ── India (INR) ──────────────────────────────────────────────────────────
+  'NEWYEAR5':       { rate: 0.05, currencies: null },          // Jan 1  — global
+  'REPUBLIC5':      { rate: 0.05, currencies: ['inr'] },       // Jan 26 — Republic Day
+  'PONGAL5':        { rate: 0.05, currencies: ['inr'] },       // Jan    — Pongal / Makar Sankranti
+  'HOLI5':          { rate: 0.05, currencies: ['inr'] },       // Mar    — Holi
+  'BAISAKHI5':      { rate: 0.05, currencies: ['inr'] },       // Apr 14 — Baisakhi
+  'INDEPENDENCE8':  { rate: 0.08, currencies: ['inr'] },       // Aug 15 — Independence Day
+  'ONAM7':          { rate: 0.07, currencies: ['inr'] },       // Sep    — Onam
+  'NAVRATRI8':      { rate: 0.08, currencies: ['inr'] },       // Oct    — Navratri
+  'DIWALI10':       { rate: 0.10, currencies: ['inr'] },       // Oct/Nov — Diwali
+  // ── UAE / Arab ────────────────────────────────────────────────────────────
+  'RAMADAN8':       { rate: 0.08, currencies: ['aed'] },       // Mar/Apr — Ramadan
+  'EID10':          { rate: 0.10, currencies: ['aed'] },       // Apr/Jun — Eid ul-Fitr / Adha
+  'UAENATIONAL8':   { rate: 0.08, currencies: ['aed'] },       // Dec 2  — UAE National Day
+  // ── US ────────────────────────────────────────────────────────────────────
+  'MEMORIALDAY5':   { rate: 0.05, currencies: ['usd'] },       // May    — Memorial Day
+  'JUNETEENTH5':    { rate: 0.05, currencies: ['usd'] },       // Jun 19 — Juneteenth
+  'LABORDAY7':      { rate: 0.07, currencies: ['usd'] },       // Sep    — Labor Day
+  'HALLOWEEN5':     { rate: 0.05, currencies: ['usd'] },       // Oct 31 — Halloween
+  'THANKSGIVING7':  { rate: 0.07, currencies: ['usd'] },       // Nov    — Thanksgiving
+  'XMAS10':         { rate: 0.10, currencies: ['usd', 'gbp', 'eur'] }, // Dec — Christmas
+  // ── UK / EU ───────────────────────────────────────────────────────────────
+  'STPATRICKS5':    { rate: 0.05, currencies: ['gbp', 'eur'] }, // Mar 17 — St. Patrick's Day
+  'EASTER6':        { rate: 0.06, currencies: ['gbp', 'eur'] }, // Apr    — Easter
+  'MAYBANK5':       { rate: 0.05, currencies: ['gbp', 'eur'] }, // May    — May Bank Holiday
+  'SUMMERLEARN7':   { rate: 0.07, currencies: ['usd', 'gbp', 'eur'] }, // Jun–Aug — Summer Learning
+  // ── Global / Platform ─────────────────────────────────────────────────────
+  'LAUNCH10':       { rate: 0.10, currencies: null },          // Always-on platform launch
+  'FLASHSALE15':    { rate: 0.15, currencies: null },          // On-demand flash sale — activate manually
+  'REFERRAL10':     { rate: 0.10, currencies: null },          // Referral campaign codes — activate per campaign
+  'B2B20':          { rate: 0.20, currencies: null },          // Corporate / B2B deals — activate per deal
 };
 
 const priceCatalog = {
