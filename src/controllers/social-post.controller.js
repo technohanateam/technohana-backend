@@ -49,7 +49,11 @@ export const createSocialPost = async (req, res) => {
     if (!platforms || platforms.length === 0)
       return res.status(400).json({ message: "At least one platform is required." });
 
-    const post = new SocialPost({ platforms, text, imageUrl, scheduledAt, utmParams });
+    const post = new SocialPost({
+      platforms, text, imageUrl, scheduledAt, utmParams,
+      createdBy: req.admin?._id,
+      createdByRole: req.admin?.role,
+    });
     await post.save();
     return res.status(201).json({ data: post });
   } catch (err) {

@@ -131,7 +131,8 @@ const campaignSchema = new Schema({
   lastRetryAt: Date,
 
   // Admin & Audit
-  createdBy: mongoose.Schema.Types.ObjectId, // Admin user
+  createdBy: mongoose.Schema.Types.ObjectId,
+  createdByRole: { type: String, enum: ["admin", "marketing", "sales"] },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
   sentAt: Date,

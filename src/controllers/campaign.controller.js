@@ -116,7 +116,8 @@ export const createCampaign = async (req, res) => {
       schedule,
       eventTrigger,
       variants: variants || [],
-      createdBy: req.user?.id, // Assumes authenticated admin
+      createdBy: req.admin?._id,
+      createdByRole: req.admin?.role,
       status: "draft",
     });
 

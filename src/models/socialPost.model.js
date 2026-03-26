@@ -24,6 +24,8 @@ const SocialPostSchema = new mongoose.Schema(
       comments: { type: Number, default: 0 },
       shares: { type: Number, default: 0 },
     },
+    createdBy: mongoose.Schema.Types.ObjectId,
+    createdByRole: { type: String, enum: ["admin", "marketing", "sales"] },
   },
   { timestamps: true }
 );

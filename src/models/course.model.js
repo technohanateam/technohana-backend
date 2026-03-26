@@ -15,6 +15,13 @@ const courseSchema = new mongoose.Schema({
   category:         { type: String },
   difficulty:       { type: String },
   price:            { type: String },
+  prices: {
+    inr: { type: Number },
+    usd: { type: Number },
+    aed: { type: Number },
+    gbp: { type: Number },
+    eur: { type: Number },
+  },
   instructor:       { type: String },
   language:         { type: String, default: "English" },
   courseDays:       { type: String },
