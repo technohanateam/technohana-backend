@@ -417,21 +417,32 @@ const couponLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHea
 // Use the new database-backed coupon validation from controller
 app.post('/api/coupons/validate', couponLimiter, validateCoupon);
 
-// Public: return the best active global coupon (no auth required)
+// Public: return the best active coupon for a given currency (falls back to global)
+// GET /api/coupons/public?currency=inr
 app.get('/api/coupons/public', async (req, res) => {
   try {
+    const currency = req.query.currency?.toLowerCase() || null;
     const now = new Date();
-    const candidates = await Coupon.find({
-      isActive: true,
-      $and: [
-        { $or: [{ expiryDate: null }, { expiryDate: { $gt: now } }] },
-        { $or: [{ validCurrencies: null }, { validCurrencies: { $size: 0 } }] },
-      ],
-    }).sort({ discountPercent: -1 }).limit(10).lean();
 
-    const coupon = candidates.find(c =>
-      c.maxUsageCount == null || c.currentUsageCount < c.maxUsageCount
-    );
+    const baseFilter = {
+      isActive: true,
+      $or: [{ expiryDate: null }, { expiryDate: { $gt: now } }],
+    };
+
+    // Try regional coupon first (matches the user's currency), then fall back to global
+    const pick = async (currencyFilter) => {
+      const candidates = await Coupon.find({ ...baseFilter, ...currencyFilter })
+        .sort({ discountPercent: -1 }).limit(10).lean();
+      return candidates.find(c => c.maxUsageCount == null || c.currentUsageCount < c.maxUsageCount) || null;
+    };
+
+    let coupon = null;
+    if (currency) {
+      coupon = await pick({ validCurrencies: currency });
+    }
+    if (!coupon) {
+      coupon = await pick({ $or: [{ validCurrencies: null }, { validCurrencies: { $size: 0 } }] });
+    }
 
     if (!coupon) return res.json({ coupon: null });
     return res.json({
