@@ -33,6 +33,9 @@ const instructorSchema = new Schema({
         enum : ["pending","shortlisted","rejected"],
         default : "pending"
     },
+    notes : { type : String, default : "" },
+    assignedTo : { type : String, default : "" },
+    nextFollowUp : { type : Date },
     submittedAt : {
         type : Date,
         default : Date.now

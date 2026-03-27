@@ -21,6 +21,7 @@ import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferral
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
 import { getAllSocialPosts, getSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, publishToBuffer, generateSocialCopy } from "../controllers/social-post.controller.js";
 import Campaign from "../models/campaign.model.js";
+import { sendEmail, fromAddresses } from "../config/emailService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -927,6 +928,76 @@ router.patch("/instructors/:id/status", authenticateAdmin, async (req, res) => {
     return res.json({ data: updated });
   } catch (err) {
     return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PATCH /admin/instructors/:id - Update notes, assignedTo, nextFollowUp
+router.patch("/instructors/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const { notes, assignedTo, nextFollowUp } = req.body;
+    const update = {};
+    if (notes !== undefined) update.notes = notes;
+    if (assignedTo !== undefined) update.assignedTo = assignedTo;
+    if (nextFollowUp !== undefined) update.nextFollowUp = nextFollowUp || null;
+    const updated = await Instructor.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!updated) return res.status(404).json({ message: "Instructor not found." });
+    return res.json({ data: updated });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// DELETE /admin/instructors/:id - Delete instructor application + Cloudinary resume
+router.delete("/instructors/:id", authenticateAdmin, requireAdmin, async (req, res) => {
+  try {
+    const instructor = await Instructor.findById(req.params.id);
+    if (!instructor) return res.status(404).json({ message: "Instructor not found." });
+    if (instructor.resumePublicId) {
+      await cloudinary.uploader.destroy(instructor.resumePublicId, { resource_type: "raw" }).catch(() => {});
+    }
+    await instructor.deleteOne();
+    return res.json({ message: "Deleted." });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/instructors/:id/email - Send templated email to instructor
+router.post("/instructors/:id/email", authenticateAdmin, async (req, res) => {
+  try {
+    const instructor = await Instructor.findById(req.params.id).lean();
+    if (!instructor) return res.status(404).json({ message: "Instructor not found." });
+
+    const { template, customMessage } = req.body;
+    const name = instructor.name || "Instructor";
+
+    const templates = {
+      shortlist: {
+        subject: "Your Technohana Instructor Application — Next Steps",
+        html: `<p>Hi ${name},</p><p>Great news! We've reviewed your application and would love to schedule a brief interview. Please reply to this email with your availability.</p>${customMessage ? `<p>${customMessage}</p>` : ""}<p>Best regards,<br/>Technohana Careers Team</p>`,
+      },
+      reject: {
+        subject: "Your Technohana Instructor Application",
+        html: `<p>Hi ${name},</p><p>Thank you for applying to join Technohana as an instructor. After careful review, we won't be moving forward at this time. We'll keep your profile on file for future opportunities.</p>${customMessage ? `<p>${customMessage}</p>` : ""}<p>Best regards,<br/>Technohana Careers Team</p>`,
+      },
+      onboard: {
+        subject: "Welcome to Technohana — Onboarding Next Steps",
+        html: `<p>Hi ${name},</p><p>We're thrilled to have you on board as a Technohana instructor! Our team will reach out shortly with your onboarding details and first assignment.</p>${customMessage ? `<p>${customMessage}</p>` : ""}<p>Best regards,<br/>Technohana Careers Team</p>`,
+      },
+      custom: {
+        subject: "Message from Technohana",
+        html: `<p>Hi ${name},</p><p>${customMessage || ""}</p><p>Best regards,<br/>Technohana Careers Team</p>`,
+      },
+    };
+
+    const tpl = templates[template];
+    if (!tpl) return res.status(400).json({ message: "Invalid template." });
+
+    await sendEmail({ from: fromAddresses.careers, to: instructor.email, subject: tpl.subject, html: tpl.html });
+    return res.json({ message: "Email sent." });
+  } catch (err) {
+    console.error("Instructor email error:", err);
+    return res.status(500).json({ message: "Failed to send email." });
   }
 });
 
