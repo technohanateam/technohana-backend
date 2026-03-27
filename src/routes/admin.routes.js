@@ -877,6 +877,23 @@ router.post("/upload-image", authenticateAdmin, upload.single("image"), async (r
 
 // ─── Instructors (Trainer Pool) ───────────────────────────────────────────────
 
+// GET /admin/instructors/resume-proxy?url=<cloudinary_url> - Proxy resume download
+router.get("/instructors/resume-proxy", authenticateAdmin, async (req, res) => {
+  const { url } = req.query;
+  if (!url || !url.startsWith("https://res.cloudinary.com/dxudmbycn/")) {
+    return res.status(400).json({ message: "Invalid URL" });
+  }
+  try {
+    const response = await axios.get(url, { responseType: "stream" });
+    const filename = url.split("/").pop().split("?")[0] || "resume.pdf";
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Type", response.headers["content-type"] || "application/octet-stream");
+    response.data.pipe(res);
+  } catch (err) {
+    res.status(502).json({ message: "Failed to fetch resume" });
+  }
+});
+
 // GET /admin/instructors - List instructor applications
 router.get("/instructors", authenticateAdmin, async (req, res) => {
   try {
