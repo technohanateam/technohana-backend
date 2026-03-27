@@ -50,7 +50,8 @@ export const InstructorForm = async(req,res)=>{
             try {
                 uploadResult = await cloudinary.uploader.upload(file.path,{
                     folder : "technohana/instructor-resumes",
-                    resource_type : "raw"
+                    resource_type : "raw",
+                    access_mode : "public"
                 })
                 resumeUrl = uploadResult.secure_url;
                 resumePublicId = uploadResult.public_id;
