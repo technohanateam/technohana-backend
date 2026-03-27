@@ -877,16 +877,17 @@ router.post("/upload-image", authenticateAdmin, upload.single("image"), async (r
 
 // ─── Instructors (Trainer Pool) ───────────────────────────────────────────────
 
-// GET /admin/instructors/resume-proxy?url=<cloudinary_url> - Proxy resume download
+// GET /admin/instructors/resume-proxy?url=<cloudinary_url>&disposition=inline|attachment
 router.get("/instructors/resume-proxy", authenticateAdmin, async (req, res) => {
-  const { url } = req.query;
+  const { url, disposition = "attachment" } = req.query;
   if (!url || !url.startsWith("https://res.cloudinary.com/dxudmbycn/")) {
     return res.status(400).json({ message: "Invalid URL" });
   }
   try {
     const response = await axios.get(url, { responseType: "stream" });
     const filename = url.split("/").pop().split("?")[0] || "resume.pdf";
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    const disp = disposition === "inline" ? "inline" : "attachment";
+    res.setHeader("Content-Disposition", `${disp}; filename="${filename}"`);
     res.setHeader("Content-Type", response.headers["content-type"] || "application/octet-stream");
     response.data.pipe(res);
   } catch (err) {
