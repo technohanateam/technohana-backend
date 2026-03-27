@@ -884,14 +884,23 @@ router.get("/instructors/resume-proxy", authenticateAdmin, async (req, res) => {
     return res.status(400).json({ message: "Invalid URL" });
   }
   try {
-    const response = await axios.get(url, { responseType: "stream" });
-    const filename = url.split("/").pop().split("?")[0] || "resume.pdf";
-    const disp = disposition === "inline" ? "inline" : "attachment";
-    res.setHeader("Content-Disposition", `${disp}; filename="${filename}"`);
-    res.setHeader("Content-Type", response.headers["content-type"] || "application/octet-stream");
-    response.data.pipe(res);
+    // Extract public_id from URL (strip base, version, and query string)
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(\?|$)/);
+    if (!match) return res.status(400).json({ message: "Could not parse public_id" });
+    const publicId = match[1];
+
+    // Generate a signed URL valid for 5 minutes
+    const signedUrl = cloudinary.utils.private_download_url(publicId, null, {
+      resource_type: "raw",
+      type: "upload",
+      attachment: disposition === "attachment",
+      expires_at: Math.floor(Date.now() / 1000) + 300,
+    });
+
+    return res.redirect(302, signedUrl);
   } catch (err) {
-    res.status(502).json({ message: "Failed to fetch resume" });
+    console.error("Resume proxy error:", err);
+    res.status(502).json({ message: "Failed to generate signed URL" });
   }
 });
 
