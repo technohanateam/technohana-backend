@@ -471,6 +471,8 @@ router.post("/blogs/seed-static", authenticateAdmin, requireAdmin, async (req, r
 });
 
 // POST /admin/blogs/generate-from-course — AI-generate a blog post for a course
+// Uses Claude's built-in web_search tool so no external search API key is needed.
+// Claude searches the web autonomously, then writes the post grounded in current data.
 router.post("/blogs/generate-from-course", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
     const { courseId, courseTitle, category, description } = req.body;
@@ -479,15 +481,23 @@ router.post("/blogs/generate-from-course", authenticateAdmin, requireAdmin, asyn
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return res.status(503).json({ message: "AI generation not configured. Add ANTHROPIC_API_KEY to .env" });
 
-    const prompt = `You are an SEO content writer for Technohana, an online tech training company based in India with global students.
+    const year = new Date().getFullYear();
 
-Write a complete, high-quality blog post for the following course:
+    const systemPrompt = "You are an expert SEO content writer for Technohana, an online tech training company based in India with global students. Always search the web before writing to ground your post in current facts, stats, and trends. Never fabricate statistics.";
+
+    const userPrompt = `Write a complete, high-quality blog post for the following course:
 Course: ${courseTitle}
 Category: ${category || "Technology"}
 ${description ? `Description: ${description}` : ""}
 
+Before writing, search the web for:
+1. "${courseTitle} trends ${year}"
+2. "${courseTitle} jobs salary demand ${year}"
+
+Use real facts and stats from those results in the blog post.
+
 Return ONLY a valid JSON object (no markdown, no code fences, no explanation) with these exact keys:
-- "title": compelling blog post title (NOT the course title; e.g. "Why Every Professional Should Learn [Topic]" or "The Complete Guide to [Topic] in 2025")
+- "title": compelling blog post title (NOT the course title; e.g. "Why Every Professional Should Learn [Topic]" or "The Complete Guide to [Topic] in ${year}")
 - "slug": URL-friendly slug derived from the title
 - "excerpt": 2–3 sentence summary (aim for 140–160 characters)
 - "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, a practical tips section, conclusion paragraph with a call-to-action to explore Technohana courses at https://technohana.in/courses. Naturally include 2 internal links: one using <a href="/courses/${courseId || "COURSE_ID"}">${courseTitle}</a> and one to <a href="/blog/">related Technohana blog posts</a>.
@@ -503,33 +513,75 @@ Writing rules:
 - No emojis anywhere
 - Clean, professional prose — no hype words ("game-changing", "revolutionary")
 - Focus keyword must appear in title, first paragraph, and at least one <h2>
-- HTML must be valid and well-structured`;
+- HTML must be valid and well-structured
+- Weave web-sourced facts naturally into the prose`;
 
-    const response = await axios.post(
-      "https://api.anthropic.com/v1/messages",
-      {
-        model: "claude-opus-4-6",
-        max_tokens: 8192,
-        messages: [{ role: "user", content: prompt }],
-      },
-      {
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
+    // Agentic loop: Claude may call web_search multiple times before producing the final text
+    const messages = [{ role: "user", content: userPrompt }];
+    const tools = [{ type: "web_search_20260209", name: "web_search" }];
+    let finalText = "";
+
+    for (let turn = 0; turn < 10; turn++) {
+      const response = await axios.post(
+        "https://api.anthropic.com/v1/messages",
+        {
+          model: "claude-opus-4-6",
+          max_tokens: 8192,
+          system: systemPrompt,
+          tools,
+          messages,
         },
-      }
-    );
+        {
+          headers: {
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          timeout: 120000,
+        }
+      );
 
-    const raw = response.data.content?.[0]?.text?.trim() || "";
+      const { stop_reason, content } = response.data;
+
+      // Append assistant turn to message history
+      messages.push({ role: "assistant", content });
+
+      if (stop_reason === "end_turn") {
+        // Claude is done — extract the final text block
+        const textBlock = content.find(b => b.type === "text");
+        finalText = textBlock?.text?.trim() || "";
+        break;
+      }
+
+      if (stop_reason === "tool_use") {
+        // Build tool_result blocks for every tool_use block in this turn
+        const toolResults = content
+          .filter(b => b.type === "tool_use")
+          .map(b => ({
+            type: "tool_result",
+            tool_use_id: b.id,
+            content: b.input?.query
+              ? `Web search performed for: "${b.input.query}". Results will be provided by the API.`
+              : "Search completed.",
+          }));
+        messages.push({ role: "user", content: toolResults });
+        continue;
+      }
+
+      // Any other stop reason — bail out
+      break;
+    }
+
+    if (!finalText) return res.status(500).json({ message: "Claude did not produce a final response." });
+
     let generated;
     try {
-      generated = JSON.parse(raw);
+      generated = JSON.parse(finalText);
     } catch {
-      const match = raw.match(/\{[\s\S]*\}/);
+      const match = finalText.match(/\{[\s\S]*\}/);
       generated = match ? JSON.parse(match[0]) : null;
     }
-    if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw });
+    if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw: finalText });
     return res.json({ data: generated });
   } catch (err) {
     const detail = err?.response?.data?.error?.message || err.message;
