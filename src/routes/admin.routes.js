@@ -20,6 +20,7 @@ import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, res
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
 import { getAllSocialPosts, getSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, publishToBuffer, generateSocialCopy } from "../controllers/social-post.controller.js";
+import { getAllCarousels, getCarousel, createCarousel, updateCarousel, deleteCarousel, generateCarousel } from "../controllers/carousel.controller.js";
 import Campaign from "../models/campaign.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 
@@ -1044,5 +1045,25 @@ router.post("/enquiries/migrate-instructors", authenticateAdmin, async (req, res
     return res.status(500).json({ message: "Server error" });
   }
 });
+
+// ─── LinkedIn Carousels ────────────────────────────────────────────────────────
+
+// POST /admin/carousels/generate — AI generation (must be before :id routes)
+router.post("/carousels/generate", authenticateAdmin, generateCarousel);
+
+// GET /admin/carousels
+router.get("/carousels", authenticateAdmin, getAllCarousels);
+
+// POST /admin/carousels
+router.post("/carousels", authenticateAdmin, createCarousel);
+
+// GET /admin/carousels/:id
+router.get("/carousels/:id", authenticateAdmin, getCarousel);
+
+// PUT /admin/carousels/:id
+router.put("/carousels/:id", authenticateAdmin, updateCarousel);
+
+// DELETE /admin/carousels/:id
+router.delete("/carousels/:id", authenticateAdmin, deleteCarousel);
 
 export default router;
