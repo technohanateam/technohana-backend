@@ -43,6 +43,14 @@ const blogSchema = new mongoose.Schema({
     },
     readTimeMin: {
         type: Number
+    },
+    published: {
+        type: Boolean,
+        default: false
+    },
+    scheduledAt: {
+        type: Date,
+        default: null
     }
 })
 

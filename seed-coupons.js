@@ -10,7 +10,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import mongoose from "mongoose";
-import connectDb from "./config/db.js";
+import connectDb from "./src/config/db.js";
 import Coupon from "./src/models/coupon.model.js";
 
 const YEAR = new Date().getFullYear();

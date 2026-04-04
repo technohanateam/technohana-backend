@@ -447,6 +447,22 @@ router.delete("/blogs/:id", authenticateAdmin, requireAdmin, async (req, res) =>
   }
 });
 
+// PATCH /admin/blogs/:id/publish — toggle published status (or schedule)
+router.patch("/blogs/:id/publish", authenticateAdmin, async (req, res) => {
+  try {
+    const { published, scheduledAt } = req.body;
+    const blog = await Blogs.findById(req.params.id);
+    if (!blog) return res.status(404).json({ message: "Blog not found." });
+    blog.published = typeof published === "boolean" ? published : !blog.published;
+    blog.scheduledAt = scheduledAt !== undefined ? (scheduledAt ? new Date(scheduledAt) : null) : blog.scheduledAt;
+    await blog.save();
+    return res.json({ published: blog.published, scheduledAt: blog.scheduledAt });
+  } catch (err) {
+    console.error("Admin toggle publish error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 // POST /admin/blogs/seed-static — bulk import static blog posts, skip existing slugs
 router.post("/blogs/seed-static", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
@@ -587,6 +603,93 @@ Writing rules:
     const detail = err?.response?.data?.error?.message || err.message;
     console.error("Blog generation error:", detail);
     return res.status(500).json({ message: "Failed to generate blog.", detail });
+  }
+});
+
+// POST /admin/blogs/generate-from-urls — AI-generate a blog post from live URLs
+router.post("/blogs/generate-from-urls", authenticateAdmin, requireAdmin, async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ message: "ANTHROPIC_API_KEY not configured." });
+
+  const { urls, topic, category, focusKeyword } = req.body;
+  if (!Array.isArray(urls) || urls.length === 0) {
+    return res.status(400).json({ message: "Provide at least one URL." });
+  }
+
+  // Fetch and extract plain text from each URL (server-side)
+  const stripHtml = (html) => html.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<\/?[^>]+(>|$)/g, " ").replace(/\s+/g, " ").trim();
+
+  const sourceSections = [];
+  for (const url of urls.slice(0, 5)) {
+    try {
+      const pageRes = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; TechnohanaBot/1.0)" }, signal: AbortSignal.timeout(12000) });
+      const html = await pageRes.text();
+      const text = stripHtml(html).slice(0, 3000);
+      sourceSections.push(`--- SOURCE: ${url} ---\n${text}`);
+    } catch {
+      sourceSections.push(`--- SOURCE: ${url} ---\n[Could not fetch this URL]`);
+    }
+  }
+
+  const year = new Date().getFullYear();
+  const topicLine = topic ? `The blog post topic is: "${topic}".` : "Determine the best topic from the source material.";
+  const categoryLine = category ? `Category: ${category}.` : "";
+  const keywordLine = focusKeyword ? `Focus keyword for SEO: "${focusKeyword}".` : "";
+
+  const userPrompt = `I have collected the following source articles. Read them carefully.
+
+${sourceSections.join("\n\n")}
+
+${topicLine} ${categoryLine} ${keywordLine}
+
+Write a complete, high-quality, SEO-optimised blog post for Technohana (an online tech training company with students in India, UAE, US, UK, EU) grounded in the facts and ideas from those sources. Year: ${year}.
+
+Return ONLY a valid JSON object (no markdown, no code fences) with these exact keys:
+- "title": compelling blog post title
+- "slug": URL-friendly slug
+- "excerpt": 1–2 sentence summary (max 160 chars)
+- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, practical tips section, conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>
+- "metaTitle": 50–60 characters, includes focus keyword if provided
+- "metaDescription": 140–160 characters
+- "focusKeyword": primary SEO keyword
+- "tags": array of 5–8 relevant tags
+- "readTimeMin": estimated read time in minutes (number)
+- "author": "Technohana Team"
+- "category": blog category string
+
+No emojis. Professional prose. Valid semantic HTML only.`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-opus-4-6",
+        max_tokens: 8192,
+        system: "You are an expert SEO content writer for Technohana, an online tech training company based in India with global students. Write accurate, factual blog posts grounded in the source material provided. Never fabricate statistics.",
+        messages: [{ role: "user", content: userPrompt }],
+      }),
+    });
+
+    const data = await response.json();
+    const finalText = data.content?.find((b) => b.type === "text")?.text || "";
+    let generated;
+    try {
+      generated = JSON.parse(finalText);
+    } catch {
+      const match = finalText.match(/\{[\s\S]*\}/);
+      generated = match ? JSON.parse(match[0]) : null;
+    }
+    if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw: finalText });
+    return res.json({ data: generated });
+  } catch (err) {
+    const detail = err?.message;
+    console.error("Blog generate-from-urls error:", detail);
+    return res.status(500).json({ message: "Failed to generate blog from URLs.", detail });
   }
 });
 

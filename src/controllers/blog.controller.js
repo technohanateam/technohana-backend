@@ -2,7 +2,13 @@ import { Blogs } from "../models/blogs.model.js";
 
 export const getAllBlogs = async (req, res) => {
   try {
-    const blog = await Blogs.find();
+    const now = new Date();
+    const blog = await Blogs.find({
+      $or: [
+        { published: true, scheduledAt: null },
+        { published: true, scheduledAt: { $lte: now } },
+      ],
+    });
     return res.json(blog);
   } catch (error) {
     console.log("Error fetching all blogs : ", error);
