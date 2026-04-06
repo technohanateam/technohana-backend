@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const SocialPostSchema = new mongoose.Schema(
   {
-    platforms: [{ type: String, enum: ["linkedin", "instagram", "facebook", "x"] }],
+    platforms: [{ type: String, enum: ["linkedin-personal", "linkedin-company", "instagram", "facebook", "x"] }],
     text: { type: String, required: true },
     imageUrl: { type: String, default: "" },
     status: {
