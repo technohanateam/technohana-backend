@@ -4,7 +4,7 @@ import SocialPost from "../models/socialPost.model.js";
 // GET /admin/social-posts
 export const getAllSocialPosts = async (req, res) => {
   try {
-    const { status, platform, page = 1, limit = 20, month, year } = req.query;
+    const { status, platform, page = 1, limit = 20, month, year, search } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
@@ -17,6 +17,7 @@ export const getAllSocialPosts = async (req, res) => {
       const end = new Date(parseInt(year), parseInt(month), 1);
       filter.scheduledAt = { $gte: start, $lt: end };
     }
+    if (search) filter.text = { $regex: search, $options: "i" };
 
     const [data, total] = await Promise.all([
       SocialPost.find(filter).sort({ scheduledAt: 1, createdAt: -1 }).skip(skip).limit(limitNum).lean(),
