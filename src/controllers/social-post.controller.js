@@ -145,7 +145,7 @@ export const publishToBuffer = async (req, res) => {
 // Uses Anthropic API to generate platform-optimized post copy
 export const generateSocialCopy = async (req, res) => {
   try {
-    const { courseTitle, courseDescription, courseId, platform, style } = req.body;
+    const { courseTitle, courseDescription, courseId, platform, style, voiceHint } = req.body;
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -182,7 +182,7 @@ Style: ${style || "promotional"}
 
 Style guide: ${styleGuides[style] || styleGuides.promotional}
 Platform guide: ${platformGuides[platform] || platformGuides.linkedin}
-
+${voiceHint ? `Voice: ${voiceHint}` : ""}
 Rules:
 - Do NOT use emojis, emoji symbols, or decorative checkmarks (e.g. ✅, 🎓, 🚀, ✔️)
 - Do NOT use bullet points with dashes or asterisks unless it is a LinkedIn post

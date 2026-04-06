@@ -7,6 +7,7 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { fileURLToPath } from "url";
 import { User } from "../models/user.model.js";
+import { Order } from "../models/order.model.js";
 import Enquiry from "../models/enquiry.model.js";
 import Instructor from "../models/instructor.js";
 import AiRiskReport from "../models/aiRiskReport.model.js";
@@ -110,6 +111,40 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error("Admin stats error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/revenue-by-course — top courses by paid revenue (INR equivalent, top 10)
+router.get("/revenue-by-course", authenticateAdmin, async (req, res) => {
+  try {
+    const rows = await Order.aggregate([
+      { $match: { status: "paid" } },
+      {
+        $group: {
+          _id: "$courseId",
+          courseTitle: { $first: "$courseInfo.courseTitle" },
+          totalMinor: { $sum: "$expectedTotalMinor" },
+          currency: { $first: "$currency" },
+          orders: { $sum: 1 },
+        },
+      },
+      { $sort: { totalMinor: -1 } },
+      { $limit: 10 },
+      {
+        $project: {
+          _id: 0,
+          courseId: "$_id",
+          courseTitle: { $ifNull: ["$courseTitle", "$_id"] },
+          totalMinor: 1,
+          currency: 1,
+          orders: 1,
+        },
+      },
+    ]);
+    return res.json({ rows });
+  } catch (err) {
+    console.error("Revenue by course error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });

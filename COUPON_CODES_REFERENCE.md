@@ -55,6 +55,7 @@ Coupons are enforced server-side. `src/index.js → validCoupons` is the source 
 |---|---|---|---|---|
 | `LAUNCH10` | 10% | All | Always-on active | Platform launch — keep active |
 | `NEWYEAR5` | 5% | All | Jan 1–15 | New Year global offer |
+| `SUMMER10` | 10% | All | Active | Summer global offer |
 | `FLASHSALE15` | 15% | All | Inactive | Activate manually for flash sales |
 | `REFERRAL10` | 10% | All | Inactive | Activate per referral campaign |
 | `B2B20` | 20% | All | Inactive | Share directly with corporate clients |

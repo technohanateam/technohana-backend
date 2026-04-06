@@ -119,6 +119,7 @@ const allowedCurrencies = ['usd', 'inr', 'aed', 'eur', 'gbp'];
 const validCoupons = {
   // ── India (INR) ──────────────────────────────────────────────────────────
   'NEWYEAR5':       { rate: 0.05, currencies: null },          // Jan 1  — global
+  'SUMMER10':       { rate: 0.10, currencies: null },          // Summer — global
   'REPUBLIC5':      { rate: 0.05, currencies: ['inr'] },       // Jan 26 — Republic Day
   'PONGAL5':        { rate: 0.05, currencies: ['inr'] },       // Jan    — Pongal / Makar Sankranti
   'HOLI5':          { rate: 0.05, currencies: ['inr'] },       // Mar    — Holi
