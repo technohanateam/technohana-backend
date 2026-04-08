@@ -218,6 +218,8 @@ const priceCatalog = {
   'AZ-900T00': { inr: 1344000, usd: 11900, aed: 49900, gbp: 10900, eur: 12900 },
   'CRISC': { inr: 7440000, usd: 64900, aed: 275900, gbp: 57900, eur: 67900 },
   'CGEIT': { inr: 7440000, usd: 64900, aed: 275900, gbp: 57900, eur: 67900 },
+  'COBIT': { inr: 7440000, usd: 64900, aed: 275900, gbp: 57900, eur: 67900 },
+  'ISO31000': { inr: 5580000, usd: 48900, aed: 206900, gbp: 42900, eur: 50900 },
   'AWS-SA-PRO': { inr: 5040000, usd: 43900, aed: 186900, gbp: 38900, eur: 45900 },
   'AWS-DEVOPS-PRO': { inr: 5040000, usd: 43900, aed: 186900, gbp: 38900, eur: 45900 },
   'AWS-CLF-C02': { inr: 2160000, usd: 18900, aed: 80900, gbp: 16900, eur: 19900 },
