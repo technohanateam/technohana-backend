@@ -220,6 +220,8 @@ const priceCatalog = {
   'CGEIT': { inr: 7440000, usd: 64900, aed: 275900, gbp: 57900, eur: 67900 },
   'COBIT': { inr: 7440000, usd: 64900, aed: 275900, gbp: 57900, eur: 67900 },
   'ISO31000': { inr: 5580000, usd: 48900, aed: 206900, gbp: 42900, eur: 50900 },
+  'CPSP': { inr: 5280000, usd: 46900, aed: 199900, gbp: 40900, eur: 48900 },
+  'CLDP': { inr: 5280000, usd: 46900, aed: 199900, gbp: 40900, eur: 48900 },
   'AWS-SA-PRO': { inr: 5040000, usd: 43900, aed: 186900, gbp: 38900, eur: 45900 },
   'AWS-DEVOPS-PRO': { inr: 5040000, usd: 43900, aed: 186900, gbp: 38900, eur: 45900 },
   'AWS-CLF-C02': { inr: 2160000, usd: 18900, aed: 80900, gbp: 16900, eur: 19900 },
