@@ -257,6 +257,14 @@ router.post("/api/skills-gap", async (req, res) => {
     });
     const result = parseJsonResponse(response.choices[0].message.content);
     if (!result) throw new Error("parse_failed");
+    // Save anonymous lead — roles only, no email required
+    new Enquiry({
+      name: "Anonymous",
+      email: `skillsgap+${Date.now()}@anonymous.technohana.in`,
+      enquiryType: "Skills Gap",
+      description: `${current_role.trim()} → ${target_role.trim()}`,
+      source: "skills_gap_tool",
+    }).save().catch(() => {});
     return res.json(result);
   } catch (err) {
     console.error("Skills gap error:", err.message);
