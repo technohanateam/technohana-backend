@@ -507,4 +507,321 @@ router.post("/api/interview/feedback", async (req, res) => {
   return res.json(summary);
 });
 
+// ---------------------------------------------------------------------------
+// Roadmap API
+// ---------------------------------------------------------------------------
+
+function findCourse(courseId, courseTitle) {
+  if (courseId) {
+    const c = courses.find((c) => c.id?.toUpperCase() === courseId.toUpperCase());
+    if (c) return c;
+  }
+  if (courseTitle) {
+    const tl = courseTitle.toLowerCase();
+    return (
+      courses.find((c) => c.courseTitle?.toLowerCase() === tl) ||
+      courses.find((c) => c.courseTitle?.toLowerCase().includes(tl)) ||
+      null
+    );
+  }
+  return null;
+}
+
+function buildCourseContext(course) {
+  const modules = (course.modules || []).slice(0, 10)
+    .map((m) => `  - ${m.moduleTitle || "Module"}: ${(m.content || []).slice(0, 3).join(", ")}`)
+    .join("\n");
+  const outcomes = (course.whatWillYouLearn || []).slice(0, 5)
+    .map((o) => `  - ${o}`).join("\n");
+  return `Course: ${course.courseTitle}\nDuration: ${course.courseDays || "?"} / ${course.courseTime || "?"}\nLevel: ${course.difficulty || "?"}\nModules:\n${modules}\nLearning outcomes:\n${outcomes}`;
+}
+
+function addDays(dateStr, days) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function fmtDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function roadmapFallback(courseTitle, learnerName, startDate) {
+  return {
+    courseTitle, learnerName, startDate,
+    phases: [
+      { phase: 1, label: "Days 1–30: Foundations", targetDate: addDays(startDate, 30), milestones: [{ week: 1, title: "Core Concepts", dateRange: `${fmtDate(startDate)} – ${fmtDate(addDays(startDate, 6))}`, tasks: ["Complete Module 1", "Set up your learning environment", "Take the intro assessment"], deliverable: "Complete first module and pass entry quiz" }] },
+      { phase: 2, label: "Days 31–60: Hands-on Labs", targetDate: addDays(startDate, 60), milestones: [{ week: 5, title: "Applied Practice", dateRange: `${fmtDate(addDays(startDate, 30))} – ${fmtDate(addDays(startDate, 36))}`, tasks: ["Complete lab exercises", "Build a mini-project", "Peer review session"], deliverable: "Submit hands-on lab project" }] },
+      { phase: 3, label: "Days 61–90: Capstone & Certification", targetDate: addDays(startDate, 90), milestones: [{ week: 9, title: "Capstone & Exam Prep", dateRange: `${fmtDate(addDays(startDate, 60))} – ${fmtDate(addDays(startDate, 66))}`, tasks: ["Complete capstone project", "Take 2 practice exams", "Review weak areas"], deliverable: "Submit capstone + schedule certification exam" }] },
+    ],
+    careerNextSteps: ["Update your LinkedIn headline with this certification", "Join the Technohana alumni community", "Apply to target roles using your new skills"],
+    examDate: addDays(startDate, 90),
+    certificationTarget: null,
+  };
+}
+
+// POST /api/roadmap/generate
+router.post("/api/roadmap/generate", async (req, res) => {
+  const { course_id, course_title, learner_name = "Learner", start_date } = req.body || {};
+  if (!course_id && !course_title) return res.status(422).json({ error: "course_id or course_title is required." });
+
+  const startDate = start_date || new Date().toISOString().slice(0, 10);
+  const course = findCourse(course_id, course_title);
+  if (!course) return res.json(roadmapFallback(course_title || course_id || "Your Course", learner_name, startDate));
+
+  const courseContext = buildCourseContext(course);
+  const systemPrompt = `You are a learning coach at Technohana. Generate a practical 30-60-90 day roadmap for the learner below.
+
+LEARNER: ${learner_name}
+START DATE: ${startDate}
+${courseContext}
+
+RULES:
+- Split learning into 3 phases: Days 1-30 (Foundations), Days 31-60 (Hands-on), Days 61-90 (Capstone & Certification)
+- Each phase has 2-3 weekly milestones with title, 2-4 tasks, and one deliverable
+- Calculate actual calendar dates from the start date
+- Use actual module names from the course
+- Post-90 career steps: LinkedIn update, job search tip, alumni community
+
+RESPONSE FORMAT — valid JSON only, no extra text:
+{"courseTitle":"...","learnerName":"...","startDate":"YYYY-MM-DD","phases":[{"phase":1,"label":"Days 1–30: Foundations","targetDate":"YYYY-MM-DD","milestones":[{"week":1,"title":"...","dateRange":"...","tasks":["..."],"deliverable":"..."}]}],"careerNextSteps":["..."],"examDate":"YYYY-MM-DD","certificationTarget":null}`;
+
+  try {
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await client.chat.completions.create({
+      model: "gpt-4o", max_tokens: 2048, temperature: 0.4,
+      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: "Generate the 30-60-90 day roadmap now." }],
+    });
+    const result = parseJsonResponse(response.choices[0].message.content);
+    if (!result) throw new Error("parse_failed");
+    result.courseId = course.id;
+    result.courseSlug = course.courseSlug;
+    return res.json(result);
+  } catch (err) {
+    console.error("Roadmap error:", err.message);
+    return res.json({ ...roadmapFallback(course.courseTitle, learner_name, startDate), courseId: course.id, courseSlug: course.courseSlug });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// LinkedIn Optimizer API
+// ---------------------------------------------------------------------------
+
+// POST /api/linkedin/optimize
+router.post("/api/linkedin/optimize", async (req, res) => {
+  const { course_id, course_title, learner_name = "Professional", current_role = "", current_headline = "" } = req.body || {};
+  if (!course_id && !course_title) return res.status(422).json({ error: "course_id or course_title is required." });
+
+  const course = findCourse(course_id, course_title);
+  const title = course?.courseTitle || course_title || course_id || "Your Course";
+
+  if (!course) {
+    return res.json({
+      courseTitle: title,
+      headline: `${learner_name}${current_role ? ` | ${current_role}` : ""} | ${title} Certified | AI & Tech Professional`,
+      aboutSection: `I recently completed the ${title} course, deepening my expertise in AI and technology. I'm passionate about continuous learning and applying new skills to solve real-world problems.`,
+      skillsToAdd: ["Artificial Intelligence", "Machine Learning", "Data Science", "Cloud Computing", "Python", "Deep Learning"],
+      linkedInPost: `Excited to share that I've just completed the ${title} certification!\n\nThe hands-on labs made all the difference. Looking forward to applying these skills.\n\n#AI #MachineLearning #Certification #CareerGrowth #Upskilling`,
+      hashtags: ["#AI", "#MachineLearning", "#Certification", "#CareerGrowth", "#Upskilling"],
+    });
+  }
+
+  const outcomes = (course.whatWillYouLearn || []).slice(0, 5).map((o) => `  - ${o}`).join("\n");
+  const systemPrompt = `You are a LinkedIn career coach at Technohana.
+
+A learner just completed this course:
+Course: ${course.courseTitle}
+Category: ${course.category}
+Difficulty: ${course.difficulty}
+Key outcomes:\n${outcomes}
+
+Learner details:
+Name: ${learner_name}
+Current role/headline: ${current_role || current_headline || "Professional"}
+
+Generate 4 things:
+1. A LinkedIn HEADLINE (max 220 chars) incorporating their current role + this certification
+2. An ABOUT SECTION rewrite (200-250 words) — professional, first-person
+3. A SKILLS list (8-12 specific skills from the course)
+4. A LINKEDIN POST (150-200 words) announcing the certification with 5-7 hashtags
+
+RULES:
+- Headline must be punchy and keyword-rich
+- About section should sound human, not AI-generated
+- Skills must be specific (e.g. "AWS EC2" not "Cloud Computing")
+- Do NOT mention Technohana in the post
+
+RESPONSE FORMAT — valid JSON only, no extra text:
+{"headline":"...","aboutSection":"...","skillsToAdd":["..."],"linkedInPost":"...","hashtags":["#Tag1"]}`;
+
+  try {
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await client.chat.completions.create({
+      model: "gpt-4o", max_tokens: 2048, temperature: 0.6,
+      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: "Generate the LinkedIn optimization now." }],
+    });
+    const result = parseJsonResponse(response.choices[0].message.content);
+    if (!result) throw new Error("parse_failed");
+    result.courseTitle = course.courseTitle;
+    result.courseId = course.id;
+    return res.json(result);
+  } catch (err) {
+    console.error("LinkedIn optimize error:", err.message);
+    return res.json({
+      courseTitle: course.courseTitle, courseId: course.id,
+      headline: `${learner_name}${current_role ? ` | ${current_role}` : ""} | ${course.courseTitle} Certified`,
+      aboutSection: `I recently completed the ${course.courseTitle} course, deepening my expertise in AI and technology.`,
+      skillsToAdd: ["Artificial Intelligence", "Machine Learning", "Python", "Data Science", "Cloud Computing"],
+      linkedInPost: `Just completed the ${course.courseTitle} certification! 🎓\n\n#AI #MachineLearning #Certification #CareerGrowth #Upskilling`,
+      hashtags: ["#AI", "#MachineLearning", "#Certification", "#CareerGrowth", "#Upskilling"],
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Content Calendar API
+// ---------------------------------------------------------------------------
+
+const SCHEDULE_DAYS = [1, 4, 7, 10, 13, 16, 19, 22, 25, 28];
+const POST_TYPES = ["announcement", "lesson", "tip", "story", "industry", "milestone", "resource", "question", "before_after", "cta"];
+const BEST_TIMES = ["09:00", "12:00", "09:00", "17:00", "09:00", "12:00", "09:00", "12:00", "17:00", "09:00"];
+
+function fillPostDates(posts, startDate) {
+  return posts.map((post, i) => {
+    const day = SCHEDULE_DAYS[i] ?? (i * 3 + 1);
+    if (!post.scheduledDate) post.scheduledDate = addDays(startDate, day - 1);
+    if (!post.scheduledDay) post.scheduledDay = day;
+    return post;
+  });
+}
+
+function contentCalendarFallback(courseTitle, learnerName, startDate) {
+  return {
+    courseTitle, learnerName, startDate, courseId: null, courseSlug: null,
+    posts: POST_TYPES.map((type, i) => ({
+      id: i + 1, type, scheduledDay: SCHEDULE_DAYS[i],
+      scheduledDate: addDays(startDate, SCHEDULE_DAYS[i] - 1),
+      bestTime: BEST_TIMES[i],
+      hook: `[Draft] ${type.replace(/_/g, " ")} post about ${courseTitle}`,
+      content: `Write your ${type.replace(/_/g, " ")} post here about completing ${courseTitle}.\n\n#Learning #AI #TechSkills #CareerGrowth #Upskilling`,
+      hashtags: ["#Learning", "#AI", "#TechSkills", "#CareerGrowth", "#Upskilling"],
+      engagementTip: "Personalise this post with a specific story or example from your experience.",
+    })),
+  };
+}
+
+// POST /api/content-calendar/generate
+router.post("/api/content-calendar/generate", async (req, res) => {
+  const { course_id, course_title, learner_name = "Professional", current_role = "", start_date } = req.body || {};
+  if (!course_id && !course_title) return res.status(422).json({ error: "course_id or course_title is required." });
+
+  const startDate = start_date || new Date().toISOString().slice(0, 10);
+  const course = findCourse(course_id, course_title);
+  if (!course) return res.json(contentCalendarFallback(course_title || course_id || "Your Course", learner_name, startDate));
+
+  const outcomes = (course.whatWillYouLearn || []).slice(0, 5).map((o) => `  - ${o}`).join("\n");
+  const systemPrompt = `You are a LinkedIn content strategist helping a professional build their personal brand after completing a tech course.
+
+Learner: ${learner_name}
+Current role: ${current_role || "Tech Professional"}
+Course completed: ${course.courseTitle}
+Category: ${course.category}
+Key skills learned:\n${outcomes}
+Campaign start date: ${startDate}
+
+Generate exactly 10 LinkedIn posts — one of each type: ${POST_TYPES.join(", ")}.
+
+Each post must:
+- Be 120-200 words
+- Sound authentic, first-person
+- Include 4-6 relevant hashtags
+- Have a clear hook in the first line
+- Schedule on days: ${SCHEDULE_DAYS.join(", ")}
+
+Return ONLY valid JSON:
+{"courseTitle":"...","learnerName":"...","startDate":"...","posts":[{"id":1,"type":"announcement","scheduledDay":1,"scheduledDate":"YYYY-MM-DD","bestTime":"09:00","hook":"...","content":"...","hashtags":["#Tag1"],"engagementTip":"..."}]}`;
+
+  try {
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await client.chat.completions.create({
+      model: "gpt-4o", max_tokens: 4096, temperature: 0.7,
+      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: "Generate the 30-day LinkedIn content calendar now." }],
+    });
+    const result = parseJsonResponse(response.choices[0].message.content);
+    if (!result) throw new Error("parse_failed");
+    result.courseId = course.id;
+    result.courseSlug = course.courseSlug;
+    result.posts = fillPostDates(result.posts || [], startDate);
+    return res.json(result);
+  } catch (err) {
+    console.error("Content calendar error:", err.message);
+    return res.json({ ...contentCalendarFallback(course.courseTitle, learner_name, startDate), courseId: course.id, courseSlug: course.courseSlug });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Parse Course PDF API
+// ---------------------------------------------------------------------------
+
+import multer from "multer";
+import pdfParse from "pdf-parse";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// POST /api/parse-course-pdf
+router.post("/api/parse-course-pdf", upload.single("file"), async (req, res) => {
+  if (!req.file || !req.file.originalname.toLowerCase().endsWith(".pdf")) {
+    return res.status(400).json({ error: "Only PDF files are accepted" });
+  }
+
+  let text;
+  try {
+    const parsed = await pdfParse(req.file.buffer);
+    text = parsed.text?.trim();
+  } catch (err) {
+    return res.status(422).json({ error: "Could not extract text from PDF" });
+  }
+
+  if (!text) return res.status(422).json({ error: "Could not extract text from PDF" });
+
+  const prompt = `You are extracting structured course data from a training/course syllabus PDF.
+
+Return ONLY a valid JSON object (no markdown, no explanation) with these fields:
+- id: suggested course code like "PYML101"
+- courseTitle: full course name
+- category: one of "Artificial Intelligence", "Data Science", "Cloud Computing", "Cybersecurity", "DevOps", "Programming", "Project Management", "Generative AI", or best fit
+- difficulty: "Beginner", "Intermediate", or "Advanced"
+- instructor: instructor name if mentioned, else ""
+- courseDays: duration like "05 Days" or ""
+- courseTime: total hours like "40 Hours" or ""
+- courseModules: number of modules like "07 Modules" or ""
+- overview: 2-3 sentence course description
+- courseObjective: 2-3 sentences on what the course aims to achieve
+- courseOutcomes: 2-3 sentences on what learners will achieve
+- labs: description of hands-on labs, or ""
+- prerequisites: array of prerequisite strings
+- whatWillYouLearn: array of 5-10 key learning points
+- requirements: array of technical requirements
+- targetAudience: array of 3-5 intended learner types
+- modules: array of objects with "moduleTitle" and "content" (array of topic strings)
+
+Syllabus text:
+${text.slice(0, 12000)}`;
+
+  try {
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await client.chat.completions.create({
+      model: "gpt-4o", max_tokens: 4096, temperature: 0.2,
+      messages: [{ role: "user", content: prompt }],
+    });
+    let raw = response.choices[0].message.content.trim();
+    if (raw.startsWith("```")) { raw = raw.split("```")[1]; if (raw.startsWith("json")) raw = raw.slice(4); }
+    const course_data = JSON.parse(raw);
+    return res.json({ course: course_data });
+  } catch (err) {
+    console.error("PDF parse error:", err.message);
+    return res.status(500).json({ error: "AI returned invalid JSON or call failed" });
+  }
+});
+
 export default router;
