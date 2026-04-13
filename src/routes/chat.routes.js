@@ -4,6 +4,7 @@
 import express from "express";
 import { createRequire } from "module";
 import { OpenAI } from "openai";
+import { randomUUID } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -161,6 +162,337 @@ router.post("/api/chat", async (req, res) => {
 router.delete("/api/chat/:session_id", (req, res) => {
   sessions.delete(req.params.session_id);
   return res.json({ status: "ok" });
+});
+
+// ---------------------------------------------------------------------------
+// Skills Gap API
+// ---------------------------------------------------------------------------
+
+function buildSkillsGapCatalog(courses) {
+  return courses
+    .map((c) => {
+      const audience = (c.targetAudience || [])[0] || "";
+      const outcomes = (c.whatWillYouLearn || []).slice(0, 2).join("; ");
+      const prices = c.prices || {};
+      return (
+        `${c.courseTitle} | ID:${c.id} | ${c.category || "N/A"} | ` +
+        `${c.courseDays || "?"} ${c.courseTime || "?"} | ` +
+        `INR:${prices.inr || c.price || "?"} | USD:${prices.usd || "?"} | AED:${prices.aed || "?"} | ` +
+        `${c.difficulty || "N/A"} | ${audience} | ${outcomes}`
+      );
+    })
+    .join("\n");
+}
+
+const SKILLS_GAP_SYSTEM = `You are a career advisor AI for Technohana, an AI and tech training company.
+
+Your job: given a user's CURRENT ROLE and TARGET ROLE, identify their skill gaps and recommend the best matching courses from the Technohana catalog.
+
+COURSE CATALOG (format: Title | ID | Category | Duration | INR Price | USD Price | AED Price | Level | Audience | Key outcomes):
+${buildSkillsGapCatalog(courses)}
+
+RULES:
+- Identify 3–6 specific, concrete skill gaps between the current role and target role
+- Recommend 2–4 courses from the catalog that directly address those gaps — ONLY use courses from the catalog above
+- For each recommended course, explain which gap(s) it addresses
+- Calculate total cost (INR, USD, AED) and a realistic timeline in weeks
+- Include group savings for team sizes 5 and 10+ (15% and 35% discounts)
+- Keep the tone encouraging and direct
+
+RESPONSE FORMAT — always respond with ONLY valid JSON, no extra text:
+{
+  "summary": "One encouraging sentence about this career transition",
+  "skillGaps": ["Specific skill gap 1", "Specific skill gap 2", "Specific skill gap 3"],
+  "recommendedCourses": [
+    {
+      "id": "COURSE_ID",
+      "title": "Course Title",
+      "category": "Category",
+      "duration": "X Days / Y Hours",
+      "prices": { "inr": 12000, "usd": 150, "aed": 550 },
+      "difficulty": "Beginner/Intermediate/Advanced",
+      "gapsAddressed": ["Gap 1", "Gap 3"],
+      "slug": "course-slug"
+    }
+  ],
+  "timeline": { "totalWeeks": 24, "description": "Brief timeline explanation" },
+  "totalCost": { "inr": 45000, "usd": 560, "aed": 2050 },
+  "groupSavings": {
+    "team5": { "inr": 38250, "usd": 476, "aed": 1742, "discountPercent": 15 },
+    "team10": { "inr": 29250, "usd": 364, "aed": 1332, "discountPercent": 35 }
+  },
+  "nextStep": "Enroll in [first course title] to get started."
+}
+
+Never include markdown, code fences, or extra text — ONLY the JSON object.`;
+
+function parseJsonResponse(raw) {
+  try { return JSON.parse(raw.trim()); } catch (_) {}
+  const m = raw.match(/\{[\s\S]*\}/);
+  if (m) { try { return JSON.parse(m[0]); } catch (_) {} }
+  return null;
+}
+
+// POST /api/skills-gap
+router.post("/api/skills-gap", async (req, res) => {
+  const { current_role, target_role, currency = "inr" } = req.body || {};
+  if (!current_role?.trim() || !target_role?.trim()) {
+    return res.status(422).json({ error: "current_role and target_role are required." });
+  }
+
+  const userMessage =
+    `Current role: ${current_role.trim()}\nTarget role: ${target_role.trim()}\nPreferred currency: ${currency.toUpperCase()}\n\nPlease identify my skill gaps and recommend courses.`;
+
+  try {
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await client.chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 2048,
+      temperature: 0.3,
+      messages: [
+        { role: "system", content: SKILLS_GAP_SYSTEM },
+        { role: "user", content: userMessage },
+      ],
+    });
+    const result = parseJsonResponse(response.choices[0].message.content);
+    if (!result) throw new Error("parse_failed");
+    return res.json(result);
+  } catch (err) {
+    console.error("Skills gap error:", err.message);
+    return res.json({
+      summary: "Unable to analyze right now. Please try again shortly.",
+      skillGaps: [],
+      recommendedCourses: [],
+      timeline: { totalWeeks: 0, description: "" },
+      totalCost: { inr: 0, usd: 0, aed: 0 },
+      groupSavings: {},
+      nextStep: "Contact us on WhatsApp at +91 98219 67863 for a personalized recommendation.",
+    });
+  }
+});
+
+// POST /api/skills-gap/save-lead
+router.post("/api/skills-gap/save-lead", (req, res) => {
+  // Lead capture — acknowledged (persistence handled by main backend if needed)
+  const { email } = req.body || {};
+  if (!email) return res.status(422).json({ error: "email is required." });
+  return res.json({ success: true });
+});
+
+// ---------------------------------------------------------------------------
+// Interview Coach API
+// ---------------------------------------------------------------------------
+
+const interviewSessions = new Map();
+
+function buildQuestionGenPrompt(role, courseContext, mode, numQuestions) {
+  const modeInstruction = {
+    technical: "All questions should be technical/domain-specific, testing knowledge and problem-solving.",
+    behavioural: "All questions should be behavioural (STAR-format), testing soft skills, teamwork, and leadership.",
+    mixed: `Mix: first ${Math.floor(numQuestions / 2)} technical, remaining behavioural.`,
+  }[mode] || "Mix technical and behavioural questions.";
+
+  return `You are an expert interviewer preparing a candidate for a ${role} role.
+${courseContext}
+
+Generate exactly ${numQuestions} interview questions.
+${modeInstruction}
+
+Questions should be realistic, commonly asked at top tech companies, and progressively more challenging.
+
+Return ONLY a JSON array, no other text:
+[
+  {
+    "id": 1,
+    "type": "technical",
+    "question": "Question text here",
+    "expectedTopics": ["topic1", "topic2"],
+    "difficulty": "easy|medium|hard"
+  }
+]`;
+}
+
+function buildEvaluatorPrompt(role, question, expectedTopics, answer) {
+  return `You are a senior interviewer evaluating a candidate for a ${role} role.
+
+Question: ${question}
+Expected topics: ${expectedTopics.join(", ") || "general concepts"}
+Candidate's answer: ${answer}
+
+Return ONLY valid JSON:
+{
+  "score": 7,
+  "maxScore": 10,
+  "verdict": "Good|Strong|Needs Improvement|Excellent",
+  "strengths": ["What they did well"],
+  "improvements": ["What to improve"],
+  "modelAnswer": "A concise ideal answer in 2-4 sentences",
+  "followUpQuestion": null
+}`;
+}
+
+function buildSummaryPrompt(role, qaPairs) {
+  const transcript = qaPairs
+    .map((p, i) => `Q${i + 1}: ${p.question}\nA: ${p.answer}\nScore: ${p.score}/10 — ${p.verdict}`)
+    .join("\n\n");
+
+  return `You are a career coach summarising a mock interview for a ${role} candidate.
+
+Interview transcript:
+${transcript}
+
+Return ONLY valid JSON:
+{
+  "overallScore": 72,
+  "grade": "B+",
+  "verdict": "Strong candidate with areas to sharpen",
+  "topStrengths": ["Strength 1", "Strength 2", "Strength 3"],
+  "areasToImprove": ["Area 1", "Area 2"],
+  "actionPlan": ["Action 1", "Action 2"],
+  "readinessLevel": "Ready|Almost Ready|Needs More Prep",
+  "encouragement": "A warm closing message"
+}`;
+}
+
+function parseLlmList(raw) {
+  try { return JSON.parse(raw.trim()); } catch (_) {}
+  const m = raw.match(/\[[\s\S]*\]/);
+  if (m) { try { return JSON.parse(m[0]); } catch (_) {} }
+  return [];
+}
+
+function fallbackQuestions(role, mode, num) {
+  const technical = [
+    { id: 1, type: "technical", difficulty: "medium", expectedTopics: ["fundamentals"], question: `Explain the core concepts you'd apply as a ${role}.` },
+    { id: 2, type: "technical", difficulty: "medium", expectedTopics: ["problem-solving"], question: "Walk me through how you'd debug a production issue in your domain." },
+    { id: 3, type: "technical", difficulty: "hard", expectedTopics: ["architecture"], question: "How would you design a scalable system for a high-traffic use case?" },
+  ];
+  const behavioural = [
+    { id: 4, type: "behavioural", difficulty: "easy", expectedTopics: ["teamwork"], question: "Tell me about a time you worked through a difficult team conflict." },
+    { id: 5, type: "behavioural", difficulty: "medium", expectedTopics: ["leadership"], question: "Describe a project where you had to take ownership with minimal guidance." },
+  ];
+  const pool = mode === "technical" ? technical : mode === "behavioural" ? behavioural : [...technical, ...behavioural];
+  return pool.slice(0, num);
+}
+
+async function llmOneShot(prompt) {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const response = await client.chat.completions.create({
+    model: "gpt-4o",
+    max_tokens: 2048,
+    temperature: 0.5,
+    messages: [{ role: "user", content: prompt }],
+  });
+  return response.choices[0].message.content;
+}
+
+// POST /api/interview/start
+router.post("/api/interview/start", async (req, res) => {
+  const { role, course_title, mode = "mixed", num_questions = 5 } = req.body || {};
+  if (!role?.trim()) return res.status(422).json({ error: "role is required." });
+
+  const course = courses.find(
+    (c) => c.courseTitle?.toLowerCase() === course_title?.toLowerCase() ||
+           c.courseTitle?.toLowerCase().includes(course_title?.toLowerCase() || "____")
+  );
+  const courseContext = course
+    ? `The candidate completed '${course.courseTitle}' covering: ${(course.whatWillYouLearn || []).slice(0, 4).join(", ")}`
+    : "";
+
+  let questions;
+  try {
+    const raw = await llmOneShot(buildQuestionGenPrompt(role.trim(), courseContext, mode, num_questions));
+    questions = parseLlmList(raw);
+    if (!questions.length) throw new Error("empty");
+  } catch (_) {
+    questions = fallbackQuestions(role.trim(), mode, num_questions);
+  }
+
+  const session_id = randomUUID();
+  interviewSessions.set(session_id, {
+    role: role.trim(),
+    course_title,
+    mode,
+    questions,
+    answers: [],
+    evaluations: [],
+  });
+
+  return res.json({
+    session_id,
+    total_questions: questions.length,
+    current_question_index: 0,
+    question: questions[0],
+    role: role.trim(),
+    mode,
+  });
+});
+
+// POST /api/interview/answer
+router.post("/api/interview/answer", async (req, res) => {
+  const { session_id, answer } = req.body || {};
+  const session = interviewSessions.get(session_id);
+  if (!session) return res.status(404).json({ error: "Session not found. Please start a new interview." });
+
+  const { questions, answers } = session;
+  const currentIdx = answers.length;
+  if (currentIdx >= questions.length) {
+    return res.json({ error: "Interview already complete. Call /api/interview/feedback for your summary." });
+  }
+
+  const currentQ = questions[currentIdx];
+  session.answers.push(answer?.trim() || "");
+
+  let evaluation;
+  try {
+    const raw = await llmOneShot(buildEvaluatorPrompt(session.role, currentQ.question, currentQ.expectedTopics || [], answer));
+    evaluation = parseJsonResponse(raw) || {};
+  } catch (_) {
+    evaluation = { score: 6, maxScore: 10, verdict: "Good", strengths: ["Clear answer"], improvements: ["Add specific examples"], modelAnswer: "Focus on concrete examples.", followUpQuestion: null };
+  }
+  evaluation.question = currentQ.question;
+  session.evaluations.push(evaluation);
+
+  const nextIdx = currentIdx + 1;
+  const is_complete = nextIdx >= questions.length;
+  const result = { evaluation, is_complete, current_question_index: currentIdx, total_questions: questions.length };
+  if (!is_complete) {
+    result.next_question = questions[nextIdx];
+    result.next_question_index = nextIdx;
+  }
+  return res.json(result);
+});
+
+// POST /api/interview/feedback
+router.post("/api/interview/feedback", async (req, res) => {
+  const { session_id } = req.body || {};
+  const session = interviewSessions.get(session_id);
+  if (!session) return res.status(404).json({ error: "Session not found." });
+
+  const { questions, answers, evaluations, role } = session;
+  if (!answers.length) return res.status(400).json({ error: "No answers recorded yet." });
+
+  const qaPairs = answers.map((answer, i) => ({
+    question: questions[i]?.question || "",
+    answer,
+    score: evaluations[i]?.score || 0,
+    verdict: evaluations[i]?.verdict || "",
+  }));
+
+  let summary;
+  try {
+    const raw = await llmOneShot(buildSummaryPrompt(role, qaPairs));
+    summary = parseJsonResponse(raw) || {};
+  } catch (_) {
+    const avg = evaluations.reduce((s, e) => s + (e.score || 0), 0) / Math.max(evaluations.length, 1);
+    summary = { overallScore: Math.round(avg * 10), grade: "B", verdict: "Good effort", topStrengths: ["Completed the interview"], areasToImprove: ["Practice more examples"], actionPlan: ["Review model answers"], readinessLevel: "Almost Ready", encouragement: "Keep practising — you're on the right track!" };
+  }
+
+  summary.qa_pairs = qaPairs;
+  summary.role = role;
+  summary.total_questions = questions.length;
+  summary.answered = answers.length;
+  return res.json(summary);
 });
 
 export default router;
