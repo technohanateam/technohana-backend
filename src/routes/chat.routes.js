@@ -7,6 +7,7 @@ import { OpenAI } from "openai";
 import { randomUUID } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
+import Enquiry from "../models/enquiry.model.js";
 
 const router = express.Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -272,10 +273,21 @@ router.post("/api/skills-gap", async (req, res) => {
 });
 
 // POST /api/skills-gap/save-lead
-router.post("/api/skills-gap/save-lead", (req, res) => {
-  // Lead capture — acknowledged (persistence handled by main backend if needed)
-  const { email } = req.body || {};
+router.post("/api/skills-gap/save-lead", async (req, res) => {
+  const { name, email, current_role, target_role } = req.body || {};
   if (!email) return res.status(422).json({ error: "email is required." });
+
+  try {
+    await new Enquiry({
+      name: name || "Unknown",
+      email,
+      enquiryType: "Skills Gap",
+      description: `Skills gap analysis: ${current_role || "?"} → ${target_role || "?"}`,
+      source: "skills_gap_tool",
+    }).save();
+  } catch (err) {
+    console.error("save-lead error:", err.message);
+  }
   return res.json({ success: true });
 });
 
