@@ -772,9 +772,7 @@ Return ONLY valid JSON:
 // ---------------------------------------------------------------------------
 
 import multer from "multer";
-import { createRequire } from "module";
-const _require = createRequire(import.meta.url);
-const pdfParse = _require("pdf-parse");
+const pdfParse = require("pdf-parse");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
