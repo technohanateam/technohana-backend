@@ -572,11 +572,11 @@ Writing rules:
     const tools = [{ type: "web_search_20260209", name: "web_search" }];
     let finalText = "";
 
-    for (let turn = 0; turn < 10; turn++) {
+    for (let turn = 0; turn < 5; turn++) {
       const response = await axios.post(
         "https://api.anthropic.com/v1/messages",
         {
-          model: "claude-opus-4-6",
+          model: "claude-sonnet-4-6",
           max_tokens: 8192,
           system: systemPrompt,
           tools,
@@ -594,7 +594,8 @@ Writing rules:
 
       const { stop_reason, content } = response.data;
 
-      // Append assistant turn to message history
+      // Append assistant turn to message history (includes embedded search results
+      // for built-in tools like web_search_20260209 — the API handles these server-side)
       messages.push({ role: "assistant", content });
 
       if (stop_reason === "end_turn") {
@@ -605,17 +606,9 @@ Writing rules:
       }
 
       if (stop_reason === "tool_use") {
-        // Build tool_result blocks for every tool_use block in this turn
-        const toolResults = content
-          .filter(b => b.type === "tool_use")
-          .map(b => ({
-            type: "tool_result",
-            tool_use_id: b.id,
-            content: b.input?.query
-              ? `Web search performed for: "${b.input.query}". Results will be provided by the API.`
-              : "Search completed.",
-          }));
-        messages.push({ role: "user", content: toolResults });
+        // For Anthropic built-in tools (web_search_20260209), search results are
+        // already embedded in the response content by the API. Just continue —
+        // do NOT fabricate tool_result blocks.
         continue;
       }
 
@@ -703,11 +696,12 @@ No emojis. Professional prose. Valid semantic HTML only.`;
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-opus-4-6",
+        model: "claude-sonnet-4-6",
         max_tokens: 8192,
         system: "You are an expert SEO content writer for Technohana, an online tech training company based in India with global students. Write accurate, factual blog posts grounded in the source material provided. Never fabricate statistics.",
         messages: [{ role: "user", content: userPrompt }],
       }),
+      signal: AbortSignal.timeout(120000),
     });
 
     const data = await response.json();
@@ -778,7 +772,7 @@ Writing rules:
     const response = await axios.post(
       "https://api.anthropic.com/v1/messages",
       {
-        model: "claude-opus-4-6",
+        model: "claude-sonnet-4-6",
         max_tokens: 8192,
         messages: [{ role: "user", content: prompt }],
       },
@@ -788,6 +782,7 @@ Writing rules:
           "anthropic-version": "2023-06-01",
           "Content-Type": "application/json",
         },
+        timeout: 120000,
       }
     );
 
