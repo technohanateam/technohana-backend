@@ -772,6 +772,33 @@ Return ONLY valid JSON:
 // ---------------------------------------------------------------------------
 
 import multer from "multer";
+
+// pdfjs-dist v5 requires DOMMatrix which is not available in Node.js — polyfill it
+if (typeof globalThis.DOMMatrix === "undefined") {
+  globalThis.DOMMatrix = class DOMMatrix {
+    constructor(init) {
+      this.a = 1; this.b = 0; this.c = 0; this.d = 1; this.e = 0; this.f = 0;
+      this.m11 = 1; this.m12 = 0; this.m13 = 0; this.m14 = 0;
+      this.m21 = 0; this.m22 = 1; this.m23 = 0; this.m24 = 0;
+      this.m31 = 0; this.m32 = 0; this.m33 = 1; this.m34 = 0;
+      this.m41 = 0; this.m42 = 0; this.m43 = 0; this.m44 = 1;
+      this.is2D = true; this.isIdentity = true;
+    }
+    static fromMatrix(m) { return new globalThis.DOMMatrix(); }
+    static fromFloat32Array(a) { return new globalThis.DOMMatrix(); }
+    static fromFloat64Array(a) { return new globalThis.DOMMatrix(); }
+    multiply(m) { return new globalThis.DOMMatrix(); }
+    translate(tx = 0, ty = 0, tz = 0) { const m = new globalThis.DOMMatrix(); m.e = tx; m.f = ty; return m; }
+    scale(sx = 1, sy = sx) { const m = new globalThis.DOMMatrix(); m.a = sx; m.d = sy; return m; }
+    rotate(angle) { return new globalThis.DOMMatrix(); }
+    inverse() { return new globalThis.DOMMatrix(); }
+    transformPoint(p = {}) { return { x: p.x ?? 0, y: p.y ?? 0, z: p.z ?? 0, w: p.w ?? 1 }; }
+    toFloat32Array() { return new Float32Array([this.a,this.b,this.c,this.d,this.e,this.f]); }
+    toFloat64Array() { return new Float64Array([this.a,this.b,this.c,this.d,this.e,this.f]); }
+    toString() { return `matrix(${this.a},${this.b},${this.c},${this.d},${this.e},${this.f})`; }
+  };
+}
+
 import { PDFParse } from "pdf-parse";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
