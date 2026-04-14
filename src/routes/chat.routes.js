@@ -772,7 +772,7 @@ Return ONLY valid JSON:
 // ---------------------------------------------------------------------------
 
 import multer from "multer";
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -784,7 +784,8 @@ router.post("/api/parse-course-pdf", upload.single("file"), async (req, res) => 
 
   let text;
   try {
-    const parsed = await pdfParse(req.file.buffer);
+    const parser = new PDFParse({ data: req.file.buffer });
+    const parsed = await parser.getText();
     text = parsed.text?.trim();
   } catch (err) {
     return res.status(422).json({ error: "Could not extract text from PDF" });
