@@ -22,6 +22,7 @@ import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferral
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
 import { getAllSocialPosts, getSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, publishToBuffer, generateSocialCopy } from "../controllers/social-post.controller.js";
 import { getAllCarousels, getCarousel, createCarousel, updateCarousel, deleteCarousel, generateCarousel } from "../controllers/carousel.controller.js";
+import { createPipelineDraft, listPipelineDrafts, getPipelineDraft, updatePipelineDraft, generatePipelineCopy, exportPipelineCreatives, publishPipelineSocial } from "../controllers/pipelineDraft.controller.js";
 import Campaign from "../models/campaign.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 
@@ -1250,5 +1251,28 @@ router.put("/carousels/:id", authenticateAdmin, updateCarousel);
 
 // DELETE /admin/carousels/:id
 router.delete("/carousels/:id", authenticateAdmin, deleteCarousel);
+
+// ─── Pipeline Drafts (Unified Growth Studio) ──────────────────────────────────
+
+// POST /admin/pipeline-drafts/:id/generate-copy (before :id routes)
+router.post("/pipeline-drafts/:id/generate-copy", authenticateAdmin, generatePipelineCopy);
+
+// POST /admin/pipeline-drafts/:id/export-creatives (before :id routes)
+router.post("/pipeline-drafts/:id/export-creatives", authenticateAdmin, exportPipelineCreatives);
+
+// POST /admin/pipeline-drafts/:id/publish-social (before :id routes)
+router.post("/pipeline-drafts/:id/publish-social", authenticateAdmin, publishPipelineSocial);
+
+// GET /admin/pipeline-drafts
+router.get("/pipeline-drafts", authenticateAdmin, listPipelineDrafts);
+
+// POST /admin/pipeline-drafts
+router.post("/pipeline-drafts", authenticateAdmin, createPipelineDraft);
+
+// GET /admin/pipeline-drafts/:id
+router.get("/pipeline-drafts/:id", authenticateAdmin, getPipelineDraft);
+
+// PATCH /admin/pipeline-drafts/:id
+router.patch("/pipeline-drafts/:id", authenticateAdmin, updatePipelineDraft);
 
 export default router;
