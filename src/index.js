@@ -1574,6 +1574,9 @@ setInterval(async () => {
   }
 }, 60 * 60 * 1000);
 
+// ─── Health Check ──────────────────────────────────────────────────────────────
+app.get("/health", (req, res) => res.json({ status: "ok" }));
+
 // ─── Server Startup ────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
