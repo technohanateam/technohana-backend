@@ -227,9 +227,14 @@ export const issueCertificate = async (req, res) => {
         }
 
         if (enrollment.certificateIssued) {
-            return res.status(400).json({
-                success: false,
-                message: "Certificate already issued"
+            return res.status(200).json({
+                success: true,
+                message: "Certificate already issued",
+                data: {
+                    certificateNumber: enrollment.certificateNumber,
+                    courseTitle: enrollment.courseTitle,
+                    userName: enrollment.name
+                }
             });
         }
 
