@@ -22,18 +22,14 @@ router.get(
     // Now, we generate our own JWT
     const token = generateToken(req.user);
 
-    // Debug: Log environment variables
-    console.log('Environment variables:', {
-      WHITELISTED_URLS: process.env.WHITELISTED_URLS,
-    });
-
     // Redirect back to the frontend with our token
-    const frontendUrl = process.env.WHITELISTED_URLS;
+    const frontendUrl = process.env.FRONTEND_URL ||
+      (process.env.WHITELISTED_URLS ? process.env.WHITELISTED_URLS.split(',')[0].trim() : '');
     console.log('Redirecting to:', `${frontendUrl}/auth/callback?token=${token}`);
-    
+
     res.redirect(
       `${frontendUrl}/auth/callback?token=${token}`
-    ); 
+    );
   }
 );
 
