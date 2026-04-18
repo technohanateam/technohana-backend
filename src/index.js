@@ -50,6 +50,7 @@ import { authenticateJWT } from "./middleware/authenticateJWT.js";
 import { Order } from "./models/order.model.js";
 
 const app = express();
+app.set('trust proxy', 1); // trust first proxy (Render/Railway/Vercel reverse proxy)
 
 const allowedOrigins = process.env.WHITELISTED_URLS
   ? process.env.WHITELISTED_URLS.split(',').map(url => url.trim())
