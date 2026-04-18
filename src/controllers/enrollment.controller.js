@@ -5,7 +5,7 @@ import { generateEnrollmentConfirmationEmail, generateEnquiryTable } from "../ut
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 export const enrollUser = async (req, res) => {
     try {
-        const { name, email, phone, company, trainingPeriod, specialRequest, trainingLocation, courseTitle, userType, trainingType, price, currency } = req.body;
+        const { name, email, phone, company, trainingPeriod, specialRequest, trainingLocation, courseTitle, userType, trainingType, price, currency, batchDate, batchTime } = req.body;
         const user = await User.create({
             name,
             email,
@@ -18,7 +18,9 @@ export const enrollUser = async (req, res) => {
             userType,
             trainingType: trainingType || "individual",
             price: price || "N/A",
-            currency: currency || "INR"
+            currency: currency || "INR",
+            batchDate: batchDate || null,
+            batchTime: batchTime || null,
         })
         await user.save();
 

@@ -44,6 +44,12 @@ const userSchema = new Schema({
     trainingPeriod: {
         type: String,
     },
+    batchDate: {
+        type: Date,
+    },
+    batchTime: {
+        type: String,
+    },
     trainingLocation: {
         type: String,
     },
