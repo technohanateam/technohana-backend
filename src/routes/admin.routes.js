@@ -527,13 +527,18 @@ router.post("/blogs/seed-static", authenticateAdmin, requireAdmin, async (req, r
 // Claude searches the web autonomously, then writes the post grounded in current data.
 router.post("/blogs/generate-from-course", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
-    const { courseId, courseTitle, category, description } = req.body;
+    const { courseId, courseTitle, category, description, relatedCourses = [] } = req.body;
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return res.status(503).json({ message: "AI generation not configured. Add ANTHROPIC_API_KEY to .env" });
 
     const year = new Date().getFullYear();
+
+    const sanitize = (str) => String(str || "").replace(/[`${}]/g, "");
+    const relatedCoursesBullets = Array.isArray(relatedCourses) && relatedCourses.length
+      ? relatedCourses.map(c => `  • <a href="/courses/${sanitize(c.id)}">${sanitize(c.title)}</a>`).join("\n")
+      : "  (none — use only the main course link above)";
 
     const systemPrompt = "You are an expert SEO content writer for Technohana, an online tech training company based in India with global students. Always search the web before writing to ground your post in current facts, stats, and trends. Never fabricate statistics.";
 
@@ -552,7 +557,9 @@ Return ONLY a valid JSON object (no markdown, no code fences, no explanation) wi
 - "title": compelling blog post title (NOT the course title; e.g. "Why Every Professional Should Learn [Topic]" or "The Complete Guide to [Topic] in ${year}")
 - "slug": URL-friendly slug derived from the title
 - "excerpt": 2–3 sentence summary (aim for 140–160 characters)
-- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, a practical tips section, conclusion paragraph with a call-to-action to explore Technohana courses at https://technohana.in/courses. Naturally include 2 internal links: one using <a href="/courses/${courseId || "COURSE_ID"}">${courseTitle}</a> and one to <a href="/blog/">related Technohana blog posts</a>.
+- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, a practical tips section, conclusion paragraph with a call-to-action to explore Technohana courses at https://technohana.in/courses. Include internal links within the body prose (not in a separate list at the end): link to the main course at least once using <a href="/courses/${courseId}">${courseTitle}</a>; link to at least 2 of these related Technohana courses where they fit naturally in the text:
+${relatedCoursesBullets}
+  Link once to <a href="/blog/">the Technohana blog</a> in the conclusion. Do NOT add a standalone "Recommended Courses" section — all links must appear inside paragraph or list content.
 - "metaTitle": SEO meta title, 50–60 characters, includes focus keyword
 - "metaDescription": SEO meta description, 140–160 characters, includes focus keyword and a benefit
 - "focusKeyword": primary target keyword phrase (2–4 words)
