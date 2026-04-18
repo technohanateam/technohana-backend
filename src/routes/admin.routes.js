@@ -905,12 +905,35 @@ router.delete("/courses/clear", authenticateAdmin, requireAdmin, async (req, res
   }
 });
 
-// POST /admin/courses/seed — additive sync from src/data/courses.json (only inserts missing courses by id)
+// POST /admin/courses/seed — sync from src/data/courses.json
+// force=true: upsert all (updates existing courses including prices)
+// force=false (default): additive only (insert missing courses)
 router.post("/courses/seed", authenticateAdmin, requireAdmin, async (req, res) => {
   try {
+    const { force } = req.body || {};
     const dataPath = path.join(__dirname, "../data/courses.json");
     const raw = fs.readFileSync(dataPath, "utf-8");
     const courses = JSON.parse(raw);
+
+    if (force) {
+      const ops = courses
+        .filter(c => c.id)
+        .map(c => ({
+          updateOne: {
+            filter: { id: c.id },
+            update: { $set: c },
+            upsert: true,
+          },
+        }));
+      const result = await Course.bulkWrite(ops, { ordered: false });
+      const total = await Course.countDocuments();
+      return res.json({
+        message: `Reseeded ${ops.length} courses (upsert)`,
+        upserted: result.upsertedCount,
+        modified: result.modifiedCount,
+        total,
+      });
+    }
 
     const existingIds = new Set(
       (await Course.find({}, { id: 1, _id: 0 })).map(c => c.id)
