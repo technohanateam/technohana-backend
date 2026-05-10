@@ -110,6 +110,10 @@ const PendingOrderSchema = new mongoose.Schema({
   learner: { type: Object },
   courseInfo: { type: Object },
   utm: { type: Object },
+  selectedBatch: { type: Object },
+  batchDate: { type: String },
+  batchTime: { type: String },
+  trainingPeriod: { type: String },
   createdAt: { type: Date, default: Date.now, expires: 86400 },
 });
 const PendingOrder = mongoose.model('PendingOrder', PendingOrderSchema);
@@ -413,6 +417,14 @@ app.post('/stripe/checkout', async (req, res) => {
         time: courseInfo?.time || '',
       },
       utm: utm && typeof utm === 'object' ? utm : undefined,
+      selectedBatch: req.body.selectedBatch && typeof req.body.selectedBatch === 'object' ? req.body.selectedBatch : undefined,
+      batchDate: req.body.batchDate || req.body.selectedBatch?.startDate || null,
+      batchTime: req.body.batchTime || req.body.selectedBatch?.time || null,
+      trainingPeriod: (() => {
+        const b = req.body.selectedBatch;
+        if (b?.numDays && b?.hoursPerDay) return `${b.numDays} days (${b.hoursPerDay} hrs/day)`;
+        return null;
+      })(),
     });
 
     // Save lead to DB before redirecting — captures abandoned checkouts too
@@ -429,6 +441,13 @@ app.post('/stripe/checkout', async (req, res) => {
         orderId,
         status: 'pending-payment',
         utm: utm && typeof utm === 'object' ? utm : undefined,
+        batchDate: req.body.batchDate || req.body.selectedBatch?.startDate || null,
+        batchTime: req.body.batchTime || req.body.selectedBatch?.time || null,
+        trainingPeriod: (() => {
+          const b = req.body.selectedBatch;
+          if (b?.numDays && b?.hoursPerDay) return `${b.numDays} days (${b.hoursPerDay} hrs/day)`;
+          return null;
+        })(),
       });
     } catch (dbErr) {
       console.error('Failed to save pre-payment lead:', dbErr);
@@ -553,6 +572,14 @@ app.post('/razorpay/checkout', async (req, res) => {
         time: courseInfo?.time || '',
       },
       utm: utm && typeof utm === 'object' ? utm : undefined,
+      selectedBatch: req.body.selectedBatch && typeof req.body.selectedBatch === 'object' ? req.body.selectedBatch : undefined,
+      batchDate: req.body.batchDate || req.body.selectedBatch?.startDate || null,
+      batchTime: req.body.batchTime || req.body.selectedBatch?.time || null,
+      trainingPeriod: (() => {
+        const b = req.body.selectedBatch;
+        if (b?.numDays && b?.hoursPerDay) return `${b.numDays} days (${b.hoursPerDay} hrs/day)`;
+        return null;
+      })(),
     });
 
     try {
@@ -568,6 +595,13 @@ app.post('/razorpay/checkout', async (req, res) => {
         orderId,
         status: 'pending-payment',
         utm: utm && typeof utm === 'object' ? utm : undefined,
+        batchDate: req.body.batchDate || req.body.selectedBatch?.startDate || null,
+        batchTime: req.body.batchTime || req.body.selectedBatch?.time || null,
+        trainingPeriod: (() => {
+          const b = req.body.selectedBatch;
+          if (b?.numDays && b?.hoursPerDay) return `${b.numDays} days (${b.hoursPerDay} hrs/day)`;
+          return null;
+        })(),
       });
     } catch (dbErr) {
       console.error('Failed to save pre-payment lead:', dbErr);
@@ -746,14 +780,14 @@ app.post('/razorpay/cart-verify', async (req, res) => {
       const enrollmentToken = Buffer.from(`${orderId}|${order.learner.email}|${paidAt}`).toString('base64');
       const amountMajorStr = (order.expectedTotalMinor / 100).toFixed(2);
       try {
-        const updated = await User.findOneAndUpdate({ orderId }, { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date() }, { new: true });
+        const updated = await User.findOneAndUpdate({ orderId }, { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date(), batchDate: order.selectedBatch?.startDate || order.batchDate || null, batchTime: order.batchTime || order.selectedBatch?.time || null, trainingPeriod: order.trainingPeriod || null }, { new: true });
         if (!updated) {
-          await User.create({ name: order.learner.fullName, email: order.learner.email, phone: order.learner.phone, courseTitle: order.courseInfo.title, trainingLocation: order.learner.trainingLocation, trainingType: order.enrollmentType, price: amountMajorStr, currency: order.currency?.toUpperCase(), orderId, status: 'enrolled', enrollmentToken, enrolledAt: new Date() });
+          await User.create({ name: order.learner.fullName, email: order.learner.email, phone: order.learner.phone, courseTitle: order.courseInfo.title, trainingLocation: order.learner.trainingLocation, trainingType: order.enrollmentType, price: amountMajorStr, currency: order.currency?.toUpperCase(), orderId, status: 'enrolled', enrollmentToken, enrolledAt: new Date(), batchDate: order.selectedBatch?.startDate || order.batchDate || null, batchTime: order.batchTime || order.selectedBatch?.time || null, trainingPeriod: order.trainingPeriod || null });
         }
       } catch { /* non-blocking */ }
       if (order.learner?.email) {
         try {
-          await sendEmail({ from: fromAddresses.sales, to: order.learner.email, subject: `Payment Received - ${order.courseInfo?.title || 'Technohana Course'}`, html: generatePaymentSuccessEmail({ name: order.learner.fullName, courseTitle: order.courseInfo?.title, amountMajor: amountMajorStr, currency: order.currency, enrollmentType: order.enrollmentType, participants: order.participants, trainingLocation: order.learner.trainingLocation }) });
+          await sendEmail({ from: fromAddresses.sales, to: order.learner.email, subject: `Payment Received - ${order.courseInfo?.title || 'Technohana Course'}`, html: generatePaymentSuccessEmail({ name: order.learner.fullName, courseTitle: order.courseInfo?.title, amountMajor: amountMajorStr, currency: order.currency, enrollmentType: order.enrollmentType, participants: order.participants, trainingLocation: order.learner.trainingLocation, batchDate: order.selectedBatch?.startDate || order.batchDate || null, batchTime: order.batchTime || order.selectedBatch?.time || null, trainingPeriod: order.trainingPeriod || null }) });
         } catch { /* non-blocking */ }
       }
     }
@@ -818,7 +852,12 @@ app.post('/razorpay/verify', async (req, res) => {
       try {
         const updated = await User.findOneAndUpdate(
           { orderId },
-          { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date() },
+          {
+            status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date(),
+            batchDate: order.selectedBatch?.startDate || order.batchDate || null,
+            batchTime: order.batchTime || order.selectedBatch?.time || null,
+            trainingPeriod: order.trainingPeriod || null,
+          },
           { new: true }
         );
         if (!updated) {
@@ -835,6 +874,9 @@ app.post('/razorpay/verify', async (req, res) => {
             status: 'enrolled',
             enrollmentToken,
             enrolledAt: new Date(),
+            batchDate: order.selectedBatch?.startDate || order.batchDate || null,
+            batchTime: order.batchTime || order.selectedBatch?.time || null,
+            trainingPeriod: order.trainingPeriod || null,
           });
         }
       } catch (dbErr) {
@@ -855,6 +897,9 @@ app.post('/razorpay/verify', async (req, res) => {
               enrollmentType: order.enrollmentType,
               participants: order.participants,
               trainingLocation: order.learner.trainingLocation,
+              batchDate: order.selectedBatch?.startDate || order.batchDate || null,
+              batchTime: order.batchTime || order.selectedBatch?.time || null,
+              trainingPeriod: order.trainingPeriod || null,
             }),
           });
         }
@@ -941,11 +986,11 @@ app.post('/payments/confirm', async (req, res) => {
         const enrollmentToken = Buffer.from(`${oid}|${o.learner.email}|${paidAt}`).toString('base64');
         const amtStr = (o.expectedTotalMinor / 100).toFixed(2);
         try {
-          const updated = await User.findOneAndUpdate({ orderId: oid }, { status: 'enrolled', price: amtStr, enrollmentToken, enrolledAt: new Date() }, { new: true });
-          if (!updated) await User.create({ name: o.learner.fullName, email: o.learner.email, phone: o.learner.phone, courseTitle: o.courseInfo.title, trainingLocation: o.learner.trainingLocation, trainingType: o.enrollmentType, price: amtStr, currency: o.currency?.toUpperCase(), orderId: oid, status: 'enrolled', enrollmentToken, enrolledAt: new Date() });
+          const updated = await User.findOneAndUpdate({ orderId: oid }, { status: 'enrolled', price: amtStr, enrollmentToken, enrolledAt: new Date(), batchDate: o.selectedBatch?.startDate || o.batchDate || null, batchTime: o.batchTime || o.selectedBatch?.time || null, trainingPeriod: o.trainingPeriod || null }, { new: true });
+          if (!updated) await User.create({ name: o.learner.fullName, email: o.learner.email, phone: o.learner.phone, courseTitle: o.courseInfo.title, trainingLocation: o.learner.trainingLocation, trainingType: o.enrollmentType, price: amtStr, currency: o.currency?.toUpperCase(), orderId: oid, status: 'enrolled', enrollmentToken, enrolledAt: new Date(), batchDate: o.selectedBatch?.startDate || o.batchDate || null, batchTime: o.batchTime || o.selectedBatch?.time || null, trainingPeriod: o.trainingPeriod || null });
         } catch { /* non-blocking */ }
         if (o.learner?.email) {
-          try { await sendEmail({ from: fromAddresses.sales, to: o.learner.email, subject: `Payment Received - ${o.courseInfo?.title || 'Technohana Course'}`, html: generatePaymentSuccessEmail({ name: o.learner.fullName, courseTitle: o.courseInfo?.title, amountMajor: amtStr, currency: o.currency, enrollmentType: o.enrollmentType, participants: o.participants, trainingLocation: o.learner.trainingLocation }) }); } catch { /* non-blocking */ }
+          try { await sendEmail({ from: fromAddresses.sales, to: o.learner.email, subject: `Payment Received - ${o.courseInfo?.title || 'Technohana Course'}`, html: generatePaymentSuccessEmail({ name: o.learner.fullName, courseTitle: o.courseInfo?.title, amountMajor: amtStr, currency: o.currency, enrollmentType: o.enrollmentType, participants: o.participants, trainingLocation: o.learner.trainingLocation, batchDate: o.selectedBatch?.startDate || o.batchDate || null, batchTime: o.batchTime || o.selectedBatch?.time || null, trainingPeriod: o.trainingPeriod || null }) }); } catch { /* non-blocking */ }
         }
       }
       return res.json({ success: true, orderId: parsedIds[0], invoiceNumber: firstInvoiceNumber });
@@ -996,7 +1041,10 @@ app.post('/payments/confirm', async (req, res) => {
             status: 'enrolled',
             price: amountMajorStr,
             enrollmentToken,
-            enrolledAt: new Date()
+            enrolledAt: new Date(),
+            batchDate: order.selectedBatch?.startDate || order.batchDate || null,
+            batchTime: order.batchTime || order.selectedBatch?.time || null,
+            trainingPeriod: order.trainingPeriod || null,
           },
           { new: true }
         );
@@ -1014,7 +1062,10 @@ app.post('/payments/confirm', async (req, res) => {
             orderId,
             status: 'enrolled',
             enrollmentToken,
-            enrolledAt: new Date()
+            enrolledAt: new Date(),
+            batchDate: order.selectedBatch?.startDate || order.batchDate || null,
+            batchTime: order.batchTime || order.selectedBatch?.time || null,
+            trainingPeriod: order.trainingPeriod || null,
           });
         }
       } catch (dbErr) {
@@ -1039,6 +1090,9 @@ app.post('/payments/confirm', async (req, res) => {
             enrollmentType: order.enrollmentType,
             participants: order.participants,
             trainingLocation: order.learner.trainingLocation,
+            batchDate: order.selectedBatch?.startDate || order.batchDate || null,
+            batchTime: order.batchTime || order.selectedBatch?.time || null,
+            trainingPeriod: order.trainingPeriod || null,
           }),
         });
       }
