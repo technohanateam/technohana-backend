@@ -119,42 +119,6 @@ const generateOrderId = () => `ord_${Math.random().toString(36).slice(2, 10)}`;
 // --- Pricing utilities (Replace with DB/config-backed logic) ---
 const allowedCurrencies = ['usd', 'inr', 'aed', 'eur', 'gbp'];
 
-// Coupon map — single source of truth for both validation and quote computation
-// currencies: null means global (any currency); otherwise array of allowed currency codes
-const validCoupons = {
-  // ── India (INR) ──────────────────────────────────────────────────────────
-  'NEWYEAR5':       { rate: 0.05, currencies: null },          // Jan 1  — global
-  'SUMMER10':       { rate: 0.10, currencies: null },          // Summer — global
-  'REPUBLIC5':      { rate: 0.05, currencies: ['inr'] },       // Jan 26 — Republic Day
-  'PONGAL5':        { rate: 0.05, currencies: ['inr'] },       // Jan    — Pongal / Makar Sankranti
-  'HOLI5':          { rate: 0.05, currencies: ['inr'] },       // Mar    — Holi
-  'BAISAKHI5':      { rate: 0.05, currencies: ['inr'] },       // Apr 14 — Baisakhi
-  'INDEPENDENCE8':  { rate: 0.08, currencies: ['inr'] },       // Aug 15 — Independence Day
-  'ONAM7':          { rate: 0.07, currencies: ['inr'] },       // Sep    — Onam
-  'NAVRATRI8':      { rate: 0.08, currencies: ['inr'] },       // Oct    — Navratri
-  'DIWALI10':       { rate: 0.10, currencies: ['inr'] },       // Oct/Nov — Diwali
-  // ── UAE / Arab ────────────────────────────────────────────────────────────
-  'RAMADAN8':       { rate: 0.08, currencies: ['aed'] },       // Mar/Apr — Ramadan
-  'EID10':          { rate: 0.10, currencies: ['aed'] },       // Apr/Jun — Eid ul-Fitr / Adha
-  'UAENATIONAL8':   { rate: 0.08, currencies: ['aed'] },       // Dec 2  — UAE National Day
-  // ── US ────────────────────────────────────────────────────────────────────
-  'MEMORIALDAY5':   { rate: 0.05, currencies: ['usd'] },       // May    — Memorial Day
-  'JUNETEENTH5':    { rate: 0.05, currencies: ['usd'] },       // Jun 19 — Juneteenth
-  'LABORDAY7':      { rate: 0.07, currencies: ['usd'] },       // Sep    — Labor Day
-  'HALLOWEEN5':     { rate: 0.05, currencies: ['usd'] },       // Oct 31 — Halloween
-  'THANKSGIVING7':  { rate: 0.07, currencies: ['usd'] },       // Nov    — Thanksgiving
-  'XMAS10':         { rate: 0.10, currencies: ['usd', 'gbp', 'eur'] }, // Dec — Christmas
-  // ── UK / EU ───────────────────────────────────────────────────────────────
-  'STPATRICKS5':    { rate: 0.05, currencies: ['gbp', 'eur'] }, // Mar 17 — St. Patrick's Day
-  'EASTER6':        { rate: 0.06, currencies: ['gbp', 'eur'] }, // Apr    — Easter
-  'MAYBANK5':       { rate: 0.05, currencies: ['gbp', 'eur'] }, // May    — May Bank Holiday
-  'SUMMERLEARN7':   { rate: 0.07, currencies: ['usd', 'gbp', 'eur'] }, // Jun–Aug — Summer Learning
-  // ── Global / Platform ─────────────────────────────────────────────────────
-  'LAUNCH10':       { rate: 0.10, currencies: null },          // Always-on platform launch
-  'FLASHSALE15':    { rate: 0.15, currencies: null },          // On-demand flash sale — activate manually
-  'REFERRAL10':     { rate: 0.10, currencies: null },          // Referral campaign codes — activate per campaign
-  'B2B20':          { rate: 0.20, currencies: null },          // Corporate / B2B deals — activate per deal
-};
 
 const _priceCatalogPath = resolve(dirname(fileURLToPath(import.meta.url)), './data/courses.json');
 const _rawCourses = JSON.parse(fs.readFileSync(_priceCatalogPath, 'utf-8'));
@@ -179,7 +143,7 @@ function getBasePriceMinor(courseId, currency) {
   return typeof val === 'number' ? val : null;
 }
 
-function computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate }) {
+async function computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate }) {
   const normalizedCurrency = String(currency || 'usd').toLowerCase();
   if (!allowedCurrencies.includes(normalizedCurrency)) {
     throw new Error('Unsupported currency');
@@ -218,14 +182,17 @@ function computeQuote({ courseId, enrollmentType, participants, currency, coupon
 
   if (couponCode && typeof couponCode === 'string') {
     const code = couponCode.trim().toUpperCase();
-    const coupon = validCoupons[code];
+    const coupon = await Coupon.findOne({ code }).lean();
     if (coupon) {
-      const allowed = coupon.currencies;
-      if (!allowed || allowed.includes(normalizedCurrency)) {
-        unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * (1 - coupon.rate)));
+      const isExpired = coupon.expiryDate && new Date() > new Date(coupon.expiryDate);
+      const isExhausted = coupon.maxUsageCount && coupon.currentUsageCount >= coupon.maxUsageCount;
+      const validForCurrency = !coupon.validCurrencies || coupon.validCurrencies.length === 0 || coupon.validCurrencies.includes(normalizedCurrency);
+      if (coupon.isActive && !isExpired && !isExhausted && validForCurrency) {
+        const rate = coupon.discountPercent / 100;
+        unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * (1 - rate)));
         couponApplied = true;
         appliedCouponCode = code;
-        couponDiscountRate = coupon.rate;
+        couponDiscountRate = rate;
       }
     } else if (code) {
       console.warn(`Invalid coupon code attempted: ${code}`);
@@ -350,7 +317,7 @@ app.post('/pricing/quote', async (req, res) => {
       }
     }
 
-    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
+    const quote = await computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
     return res.json(quote);
   } catch (err) {
     console.error('Quote error:', err.message);
@@ -377,7 +344,7 @@ app.post('/stripe/checkout', async (req, res) => {
       }
     }
 
-    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
+    const quote = await computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
 
     // Validate client calculation vs backend calculation
     const backendTotalMinor = quote.expectedTotalMinor;
@@ -520,7 +487,7 @@ app.post('/razorpay/checkout', async (req, res) => {
       }
     }
 
-    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
+    const quote = await computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
 
     const backendTotalMinor = quote.expectedTotalMinor;
     const clientTotalMinor = clientCalculatedTotal ? Math.round(Number(clientCalculatedTotal) * 100) : backendTotalMinor;
@@ -638,7 +605,7 @@ app.post('/stripe/cart-checkout', async (req, res) => {
     const orderIds = [];
 
     for (const item of items) {
-      const quote = computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
+      const quote = await computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
       const orderId = generateOrderId();
       orderIds.push(orderId);
       lineItems.push({
@@ -703,7 +670,7 @@ app.post('/razorpay/cart-checkout', async (req, res) => {
     let combinedCurrency = (currency || 'INR').toLowerCase();
 
     for (const item of items) {
-      const quote = computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
+      const quote = await computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
       const orderId = generateOrderId();
       orderIds.push(orderId);
       combinedTotalMinor += quote.expectedTotalMinor;
