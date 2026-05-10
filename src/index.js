@@ -1,4 +1,3 @@
-
 import dotenv from "dotenv";
 
 // --- LOAD ENV BEFORE OTHER IMPORTS ---
@@ -51,3 +50,34 @@ import Enquiry from "./models/enquiry.model.js";
 import { authenticateAdmin } from "./middleware/authenticateAdmin.js";
 import { authenticateJWT } from "./middleware/authenticateJWT.js";
 import { Order } from "./models/order.model.js";
+
+const app = express();
+app.set('trust proxy', 1); // trust first proxy (Render/Railway/Vercel reverse proxy)
+
+const allowedOrigins = process.env.WHITELISTED_URLS
+  ? process.env.WHITELISTED_URLS.split(',').map(url => url.trim())
+  : [];
+
+const corsOption = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like curl, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "x-timestamp",
+    "x-checksum",
+    "Access-Control-Allow-Origin",
+  ],
+  credentials: true,
+};
+console.log(process.env.WHITELISTED_URLS);
+app.use(cors(corsOption));
+app.use(express.json());
