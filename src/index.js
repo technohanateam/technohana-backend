@@ -186,13 +186,16 @@ async function computeQuote({ courseId, enrollmentType, participants, currency, 
     if (coupon) {
       const isExpired = coupon.expiryDate && new Date() > new Date(coupon.expiryDate);
       const isExhausted = coupon.maxUsageCount && coupon.currentUsageCount >= coupon.maxUsageCount;
-      const validForCurrency = !coupon.validCurrencies || coupon.validCurrencies.length === 0 || coupon.validCurrencies.includes(normalizedCurrency);
-      if (coupon.isActive && !isExpired && !isExhausted && validForCurrency) {
+      const storedCurrencies = (coupon.validCurrencies || []).map(c => String(c).toLowerCase());
+      const validForCurrency = storedCurrencies.length === 0 || storedCurrencies.includes(normalizedCurrency);
+      if (coupon.isActive !== false && !isExpired && !isExhausted && validForCurrency) {
         const rate = coupon.discountPercent / 100;
         unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * (1 - rate)));
         couponApplied = true;
         appliedCouponCode = code;
         couponDiscountRate = rate;
+      } else {
+        console.warn(`Coupon ${code} found but not applied: active=${coupon.isActive}, expired=${isExpired}, exhausted=${isExhausted}, validForCurrency=${validForCurrency} (currency=${normalizedCurrency})`);
       }
     } else if (code) {
       console.warn(`Invalid coupon code attempted: ${code}`);
