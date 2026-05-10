@@ -110,6 +110,10 @@ const PendingOrderSchema = new mongoose.Schema({
   learner: { type: Object },
   courseInfo: { type: Object },
   utm: { type: Object },
+  selectedBatch: { type: Object },
+  batchDate: { type: String },
+  batchTime: { type: String },
+  trainingPeriod: { type: String },
   createdAt: { type: Date, default: Date.now, expires: 86400 },
 });
 const PendingOrder = mongoose.model('PendingOrder', PendingOrderSchema);
@@ -413,6 +417,14 @@ app.post('/stripe/checkout', async (req, res) => {
         time: courseInfo?.time || '',
       },
       utm: utm && typeof utm === 'object' ? utm : undefined,
+      selectedBatch: req.body.selectedBatch && typeof req.body.selectedBatch === 'object' ? req.body.selectedBatch : undefined,
+      batchDate: req.body.batchDate || req.body.selectedBatch?.startDate || null,
+      batchTime: req.body.batchTime || req.body.selectedBatch?.time || null,
+      trainingPeriod: (() => {
+        const b = req.body.selectedBatch;
+        if (b?.numDays && b?.hoursPerDay) return `${b.numDays} days (${b.hoursPerDay} hrs/day)`;
+        return null;
+      })(),
     });
 
     // Save lead to DB before redirecting — captures abandoned checkouts too
@@ -429,6 +441,13 @@ app.post('/stripe/checkout', async (req, res) => {
         orderId,
         status: 'pending-payment',
         utm: utm && typeof utm === 'object' ? utm : undefined,
+        batchDate: req.body.batchDate || req.body.selectedBatch?.startDate || null,
+        batchTime: req.body.batchTime || req.body.selectedBatch?.time || null,
+        trainingPeriod: (() => {
+          const b = req.body.selectedBatch;
+          if (b?.numDays && b?.hoursPerDay) return `${b.numDays} days (${b.hoursPerDay} hrs/day)`;
+          return null;
+        })(),
       });
     } catch (dbErr) {
       console.error('Failed to save pre-payment lead:', dbErr);
@@ -553,6 +572,14 @@ app.post('/razorpay/checkout', async (req, res) => {
         time: courseInfo?.time || '',
       },
       utm: utm && typeof utm === 'object' ? utm : undefined,
+      selectedBatch: req.body.selectedBatch && typeof req.body.selectedBatch === 'object' ? req.body.selectedBatch : undefined,
+      batchDate: req.body.batchDate || req.body.selectedBatch?.startDate || null,
+      batchTime: req.body.batchTime || req.body.selectedBatch?.time || null,
+      trainingPeriod: (() => {
+        const b = req.body.selectedBatch;
+        if (b?.numDays && b?.hoursPerDay) return `${b.numDays} days (${b.hoursPerDay} hrs/day)`;
+        return null;
+      })(),
     });
 
     try {
@@ -568,6 +595,13 @@ app.post('/razorpay/checkout', async (req, res) => {
         orderId,
         status: 'pending-payment',
         utm: utm && typeof utm === 'object' ? utm : undefined,
+        batchDate: req.body.batchDate || req.body.selectedBatch?.startDate || null,
+        batchTime: req.body.batchTime || req.body.selectedBatch?.time || null,
+        trainingPeriod: (() => {
+          const b = req.body.selectedBatch;
+          if (b?.numDays && b?.hoursPerDay) return `${b.numDays} days (${b.hoursPerDay} hrs/day)`;
+          return null;
+        })(),
       });
     } catch (dbErr) {
       console.error('Failed to save pre-payment lead:', dbErr);
@@ -818,7 +852,12 @@ app.post('/razorpay/verify', async (req, res) => {
       try {
         const updated = await User.findOneAndUpdate(
           { orderId },
-          { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date() },
+          {
+            status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date(),
+            batchDate: order.selectedBatch?.startDate || order.batchDate || null,
+            batchTime: order.batchTime || order.selectedBatch?.time || null,
+            trainingPeriod: order.trainingPeriod || null,
+          },
           { new: true }
         );
         if (!updated) {
@@ -835,6 +874,9 @@ app.post('/razorpay/verify', async (req, res) => {
             status: 'enrolled',
             enrollmentToken,
             enrolledAt: new Date(),
+            batchDate: order.selectedBatch?.startDate || order.batchDate || null,
+            batchTime: order.batchTime || order.selectedBatch?.time || null,
+            trainingPeriod: order.trainingPeriod || null,
           });
         }
       } catch (dbErr) {
