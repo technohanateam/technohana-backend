@@ -1,4 +1,3 @@
-// index.js
 
 import dotenv from "dotenv";
 
@@ -43,6 +42,7 @@ import abandonedEnrollmentRoutes from "./routes/abandoned-enrollment.routes.js";
 import courseViewRoutes from "./routes/courseView.routes.js";
 import testimonialRoutes from "./routes/testimonial.routes.js";
 import assessmentResultRoutes from "./routes/assessmentResult.routes.js";
+import seoGeoRoutes from "./routes/seo-geo.routes.js";
 import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
 import { handleResendWebhook } from "./services/resendWebhook.js";
@@ -1395,6 +1395,7 @@ app.use("/api/referral", referralRoutes);
 app.use("/api/abandoned-enrollment", abandonedEnrollmentRoutes);
 app.use("/", testimonialRoutes);
 app.use("/", assessmentResultRoutes);
+app.use("/admin", seoGeoRoutes);
 
 // ─── Campaign Automation ───────────────────────────────────────────────────────
 
