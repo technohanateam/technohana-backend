@@ -9,6 +9,7 @@
     "reseed": "node seed-courses.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.0",
     "axios": "^1.13.5",
     "bull": "^4.14.2",
     "cloudinary": "^2.5.1",
