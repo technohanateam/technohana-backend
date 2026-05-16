@@ -17,6 +17,10 @@ const require = createRequire(import.meta.url);
 // Load course catalog once at startup
 const courses = require(path.join(__dirname, "../data/courses.json"));
 
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.warn("[warn] ANTHROPIC_API_KEY is not set — POST /api/chat/corporate will fail at runtime");
+}
+
 // In-memory session store: sessionId -> message[]
 const sessions = new Map();
 
@@ -929,7 +933,7 @@ router.post("/api/chat/corporate", async (req, res) => {
       system: CORPORATE_SYSTEM_PROMPT,
       messages: history,
     });
-    const raw = response.content[0].text;
+    const raw = response.content.find((b) => b.type === "text")?.text ?? "";
     const result = parseCorporateResponse(raw);
     history.push({ role: "assistant", content: raw });
     if (history.length > 40) history.splice(0, 2);
