@@ -4,6 +4,7 @@
 import express from "express";
 import { createRequire } from "module";
 import { OpenAI } from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -257,7 +258,6 @@ router.post("/api/skills-gap", async (req, res) => {
     });
     const result = parseJsonResponse(response.choices[0].message.content);
     if (!result) throw new Error("parse_failed");
-    // Save anonymous lead — roles only, no email required
     new Enquiry({
       name: "Anonymous",
       email: `skillsgap+${Date.now()}@anonymous.technohana.in`,
@@ -830,6 +830,124 @@ ${text.slice(0, 12000)}`;
     console.error("PDF parse error:", err.message);
     return res.status(500).json({ error: "AI returned invalid JSON or call failed" });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Corporate Training Chat — powered by Claude (Anthropic)
+// ---------------------------------------------------------------------------
+
+const corporateSessions = new Map();
+
+const CORPORATE_SYSTEM_PROMPT = `You are a Corporate Training Advisor at Technohana, an AI and technology training company based in India. Your role is to help L&D managers, CTOs, HR directors, and business owners find the right training solution for their team.
+
+CORPORATE TRAINING OFFERINGS:
+- Foundational Training Programs: AI, Data Science, Cloud basics — build team-wide baseline skills
+- Advanced Training Programs: GenAI, LLMs, MLOps, Enterprise AI Architecture
+- Customised Workshops: tailored to company tools, industry, and real business use cases
+- Industry-Specific Training: BFSI, Healthcare, Retail, Manufacturing learning paths
+- Certification Exam Preparation: Microsoft, AWS, Google Cloud, PMI, Scrum Alliance
+- Continuing Education: refresher modules, emerging-tech updates
+
+GROUP PRICING:
+- Teams of 5–9 people: 25% group discount off standard course pricing
+- Teams of 10+ people: 35% group discount off standard course pricing
+- Dedicated trainer engagements available for 20+ person long-term programs
+
+TECHNOLOGY DOMAINS COVERED:
+Generative AI, Microsoft Azure AI, Microsoft Copilot, ChatGPT & Prompt Engineering, Data Science, Machine Learning, MLOps, Cloud Computing (AWS / Azure / GCP), DevOps, Cybersecurity, Power Platform, Python Programming, Startup & AI Strategy
+
+DELIVERY FORMATS:
+- Live Online (instructor-led virtual classes, scheduled batches)
+- On-Site (at client offices across India)
+- Blended (mix of online and on-site)
+- Dedicated Trainer (long-term internal capability building)
+
+CONTACT DETAILS:
+- Phone / WhatsApp: +91 98219 67863
+- Email: corporate@technohana.in
+- Response time: within 24 hours guaranteed
+
+CONVERSATION GUIDELINES:
+- Be professional, warm, and consultative — like a senior B2B solutions consultant
+- Ask one focused question at a time to understand team size, technology needs, timeline, and budget
+- When the visitor seems ready, direct them to fill the consultation form on the page or contact via WhatsApp
+- For teams of 50+, strongly recommend a direct call for a bespoke proposal
+- Keep replies under 130 words — be direct and add real value
+- Do not discuss competitor pricing or make specific ROI guarantees
+
+RESPONSE FORMAT — always respond with ONLY valid JSON, no extra text:
+{
+  "reply": "Your conversational message here",
+  "quick_replies": ["Option 1", "Option 2", "Option 3"]
+}
+
+quick_replies: 2–4 short options (max 6 words each) relevant to the current conversation state.
+Never include markdown, code blocks, or any extra text — ONLY the JSON object.`;
+
+const CORPORATE_GREETING = {
+  reply: "Hi! I'm your Corporate Training Advisor at Technohana. I help companies upskill teams in AI, cloud, and data. What can I help you with today?",
+  quick_replies: [
+    "AI training for my team",
+    "Get group pricing",
+    "Customised workshop options",
+    "Book a free consultation",
+  ],
+};
+
+function parseCorporateResponse(raw) {
+  try { return JSON.parse(raw.trim()); } catch (_) {}
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (match) { try { return JSON.parse(match[0]); } catch (_) {} }
+  return {
+    reply: raw.slice(0, 500) || "Something went wrong, please try again.",
+    quick_replies: ["Try again", "WhatsApp us", "Book consultation"],
+  };
+}
+
+// GET /api/chat/corporate/greet?session_id=xxx
+router.get("/api/chat/corporate/greet", (req, res) => {
+  const { session_id } = req.query;
+  if (!session_id) return res.status(400).json({ error: "session_id is required" });
+  return res.json(CORPORATE_GREETING);
+});
+
+// POST /api/chat/corporate
+router.post("/api/chat/corporate", async (req, res) => {
+  const { session_id, message } = req.body || {};
+  if (!session_id || !message?.trim()) {
+    return res.status(400).json({ error: "session_id and message are required" });
+  }
+
+  const history = corporateSessions.get(session_id) || [];
+  history.push({ role: "user", content: message.trim() });
+
+  try {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 512,
+      system: CORPORATE_SYSTEM_PROMPT,
+      messages: history,
+    });
+    const raw = response.content[0].text;
+    const result = parseCorporateResponse(raw);
+    history.push({ role: "assistant", content: raw });
+    if (history.length > 40) history.splice(0, 2);
+    corporateSessions.set(session_id, history);
+    return res.json(result);
+  } catch (err) {
+    console.error("Corporate chat error:", err.message);
+    return res.json({
+      reply: "I'm having a moment — please try again or reach us directly on WhatsApp at +91 98219 67863.",
+      quick_replies: ["Try again", "WhatsApp us", "Book consultation"],
+    });
+  }
+});
+
+// DELETE /api/chat/corporate/:session_id
+router.delete("/api/chat/corporate/:session_id", (req, res) => {
+  corporateSessions.delete(req.params.session_id);
+  return res.json({ status: "ok" });
 });
 
 export default router;
