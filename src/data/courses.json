@@ -19861,5 +19861,339 @@
       "eur": 659
     },
     "categoryGroup": "Cybersecurity"
+  },
+  {
+    "id": "N8N101",
+    "courseSlug": "n8n-fundamentals-workflow-automation",
+    "logo": "course_thumb01.jpg",
+    "category": "Workflow Automation",
+    "catdesc": "Automate repetitive tasks and connect your apps without code. These courses teach you to build powerful workflows using n8n \u2014 from simple integrations to AI-powered enterprise automation pipelines.",
+    "catcls": "cat-twentyfour",
+    "courseTitle": "n8n Fundamentals: Workflow Automation for Everyone",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Industry Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "4.7",
+    "videoId": "",
+    "toc": "N8N101-n8nFundamentals.pdf",
+    "overview": "n8n Fundamentals: Workflow Automation for Everyone is a hands-on introduction to n8n \u2014 the open-source, self-hostable workflow automation platform. n8n lets you connect apps, APIs, and databases visually, without writing code, making it the ideal tool for ops teams, business analysts, and developers who want to automate repetitive processes fast. This course covers n8n's core architecture, building multi-step workflows, connecting popular apps, and deploying automations to production \u2014 both on n8n Cloud and self-hosted environments.",
+    "courseObjective": "Participants will learn to navigate the n8n interface, build automated workflows using trigger and action nodes, connect to popular apps and APIs, handle data transformations, manage errors, and schedule and deploy workflows reliably.",
+    "courseOutcomes": "Upon completion, participants will be able to design and deploy n8n workflows that automate real business processes, connect apps using pre-built integrations, transform data with expressions, handle errors gracefully, and run automations on schedules or webhooks.",
+    "prerequisites": "No programming experience required. Basic familiarity with web apps (email, spreadsheets, CRMs) is sufficient. A free n8n Cloud account or local installation will be used.",
+    "labs": "Hands-on labs building a lead capture workflow, a multi-app notification pipeline, a scheduled data sync, and a webhook-triggered automation \u2014 using real app integrations throughout.",
+    "whatWillYouLearn": [
+      "n8n architecture: workflows, nodes, triggers, connections, and executions",
+      "Navigating the n8n editor: canvas, node panel, and execution history",
+      "Trigger nodes: Webhook, Schedule, and app-specific event triggers",
+      "Core action nodes: HTTP Request, Set, IF, Switch, Merge, and Loop",
+      "Connecting popular apps: Gmail, Slack, Google Sheets, Notion, Airtable, and more",
+      "Data transformation with n8n expressions and the JMESPath syntax",
+      "Error handling: try/catch patterns, error workflows, and notifications",
+      "Deploying workflows: n8n Cloud, Docker self-hosting, and activation management"
+    ],
+    "requirements": [
+      "A computer with internet access",
+      "Free n8n Cloud account or Docker installed for self-hosted setup",
+      "No programming knowledge required"
+    ],
+    "targetAudience": [
+      "Operations and Process Automation Teams",
+      "Business Analysts automating manual data workflows",
+      "IT Admins connecting internal systems and tools",
+      "Marketing and Sales teams automating CRM and outreach workflows",
+      "Startup Founders building lean automated business processes",
+      "Non-developers wanting to automate without writing code",
+      "Developers evaluating n8n as an alternative to Zapier or Make"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: n8n Architecture and Getting Started",
+        "content": [
+          "What is n8n? How it compares to Zapier, Make, and Power Automate",
+          "n8n Cloud vs self-hosted: choosing the right deployment",
+          "Setting up n8n Cloud (free tier) and local Docker installation",
+          "The n8n editor: canvas, node panel, credentials, and settings",
+          "Your first workflow: connecting a trigger to an action in 10 minutes",
+          "Understanding executions: viewing logs, inspecting data, and debugging",
+          "Lab: Build a Gmail-to-Slack notification workflow from scratch"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Core Nodes and Triggers",
+        "content": [
+          "Trigger nodes: Webhook, Schedule (cron), and Manual Trigger",
+          "App triggers: Gmail, Slack, HubSpot, Typeform, and GitHub events",
+          "Action nodes: HTTP Request for any REST API",
+          "Data manipulation: Set node, Edit Fields, and Rename Keys",
+          "Control flow: IF, Switch, and Merge nodes for branching logic",
+          "Loop Over Items for processing lists and arrays",
+          "Lab: Build a scheduled Google Sheets data sync workflow"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Building Multi-Step Workflows",
+        "content": [
+          "Passing data between nodes: item structure and JSON inspection",
+          "n8n expressions: $json, $node, $workflow, and $now syntax",
+          "Filtering and transforming data with expressions",
+          "Connecting apps: Notion, Airtable, Slack, Google Drive, and email",
+          "Sub-workflows: calling one workflow from another for reusability",
+          "Sticky notes and workflow documentation best practices",
+          "Lab: Build a lead capture-to-CRM automation with conditional routing"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Error Handling, Scheduling, and Deployment",
+        "content": [
+          "Error handling: try/catch with the Error Trigger node",
+          "Sending failure alerts via Slack or email on workflow errors",
+          "Wait node: pausing workflows for time delays or external events",
+          "Activating and deactivating workflows in production",
+          "Webhook security: header authentication and IP allowlisting",
+          "Backup and version control: exporting and importing workflow JSON",
+          "Lab: Deploy a production-ready webhook-triggered automation pipeline"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms"
+  },
+  {
+    "id": "N8N102",
+    "courseSlug": "n8n-for-ai-workflows-agents-llms-automation",
+    "logo": "course_thumb01.jpg",
+    "category": "Workflow Automation",
+    "catdesc": "Automate repetitive tasks and connect your apps without code. These courses teach you to build powerful workflows using n8n \u2014 from simple integrations to AI-powered enterprise automation pipelines.",
+    "catcls": "cat-twentyfour",
+    "courseTitle": "n8n for AI Workflows: Agents, LLMs, and Automation",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Industry Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.8",
+    "videoId": "",
+    "toc": "N8N102-n8nForAIWorkflows.pdf",
+    "overview": "n8n for AI Workflows: Agents, LLMs, and Automation teaches you to harness n8n's powerful AI nodes to build intelligent automation workflows powered by large language models. n8n has first-class support for OpenAI, Anthropic, Google Gemini, and open-source models via Ollama \u2014 and includes built-in AI Agent, Chain, and Memory nodes for building autonomous AI pipelines visually. This course is designed for AI engineers and developers who want to combine the power of LLMs with n8n's 400+ app integrations to build real-world AI automation products \u2014 without managing infrastructure.",
+    "courseObjective": "Participants will learn to use n8n's AI nodes to connect LLMs to workflows, build AI agent loops with tool use and memory, create RAG pipelines with vector store integration, and deploy production AI automation workflows that combine LLM reasoning with real app actions.",
+    "courseOutcomes": "Upon completion, participants will be able to build n8n AI agent workflows that call LLMs, use tools, retain memory, and take actions across connected apps \u2014 creating end-to-end AI automation pipelines from prompt to production.",
+    "prerequisites": "n8n Fundamentals (N8N101) or equivalent experience. Basic understanding of LLMs (ChatGPT or similar) is helpful. No Python required.",
+    "labs": "Hands-on labs building an AI email triage agent, a RAG-powered document Q&A workflow, an AI content generation pipeline, and an autonomous multi-tool AI agent connected to real apps.",
+    "whatWillYouLearn": [
+      "n8n AI nodes: AI Agent, Basic LLM Chain, Summarization Chain, and Question & Answer Chain",
+      "Connecting LLMs: OpenAI (GPT-4o), Anthropic (Claude), Google Gemini, and Ollama",
+      "Building AI Agent nodes with tool use: web search, code execution, and custom tools",
+      "Memory nodes: Window Buffer Memory and Postgres Chat Memory for persistent context",
+      "Vector store integration: Pinecone, Qdrant, and Supabase for RAG workflows",
+      "Document loaders and text splitters for ingesting and chunking content",
+      "AI-powered automation patterns: email triage, content generation, and data extraction",
+      "Combining AI reasoning with n8n app actions for end-to-end automation"
+    ],
+    "requirements": [
+      "n8n Cloud account or self-hosted n8n (v1.0+)",
+      "OpenAI API key or compatible LLM provider account",
+      "Completion of N8N101 or equivalent n8n experience"
+    ],
+    "targetAudience": [
+      "AI Engineers building no-code/low-code AI automation pipelines",
+      "Developers integrating LLMs into business workflows without custom code",
+      "Operations teams building intelligent process automation",
+      "Product Managers and Founders building AI-powered product features",
+      "Marketing and Sales teams automating AI-generated content workflows",
+      "Data teams building LLM-powered data extraction and enrichment pipelines",
+      "Consultants delivering AI automation solutions to enterprise clients"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Connecting n8n to LLMs",
+        "content": [
+          "n8n AI node overview: the AI Agent ecosystem and LangChain integration",
+          "Configuring LLM credentials: OpenAI, Anthropic Claude, Google Gemini, Ollama",
+          "Basic LLM Chain node: sending prompts and processing responses",
+          "Summarization Chain: summarising long documents and web pages",
+          "Dynamic prompt construction with n8n expressions and workflow data",
+          "Parsing structured LLM outputs: JSON mode and output parsers",
+          "Lab: Build an AI-powered email summariser and responder workflow"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Building AI Agent Workflows",
+        "content": [
+          "The AI Agent node: how n8n implements the ReAct agent loop",
+          "Tool nodes: Calculator, Wikipedia, SerpAPI web search, and HTTP Request tool",
+          "Defining custom function tools for agents in n8n",
+          "Memory nodes: Window Buffer Memory for in-session context",
+          "Postgres Chat Memory for persistent cross-session agent memory",
+          "Human-in-the-loop: pausing agent workflows for human review",
+          "Lab: Build an autonomous research agent that searches the web and writes reports"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: RAG Pipelines and Vector Store Integration",
+        "content": [
+          "RAG architecture in n8n: ingestion and query workflows",
+          "Document loaders: PDF, Google Drive, Notion, and web scraping",
+          "Text splitters: recursive character and token-based splitting",
+          "Embedding nodes: OpenAI Embeddings and HuggingFace Inference",
+          "Vector stores: Pinecone, Qdrant, Supabase pgvector, and in-memory",
+          "Question & Answer Chain node for retrieval-augmented generation",
+          "Lab: Build a customer support knowledge base Q&A workflow"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Production AI Automation Patterns",
+        "content": [
+          "AI email triage: classify, route, and auto-respond to inbound emails",
+          "Content generation pipelines: blog posts, social copy, and reports",
+          "Data extraction: structured entity extraction from unstructured text",
+          "AI lead scoring and CRM enrichment workflows",
+          "Combining multiple AI agents in a single n8n workflow",
+          "Error handling for LLM calls: retries, fallbacks, and rate limit management",
+          "Lab: Build an end-to-end AI sales assistant that qualifies leads and drafts outreach"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms"
+  },
+  {
+    "id": "N8N103",
+    "courseSlug": "advanced-n8n-custom-nodes-apis-enterprise-deployment",
+    "logo": "course_thumb01.jpg",
+    "category": "Workflow Automation",
+    "catdesc": "Automate repetitive tasks and connect your apps without code. These courses teach you to build powerful workflows using n8n \u2014 from simple integrations to AI-powered enterprise automation pipelines.",
+    "catcls": "cat-twentyfour",
+    "courseTitle": "Advanced n8n: Custom Nodes, APIs, and Enterprise Deployment",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "05 Modules",
+    "noStudents": "15",
+    "instructor": "Industry Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.7",
+    "videoId": "",
+    "toc": "N8N103-AdvancedN8n.pdf",
+    "overview": "Advanced n8n: Custom Nodes, APIs, and Enterprise Deployment takes experienced n8n users to the next level \u2014 building custom nodes in TypeScript, integrating with internal APIs and enterprise systems, applying advanced data transformation patterns, hardening n8n for production with Docker and Kubernetes, and designing scalable multi-instance enterprise architectures. This course is designed for developers, DevOps engineers, and enterprise architects who need to extend n8n beyond its built-in capabilities and run it reliably at scale.",
+    "courseObjective": "Participants will learn to develop and publish custom n8n nodes using TypeScript, build secure enterprise integrations via webhooks and OAuth2, apply advanced transformation patterns, self-host n8n in production environments, and architect multi-instance enterprise deployments with high availability.",
+    "courseOutcomes": "Upon completion, participants will be able to build and publish custom n8n nodes, integrate n8n with any internal or enterprise API securely, self-host n8n using Docker/Kubernetes with PostgreSQL and Redis, and design fault-tolerant enterprise n8n architectures.",
+    "prerequisites": "n8n Fundamentals (N8N101) or solid n8n experience. TypeScript/JavaScript familiarity required for custom node development modules. Basic Docker knowledge helpful for deployment modules.",
+    "labs": "Hands-on labs building a custom n8n node published to a local registry, a secure OAuth2 API integration, an advanced data pipeline with JMESPath, and a production Docker Compose n8n deployment with PostgreSQL and Redis.",
+    "whatWillYouLearn": [
+      "Custom node development: node structure, types, credentials, and TypeScript patterns",
+      "Testing and publishing custom nodes to npm and private registries",
+      "Advanced data transformation: JMESPath, JavaScript Code node, and Function Item",
+      "OAuth2 credential flows and API authentication patterns in n8n",
+      "Webhook hardening: HMAC signatures, IP filtering, and rate limiting",
+      "n8n self-hosting: Docker Compose with PostgreSQL, Redis, and S3 binary data",
+      "Kubernetes deployment with n8n Helm charts and horizontal scaling",
+      "Enterprise architecture: queue mode, worker nodes, and multi-instance setups"
+    ],
+    "requirements": [
+      "Solid n8n experience (N8N101 or equivalent)",
+      "TypeScript/JavaScript knowledge for custom node development",
+      "Basic Docker and command-line familiarity",
+      "Node.js installed locally"
+    ],
+    "targetAudience": [
+      "Developers extending n8n with custom integrations",
+      "DevOps Engineers deploying and maintaining n8n in production",
+      "Enterprise Architects designing scalable automation infrastructure",
+      "Platform Engineers building internal automation platforms on n8n",
+      "Backend Developers building custom n8n nodes for proprietary APIs",
+      "IT Directors evaluating n8n for enterprise-wide deployment"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Custom Node Development with TypeScript",
+        "content": [
+          "n8n node architecture: INodeType, INodeTypeDescription, and node properties",
+          "Setting up the n8n node development environment with n8n-node-dev",
+          "Building a declarative node: properties, options, and API calls",
+          "Building a programmatic node with execute() for complex logic",
+          "Custom credentials: defining OAuth2 and API key credential types",
+          "Writing unit tests for custom nodes",
+          "Publishing to npm and installing in n8n via community nodes",
+          "Lab: Build a custom node for an internal or public API"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Advanced Data Transformation",
+        "content": [
+          "The Code node: writing JavaScript/Python for complex transformations",
+          "JMESPath expressions for querying and reshaping nested JSON",
+          "Batch processing with SplitInBatches and aggregate patterns",
+          "Working with binary data: files, images, and PDFs in workflows",
+          "Date/time manipulation with Luxon in n8n expressions",
+          "Deduplication and change-detection patterns for sync workflows",
+          "Lab: Build a complex data normalisation and enrichment pipeline"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Webhook Security and Advanced API Integration",
+        "content": [
+          "Webhook authentication: HMAC signature verification with custom logic",
+          "Header and query parameter authentication patterns",
+          "OAuth2 flows: authorization code grant in n8n credentials",
+          "Pagination handling: auto-pagination and manual cursor patterns",
+          "Rate limit handling: retry logic and exponential backoff",
+          "Connecting to enterprise systems: SAP, Salesforce, and internal REST APIs",
+          "Lab: Build a secure webhook receiver with signature validation and auto-retry"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Self-Hosting and Scaling n8n",
+        "content": [
+          "n8n deployment options: SQLite vs PostgreSQL vs external DB",
+          "Docker Compose production setup: n8n, PostgreSQL, Redis, and nginx",
+          "Environment variable configuration: security, encryption keys, and SMTP",
+          "Binary data storage: local filesystem vs S3-compatible object storage",
+          "Kubernetes deployment with the official n8n Helm chart",
+          "Health checks, liveness/readiness probes, and auto-scaling",
+          "Lab: Deploy a production-hardened n8n instance with Docker Compose"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Enterprise Patterns and Team Workflows",
+        "content": [
+          "Queue mode: main process, workers, and webhook processors",
+          "Horizontal scaling: multiple worker nodes and load balancing",
+          "Multi-tenancy: n8n environments, user management, and permissions",
+          "Workflow version control: Git integration with n8n's source control feature",
+          "Monitoring n8n: metrics endpoints, Grafana dashboards, and alerting",
+          "Disaster recovery: backup strategies and workflow migration between instances",
+          "Lab: Design and present an enterprise n8n architecture for a real-world use case"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms"
   }
 ]
