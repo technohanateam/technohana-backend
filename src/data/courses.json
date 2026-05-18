@@ -19495,5 +19495,371 @@
       "eur": 1299
     },
     "categoryGroup": "Cybersecurity"
+  },
+  {
+    "id": "CISM",
+    "courseSlug": "cism-certified-information-security-manager",
+    "logo": "course_thumb01.jpg",
+    "category": "Cybersecurity",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "courseTitle": "CISM \u2013 Certified Information Security Manager",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Industry Experts",
+    "price": 63999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.7",
+    "videoId": "",
+    "toc": "CISM-CertifiedInformationSecurityManager.pdf",
+    "overview": "The CISM (Certified Information Security Manager) course is designed for professionals who manage, design, oversee, and assess an enterprise's information security. Recognized globally by ISACA, the CISM certification validates the expertise needed to develop and manage a comprehensive information security program aligned to business goals. This course covers all four CISM domains and prepares candidates for the ISACA CISM examination.",
+    "courseObjective": "Participants will develop the management-level knowledge needed to design and govern information security programs, manage information risk aligned to business objectives, and oversee incident response and recovery \u2014 preparing them for the ISACA CISM certification.",
+    "courseOutcomes": "Upon completion, participants will be able to establish and manage an information security governance framework, assess and respond to information risks, build and maintain a security program aligned to enterprise strategy, and lead incident response and recovery efforts.",
+    "prerequisites": "A minimum of 5 years of work experience in information security is required for CISM certification, with at least 3 years in information security management. Experience in at least 3 of the 4 CISM domains is recommended.",
+    "labs": "Domain-aligned case studies, governance scenario exercises, and CISM-style practice questions are included throughout the course.",
+    "whatWillYouLearn": [
+      "Information security governance frameworks and alignment to business strategy",
+      "Risk management: identification, assessment, response, and monitoring",
+      "Information security program development, management, and metrics",
+      "Incident management: preparation, detection, response, and recovery",
+      "IS governance roles, policies, standards, and procedures",
+      "Business continuity and disaster recovery planning from a security perspective",
+      "Regulatory compliance and legal requirements impacting information security",
+      "Third-party and vendor risk management strategies"
+    ],
+    "requirements": [
+      "IT or information security experience in at least 3 CISM domains recommended",
+      "Familiarity with enterprise IT governance frameworks (COBIT, ISO 27001)",
+      "Basic understanding of risk management and business continuity concepts"
+    ],
+    "targetAudience": [
+      "Information Security Managers and Directors",
+      "Chief Information Security Officers (CISOs)",
+      "IT Risk and Compliance Managers",
+      "Security Program Managers",
+      "IT Auditors transitioning to security management",
+      "GRC (Governance, Risk, and Compliance) Professionals",
+      "IT Directors with security responsibilities",
+      "Security Architects moving into leadership roles",
+      "Cybersecurity Consultants",
+      "Data Protection Officers (DPOs)",
+      "Business Continuity Managers",
+      "Security Governance and Policy Specialists"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Domain 1: Information Security Governance (17%)",
+        "content": [
+          "Enterprise governance and information security governance",
+          "Organizational culture and its impact on security",
+          "Legal, regulatory, and contractual requirements",
+          "Information security strategy development",
+          "Information security governance frameworks and standards",
+          "Governance metrics, KPIs, and reporting to senior management",
+          "Roles and responsibilities of the information security manager",
+          "Labs: Security governance framework assessment exercise"
+        ]
+      },
+      {
+        "moduleTitle": "Domain 2: Information Risk Management (20%)",
+        "content": [
+          "Risk identification: threats, vulnerabilities, and exposure",
+          "Risk assessment methodologies and risk registers",
+          "Risk appetite, tolerance, and acceptance",
+          "Risk response options: accept, mitigate, transfer, avoid",
+          "Third-party and supply chain risk management",
+          "Emerging risk: cloud, IoT, and AI-related risks",
+          "Continuous risk monitoring and reporting",
+          "Labs: Risk scenario analysis and heat-map development"
+        ]
+      },
+      {
+        "moduleTitle": "Domain 3: Information Security Program (33%)",
+        "content": [
+          "Security program development and governance alignment",
+          "Security policies, standards, procedures, and guidelines",
+          "Security architecture and controls design",
+          "Security awareness and training programs",
+          "Identity and access management program elements",
+          "Data classification and information asset management",
+          "Vendor and third-party security management",
+          "Security metrics, dashboards, and program reporting",
+          "Labs: Security program roadmap design workshop"
+        ]
+      },
+      {
+        "moduleTitle": "Domain 4: Incident Management (30%)",
+        "content": [
+          "Incident management planning and preparedness",
+          "Incident classification, escalation, and communication",
+          "Digital forensics and evidence handling",
+          "Incident response team structure and responsibilities",
+          "Business continuity and disaster recovery integration",
+          "Post-incident review and lessons learned",
+          "Legal and regulatory notification requirements",
+          "Labs: Incident response tabletop simulation"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "categoryGroup": "Cybersecurity"
+  },
+  {
+    "id": "CISA",
+    "courseSlug": "cisa-certified-information-systems-auditor",
+    "logo": "course_thumb01.jpg",
+    "category": "Cybersecurity",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "courseTitle": "CISA \u2013 Certified Information Systems Auditor",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "05 Modules",
+    "noStudents": "15",
+    "instructor": "Industry Experts",
+    "price": 63999,
+    "language": "English",
+    "difficulty": "Intermediate to Advanced",
+    "rating": "4.7",
+    "videoId": "",
+    "toc": "CISA-CertifiedInformationSystemsAuditor.pdf",
+    "overview": "The CISA (Certified Information Systems Auditor) course is the globally recognized standard for IS audit, control, and security professionals. Offered by ISACA, the CISA certification demonstrates expertise in auditing, monitoring, controlling, and assessing IT and business systems. This course prepares participants to audit information systems effectively, assess enterprise IT governance, and evaluate information asset protection \u2014 covering all five CISA domains.",
+    "courseObjective": "Participants will gain the knowledge and skills to perform effective IS audits, evaluate IT governance and risk management practices, assess systems acquisition and development controls, review IT operations and resilience, and analyze information asset protection \u2014 preparing them for the ISACA CISA certification exam.",
+    "courseOutcomes": "Upon completion, participants will be able to plan and conduct IS audits in accordance with ISACA standards, evaluate IT governance and management frameworks, assess controls throughout the SDLC, review business continuity and disaster recovery plans, and determine the adequacy of information security controls.",
+    "prerequisites": "A minimum of 5 years of professional work experience in IS auditing, control, or security is required for full CISA certification. Substitutions and waivers of up to 3 years are available. Basic understanding of audit concepts is recommended.",
+    "labs": "Audit scenario case studies, control testing exercises, and CISA-style practice exam questions are included throughout each domain.",
+    "whatWillYouLearn": [
+      "IS audit planning, execution, and reporting in line with ISACA standards",
+      "IT governance frameworks and enterprise IT management best practices",
+      "IS acquisition, development, and implementation controls",
+      "IT operations management, service management, and resilience planning",
+      "Information asset classification, ownership, and protection controls",
+      "Access controls, encryption, and data security practices",
+      "Business continuity and disaster recovery audit and review",
+      "Risk-based audit methodology and audit evidence evaluation"
+    ],
+    "requirements": [
+      "Experience in IS audit, control, assurance, or information security",
+      "Familiarity with IT governance frameworks (COBIT, ITIL, ISO 27001)",
+      "Basic understanding of auditing concepts and internal controls"
+    ],
+    "targetAudience": [
+      "IT Auditors and Internal Auditors",
+      "Compliance and Regulatory Officers",
+      "IT Risk and Control Professionals",
+      "Information Security Managers",
+      "External Auditors with IT focus",
+      "IS Control and Assurance Specialists",
+      "Governance, Risk, and Compliance (GRC) Professionals",
+      "IS Security Managers",
+      "Audit Committee Members with IT oversight",
+      "Data Protection Officers",
+      "IT Directors and CIOs seeking governance credentials",
+      "Consultants in IT audit and advisory"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Domain 1: Information Systems Auditing Process (21%)",
+        "content": [
+          "IS audit standards, guidelines, and codes of professional ethics",
+          "Risk-based audit planning and materiality",
+          "Audit project management and evidence collection",
+          "Sampling methodologies and computer-assisted audit techniques (CAATs)",
+          "Reporting audit findings and follow-up",
+          "Quality assurance in IS auditing",
+          "Labs: Audit planning and evidence collection exercise"
+        ]
+      },
+      {
+        "moduleTitle": "Domain 2: Governance and Management of IT (17%)",
+        "content": [
+          "IT governance frameworks: COBIT, ITIL, ISO 38500",
+          "IT strategic planning and alignment to business strategy",
+          "IT organizational structure, roles, and responsibilities",
+          "IT policies, standards, and procedures evaluation",
+          "IT performance management and monitoring",
+          "IT investment and resource management",
+          "Labs: IT governance maturity assessment"
+        ]
+      },
+      {
+        "moduleTitle": "Domain 3: Information Systems Acquisition, Development and Implementation (12%)",
+        "content": [
+          "Project management and governance of IS projects",
+          "System development lifecycle (SDLC) methodologies",
+          "IT acquisition management and vendor selection",
+          "Application controls and testing methodologies",
+          "Change management and configuration management",
+          "Post-implementation review and benefits realization",
+          "Labs: SDLC control review simulation"
+        ]
+      },
+      {
+        "moduleTitle": "Domain 4: Information Systems Operations and Business Resilience (23%)",
+        "content": [
+          "IT service management (ITSM) and ITIL processes",
+          "IT infrastructure management: networks, servers, databases",
+          "IT operations monitoring, logging, and incident management",
+          "Problem and change management controls",
+          "Business continuity planning (BCP) and testing",
+          "Disaster recovery planning (DRP) and recovery point/time objectives",
+          "Backup and restore procedures audit",
+          "Labs: Business continuity plan audit review"
+        ]
+      },
+      {
+        "moduleTitle": "Domain 5: Protection of Information Assets (27%)",
+        "content": [
+          "Information security frameworks and standards (ISO 27001, NIST)",
+          "Information asset classification and data governance",
+          "Access control: logical, physical, and administrative",
+          "Encryption, PKI, and data protection mechanisms",
+          "Network and endpoint security controls",
+          "Privacy regulations and data protection law",
+          "Security incident monitoring and response",
+          "Labs: Information security control assessment exercise"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "categoryGroup": "Cybersecurity"
+  },
+  {
+    "id": "CSXP",
+    "courseSlug": "csxp-cybersecurity-practitioner",
+    "logo": "course_thumb01.jpg",
+    "category": "Cybersecurity",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "courseTitle": "CSX-P \u2013 Cybersecurity Practitioner",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "05 Modules",
+    "noStudents": "15",
+    "instructor": "Industry Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.5",
+    "videoId": "",
+    "toc": "CSXP-CybersecurityPractitioner.pdf",
+    "overview": "The CSX-P (Cybersecurity Practitioner) certification by ISACA is a performance-based credential that validates hands-on cybersecurity skills aligned to the NIST Cybersecurity Framework (CSF). Unlike knowledge-only exams, CSX-P tests real-world ability to identify threats, protect systems, detect attacks, respond to incidents, and recover operations. This course prepares participants to demonstrate practical cybersecurity competence across all five NIST CSF functions.",
+    "courseObjective": "Participants will develop hands-on proficiency across the five NIST CSF functions \u2014 Identify, Protect, Detect, Respond, and Recover \u2014 and build the practical skills needed to pass the ISACA CSX-P performance-based certification examination.",
+    "courseOutcomes": "Upon completion, participants will be able to conduct cybersecurity risk identification and asset management, implement protective controls, detect and analyze security events, execute incident response procedures, and lead recovery operations \u2014 demonstrating real-world cybersecurity capability.",
+    "prerequisites": "2+ years of hands-on cybersecurity experience is recommended. Familiarity with networking fundamentals, operating systems, and basic security tools. CompTIA Security+ or equivalent knowledge is beneficial.",
+    "labs": "Hands-on lab exercises covering vulnerability scanning, log analysis, intrusion detection, incident response simulations, and recovery procedures using industry-standard tools.",
+    "whatWillYouLearn": [
+      "Asset management, risk assessment, and governance (Identify function)",
+      "Identity management, access control, and data security (Protect function)",
+      "Security monitoring, anomaly detection, and SIEM operations (Detect function)",
+      "Incident response planning, execution, and communication (Respond function)",
+      "Recovery planning, improvements, and communications (Recover function)",
+      "NIST Cybersecurity Framework structure and practical application",
+      "Threat intelligence and threat hunting fundamentals",
+      "Security operations center (SOC) workflows and tools"
+    ],
+    "requirements": [
+      "2+ years of hands-on work experience in cybersecurity operations",
+      "Familiarity with networking (TCP/IP, OSI model) and operating systems",
+      "Basic understanding of security tools (firewalls, IDS/IPS, SIEM)"
+    ],
+    "targetAudience": [
+      "SOC Analysts (Level 1 and Level 2)",
+      "Cybersecurity Operations Professionals",
+      "Network Security Engineers",
+      "Incident Responders",
+      "Threat Intelligence Analysts",
+      "Information Security Analysts",
+      "IT Professionals transitioning into cybersecurity operations",
+      "Security Engineers seeking a performance-based credential",
+      "Security Consultants in operations roles",
+      "Penetration Testers at junior to mid level",
+      "Cloud Security Operations Analysts",
+      "Government and Defense Cybersecurity Personnel"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Function 1: Identify",
+        "content": [
+          "Asset management: hardware, software, and data inventory",
+          "Business environment and organizational risk context",
+          "Governance: policies, legal, and regulatory requirements",
+          "Risk assessment: threat identification, vulnerability analysis",
+          "Risk management strategy and risk register",
+          "Supply chain risk management",
+          "Labs: Asset discovery and risk assessment lab"
+        ]
+      },
+      {
+        "moduleTitle": "Function 2: Protect",
+        "content": [
+          "Identity management and access control implementation",
+          "Awareness and training programs",
+          "Data security: encryption, DLP, and classification",
+          "Security configuration and hardening baselines",
+          "Protective technology: firewalls, endpoint protection, and NAC",
+          "Secure network architecture and segmentation",
+          "Labs: Hardening and access control configuration lab"
+        ]
+      },
+      {
+        "moduleTitle": "Function 3: Detect",
+        "content": [
+          "Anomalies and event detection",
+          "Security continuous monitoring: SIEM, log management",
+          "Detection processes and alert triage",
+          "Threat hunting techniques",
+          "Network traffic analysis and packet inspection",
+          "Indicators of compromise (IoCs) and threat intelligence feeds",
+          "Labs: SIEM alert investigation and threat hunting exercise"
+        ]
+      },
+      {
+        "moduleTitle": "Function 4: Respond",
+        "content": [
+          "Response planning: IRP development and testing",
+          "Incident classification and escalation procedures",
+          "Communications: internal and external notification",
+          "Analysis: forensic evidence collection and root cause analysis",
+          "Mitigation: containment, eradication, and patching",
+          "Improvements: post-incident reviews and lessons learned",
+          "Labs: Incident response simulation exercise"
+        ]
+      },
+      {
+        "moduleTitle": "Function 5: Recover",
+        "content": [
+          "Recovery planning: restoration priorities and RTO/RPO",
+          "System restoration and data recovery procedures",
+          "Communications during recovery operations",
+          "Improvements: integrating lessons into recovery plans",
+          "Business continuity integration with recovery",
+          "Labs: Disaster recovery drill and restoration exercise"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Cybersecurity"
   }
 ]
