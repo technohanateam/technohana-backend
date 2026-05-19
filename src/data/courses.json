@@ -20195,5 +20195,1149 @@
       "eur": 659
     },
     "categoryGroup": "Enterprise Platforms"
+  },
+  {
+    "id": "AGENT101",
+    "videoId": "GzLszNParzM",
+    "courseSlug": "agentic-ai-engineering",
+    "logo": "course_thumb02.jpg",
+    "courseTitle": "Agentic AI Engineering",
+    "category": "Artificial Intelligence",
+    "catdesc": "Learn how computers can think and learn like people. This course will teach you how to make smart programs and tools that help with everyday tasks.",
+    "catcls": "cat-two",
+    "categoryGroup": "AI & Generative AI",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "07 Modules",
+    "noStudents": "10",
+    "instructor": "Industry Experts",
+    "price": 79999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.7",
+    "prices": {
+      "inr": 79999,
+      "usd": 1049,
+      "aed": 4449,
+      "gbp": 929,
+      "eur": 1099
+    },
+    "toc": "AGENT101-AgenticAIEngineering.pdf",
+    "overview": "A hands-on engineering course for building autonomous AI agents. You will design agents using the four foundational patterns - Reflection, Tool Use, Planning, and Multi-Agent Collaboration - and ship them to production with proper evaluation, guardrails, and observability.",
+    "courseObjective": "Equip engineers to design, build, evaluate, and operate autonomous AI agents that reliably solve real business tasks.",
+    "courseOutcomes": "Graduates can architect agentic systems, implement tool-using LLM agents, evaluate agent behaviour with traces and metrics, and deploy them with safety controls.",
+    "prerequisites": "Working knowledge of Python and basic familiarity with LLM APIs.",
+    "labs": "Cloud sandbox with Anthropic, OpenAI, and open-source model access. Vector DB and tracing tools pre-provisioned.",
+    "whatWillYouLearn": [
+      "The four agentic patterns: Reflection, Tool Use, Planning, Multi-Agent Collaboration",
+      "Function calling and tool-use design for reliable agents",
+      "Planning and task decomposition strategies",
+      "Reflection loops and self-correction techniques",
+      "Agent evaluation: traces, golden sets, and offline scoring",
+      "Guardrails, prompt injection defence, and safety patterns",
+      "Production deployment: cost, latency, and observability",
+      "Building agents with Claude, GPT, and open-source models"
+    ],
+    "requirements": [
+      "Comfort with Python and REST APIs",
+      "Basic understanding of LLM prompting",
+      "A laptop with internet access"
+    ],
+    "targetAudience": [
+      "AI/ML engineers building LLM-powered products",
+      "Backend engineers moving into AI",
+      "Tech leads evaluating agentic architectures"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: Foundations of Agentic AI",
+        "content": [
+          "From chatbots to agents: what changes and why",
+          "The four agentic patterns at a glance",
+          "Anatomy of an agent loop: observe, plan, act, reflect",
+          "Lab: build a minimal ReAct-style agent in 50 lines of Python"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: Tool Use",
+        "content": [
+          "Function calling and JSON-schema tool definitions",
+          "Designing tools agents can actually use reliably",
+          "Handling tool errors and partial failures",
+          "Lab: equip an agent with web search, calculator, and file I/O tools"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Reflection and Self-Correction",
+        "content": [
+          "Critic prompts and self-review loops",
+          "When reflection helps and when it just costs tokens",
+          "Reflection vs. multi-sample voting",
+          "Lab: add a reflection step to a code-writing agent"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: Planning",
+        "content": [
+          "Plan-and-execute architectures",
+          "Decomposition strategies for long-horizon tasks",
+          "Re-planning when the world changes",
+          "Lab: build a research agent that plans then executes a multi-step query"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Multi-Agent Collaboration",
+        "content": [
+          "Orchestrator-worker, debate, and pipeline patterns",
+          "Communication protocols and shared memory",
+          "Handing off control safely",
+          "Lab: build a 3-agent team that ships a draft blog post"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Evaluation and Safety",
+        "content": [
+          "Building golden datasets for agent eval",
+          "Trace-based debugging and observability",
+          "Prompt injection, jailbreaks, and mitigations",
+          "Lab: evaluate your agent against a 30-task benchmark"
+        ]
+      },
+      {
+        "moduleTitle": "Module 07: Production Deployment",
+        "content": [
+          "Cost and latency budgets for agentic workloads",
+          "Caching, batching, and streaming",
+          "Monitoring agents in production",
+          "Capstone: ship a customer-support agent end-to-end"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "AGENT102",
+    "videoId": "GzLszNParzM",
+    "courseSlug": "multi-agent-systems-langgraph",
+    "logo": "course_thumb03.jpg",
+    "courseTitle": "Multi-Agent Systems with LangGraph",
+    "category": "AI Platforms & APIs",
+    "catdesc": "Build production-ready AI applications using the world's leading AI platforms. These hands-on courses cover the Claude, OpenAI, and Gemini APIs - teaching you to integrate frontier LLMs into real products with best practices for prompting, safety, tool use, and deployment.",
+    "catcls": "cat-eleven",
+    "categoryGroup": "AI & Generative AI",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "10",
+    "instructor": "Industry Experts",
+    "price": 79999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.6",
+    "prices": {
+      "inr": 79999,
+      "usd": 1049,
+      "aed": 4449,
+      "gbp": 929,
+      "eur": 1099
+    },
+    "toc": "AGENT102-MultiAgentSystemswithLangGraph.pdf",
+    "overview": "Build sophisticated multi-agent applications with LangGraph. Learn to model agents as graphs, manage shared state, route between specialists, and stream results to users - the same techniques used by frontier AI products.",
+    "courseObjective": "Teach engineers to model, build, and operate multi-agent systems using LangGraph and the broader LangChain ecosystem.",
+    "courseOutcomes": "Graduates can design stateful agent graphs, implement supervisor and swarm patterns, persist agent memory, and stream intermediate results to end users.",
+    "prerequisites": "Solid Python skills and prior exposure to LLM applications or a basic agent course.",
+    "labs": "Cloud notebooks with LangGraph, LangSmith tracing, and managed vector databases.",
+    "whatWillYouLearn": [
+      "LangGraph fundamentals: nodes, edges, and state",
+      "Supervisor, swarm, and hierarchical agent patterns",
+      "Persistent memory and checkpointing",
+      "Human-in-the-loop interrupts and approvals",
+      "Streaming tokens, events, and tool calls to clients",
+      "Tracing and debugging with LangSmith",
+      "Patterns for cost control in long-running agents",
+      "Deploying LangGraph apps to production"
+    ],
+    "requirements": [
+      "Intermediate Python",
+      "Comfort with at least one LLM API",
+      "Prior agent-building experience helpful"
+    ],
+    "targetAudience": [
+      "AI engineers building production agent systems",
+      "Backend engineers integrating LLMs into existing apps",
+      "Solution architects designing AI workflows"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: LangGraph Foundations",
+        "content": [
+          "Why graphs: limitations of linear agent loops",
+          "Nodes, edges, conditional edges, and state",
+          "Your first compiled graph",
+          "Lab: convert a ReAct agent into a LangGraph"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: State, Memory and Checkpointing",
+        "content": [
+          "Designing state schemas with reducers",
+          "Checkpointers and time-travel debugging",
+          "Long-term memory stores",
+          "Lab: build an agent that remembers across sessions"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Supervisor and Hierarchical Patterns",
+        "content": [
+          "Supervisor-with-workers architecture",
+          "Routing between specialist agents",
+          "Hierarchical teams of teams",
+          "Lab: build a research-and-write supervisor"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: Swarms and Handoffs",
+        "content": [
+          "Swarm pattern: peer-to-peer agent handoffs",
+          "Designing handoff prompts and tools",
+          "Comparing supervisor vs. swarm trade-offs",
+          "Lab: build a customer-service swarm"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Streaming and Human-in-the-Loop",
+        "content": [
+          "Streaming tokens, state updates, and tool calls",
+          "Interrupts and approval flows",
+          "UX patterns for agentic apps",
+          "Lab: ship a streaming agent UI"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Production and Observability",
+        "content": [
+          "LangSmith tracing and evaluation",
+          "Cost, latency, and rate-limit handling",
+          "Deploying LangGraph servers",
+          "Capstone: a multi-agent travel-planning app"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RAG101",
+    "videoId": "GzLszNParzM",
+    "courseSlug": "production-rag-llm-applications",
+    "logo": "course_thumb04.jpg",
+    "courseTitle": "Production RAG and LLM Applications",
+    "category": "Generative AI",
+    "catdesc": "Learn how to make cool things with AI! This course helps you create new and unique projects using simple tools",
+    "catcls": "cat-one",
+    "categoryGroup": "AI & Generative AI",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "07 Modules",
+    "noStudents": "10",
+    "instructor": "Industry Experts",
+    "price": 79999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.8",
+    "prices": {
+      "inr": 79999,
+      "usd": 1049,
+      "aed": 4449,
+      "gbp": 929,
+      "eur": 1099
+    },
+    "toc": "RAG101-ProductionRAGandLLMApplications.pdf",
+    "overview": "Go beyond toy RAG demos. Build retrieval-augmented LLM applications that actually work in production - with proper chunking, hybrid retrieval, re-ranking, evaluation, and observability.",
+    "courseObjective": "Train engineers to design, build, and operate production-grade RAG systems that deliver accurate, grounded answers at scale.",
+    "courseOutcomes": "Graduates can build end-to-end RAG pipelines, tune retrieval quality, evaluate groundedness, and operate RAG systems with proper monitoring.",
+    "prerequisites": "Python proficiency and basic familiarity with LLMs.",
+    "labs": "Managed vector DB, hosted re-ranker, evaluation harness, and observability stack provided.",
+    "whatWillYouLearn": [
+      "When RAG is the right answer (and when it isn't)",
+      "Chunking strategies for different document types",
+      "Embedding models: choosing, evaluating, and fine-tuning",
+      "Hybrid retrieval: dense + sparse + metadata filters",
+      "Re-ranking with cross-encoders",
+      "Grounded generation and citation patterns",
+      "RAG evaluation: faithfulness, relevance, and answer quality",
+      "Operating RAG: caching, freshness, and cost"
+    ],
+    "requirements": [
+      "Comfort with Python",
+      "Basic LLM API experience",
+      "Familiarity with REST APIs"
+    ],
+    "targetAudience": [
+      "Engineers building search and Q&A products",
+      "Data engineers adding LLM features",
+      "ML engineers moving into generative AI"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: RAG First Principles",
+        "content": [
+          "Why retrieval beats parameter knowledge for fresh data",
+          "RAG vs. fine-tuning vs. long context",
+          "Anatomy of a production RAG system",
+          "Lab: build a 100-line RAG over your own PDFs"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: Ingestion and Chunking",
+        "content": [
+          "Document parsing: PDF, HTML, code, tables",
+          "Chunking strategies: fixed, semantic, hierarchical",
+          "Metadata that actually helps retrieval",
+          "Lab: build a robust ingestion pipeline"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Embeddings and Vector Search",
+        "content": [
+          "Embedding model selection and benchmarking",
+          "Vector DBs: indexing, ANN tuning, cost",
+          "Quantization and storage trade-offs",
+          "Lab: benchmark 3 embedding models on your corpus"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: Hybrid Retrieval and Re-ranking",
+        "content": [
+          "BM25 + dense fusion strategies",
+          "Metadata filters and structured retrieval",
+          "Cross-encoder re-ranking",
+          "Lab: lift Recall@5 by 20 points on a real dataset"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Grounded Generation",
+        "content": [
+          "Prompt patterns for citation and groundedness",
+          "Handling 'I don't know' gracefully",
+          "Structured output for RAG",
+          "Lab: build a cited-answer chatbot"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Evaluation",
+        "content": [
+          "Building a RAG eval set without ground truth",
+          "Faithfulness, context relevance, answer relevance metrics",
+          "LLM-as-judge: when it works and when it lies",
+          "Lab: set up an automated RAG eval pipeline"
+        ]
+      },
+      {
+        "moduleTitle": "Module 07: Production Operations",
+        "content": [
+          "Caching, freshness, and re-indexing",
+          "Cost modelling for RAG at scale",
+          "Observability and user feedback loops",
+          "Capstone: ship a production RAG service"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MLOPS101",
+    "videoId": "GzLszNParzM",
+    "courseSlug": "mlops-engineering-deploy-monitor-scale",
+    "logo": "course_thumb05.jpg",
+    "courseTitle": "MLOps Engineering: Deploy, Monitor, Scale",
+    "category": "Data Science and Machine Learning",
+    "catdesc": "Learn how to work with numbers and solve problems that matter. This course gives you the skills to understand and use data, with easy lessons and fun practice.",
+    "catcls": "cat-three",
+    "categoryGroup": "Data & Analytics",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "07 Modules",
+    "noStudents": "10",
+    "instructor": "Industry Experts",
+    "price": 63999,
+    "language": "English",
+    "difficulty": "Intermediate to Advanced",
+    "rating": "4.7",
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "toc": "MLOPS101-MLOpsEngineeringDeployMonitorScale.pdf",
+    "overview": "Take ML models from notebooks to production. Learn the full MLOps lifecycle: experiment tracking, model registries, CI/CD for ML, deployment patterns, monitoring, and retraining.",
+    "courseObjective": "Equip practitioners to operationalise ML models with reproducible pipelines, robust deployment, and continuous monitoring.",
+    "courseOutcomes": "Graduates can design ML pipelines, deploy models with proper rollout strategies, monitor drift and quality, and automate retraining.",
+    "prerequisites": "Python and basic ML experience (scikit-learn or similar).",
+    "labs": "Cloud-hosted Kubernetes cluster with MLflow, feature store, and model serving runtime.",
+    "whatWillYouLearn": [
+      "Reproducible experiment tracking with MLflow",
+      "Feature stores and feature engineering pipelines",
+      "Model registries and versioning",
+      "CI/CD pipelines for ML projects",
+      "Online vs. batch serving patterns",
+      "Canary, shadow, and A/B deployment strategies",
+      "Drift detection and model monitoring",
+      "Automated retraining and continuous training"
+    ],
+    "requirements": [
+      "Comfort with Python and Git",
+      "Familiarity with one ML library",
+      "Basic Docker knowledge helpful"
+    ],
+    "targetAudience": [
+      "Data scientists moving toward engineering",
+      "ML engineers and platform engineers",
+      "DevOps engineers supporting ML teams"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: MLOps Foundations",
+        "content": [
+          "The ML lifecycle vs. the software lifecycle",
+          "Maturity models and what to build first",
+          "Reproducibility: code, data, environment",
+          "Lab: containerise a training job"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: Experiment Tracking",
+        "content": [
+          "MLflow tracking, projects, and models",
+          "Comparing runs and picking winners",
+          "Tagging and metadata best practices",
+          "Lab: track 20 experiments and pick the best model"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Feature Engineering at Scale",
+        "content": [
+          "Feature stores: online + offline patterns",
+          "Point-in-time correctness",
+          "Feature pipelines and freshness",
+          "Lab: build a feature store with Feast"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: CI/CD for ML",
+        "content": [
+          "Testing data, models, and pipelines",
+          "Build, train, evaluate, register pipelines",
+          "Promotion flows: dev to staging to prod",
+          "Lab: a GitHub Actions ML pipeline"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Serving Models",
+        "content": [
+          "Online serving: REST, gRPC, batch",
+          "Latency and throughput tuning",
+          "Canary, shadow, and A/B rollouts",
+          "Lab: deploy a model with canary traffic"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Monitoring and Drift",
+        "content": [
+          "Data drift, prediction drift, concept drift",
+          "Quality monitoring without ground truth",
+          "Alerting and incident response",
+          "Lab: build a drift dashboard"
+        ]
+      },
+      {
+        "moduleTitle": "Module 07: Continuous Training",
+        "content": [
+          "Trigger strategies: time, drift, performance",
+          "Automated retraining pipelines",
+          "Rollback and safety nets",
+          "Capstone: end-to-end MLOps platform"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "NCAI101",
+    "videoId": "GzLszNParzM",
+    "courseSlug": "no-code-ai-ml-for-analysts",
+    "logo": "course_thumb06.jpg",
+    "courseTitle": "No-Code AI and Machine Learning for Analysts",
+    "category": "Data Science and Machine Learning",
+    "catdesc": "Learn how to work with numbers and solve problems that matter. This course gives you the skills to understand and use data, with easy lessons and fun practice.",
+    "catcls": "cat-three",
+    "categoryGroup": "Data & Analytics",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "10",
+    "instructor": "Industry Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "4.5",
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "toc": "NCAI101-NoCodeAIandMachineLearningforAnalysts.pdf",
+    "overview": "Use AI and machine learning to find insights and automate analysis - without writing code. Designed for business analysts, marketers, operations professionals, and anyone who works with data in spreadsheets and BI tools.",
+    "courseObjective": "Enable non-technical professionals to apply AI/ML techniques to real business problems using no-code and low-code tools.",
+    "courseOutcomes": "Graduates can build classification, regression, and forecasting models without code, use AI-assisted analytics, and communicate findings to stakeholders.",
+    "prerequisites": "Comfort with Excel or Google Sheets. No coding required.",
+    "labs": "Access to a no-code ML platform, AI-assisted spreadsheet add-ins, and sample business datasets.",
+    "whatWillYouLearn": [
+      "What ML can and cannot do for business problems",
+      "Building classification and regression models without code",
+      "Time-series forecasting for business planning",
+      "AI-assisted analysis in spreadsheets and BI tools",
+      "Reading model metrics: accuracy, ROC, MAE",
+      "Avoiding common pitfalls: leakage, bias, overfitting",
+      "Communicating ML results to leadership",
+      "Choosing when to escalate to a data scientist"
+    ],
+    "requirements": [
+      "Comfort with spreadsheets",
+      "A laptop with internet access",
+      "Curiosity - no coding required"
+    ],
+    "targetAudience": [
+      "Business analysts and operations professionals",
+      "Marketers and growth analysts",
+      "Product managers who work with data"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: ML for Non-Coders",
+        "content": [
+          "What is ML, in plain English",
+          "Supervised vs. unsupervised vs. forecasting",
+          "The business questions ML can answer",
+          "Lab: identify ML opportunities in your own work"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: Your First No-Code Model",
+        "content": [
+          "Loading data into a no-code platform",
+          "Picking the target and features",
+          "Training and reading the results",
+          "Lab: build a churn-prediction model"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Forecasting",
+        "content": [
+          "Time-series basics: trend, seasonality, noise",
+          "Forecasting in a few clicks",
+          "Reading forecast intervals",
+          "Lab: forecast next quarter's revenue"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: AI-Assisted Analysis",
+        "content": [
+          "Spreadsheet AI add-ins",
+          "Natural-language querying of BI dashboards",
+          "Auto-generated insights and how to vet them",
+          "Lab: use AI to summarise a 10-page report"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Evaluation and Trust",
+        "content": [
+          "Common metrics, explained for analysts",
+          "Bias, fairness, and leakage in plain language",
+          "When to trust a model and when to dig deeper",
+          "Lab: audit a model and flag risks"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Communicating Results",
+        "content": [
+          "Telling the story behind a model",
+          "Slide-ready visualisations",
+          "Working with data scientists",
+          "Capstone: present a no-code ML project"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "PYTORCH101",
+    "videoId": "GzLszNParzM",
+    "courseSlug": "pytorch-for-deep-learning",
+    "logo": "course_thumb07.jpg",
+    "courseTitle": "PyTorch for Deep Learning",
+    "category": "Artificial Intelligence",
+    "catdesc": "Learn how computers can think and learn like people. This course will teach you how to make smart programs and tools that help with everyday tasks.",
+    "catcls": "cat-two",
+    "categoryGroup": "AI & Generative AI",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "07 Modules",
+    "noStudents": "10",
+    "instructor": "Industry Experts",
+    "price": 63999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.7",
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "toc": "PYTORCH101-PyTorchforDeepLearning.pdf",
+    "overview": "A practical, code-first deep learning course built on PyTorch. Train and deploy models for computer vision, NLP, and beyond - with the same workflows used in industry research and production teams.",
+    "courseObjective": "Train engineers and data scientists to build, train, and deploy deep learning models with PyTorch.",
+    "courseOutcomes": "Graduates can build neural networks from scratch in PyTorch, train them efficiently on GPUs, and deploy them for inference.",
+    "prerequisites": "Solid Python skills and exposure to basic ML concepts.",
+    "labs": "Cloud GPU notebooks with PyTorch, TorchVision, and Hugging Face Transformers pre-installed.",
+    "whatWillYouLearn": [
+      "Tensors, autograd, and the PyTorch programming model",
+      "Building neural networks with nn.Module",
+      "Training loops, optimisers, and schedulers",
+      "Convolutional networks for computer vision",
+      "Transformers and attention for NLP",
+      "Transfer learning and fine-tuning pretrained models",
+      "Efficient training: mixed precision, distributed, gradient accumulation",
+      "Exporting and serving PyTorch models"
+    ],
+    "requirements": [
+      "Comfortable with Python",
+      "Familiar with NumPy",
+      "A Google account for cloud notebooks"
+    ],
+    "targetAudience": [
+      "Software engineers entering ML",
+      "Data scientists wanting deep learning skills",
+      "Researchers prototyping with neural networks"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: Tensors and Autograd",
+        "content": [
+          "Tensors: shapes, dtypes, devices",
+          "Broadcasting and elementwise ops",
+          "Autograd and computational graphs",
+          "Lab: implement linear regression with autograd"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: Neural Networks in PyTorch",
+        "content": [
+          "nn.Module, layers, and parameters",
+          "Loss functions and optimisers",
+          "A reusable training loop",
+          "Lab: train an MLP on a tabular dataset"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Computer Vision",
+        "content": [
+          "Convolutions, pooling, and CNN architectures",
+          "TorchVision: datasets and transforms",
+          "Data augmentation that actually helps",
+          "Lab: train a CNN to 95% on CIFAR-10"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: NLP and Transformers",
+        "content": [
+          "Embeddings, attention, and transformer blocks",
+          "Hugging Face Transformers integration",
+          "Tokenization and sequence handling",
+          "Lab: fine-tune a transformer for classification"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Transfer Learning",
+        "content": [
+          "Pretrained models and feature extraction",
+          "Full fine-tuning vs. adapter methods",
+          "LoRA and parameter-efficient tuning",
+          "Lab: fine-tune a vision model on your own images"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Efficient Training",
+        "content": [
+          "Mixed-precision training",
+          "DataLoaders, workers, and bottlenecks",
+          "Distributed training basics",
+          "Lab: 2x speedup on a real training job"
+        ]
+      },
+      {
+        "moduleTitle": "Module 07: Deployment",
+        "content": [
+          "TorchScript and ONNX export",
+          "Serving with TorchServe",
+          "Quantisation for inference",
+          "Capstone: train and deploy an image classifier"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "DEVAI101",
+    "videoId": "GzLszNParzM",
+    "courseSlug": "ai-enabled-devops-engineering",
+    "logo": "course_thumb08.jpg",
+    "courseTitle": "AI-Enabled DevOps Engineering",
+    "category": "DevOps & Containers",
+    "catdesc": "Master modern DevOps practices including containers, orchestration, CI/CD, and infrastructure as code. Build, deploy, and scale applications with industry-standard tools used by leading engineering teams.",
+    "catcls": "cat-sixteen",
+    "categoryGroup": "DevOps & Engineering",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "10",
+    "instructor": "Industry Experts",
+    "price": 63999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.6",
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "toc": "DEVAI101-AIEnabledDevOpsEngineering.pdf",
+    "overview": "Modernise your DevOps practice with AI. Use LLMs and AI-assisted tooling to write infrastructure code, triage incidents, accelerate code review, and automate runbooks - without losing the discipline that makes DevOps work.",
+    "courseObjective": "Train DevOps and platform engineers to use AI tooling responsibly to ship faster and operate more reliably.",
+    "courseOutcomes": "Graduates can integrate AI assistants into CI/CD, generate and review IaC with AI, use AI for incident triage, and build internal AI-powered ops tools.",
+    "prerequisites": "Working DevOps experience - comfortable with Git, CI/CD, and one cloud provider.",
+    "labs": "Cloud sandbox with CI/CD pipelines, AI coding assistants, observability stack, and IaC tooling.",
+    "whatWillYouLearn": [
+      "Using AI coding assistants effectively (and safely) in DevOps",
+      "AI-assisted IaC: Terraform, Helm, and Kubernetes manifests",
+      "AI-augmented code review for infrastructure changes",
+      "Incident triage and postmortem drafting with LLMs",
+      "Building internal AI tools for ops (chatops, log search)",
+      "Prompt and context patterns for engineering workflows",
+      "Guardrails: secrets, hallucinations, and review gates",
+      "Measuring real productivity impact"
+    ],
+    "requirements": [
+      "DevOps or SRE working experience",
+      "Comfort with Git and CI/CD",
+      "Basic cloud (AWS/GCP/Azure) familiarity"
+    ],
+    "targetAudience": [
+      "DevOps and platform engineers",
+      "SREs and infrastructure engineers",
+      "Engineering managers driving AI adoption"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: AI in the DevOps Toolbox",
+        "content": [
+          "What AI is good at - and where it fails",
+          "Survey of AI coding and ops assistants",
+          "Cost, latency, and security trade-offs",
+          "Lab: benchmark 3 AI assistants on a real ops task"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: AI-Assisted IaC",
+        "content": [
+          "Generating Terraform and Helm with AI",
+          "Reviewing AI output for security and correctness",
+          "Refactoring legacy IaC with AI",
+          "Lab: scaffold a new microservice's IaC"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: CI/CD and Code Review",
+        "content": [
+          "AI in pull-request review workflows",
+          "Auto-generating tests and changelogs",
+          "Detecting risky diffs",
+          "Lab: integrate an AI reviewer into a real pipeline"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: Incident Response",
+        "content": [
+          "AI-assisted log and trace search",
+          "Drafting incident timelines and postmortems",
+          "Runbook generation and validation",
+          "Lab: triage a simulated incident with AI help"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Internal AI Ops Tools",
+        "content": [
+          "Chatops bots that actually help",
+          "RAG over your runbooks and wikis",
+          "Slack and Teams integration patterns",
+          "Lab: build an on-call assistant bot"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Safety, Metrics and Adoption",
+        "content": [
+          "Secrets handling and prompt-injection risk",
+          "Measuring real productivity, not vanity metrics",
+          "Driving team adoption",
+          "Capstone: roll out an AI-enabled DevOps workflow"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CCSP101",
+    "videoId": "GzLszNParzM",
+    "courseSlug": "ccsp-cloud-security-professional-prep",
+    "logo": "course_thumb09.jpg",
+    "courseTitle": "Certified Cloud Security Professional (CCSP) Prep",
+    "category": "Cybersecurity",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "categoryGroup": "Cybersecurity",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "10",
+    "instructor": "Industry Experts",
+    "price": 63999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.6",
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "toc": "CCSP101-CertifiedCloudSecurityProfessionalCCSPPrep.pdf",
+    "overview": "Comprehensive preparation for the (ISC)2 Certified Cloud Security Professional (CCSP) exam. Covers all six CCSP domains with hands-on labs across AWS, Azure, and GCP and exam-style practice questions throughout.",
+    "courseObjective": "Prepare experienced security and cloud professionals to pass the CCSP exam and apply cloud-security best practices on the job.",
+    "courseOutcomes": "Graduates can architect, secure, and govern multi-cloud environments and are exam-ready for the CCSP.",
+    "prerequisites": "Minimum five years of IT experience, of which three should be in information security and one in one of the CCSP domains (or equivalent (ISC)2 associate path).",
+    "labs": "Multi-cloud lab environment (AWS, Azure, GCP) with IAM, KMS, network security, and logging tooling pre-provisioned.",
+    "whatWillYouLearn": [
+      "CCSP Domain 1: Cloud Concepts, Architecture and Design",
+      "CCSP Domain 2: Cloud Data Security",
+      "CCSP Domain 3: Cloud Platform and Infrastructure Security",
+      "CCSP Domain 4: Cloud Application Security",
+      "CCSP Domain 5: Cloud Security Operations",
+      "CCSP Domain 6: Legal, Risk and Compliance",
+      "Multi-cloud IAM, KMS, and key management",
+      "Exam strategies and practice questions"
+    ],
+    "requirements": [
+      "Five+ years of IT experience (or associate path)",
+      "Working knowledge of at least one cloud provider",
+      "Familiarity with security fundamentals"
+    ],
+    "targetAudience": [
+      "Cloud architects and engineers",
+      "Information security professionals",
+      "Compliance and GRC analysts"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: Cloud Concepts, Architecture and Design",
+        "content": [
+          "Cloud computing definitions and reference architectures",
+          "Shared responsibility models in AWS, Azure, GCP",
+          "Secure cloud design principles",
+          "Lab: map controls to a reference architecture"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: Cloud Data Security",
+        "content": [
+          "Data lifecycle and classification",
+          "Encryption at rest, in transit, in use",
+          "KMS, HSMs, and key rotation",
+          "Lab: implement envelope encryption across clouds"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Platform and Infrastructure Security",
+        "content": [
+          "Compute, network, and storage security",
+          "Virtualisation, containers, and serverless threats",
+          "DDoS protection and edge security",
+          "Lab: harden a 3-tier workload"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: Application Security",
+        "content": [
+          "Secure SDLC in the cloud",
+          "API security, OAuth, and OIDC",
+          "Container and supply-chain security",
+          "Lab: secure a CI/CD pipeline end-to-end"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Security Operations",
+        "content": [
+          "Logging, monitoring, and SIEM in the cloud",
+          "Incident response across providers",
+          "BCDR for cloud workloads",
+          "Lab: build a cross-cloud detection rule"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Legal, Risk and Compliance + Exam Prep",
+        "content": [
+          "Cloud contracts, jurisdiction, and privacy",
+          "Risk management and audit",
+          "CCSP exam strategy and practice questions",
+          "Capstone: full-length CCSP mock exam"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "PMP2026",
+    "videoId": "GzLszNParzM",
+    "courseSlug": "pmp-certification-prep-2026",
+    "logo": "course_thumb10.jpg",
+    "courseTitle": "PMP Certification Preparation - 2026 Edition",
+    "category": "Agile & Project Management",
+    "catdesc": "Master Agile, Scrum, and project management frameworks used by leading organizations worldwide. Earn globally recognized certifications and lead high-performing teams with confidence.",
+    "catcls": "cat-fifteen",
+    "categoryGroup": "Management",
+    "courseDays": "05 Days",
+    "courseTime": "35 Hours",
+    "courseModules": "08 Modules",
+    "noStudents": "10",
+    "instructor": "Industry Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.7",
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "toc": "PMP2026-PMPCertificationPreparation2026Edition.pdf",
+    "overview": "Authorised-content-aligned PMP exam preparation built around the 2026 PMP Examination Content Outline. Covers People, Process, and Business Environment domains with predictive, agile, and hybrid approaches.",
+    "courseObjective": "Prepare project professionals to pass the PMP exam and lead projects across predictive, agile, and hybrid environments.",
+    "courseOutcomes": "Graduates earn the required contact hours, understand all three PMP domains, and are equipped with exam strategies and practice tests.",
+    "prerequisites": "Secondary degree with 60 months of project experience, OR four-year degree with 36 months of project experience (per PMI eligibility rules).",
+    "labs": "Online learner portal with practice tests, simulated exams, flashcards, and process-asset templates.",
+    "whatWillYouLearn": [
+      "PMP Domain 1: People - leading and managing teams",
+      "PMP Domain 2: Process - predictive and agile execution",
+      "PMP Domain 3: Business Environment - strategy and value delivery",
+      "Predictive, agile, and hybrid approaches",
+      "Stakeholder engagement and conflict resolution",
+      "Risk, schedule, and cost management essentials",
+      "Earned value and forecasting techniques",
+      "Exam strategy, time management, and practice tests"
+    ],
+    "requirements": [
+      "Project management work experience per PMI eligibility",
+      "Commitment to complete the 35 contact hours",
+      "Online portal access"
+    ],
+    "targetAudience": [
+      "Project managers preparing for PMP",
+      "Programme and portfolio managers",
+      "Team leads moving into formal PM roles"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: Foundations and PMP Exam Overview",
+        "content": [
+          "PMI, the PMBOK, and exam structure",
+          "2026 Exam Content Outline walkthrough",
+          "Building your 8-week study plan",
+          "Lab: diagnostic practice test"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: People - Teams and Leadership",
+        "content": [
+          "Forming, supporting, and empowering teams",
+          "Servant leadership in practice",
+          "Conflict resolution",
+          "Lab: scenario-based questions"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: People - Stakeholders and Communication",
+        "content": [
+          "Stakeholder analysis and engagement",
+          "Communication management plan",
+          "Managing virtual teams",
+          "Lab: practice questions on people domain"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: Process - Planning",
+        "content": [
+          "Scope, schedule, cost, quality, resource planning",
+          "Risk identification and qualitative/quantitative analysis",
+          "Procurement planning",
+          "Lab: build a project plan from a case study"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Process - Execution and Monitoring",
+        "content": [
+          "Executing the work and managing changes",
+          "Earned value management",
+          "Monitoring risks and issues",
+          "Lab: EVM calculations practice"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Agile and Hybrid",
+        "content": [
+          "Agile mindset, Scrum, Kanban, SAFe basics",
+          "Hybrid lifecycles and when to use them",
+          "Agile metrics and ceremonies",
+          "Lab: agile scenario questions"
+        ]
+      },
+      {
+        "moduleTitle": "Module 07: Business Environment",
+        "content": [
+          "Strategic alignment and value delivery",
+          "Compliance, benefits realisation, organisational change",
+          "External business environment factors",
+          "Lab: business environment questions"
+        ]
+      },
+      {
+        "moduleTitle": "Module 08: Final Prep and Mock Exams",
+        "content": [
+          "Test-taking strategies and time management",
+          "Full-length mock exam #1",
+          "Full-length mock exam #2",
+          "Capstone: review weak areas and final plan"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "AIBIZ104",
+    "videoId": "GzLszNParzM",
+    "courseSlug": "ai-strategy-for-business-leaders",
+    "logo": "course_thumb11.jpg",
+    "courseTitle": "AI Strategy for Business Leaders",
+    "category": "AI for Business",
+    "catdesc": "Harness the power of AI in your specific business function. These practical courses are designed for non-technical professionals in HR, finance, and marketing who want to use AI tools to work smarter and make better decisions.",
+    "catcls": "cat-twentyone",
+    "categoryGroup": "AI & Generative AI",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "10",
+    "instructor": "Industry Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "4.8",
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "toc": "AIBIZ104-AIStrategyforBusinessLeaders.pdf",
+    "overview": "An executive-level course on building and executing an AI strategy. Designed for senior leaders who need to evaluate AI opportunities, allocate budget, manage risk, and lead organisational change - without getting buried in the technical details.",
+    "courseObjective": "Equip business leaders to set AI direction, govern AI initiatives, and capture measurable value from AI investments.",
+    "courseOutcomes": "Graduates can frame AI opportunities, evaluate vendor and build-vs-buy decisions, design AI governance, and lead AI adoption.",
+    "prerequisites": "Senior business or functional leadership experience. No technical background required.",
+    "labs": "Case studies, strategy templates, and an executive AI-readiness self-assessment.",
+    "whatWillYouLearn": [
+      "What AI is - and isn't - for business decision-makers",
+      "Identifying high-ROI AI opportunities in your organisation",
+      "Build vs. buy vs. partner: how to decide",
+      "AI governance, risk, and responsible AI",
+      "Data strategy as the foundation of AI",
+      "Talent, organisation, and culture for AI",
+      "Measuring AI impact and avoiding theatre",
+      "Leading change: from pilots to enterprise rollout"
+    ],
+    "requirements": [
+      "Leadership or senior functional role",
+      "Interest in business strategy",
+      "A current organisational context to apply ideas to"
+    ],
+    "targetAudience": [
+      "C-suite and executive leaders",
+      "Functional VPs and directors",
+      "Strategy, transformation, and innovation leads"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: AI for Executives - Demystified",
+        "content": [
+          "What today's AI can and cannot do",
+          "Generative AI, agents, and the 2026 landscape",
+          "Reading the AI vendor market",
+          "Lab: stress-test an AI hype claim"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: Identifying High-ROI Opportunities",
+        "content": [
+          "Opportunity framing: where AI moves the needle",
+          "Sizing and prioritising the portfolio",
+          "Build vs. buy vs. partner",
+          "Lab: rank an AI opportunity portfolio"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Data and Foundations",
+        "content": [
+          "Why data strategy gates AI strategy",
+          "Data quality, access, and governance basics",
+          "Cloud and platform choices, simplified",
+          "Lab: assess your organisation's data readiness"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: Governance and Responsible AI",
+        "content": [
+          "Risk: bias, privacy, security, and IP",
+          "Responsible AI principles in practice",
+          "Regulatory landscape: EU AI Act, India, US",
+          "Lab: draft a one-page AI governance policy"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Talent, Org and Change",
+        "content": [
+          "Roles: data scientists, ML engineers, AI PMs",
+          "Centralised vs. federated AI teams",
+          "Change management for AI adoption",
+          "Lab: design your AI operating model"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Measuring and Scaling",
+        "content": [
+          "Metrics that matter - and ones that don't",
+          "From pilot to production to enterprise",
+          "Avoiding AI theatre",
+          "Capstone: present a 12-month AI strategy"
+        ]
+      }
+    ]
   }
 ]
