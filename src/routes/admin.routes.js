@@ -81,6 +81,7 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       abandonedEnrollments,
       activeReferrers,
       activeCampaigns,
+      pendingInstructors,
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ status: "pending-payment" }),
@@ -96,6 +97,7 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       User.countDocuments({ enrollmentFormAbandonedAt: { $ne: null }, enrollmentReminderSent: false }),
       User.countDocuments({ referralCode: { $ne: null }, referralCount: { $gt: 0 } }),
       Campaign.countDocuments({ status: { $ne: "deleted" }, isPaused: false }),
+      Instructor.countDocuments({ status: "pending" }),
     ]);
 
     return res.json({
@@ -109,6 +111,7 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
       abandonedEnrollments,
       activeReferrers,
       activeCampaigns,
+      instructorApplications: { pending: pendingInstructors },
     });
   } catch (err) {
     console.error("Admin stats error:", err);
@@ -672,28 +675,7 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requireAdmin, async 
   const categoryLine = category ? `Category: ${category}.` : "";
   const keywordLine = focusKeyword ? `Focus keyword for SEO: "${focusKeyword}".` : "";
 
-  const userPrompt = `I have collected the following source articles. Read them carefully.
-
-${sourceSections.join("\n\n")}
-
-${topicLine} ${categoryLine} ${keywordLine}
-
-Write a complete, high-quality, SEO-optimised blog post for Technohana (an online tech training company with students in India, UAE, US, UK, EU) grounded in the facts and ideas from those sources. Year: ${year}.
-
-Return ONLY a valid JSON object (no markdown, no code fences) with these exact keys:
-- "title": compelling blog post title
-- "slug": URL-friendly slug
-- "excerpt": 1–2 sentence summary (max 160 chars)
-- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, practical tips section, conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>
-- "metaTitle": 50–60 characters, includes focus keyword if provided
-- "metaDescription": 140–160 characters
-- "focusKeyword": primary SEO keyword
-- "tags": array of 5–8 relevant tags
-- "readTimeMin": estimated read time in minutes (number)
-- "author": "Technohana Team"
-- "category": blog category string
-
-No emojis. Professional prose. Valid semantic HTML only.`;
+  const userPrompt = `I have collected the following source articles. Read them carefully.\n\n${sourceSections.join("\n\n")}\n\n${topicLine} ${categoryLine} ${keywordLine}\n\nWrite a complete, high-quality, SEO-optimised blog post for Technohana (an online tech training company with students in India, UAE, US, UK, EU) grounded in the facts and ideas from those sources. Year: ${year}.\n\nReturn ONLY a valid JSON object (no markdown, no code fences) with these exact keys:\n- "title": compelling blog post title\n- "slug": URL-friendly slug\n- "excerpt": 1–2 sentence summary (max 160 chars)\n- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, practical tips section, conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>\n- "metaTitle": 50–60 characters, includes focus keyword if provided\n- "metaDescription": 140–160 characters\n- "focusKeyword": primary SEO keyword\n- "tags": array of 5–8 relevant tags\n- "readTimeMin": estimated read time in minutes (number)\n- "author": "Technohana Team"\n- "category": blog category string\n\nNo emojis. Professional prose. Valid semantic HTML only.`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -739,43 +721,7 @@ router.post("/blogs/rewrite", authenticateAdmin, requireAdmin, async (req, res) 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return res.status(503).json({ message: "AI rewrite not configured. Add ANTHROPIC_API_KEY to .env" });
 
-    const prompt = `You are an SEO content editor for Technohana, an online tech training company based in India with global students.
-
-Rewrite and significantly improve the following existing blog post. Keep the same topic and core message but make it substantially better.
-
-Current post:
-Title: ${title}
-Category: ${category || "Technology"}
-Focus keyword: ${focusKeyword || ""}
-Excerpt: ${excerpt || ""}
-Content:
-${content}
-
-Improvements required:
-- Deepen the content with specific data, statistics, real examples, and step-by-step guidance
-- Improve SEO: place focus keyword naturally in title, first paragraph, and at least one <h2>
-- Sharpen readability: shorter paragraphs, clear prose, no hype words ("game-changing", "revolutionary")
-- Structure: intro paragraph, 4–5 sections with <h2> headings, conclusion with CTA to https://technohana.in/courses
-- Include 2 internal links: one to <a href="/courses/">Technohana courses</a> and one to <a href="/blog/">related blog posts</a>
-- Minimum 700 words, valid semantic HTML
-
-Return ONLY a valid JSON object (no markdown, no code fences, no explanation) with these exact keys:
-- "title": improved blog post title
-- "slug": URL-friendly slug derived from the title
-- "excerpt": 2–3 sentence summary (aim for 140–160 characters)
-- "content": full rewritten blog post in clean HTML using <h2>, <p>, <ul>, <li> tags
-- "metaTitle": SEO meta title, 50–60 characters, includes focus keyword
-- "metaDescription": SEO meta description, 140–160 characters, includes focus keyword and a benefit
-- "focusKeyword": primary target keyword phrase (2–4 words)
-- "tags": array of 4–6 relevant tag strings
-- "readTimeMin": estimated reading time in minutes (number)
-- "author": "${author || "Technohana Team"}"
-- "category": "${category || "Technology"}"
-
-Writing rules:
-- No emojis anywhere
-- Clean, professional prose
-- HTML must be valid and well-structured`;
+    const prompt = `You are an SEO content editor for Technohana, an online tech training company based in India with global students.\n\nRewrite and significantly improve the following existing blog post. Keep the same topic and core message but make it substantially better.\n\nCurrent post:\nTitle: ${title}\nCategory: ${category || "Technology"}\nFocus keyword: ${focusKeyword || ""}\nExcerpt: ${excerpt || ""}\nContent:\n${content}\n\nImprovements required:\n- Deepen the content with specific data, statistics, real examples, and step-by-step guidance\n- Improve SEO: place focus keyword naturally in title, first paragraph, and at least one <h2>\n- Sharpen readability: shorter paragraphs, clear prose, no hype words ("game-changing", "revolutionary")\n- Structure: intro paragraph, 4–5 sections with <h2> headings, conclusion with CTA to https://technohana.in/courses\n- Include 2 internal links: one to <a href="/courses/">Technohana courses</a> and one to <a href="/blog/">related blog posts</a>\n- Minimum 700 words, valid semantic HTML\n\nReturn ONLY a valid JSON object (no markdown, no code fences, no explanation) with these exact keys:\n- "title": improved blog post title\n- "slug": URL-friendly slug derived from the title\n- "excerpt": 2–3 sentence summary (aim for 140–160 characters)\n- "content": full rewritten blog post in clean HTML using <h2>, <p>, <ul>, <li> tags\n- "metaTitle": SEO meta title, 50–60 characters, includes focus keyword\n- "metaDescription": SEO meta description, 140–160 characters, includes focus keyword and a benefit\n- "focusKeyword": primary target keyword phrase (2–4 words)\n- "tags": array of 4–6 relevant tag strings\n- "readTimeMin": estimated reading time in minutes (number)\n- "author": "${author || "Technohana Team"}"\n- "category": "${category || "Technology"}"\n\nWriting rules:\n- No emojis anywhere\n- Clean, professional prose\n- HTML must be valid and well-structured`;
 
     const response = await axios.post(
       "https://api.anthropic.com/v1/messages",
@@ -820,8 +766,8 @@ router.post("/blogs/cleanup-2026", authenticateAdmin, requireAdmin, async (req, 
     "real-world-applications-of-ai-driving-business-impact",
     "top-5-microsoft-ai-certifications-to-boost-your-career-in-2025",
   ];
-  const deleted = await Blog.deleteMany({ slug: { $in: slugsToRemove } });
-  const updated = await Blog.updateOne(
+  const deleted = await Blogs.deleteMany({ slug: { $in: slugsToRemove } });
+  const updated = await Blogs.updateOne(
     { slug: "how-to-build-a-career-in-data-science-in-india-2025-roadmap" },
     { $set: { title: "How to Build a Career in Data Science in India: 2026 Roadmap" } }
   );
@@ -1098,7 +1044,8 @@ router.post("/upload-image", authenticateAdmin, upload.single("image"), async (r
 // GET /admin/instructors/resume-proxy?url=<cloudinary_url>&disposition=inline|attachment
 router.get("/instructors/resume-proxy", authenticateAdmin, async (req, res) => {
   const { url, disposition = "attachment" } = req.query;
-  if (!url || !url.startsWith("https://res.cloudinary.com/dxudmbycn/")) {
+  const cloudName = process.env.CLOUDINARY_NAME;
+  if (!url || !url.startsWith(`https://res.cloudinary.com/${cloudName}/`)) {
     return res.status(400).json({ message: "Invalid URL" });
   }
   try {
@@ -1125,10 +1072,14 @@ router.get("/instructors/resume-proxy", authenticateAdmin, async (req, res) => {
 // GET /admin/instructors - List instructor applications
 router.get("/instructors", authenticateAdmin, async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, page = 1, limit = 500 } = req.query;
     const filter = status ? { status } : {};
-    const data = await Instructor.find(filter).sort({ submittedAt: -1 }).lean();
-    return res.json({ data });
+    const skip = (Number(page) - 1) * Number(limit);
+    const [data, total] = await Promise.all([
+      Instructor.find(filter).sort({ submittedAt: -1 }).skip(skip).limit(Number(limit)).lean(),
+      Instructor.countDocuments(filter),
+    ]);
+    return res.json({ data, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     return res.status(500).json({ message: "Server error" });
   }
@@ -1209,6 +1160,11 @@ router.post("/instructors/:id/email", authenticateAdmin, async (req, res) => {
 
     const tpl = templates[template];
     if (!tpl) return res.status(400).json({ message: "Invalid template." });
+
+    const statusMap = { shortlist: "shortlisted", reject: "rejected" };
+    if (statusMap[template]) {
+      await Instructor.findByIdAndUpdate(req.params.id, { status: statusMap[template] });
+    }
 
     await sendEmail({ from: fromAddresses.careers, to: instructor.email, subject: tpl.subject, html: tpl.html });
     return res.json({ message: "Email sent." });

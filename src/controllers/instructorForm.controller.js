@@ -42,6 +42,14 @@ export const InstructorForm = async(req,res)=>{
             })
         }
 
+        const existing = await Instructor.findOne({ email });
+        if (existing) {
+            return res.status(409).json({
+                success: false,
+                message: "An application for this email has already been received."
+            });
+        }
+
         let resumeUrl = "";
         let resumePublicId = "";
 
@@ -82,7 +90,7 @@ export const InstructorForm = async(req,res)=>{
         })
 
         await instructor.save();
-        
+
         // Send confirmation email to applicant
         await sendEmail(email,"Your application has been received.",generateResumeAcknowledgementEmail({name}))
         console.log("confirmation email sent to ",email);
@@ -181,7 +189,7 @@ export const InstructorForm = async(req,res)=>{
             message : "Application received successfully",
             instructorId : instructor._id
         })
-        
+
     } catch (error) {
         console.log("Error in uploading Instructor Form",error);
         return res.status(500).json({
