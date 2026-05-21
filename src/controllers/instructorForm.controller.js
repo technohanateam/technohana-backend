@@ -3,6 +3,7 @@ import { generateResumeAcknowledgementEmail } from "../utils/emailTemplate.js";
 import Instructor from "../models/instructor.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
+import path from "path";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -96,10 +97,11 @@ export const InstructorForm = async(req,res)=>{
         console.log("confirmation email sent to ",email);
 
         // Send application with optional resume attachment to careers team
+        const fileExt = file ? (path.extname(file.originalname) || '.pdf') : '';
         const resumeAttachment = file ? {
-            filename: `${name}_resume.pdf`,
-            content: fs.readFileSync(file.path).toString('base64'),
-            contentType: 'application/pdf'
+            filename: `${name}_resume${fileExt}`,
+            content: fs.readFileSync(file.path),
+            contentType: file.mimetype || 'application/octet-stream'
         } : null;
 
         const rows = [
