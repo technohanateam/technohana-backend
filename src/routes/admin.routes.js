@@ -20,9 +20,6 @@ import { authenticateAdmin, requireAdmin } from "../middleware/authenticateAdmin
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
-import { getAllSocialPosts, getSocialPost, createSocialPost, updateSocialPost, deleteSocialPost, publishToBuffer, generateSocialCopy } from "../controllers/social-post.controller.js";
-import { getAllCarousels, getCarousel, createCarousel, updateCarousel, deleteCarousel, generateCarousel } from "../controllers/carousel.controller.js";
-import { createPipelineDraft, listPipelineDrafts, getPipelineDraft, updatePipelineDraft, generatePipelineCopy, exportPipelineCreatives, publishPipelineSocial } from "../controllers/pipelineDraft.controller.js";
 import Campaign from "../models/campaign.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 
@@ -988,29 +985,6 @@ router.post("/campaigns/estimate-segment", authenticateAdmin, estimateSegmentSiz
 // GET /admin/campaigns/queue/stats - Get Bull queue stats
 router.get("/campaigns/queue/stats", authenticateAdmin, getCampaignQueueStats);
 
-// ─── Social Media Posts ────────────────────────────────────────────────────────
-
-// POST /admin/social-posts/generate-copy - AI copy generation (before :id routes)
-router.post("/social-posts/generate-copy", authenticateAdmin, generateSocialCopy);
-
-// GET /admin/social-posts
-router.get("/social-posts", authenticateAdmin, getAllSocialPosts);
-
-// POST /admin/social-posts
-router.post("/social-posts", authenticateAdmin, createSocialPost);
-
-// GET /admin/social-posts/:id
-router.get("/social-posts/:id", authenticateAdmin, getSocialPost);
-
-// PUT /admin/social-posts/:id
-router.put("/social-posts/:id", authenticateAdmin, updateSocialPost);
-
-// DELETE /admin/social-posts/:id
-router.delete("/social-posts/:id", authenticateAdmin, deleteSocialPost);
-
-// POST /admin/social-posts/:id/publish - Send to Buffer (admin + marketing)
-router.post("/social-posts/:id/publish", authenticateAdmin, publishToBuffer);
-
 // ─── Image Upload (Cloudinary) ────────────────────────────────────────────────
 
 cloudinary.config({
@@ -1027,7 +1001,7 @@ router.post("/upload-image", authenticateAdmin, upload.single("image"), async (r
     if (!req.file) return res.status(400).json({ message: "No file uploaded." });
     const result = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { folder: "technohana/social", resource_type: "image" },
+        { folder: "technohana/admin-uploads", resource_type: "image" },
         (err, result) => (err ? reject(err) : resolve(result))
       );
       stream.end(req.file.buffer);
@@ -1217,48 +1191,5 @@ router.post("/enquiries/migrate-instructors", authenticateAdmin, async (req, res
     return res.status(500).json({ message: "Server error" });
   }
 });
-
-// ─── LinkedIn Carousels ────────────────────────────────────────────────────────
-
-// POST /admin/carousels/generate — AI generation (must be before :id routes)
-router.post("/carousels/generate", authenticateAdmin, generateCarousel);
-
-// GET /admin/carousels
-router.get("/carousels", authenticateAdmin, getAllCarousels);
-
-// POST /admin/carousels
-router.post("/carousels", authenticateAdmin, createCarousel);
-
-// GET /admin/carousels/:id
-router.get("/carousels/:id", authenticateAdmin, getCarousel);
-
-// PUT /admin/carousels/:id
-router.put("/carousels/:id", authenticateAdmin, updateCarousel);
-
-// DELETE /admin/carousels/:id
-router.delete("/carousels/:id", authenticateAdmin, deleteCarousel);
-
-// ─── Pipeline Drafts (Unified Growth Studio) ──────────────────────────────────
-
-// POST /admin/pipeline-drafts/:id/generate-copy (before :id routes)
-router.post("/pipeline-drafts/:id/generate-copy", authenticateAdmin, generatePipelineCopy);
-
-// POST /admin/pipeline-drafts/:id/export-creatives (before :id routes)
-router.post("/pipeline-drafts/:id/export-creatives", authenticateAdmin, exportPipelineCreatives);
-
-// POST /admin/pipeline-drafts/:id/publish-social (before :id routes)
-router.post("/pipeline-drafts/:id/publish-social", authenticateAdmin, publishPipelineSocial);
-
-// GET /admin/pipeline-drafts
-router.get("/pipeline-drafts", authenticateAdmin, listPipelineDrafts);
-
-// POST /admin/pipeline-drafts
-router.post("/pipeline-drafts", authenticateAdmin, createPipelineDraft);
-
-// GET /admin/pipeline-drafts/:id
-router.get("/pipeline-drafts/:id", authenticateAdmin, getPipelineDraft);
-
-// PATCH /admin/pipeline-drafts/:id
-router.patch("/pipeline-drafts/:id", authenticateAdmin, updatePipelineDraft);
 
 export default router;
