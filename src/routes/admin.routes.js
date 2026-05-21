@@ -1044,28 +1044,21 @@ router.post("/upload-image", authenticateAdmin, upload.single("image"), async (r
 // GET /admin/instructors/resume-proxy?url=<cloudinary_url>&disposition=inline|attachment
 router.get("/instructors/resume-proxy", authenticateAdmin, async (req, res) => {
   const { url, disposition = "attachment" } = req.query;
-  const cloudName = process.env.CLOUDINARY_NAME;
-  if (!url || !url.startsWith(`https://res.cloudinary.com/${cloudName}/`)) {
-    return res.status(400).json({ message: "Invalid URL" });
+  const cloudName = cloudinary.config().cloud_name;
+
+  if (!url || !cloudName || !url.startsWith(`https://res.cloudinary.com/${cloudName}/`)) {
+    return res.status(400).json({ message: "Invalid or missing URL" });
   }
+
   try {
-    // Extract public_id from URL (strip base, version, and query string)
-    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(\?|$)/);
-    if (!match) return res.status(400).json({ message: "Could not parse public_id" });
-    const publicId = match[1];
-
-    // Generate a signed URL valid for 5 minutes
-    const signedUrl = cloudinary.utils.private_download_url(publicId, null, {
-      resource_type: "raw",
-      type: "upload",
-      attachment: disposition === "attachment",
-      expires_at: Math.floor(Date.now() / 1000) + 300,
-    });
-
-    return res.redirect(302, signedUrl);
+    const cloudRes = await axios.get(url, { responseType: "stream" });
+    const contentType = cloudRes.headers["content-type"] || "application/octet-stream";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", disposition === "attachment" ? "attachment" : "inline");
+    cloudRes.data.pipe(res);
   } catch (err) {
     console.error("Resume proxy error:", err);
-    res.status(502).json({ message: "Failed to generate signed URL" });
+    if (!res.headersSent) res.status(502).json({ message: "Failed to fetch resume" });
   }
 });
 
