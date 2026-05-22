@@ -59,6 +59,8 @@ router.post("/login", async (req, res) => {
   let role = null;
   if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
     role = "admin";
+  } else if (process.env.ADMIN2_EMAIL && email === process.env.ADMIN2_EMAIL && password === process.env.ADMIN2_PASSWORD) {
+    role = "admin";
   } else if (process.env.SALES_EMAIL && email === process.env.SALES_EMAIL && password === process.env.SALES_PASSWORD) {
     role = "sales";
   } else if (process.env.MARKETING_EMAIL && email === process.env.MARKETING_EMAIL && password === process.env.MARKETING_PASSWORD) {
