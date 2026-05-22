@@ -1,0 +1,80 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run start)",
+      "Bash(npm run sync-prices)",
+      "Bash(node seed-coupons.js)",
+      "Bash(node seed-courses.js)",
+      "Bash(node --check:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git status)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(curl:*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(rm -rf:*)",
+      "Bash(git add -A)",
+      "Bash(git add .)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c 'import sys,json,re; d=json.load(sys.stdin); f=d.get(\"file_path\",\"\"); re.search(r\"(index|payment|order|stripe|razorpay)\\.js$\",f) and print(\"NOTICE: Payment-related file — verify computeQuote() is called server-side. Discount chain: Individual=0%, Group 2-4=15%, Group 5-9=25%, Group 10+=35%\")'"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c 'import sys,json,re; d=json.load(sys.stdin); f=d.get(\"file_path\",\"\"); re.search(r\"routes/.*\\.js$\",f) and print(\"NOTICE: Route file — check: (1) Import paths end in .js (2) Admin routes use authenticateAdmin (3) User routes use authenticateJWT\")'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c 'import sys,json,re,subprocess; d=json.load(sys.stdin); f=d.get(\"file_path\",\"\"); re.search(r\"src/.*\\.js$\",f) and \"node_modules\" not in f and subprocess.run([\"node\",\"--check\",f]).returncode and print(\"SYNTAX ERROR in\",f)'"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c 'import sys,json,re,subprocess; d=json.load(sys.stdin); f=d.get(\"file_path\",\"\"); re.search(r\"src/.*\\.js$\",f) and subprocess.run([\"grep\",\"-q\",\"require(\",f]).returncode==0 and print(\"WARNING: require() found in\",f,\"— use import/export instead\")'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Session complete. Reminders: (1) ES module imports need .js extension (2) Never trust client price values (3) Test coupon validation with curl after changes'"
+          }
+        ]
+      }
+    ]
+  }
+}
