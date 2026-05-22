@@ -1,6 +1,7 @@
 import express from "express";
 import axios from "axios";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
@@ -16,6 +17,7 @@ import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
+import AdminUser from "../models/adminUser.model.js";
 import { authenticateAdmin, requireAdmin } from "../middleware/authenticateAdmin.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
@@ -36,6 +38,24 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ message: "Email and password are required." });
   }
 
+  // Check MongoDB AdminUser collection first (supports multiple users per role)
+  try {
+    const dbUser = await AdminUser.findOne({ email: email.toLowerCase(), isActive: true });
+    if (dbUser) {
+      const match = await bcrypt.compare(password, dbUser.passwordHash);
+      if (!match) return res.status(401).json({ message: "Invalid credentials." });
+      const token = jwt.sign(
+        { email: dbUser.email, role: dbUser.role },
+        process.env.ADMIN_JWT_SECRET,
+        { expiresIn: "8h" }
+      );
+      return res.json({ token });
+    }
+  } catch (dbErr) {
+    console.error("AdminUser DB check error:", dbErr.message);
+  }
+
+  // Fall back to env var credentials (backward compatibility)
   let role = null;
   if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
     role = "admin";
