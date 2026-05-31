@@ -75,7 +75,7 @@ export const getCoupon = async (req, res) => {
 // Create new coupon
 export const createCoupon = async (req, res) => {
   try {
-    const { code, discountPercent, description, validCurrencies, isActive, expiryDate, maxUsageCount, notes } = req.body
+    const { code, discountPercent, description, validCurrencies, isActive, expiryDate, maxUsageCount, notes, bannerImageUrl, startDate } = req.body
 
     // Validate required fields
     if (!code || discountPercent === undefined) {
@@ -110,7 +110,9 @@ export const createCoupon = async (req, res) => {
       isActive: isActive !== false,
       expiryDate: expiryDate ? new Date(expiryDate) : null,
       maxUsageCount: maxUsageCount || null,
-      notes: notes || null
+      notes: notes || null,
+      bannerImageUrl: bannerImageUrl || null,
+      startDate: startDate ? new Date(startDate) : null,
     })
 
     await coupon.save()
@@ -133,7 +135,7 @@ export const createCoupon = async (req, res) => {
 export const updateCoupon = async (req, res) => {
   try {
     const { id } = req.params
-    const { code, discountPercent, description, validCurrencies, isActive, expiryDate, maxUsageCount, notes } = req.body
+    const { code, discountPercent, description, validCurrencies, isActive, expiryDate, maxUsageCount, notes, bannerImageUrl, startDate } = req.body
 
     const coupon = await Coupon.findById(id)
     if (!coupon) {
@@ -171,6 +173,8 @@ export const updateCoupon = async (req, res) => {
     if (expiryDate !== undefined) coupon.expiryDate = expiryDate ? new Date(expiryDate) : null
     if (maxUsageCount !== undefined) coupon.maxUsageCount = maxUsageCount || null
     if (notes !== undefined) coupon.notes = notes || null
+    if (bannerImageUrl !== undefined) coupon.bannerImageUrl = bannerImageUrl || null
+    if (startDate !== undefined) coupon.startDate = startDate ? new Date(startDate) : null
 
     // Don't allow changing usage count (only resets by admin action)
     // currentUsageCount is read-only from the API perspective
@@ -277,6 +281,15 @@ export const validateCoupon = async (req, res) => {
         success: false,
         valid: false,
         error: 'This coupon is no longer active'
+      })
+    }
+
+    // Check if coupon has started
+    if (!coupon.hasStarted()) {
+      return res.json({
+        success: false,
+        valid: false,
+        error: 'This coupon is not yet valid'
       })
     }
 

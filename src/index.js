@@ -272,6 +272,7 @@ app.get('/api/coupons/public', async (req, res) => {
     const baseFilter = {
       isActive: true,
       $or: [{ expiryDate: null }, { expiryDate: { $gt: now } }],
+      $and: [{ $or: [{ startDate: null }, { startDate: { $lte: now } }] }],
     };
 
     // Try regional coupon first (matches the user's currency), then fall back to global
@@ -296,6 +297,8 @@ app.get('/api/coupons/public', async (req, res) => {
         discountPercent: coupon.discountPercent,
         description: coupon.description || "",
         expiryDate: coupon.expiryDate,
+        startDate: coupon.startDate || null,
+        bannerImageUrl: coupon.bannerImageUrl || null,
         isActive: coupon.isActive,
         currentUsageCount: coupon.currentUsageCount,
         maxUsageCount: coupon.maxUsageCount,
