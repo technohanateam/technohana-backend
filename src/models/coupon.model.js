@@ -44,6 +44,15 @@ const couponSchema = new Schema({
     type: String,
     trim: true
   },
+  bannerImageUrl: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  startDate: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -70,6 +79,12 @@ couponSchema.methods.isExpired = function () {
 couponSchema.methods.isExhausted = function () {
   if (!this.maxUsageCount) return false;
   return this.currentUsageCount >= this.maxUsageCount;
+}
+
+// Check if coupon has started (startDate in the future = not yet valid)
+couponSchema.methods.hasStarted = function () {
+  if (!this.startDate) return true;
+  return new Date() >= new Date(this.startDate);
 }
 
 // Check if coupon is valid for a specific currency
