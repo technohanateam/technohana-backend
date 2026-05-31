@@ -49,6 +49,11 @@ const couponSchema = new Schema({
     default: null,
     trim: true
   },
+  announcementBannerUrl: {
+    type: String,
+    default: null,
+    trim: true
+  },
   startDate: {
     type: Date,
     default: null

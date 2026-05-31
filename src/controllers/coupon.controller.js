@@ -75,7 +75,7 @@ export const getCoupon = async (req, res) => {
 // Create new coupon
 export const createCoupon = async (req, res) => {
   try {
-    const { code, discountPercent, description, validCurrencies, isActive, expiryDate, maxUsageCount, notes, bannerImageUrl, startDate } = req.body
+    const { code, discountPercent, description, validCurrencies, isActive, expiryDate, maxUsageCount, notes, bannerImageUrl, announcementBannerUrl, startDate } = req.body
 
     // Validate required fields
     if (!code || discountPercent === undefined) {
@@ -112,6 +112,7 @@ export const createCoupon = async (req, res) => {
       maxUsageCount: maxUsageCount || null,
       notes: notes || null,
       bannerImageUrl: bannerImageUrl || null,
+      announcementBannerUrl: announcementBannerUrl || null,
       startDate: startDate ? new Date(startDate) : null,
     })
 
@@ -135,7 +136,7 @@ export const createCoupon = async (req, res) => {
 export const updateCoupon = async (req, res) => {
   try {
     const { id } = req.params
-    const { code, discountPercent, description, validCurrencies, isActive, expiryDate, maxUsageCount, notes, bannerImageUrl, startDate } = req.body
+    const { code, discountPercent, description, validCurrencies, isActive, expiryDate, maxUsageCount, notes, bannerImageUrl, announcementBannerUrl, startDate } = req.body
 
     const coupon = await Coupon.findById(id)
     if (!coupon) {
@@ -174,6 +175,7 @@ export const updateCoupon = async (req, res) => {
     if (maxUsageCount !== undefined) coupon.maxUsageCount = maxUsageCount || null
     if (notes !== undefined) coupon.notes = notes || null
     if (bannerImageUrl !== undefined) coupon.bannerImageUrl = bannerImageUrl || null
+    if (announcementBannerUrl !== undefined) coupon.announcementBannerUrl = announcementBannerUrl || null
     if (startDate !== undefined) coupon.startDate = startDate ? new Date(startDate) : null
 
     // Don't allow changing usage count (only resets by admin action)

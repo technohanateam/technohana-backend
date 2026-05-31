@@ -299,6 +299,7 @@ app.get('/api/coupons/public', async (req, res) => {
         expiryDate: coupon.expiryDate,
         startDate: coupon.startDate || null,
         bannerImageUrl: coupon.bannerImageUrl || null,
+        announcementBannerUrl: coupon.announcementBannerUrl || null,
         isActive: coupon.isActive,
         currentUsageCount: coupon.currentUsageCount,
         maxUsageCount: coupon.maxUsageCount,
