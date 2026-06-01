@@ -291,6 +291,19 @@ app.get('/api/coupons/public', async (req, res) => {
     }
 
     if (!coupon) return res.json({ coupon: null });
+
+    // If the resolved coupon has no announcementBannerUrl, check if any active coupon does
+    let announcementBannerUrl = coupon.announcementBannerUrl || null;
+    if (!announcementBannerUrl) {
+      const bannerCoupon = await Coupon.findOne({
+        ...baseFilter,
+        announcementBannerUrl: { $exists: true, $nin: [null, ""] },
+      }).sort({ discountPercent: -1 }).lean();
+      if (bannerCoupon?.announcementBannerUrl) {
+        announcementBannerUrl = bannerCoupon.announcementBannerUrl;
+      }
+    }
+
     return res.json({
       coupon: {
         code: coupon.code,
@@ -299,7 +312,7 @@ app.get('/api/coupons/public', async (req, res) => {
         expiryDate: coupon.expiryDate,
         startDate: coupon.startDate || null,
         bannerImageUrl: coupon.bannerImageUrl || null,
-        announcementBannerUrl: coupon.announcementBannerUrl || null,
+        announcementBannerUrl,
         isActive: coupon.isActive,
         currentUsageCount: coupon.currentUsageCount,
         maxUsageCount: coupon.maxUsageCount,
