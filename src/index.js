@@ -117,7 +117,7 @@ const PendingOrder = mongoose.model('PendingOrder', PendingOrderSchema);
 const generateOrderId = () => `ord_${Math.random().toString(36).slice(2, 10)}`;
 
 // --- Pricing utilities (Replace with DB/config-backed logic) ---
-const allowedCurrencies = ['usd', 'inr', 'aed', 'eur', 'gbp'];
+const allowedCurrencies = ['usd', 'inr', 'aed', 'eur', 'gbp', 'sar', 'qar', 'omr', 'bhd', 'kwd'];
 
 // Coupon map — single source of truth for both validation and quote computation
 // currencies: null means global (any currency); otherwise array of allowed currency codes
@@ -133,13 +133,18 @@ const validCoupons = {
   'ONAM7':          { rate: 0.07, currencies: ['inr'] },       // Sep    — Onam
   'NAVRATRI8':      { rate: 0.08, currencies: ['inr'] },       // Oct    — Navratri
   'DIWALI10':       { rate: 0.10, currencies: ['inr'] },       // Oct/Nov — Diwali
+  'RATHYATRA5':     { rate: 0.05, currencies: ['inr'] },       // Jun 20–28 — Rath Yatra
   // ── UAE / Arab ────────────────────────────────────────────────────────────
   'RAMADAN8':       { rate: 0.08, currencies: ['aed'] },       // Mar/Apr — Ramadan
   'EID10':          { rate: 0.10, currencies: ['aed'] },       // Apr/Jun — Eid ul-Fitr / Adha
+  'EID_ADHA10':     { rate: 0.10, currencies: ['inr', 'aed'] }, // May 25–Jun 5 — Eid al-Adha / Bakrid
+  'EID_ADHA_ME10':  { rate: 0.10, currencies: ['sar', 'qar', 'omr', 'bhd', 'kwd'] }, // May 25–Jun 5 — Eid al-Adha / Middle East
+  'ISLAMICNY5':     { rate: 0.05, currencies: ['aed'] },       // Jun 23–30 — Islamic New Year
   'UAENATIONAL8':   { rate: 0.08, currencies: ['aed'] },       // Dec 2  — UAE National Day
   // ── US ────────────────────────────────────────────────────────────────────
   'MEMORIALDAY5':   { rate: 0.05, currencies: ['usd'] },       // May    — Memorial Day
   'JUNETEENTH5':    { rate: 0.05, currencies: ['usd'] },       // Jun 19 — Juneteenth
+  'FATHERSDAY7':    { rate: 0.07, currencies: null },          // Jun 15–22 — Father's Day (global)
   'LABORDAY7':      { rate: 0.07, currencies: ['usd'] },       // Sep    — Labor Day
   'HALLOWEEN5':     { rate: 0.05, currencies: ['usd'] },       // Oct 31 — Halloween
   'THANKSGIVING7':  { rate: 0.07, currencies: ['usd'] },       // Nov    — Thanksgiving
@@ -148,6 +153,8 @@ const validCoupons = {
   'STPATRICKS5':    { rate: 0.05, currencies: ['gbp', 'eur'] }, // Mar 17 — St. Patrick's Day
   'EASTER6':        { rate: 0.06, currencies: ['gbp', 'eur'] }, // Apr    — Easter
   'MAYBANK5':       { rate: 0.05, currencies: ['gbp', 'eur'] }, // May    — May Bank Holiday
+  'CORPUSCHRISTI5': { rate: 0.05, currencies: ['eur'] },        // Jun 1–7 — Corpus Christi (EU)
+  'MIDSUMMER5':     { rate: 0.05, currencies: ['eur'] },        // Jun 20–28 — Midsummer / St John's Day
   'SUMMERLEARN7':   { rate: 0.07, currencies: ['usd', 'gbp', 'eur'] }, // Jun–Aug — Summer Learning
   // ── Global / Platform ─────────────────────────────────────────────────────
   'LAUNCH10':       { rate: 0.10, currencies: null },          // Always-on platform launch
@@ -170,7 +177,18 @@ for (const c of _rawCourses) {
     };
   }
 }
-priceCatalog.default = { inr: 1599900, usd: 14900, aed: 59900, gbp: 12900, eur: 14900 };
+priceCatalog.default = {
+  inr: 1599900,
+  usd: 14900,
+  aed: 59900,
+  gbp: 12900,
+  eur: 14900,
+  sar: 58800,    // ~3.7× INR (Saudi Riyal ~0.27 USD)
+  qar: 54400,    // ~3.4× INR (Qatar Riyal ~0.27 USD)
+  omr: 57800,    // ~3.6× INR (Oman Riyal ~0.26 USD)
+  bhd: 56800,    // ~3.6× INR (Bahrain Dinar ~2.65 USD)
+  kwd: 45900,    // ~2.9× INR (Kuwait Dinar ~3.26 USD)
+};
 
 function getBasePriceMinor(courseId, currency) {
   const id = String(courseId);
@@ -297,7 +315,10 @@ app.get('/api/coupons/public', async (req, res) => {
 
     const baseFilter = {
       isActive: true,
-      $or: [{ expiryDate: null }, { expiryDate: { $gt: now } }],
+      $and: [
+        { $or: [{ expiryDate: null }, { expiryDate: { $gt: now } }] },
+        { $or: [{ startDate: null }, { startDate: { $lte: now } }] },
+      ],
     };
 
     // Try regional coupon first (matches the user's currency), then fall back to global
@@ -309,10 +330,24 @@ app.get('/api/coupons/public', async (req, res) => {
 
     let coupon = null;
     if (currency) {
-      coupon = await pick({ validCurrencies: currency });
+      coupon = await pick({ validCurrencies: { $in: [currency] } });
     }
     if (!coupon) {
       coupon = await pick({ $or: [{ validCurrencies: null }, { validCurrencies: { $size: 0 } }] });
+    }
+
+    // Fallback: find any active coupon with announcementBannerUrl set
+    let announcementBannerUrl = coupon?.announcementBannerUrl || null;
+    if (!announcementBannerUrl) {
+      const bannerCoupon = await Coupon.findOne({
+        isActive: true,
+        $and: [
+          { $or: [{ expiryDate: null }, { expiryDate: { $gt: now } }] },
+          { $or: [{ startDate: null }, { startDate: { $lte: now } }] },
+        ],
+        announcementBannerUrl: { $exists: true, $ne: null, $ne: "" },
+      }).sort({ discountPercent: -1 }).lean();
+      announcementBannerUrl = bannerCoupon?.announcementBannerUrl || null;
     }
 
     if (!coupon) return res.json({ coupon: null });
@@ -326,6 +361,9 @@ app.get('/api/coupons/public', async (req, res) => {
         currentUsageCount: coupon.currentUsageCount,
         maxUsageCount: coupon.maxUsageCount,
         createdAt: coupon.createdAt,
+        bannerImageUrl: coupon.bannerImageUrl || null,
+        announcementBannerUrl: announcementBannerUrl,
+        startDate: coupon.startDate || null,
       },
     });
   } catch (err) {

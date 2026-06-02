@@ -44,6 +44,20 @@ const couponSchema = new Schema({
     type: String,
     trim: true
   },
+  bannerImageUrl: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  announcementBannerUrl: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  startDate: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -78,6 +92,11 @@ couponSchema.methods.isValidForCurrency = function (currency) {
     return true; // Global coupon
   }
   return this.validCurrencies.includes(currency?.toLowerCase());
+}
+
+// Check if coupon has started
+couponSchema.methods.hasStarted = function () {
+  return !this.startDate || new Date() >= new Date(this.startDate);
 }
 
 const Coupon = mongoose.model('Coupon', couponSchema)
