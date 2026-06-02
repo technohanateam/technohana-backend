@@ -422,8 +422,9 @@ export function generateAiRiskReportEmail({ name, score, band, explanation }) {
 
 // ─── PAYMENT SUCCESS (learner) ────────────────────────────────────────────────
 
-export function generatePaymentSuccessEmail({ name, courseTitle, amountMajor, currency, enrollmentType, participants, trainingLocation }) {
+export function generatePaymentSuccessEmail({ name, courseTitle, amountMajor, currency, enrollmentType, participants, trainingLocation, batchDate, batchTime, trainingPeriod }) {
   const prettyCurrency = String(currency || '').toUpperCase();
+  const formattedBatchDate = batchDate ? (() => { try { return new Date(batchDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); } catch { return null; } })() : null;
 
   const body = `
     <div style="text-align:center;margin-bottom:28px;">
@@ -440,6 +441,9 @@ export function generatePaymentSuccessEmail({ name, courseTitle, amountMajor, cu
       ${dataRow('Enrollment Type', enrollmentType || 'Individual', true)}
       ${participants ? dataRow('Participants', participants, false) : ''}
       ${trainingLocation ? dataRow('Training Location', trainingLocation, participants ? true : false) : ''}
+      ${formattedBatchDate ? dataRow('Batch Start Date', formattedBatchDate, true) : ''}
+      ${batchTime ? dataRow('Batch Time', batchTime, formattedBatchDate ? false : true) : ''}
+      ${trainingPeriod ? dataRow('Training Period', trainingPeriod, batchTime ? true : false) : ''}
     </table>
     ${ctaButton('View My Dashboard', `${process.env.FRONTEND_URL || 'https://technohana.in'}/dashboard`)}`;
 

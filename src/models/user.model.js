@@ -63,6 +63,9 @@ const userSchema = new Schema({
     specialRequest: {
         type: String,
     },
+    city: { type: String },
+    participants: { type: Number },
+    couponCode: { type: String },
     rejectionReason: {
         type: String,
     },

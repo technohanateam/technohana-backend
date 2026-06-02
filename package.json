@@ -1,6 +1,6 @@
 {
   "name": "technohana-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
@@ -9,6 +9,7 @@
     "reseed": "node seed-courses.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.0",
     "axios": "^1.13.5",
     "bull": "^4.14.2",
     "cloudinary": "^2.5.1",
