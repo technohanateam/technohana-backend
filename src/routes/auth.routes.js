@@ -95,4 +95,27 @@ router.put("/kyc", async (req, res) => { // Changed from POST to PUT and simplif
   }
 });
 
+// Refresh JWT token (mobile-friendly)
+router.post("/api/auth/refresh", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
+    if (!token) return res.status(401).json({ success: false, message: "No token provided" });
+
+    const payload = verifyToken(token);
+    if (!payload) return res.status(401).json({ success: false, message: "Invalid or expired token" });
+
+    const user = await User.findById(payload.id).lean();
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    const newToken = generateToken(user);
+    return res.status(200).json({ success: true, token: newToken, data: { user } });
+  } catch (err) {
+    console.error("Token refresh failed:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 export default router;
