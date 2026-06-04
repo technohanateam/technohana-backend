@@ -1018,7 +1018,7 @@ router.post("/upload-image", authenticateAdmin, upload.single("image"), async (r
 // GET /admin/instructors/resume-proxy?url=<cloudinary_url>&disposition=inline|attachment
 router.get("/instructors/resume-proxy", authenticateAdmin, async (req, res) => {
   const { url, disposition = "attachment" } = req.query;
-  const cloudName = process.env.CLOUDINARY_NAME;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   if (!url || !url.startsWith(`https://res.cloudinary.com/${cloudName}/`)) {
     return res.status(400).json({ message: "Invalid URL" });
   }
