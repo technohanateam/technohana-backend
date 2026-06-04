@@ -98,7 +98,7 @@ export const InstructorForm = async(req,res)=>{
         // Send application with optional resume attachment to careers team
         const resumeAttachment = file ? {
             filename: file.originalname,
-            content: fs.readFileSync(file.path),
+            content: fs.readFileSync(file.path).toString('base64'),
             contentType: file.mimetype
         } : null;
 
