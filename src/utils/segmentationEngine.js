@@ -40,7 +40,7 @@ export const getUsersByCourses = async (courseIds = [], options = {}) => {
     if (!courseIds || courseIds.length === 0) return { users: [], total: 0 };
 
     const query = {
-      courseId: { $in: courseIds },
+      courseTitle: { $in: courseIds },
       status: { $in: ["enrolled", "in-progress"] },
       email: { $exists: true, $ne: null },
     };
@@ -77,7 +77,7 @@ export const getReferralPartners = async (options = {}) => {
     const skip = options.skip || 0;
 
     const users = await User.find(query)
-      .select("email name referralCode referralCount joinedAt")
+      .select("email name referralCode referralCount enrolledAt")
       .sort({ referralCount: -1 })
       .limit(limit)
       .skip(skip)

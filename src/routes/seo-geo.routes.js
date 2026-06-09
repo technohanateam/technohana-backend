@@ -48,7 +48,7 @@ router.get("/geo-analytics", authenticateAdmin, async (req, res) => {
           {
             $match: {
               status: { $in: ["enrolled", "in-progress", "completed"] },
-              ...makeDateFilter("enrolledAt"),
+              ...makeDateFilter("createdAt"),
             },
           },
           {
@@ -210,12 +210,12 @@ router.get("/seo-analytics", authenticateAdmin, async (req, res) => {
     blogAudit.sort((a, b) => a.score - b.score);
 
     const [organic, paid, social, total] = await Promise.all([
-      Enquiry.countDocuments({ "utm.medium": "organic" }),
+      Enquiry.countDocuments({ "utm.utm_medium": "organic" }),
       Enquiry.countDocuments({
-        "utm.medium": { $in: ["cpc", "paid", "ppc", "paidsearch"] },
+        "utm.utm_medium": { $in: ["cpc", "paid", "ppc", "paidsearch"] },
       }),
       Enquiry.countDocuments({
-        "utm.medium": { $in: ["social", "social-media", "referral"] },
+        "utm.utm_medium": { $in: ["social", "social-media", "referral"] },
       }),
       Enquiry.countDocuments({}),
     ]);
@@ -224,10 +224,10 @@ router.get("/seo-analytics", authenticateAdmin, async (req, res) => {
     const trafficSplit = { organic, paid, social, other, total };
 
     const organicSources = await Enquiry.aggregate([
-      { $match: { "utm.medium": "organic" } },
+      { $match: { "utm.utm_medium": "organic" } },
       {
         $group: {
-          _id: { $ifNull: ["$utm.source", "(unknown)"] },
+          _id: { $ifNull: ["$utm.utm_source", "(unknown)"] },
           count: { $sum: 1 },
         },
       },
