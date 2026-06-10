@@ -1,6 +1,7 @@
 import { User } from "../models/user.model.js"
 import { sendEmail } from "../config/emailService.js"
 import { emitCampaignEvent, CAMPAIGN_EVENTS } from "../services/campaignEventTrigger.js"
+import { generateRecoveryEmail } from "../services/recoveryEmailAgent.js"
 
 // Save enrollment form progress (called on every field change)
 export const saveEnrollmentFormProgress = async (req, res) => {
@@ -121,6 +122,9 @@ export const sendEnrollmentReminder = async (req, res) => {
         }).join('')
       : `<tr><td colspan="2" style="padding:12px;font-size:13px;color:#64748b;text-align:center;">No form data available</td></tr>`
 
+    // AI-personalized recovery email; falls back to the static template below
+    const aiEmail = await generateRecoveryEmail(user)
+
     const subject = "You Left Something Behind! Resume Your Enrollment"
     const html = `<!DOCTYPE html>
 <html>
@@ -165,7 +169,7 @@ export const sendEnrollmentReminder = async (req, res) => {
 </html>`
 
     // Send email
-    await sendEmail({ from: 'Sales <sales@technohana.in>', to: email, subject, html })
+    await sendEmail({ from: 'Sales <sales@technohana.in>', to: email, subject: aiEmail?.subject || subject, html: aiEmail?.html || html })
 
     // Update user document
     user.enrollmentReminderSent = true

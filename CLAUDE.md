@@ -101,6 +101,9 @@ Never leak stack traces or internal error details in production responses.
 | Email templates | `src/utils/emailTemplate.js` |
 | Campaign queue | `src/services/campaignQueue.js` |
 | Campaign triggers | `src/services/campaignEventTrigger.js` |
+| Shared Claude client (AI agents) | `src/services/aiAgent.service.js` |
+| Recovery email agent | `src/services/recoveryEmailAgent.js` |
+| Lead scoring agent | `src/services/leadScoringAgent.js` |
 
 ## Environment Variables (never commit)
 ```
@@ -112,6 +115,7 @@ STRIPE_SECRET=
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RESEND_API_KEY=
+ANTHROPIC_API_KEY=
 MAIL_TO=
 FRONTEND_URL=
 WHITELISTED_URLS=
@@ -122,6 +126,7 @@ REDIS_URL=
 ```
 
 ## Reference Docs
+- `AI_AGENTS_ROADMAP.md` — AI agent roadmap + implemented agents (lead scoring, recovery emails)
 - `COUPON_CODES_REFERENCE.md` — festival coupon calendar + discount logic
 - `CAMPAIGN_E2E_TESTING.md` — end-to-end test scenarios
 - `CAMPAIGN_DEPLOYMENT_CHECKLIST.md` — pre-deploy checklist
