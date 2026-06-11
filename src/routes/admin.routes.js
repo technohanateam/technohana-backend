@@ -18,6 +18,7 @@ import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
 import { adminLogin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
+import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
 import Campaign from "../models/campaign.model.js";
@@ -1110,5 +1111,13 @@ router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructor
     return res.status(500).json({ message: "Failed to send email." });
   }
 });
+
+// ─── Proposals ───────────────────────────────────────────────────────────────
+router.post("/proposals/quote",  authenticateAdmin, quoteProposalLine);
+router.get("/proposals",         authenticateAdmin, getProposals);
+router.post("/proposals",        authenticateAdmin, createProposal);
+router.get("/proposals/:id",     authenticateAdmin, getProposal);
+router.put("/proposals/:id",     authenticateAdmin, updateProposal);
+router.delete("/proposals/:id",  authenticateAdmin, deleteProposal);
 
 export default router;
