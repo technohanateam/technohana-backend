@@ -1,6 +1,8 @@
 import jwt from "jsonwebtoken";
+import AdminUser from "../models/adminUser.model.js";
+import { DEFAULT_PAGES_BY_ROLE } from "../constants/adminPages.js";
 
-export const authenticateAdmin = (req, res, next) => {
+export const authenticateAdmin = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -11,6 +13,20 @@ export const authenticateAdmin = (req, res, next) => {
 
   try {
     const payload = jwt.verify(token, process.env.ADMIN_JWT_SECRET);
+
+    // Tokens issued before page-level access existed carry only a role
+    if (!payload.pages) {
+      payload.pages = DEFAULT_PAGES_BY_ROLE[payload.role] || [];
+    }
+
+    // DB-backed accounts can be deactivated mid-session — enforce immediately
+    if (payload.uid) {
+      const account = await AdminUser.findById(payload.uid).select("active").lean();
+      if (!account || !account.active) {
+        return res.status(401).json({ message: "Account deactivated" });
+      }
+    }
+
     req.admin = payload;
     next();
   } catch (error) {
@@ -30,6 +46,15 @@ export const requireAdmin = (req, res, next) => {
 export const requireMarketing = (req, res, next) => {
   if (!["admin", "marketing"].includes(req.admin?.role)) {
     return res.status(403).json({ message: "Access denied. Marketing role required." });
+  }
+  next();
+};
+
+// Requires access to at least one of the given admin pages (per-user effective pages)
+export const requirePage = (...pageKeys) => (req, res, next) => {
+  const pages = req.admin?.pages || DEFAULT_PAGES_BY_ROLE[req.admin?.role] || [];
+  if (!pageKeys.some((key) => pages.includes(key))) {
+    return res.status(403).json({ success: false, message: "Access denied. Missing page permission." });
   }
   next();
 };

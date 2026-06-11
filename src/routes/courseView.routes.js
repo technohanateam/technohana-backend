@@ -1,6 +1,6 @@
 import express from "express";
 import { CourseView } from "../models/courseView.model.js";
-import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
+import { authenticateAdmin, requirePage } from "../middleware/authenticateAdmin.js";
 
 const router = express.Router();
 
@@ -18,7 +18,7 @@ router.post("/course-views", async (req, res) => {
 });
 
 // GET /admin/course-views/stats — top courses by view count (admin auth)
-router.get("/course-views/stats", authenticateAdmin, async (req, res) => {
+router.get("/course-views/stats", authenticateAdmin, requirePage("analytics", "overview"), async (req, res) => {
   try {
     const [totalViews, topCourses] = await Promise.all([
       CourseView.countDocuments(),
@@ -59,7 +59,7 @@ router.get("/course-views/stats", authenticateAdmin, async (req, res) => {
 });
 
 // GET /admin/course-views — paginated raw view log (admin auth)
-router.get("/course-views", authenticateAdmin, async (req, res) => {
+router.get("/course-views", authenticateAdmin, requirePage("analytics", "overview"), async (req, res) => {
   try {
     const { courseId, page = 1, limit = 20 } = req.query;
     const query = {};

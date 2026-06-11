@@ -1,0 +1,65 @@
+// Canonical registry of admin panel pages. Keep in sync with the frontend
+// registry in technohana-frontend-master/src/lib/adminAccess.js.
+export const ADMIN_PAGES = [
+  "overview",
+  "sales-dashboard",
+  "sales-pipeline",
+  "proposal-builder",
+  "enrollments",
+  "enquiries",
+  "testimonials",
+  "quote-generator",
+  "marketing-overview",
+  "campaigns",
+  "utm-report",
+  "geo-analysis",
+  "seo-analysis",
+  "blogs",
+  "courses",
+  "subscribers",
+  "referrals",
+  "coupons",
+  "instructors",
+  "team",
+  "live-agent",
+  "prompt-editor",
+  "analytics",
+  "ai-risk-reports",
+];
+
+export const ADMIN_ROLES = ["admin", "sales", "marketing"];
+
+export const DEFAULT_PAGES_BY_ROLE = {
+  admin: [...ADMIN_PAGES],
+  sales: [
+    "sales-dashboard",
+    "sales-pipeline",
+    "proposal-builder",
+    "enrollments",
+    "enquiries",
+    "testimonials",
+    "quote-generator",
+    "utm-report",
+    "courses",
+    "referrals",
+    "analytics",
+    "ai-risk-reports",
+  ],
+  marketing: [
+    "marketing-overview",
+    "campaigns",
+    "utm-report",
+    "geo-analysis",
+    "seo-analysis",
+    "blogs",
+    "subscribers",
+    "analytics",
+    "ai-risk-reports",
+  ],
+};
+
+export const computeEffectivePages = (role, extraPages = [], revokedPages = []) => {
+  const base = new Set([...(DEFAULT_PAGES_BY_ROLE[role] || []), ...extraPages]);
+  for (const page of revokedPages) base.delete(page);
+  return [...base].filter((page) => ADMIN_PAGES.includes(page));
+};
