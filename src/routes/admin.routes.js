@@ -15,7 +15,7 @@ import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
-import { authenticateAdmin, requireAdmin, requirePage } from "../middleware/authenticateAdmin.js";
+import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
 import { adminLogin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
@@ -435,7 +435,7 @@ router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, asy
 });
 
 // PUT /admin/blogs/:id
-router.put("/blogs/:id", authenticateAdmin, requirePage("blogs"), async (req, res) => {
+router.put("/blogs/:id", authenticateAdmin, requirePage("blogs"), requireMarketing, async (req, res) => {
   try {
     const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin } = req.body;
     const updated = await Blogs.findByIdAndUpdate(
@@ -464,7 +464,7 @@ router.delete("/blogs/:id", authenticateAdmin, requirePage("blogs"), requireAdmi
 });
 
 // PATCH /admin/blogs/:id/publish — toggle published status (or schedule)
-router.patch("/blogs/:id/publish", authenticateAdmin, requirePage("blogs"), async (req, res) => {
+router.patch("/blogs/:id/publish", authenticateAdmin, requirePage("blogs"), requireMarketing, async (req, res) => {
   try {
     const { published, scheduledAt } = req.body;
     const blog = await Blogs.findById(req.params.id);
@@ -734,23 +734,6 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
   }
 });
 
-// POST /admin/blogs/cleanup-2026 — remove stale posts + update data science title
-router.post("/blogs/cleanup-2026", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
-  const slugsToRemove = [
-    "how-entrepreneurs-can-use-chatgpt-as-their-business-coach",
-    "microsofts-3-billion-ai-investment-a-game-changer-for-india",
-    "bridging-the-ai-skills-gap-how-indias-workforce-is-evolving-to-lead-the-ai-revolution",
-    "real-world-applications-of-ai-driving-business-impact",
-    "top-5-microsoft-ai-certifications-to-boost-your-career-in-2025",
-  ];
-  const deleted = await Blogs.deleteMany({ slug: { $in: slugsToRemove } });
-  const updated = await Blogs.updateOne(
-    { slug: "how-to-build-a-career-in-data-science-in-india-2025-roadmap" },
-    { $set: { title: "How to Build a Career in Data Science in India: 2026 Roadmap" } }
-  );
-  return res.json({ deleted: deleted.deletedCount, updated: updated.modifiedCount });
-});
-
 // ─── Courses ──────────────────────────────────────────────────────────────────
 
 // GET /admin/courses?category=&search=&page=1&limit=20
@@ -794,7 +777,7 @@ router.post("/courses", authenticateAdmin, requirePage("courses", "quote-generat
 });
 
 // PUT /admin/courses/:id
-router.put("/courses/:id", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), async (req, res) => {
+router.put("/courses/:id", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, async (req, res) => {
   try {
     const updated = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!updated) return res.status(404).json({ message: "Course not found." });
@@ -945,16 +928,16 @@ router.put("/campaigns/:id", authenticateAdmin, requirePage("campaigns", "market
 router.delete("/campaigns/:id", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, deleteCampaign);
 
 // POST /admin/campaigns/:id/send - Send campaign immediately (admin + marketing)
-router.post("/campaigns/:id/send", authenticateAdmin, requirePage("campaigns", "marketing-overview"), sendCampaignNow);
+router.post("/campaigns/:id/send", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, sendCampaignNow);
 
 // POST /admin/campaigns/:id/schedule - Schedule campaign for later (admin + marketing)
-router.post("/campaigns/:id/schedule", authenticateAdmin, requirePage("campaigns", "marketing-overview"), scheduleCampaign);
+router.post("/campaigns/:id/schedule", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, scheduleCampaign);
 
 // POST /admin/campaigns/:id/pause - Pause running campaign (admin + marketing)
-router.post("/campaigns/:id/pause", authenticateAdmin, requirePage("campaigns", "marketing-overview"), pauseCampaign);
+router.post("/campaigns/:id/pause", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, pauseCampaign);
 
 // POST /admin/campaigns/:id/resume - Resume paused campaign (admin + marketing)
-router.post("/campaigns/:id/resume", authenticateAdmin, requirePage("campaigns", "marketing-overview"), resumeCampaign);
+router.post("/campaigns/:id/resume", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, resumeCampaign);
 
 // GET /admin/campaigns/:id/analytics - Get campaign metrics
 router.get("/campaigns/:id/analytics", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignAnalytics);
@@ -1040,7 +1023,7 @@ router.get("/instructors", authenticateAdmin, requirePage("instructors"), async 
 });
 
 // PATCH /admin/instructors/:id/status - Update instructor application status
-router.patch("/instructors/:id/status", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+router.patch("/instructors/:id/status", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
   try {
     const { status } = req.body;
     if (!["pending", "shortlisted", "rejected"].includes(status))
@@ -1054,7 +1037,7 @@ router.patch("/instructors/:id/status", authenticateAdmin, requirePage("instruct
 });
 
 // PATCH /admin/instructors/:id - Update notes, assignedTo, nextFollowUp
-router.patch("/instructors/:id", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+router.patch("/instructors/:id", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
   try {
     const { notes, assignedTo, nextFollowUp } = req.body;
     const update = {};
@@ -1085,7 +1068,7 @@ router.delete("/instructors/:id", authenticateAdmin, requirePage("instructors"),
 });
 
 // POST /admin/instructors/:id/email - Send templated email to instructor
-router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
   try {
     const instructor = await Instructor.findById(req.params.id).lean();
     if (!instructor) return res.status(404).json({ message: "Instructor not found." });
@@ -1125,50 +1108,6 @@ router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructor
   } catch (err) {
     console.error("Instructor email error:", err);
     return res.status(500).json({ message: "Failed to send email." });
-  }
-});
-
-// POST /admin/enquiries/migrate-instructors
-// Moves all Enquiries with enquiryType "Become Instructor" into the Instructor collection.
-router.post("/enquiries/migrate-instructors", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
-  try {
-    const leads = await Enquiry.find({ enquiryType: "Become Instructor" }).lean();
-    if (leads.length === 0) return res.json({ migrated: 0, skipped: 0 });
-
-    const existingEmails = new Set(
-      (await Instructor.find({ email: { $in: leads.map((l) => l.email) } }, "email").lean()).map((i) => i.email)
-    );
-
-    const toCreate = [];
-    const toDeleteIds = [];
-
-    for (const lead of leads) {
-      if (existingEmails.has(lead.email)) continue;
-      toCreate.push({
-        name: lead.name,
-        email: lead.email,
-        phone: lead.phone || "",
-        expertise: lead.expertise || "",
-        experience: lead.experience || "",
-        linkedinUrl: lead.linkedinUrl || "",
-        coverLetter: lead.description || "",
-        resumeUrl: "",
-        resumePublicId: "",
-        status: "pending",
-        submittedAt: lead.createdAt || new Date(),
-      });
-      toDeleteIds.push(lead._id);
-    }
-
-    if (toCreate.length > 0) {
-      await Instructor.insertMany(toCreate);
-      await Enquiry.deleteMany({ _id: { $in: toDeleteIds } });
-    }
-
-    return res.json({ migrated: toCreate.length, skipped: leads.length - toCreate.length });
-  } catch (err) {
-    console.error("Migrate instructors error:", err);
-    return res.status(500).json({ message: "Server error" });
   }
 });
 

@@ -33,13 +33,21 @@ export const getAllCampaigns = async (req, res) => {
 
     return res.json({
       success: true,
-      data: campaigns.map((c) => ({
-        ...c,
-        metrics: {
-          ...c.metrics,
-          ...c.calculateMetrics?.(),
-        },
-      })),
+      data: campaigns.map((c) => {
+        // .lean() strips instance methods, so compute rates inline (mirrors campaignSchema.methods.calculateMetrics)
+        const total = c.metrics?.totalSent || 0;
+        const rate = (n) => (total > 0 ? ((n / total) * 100).toFixed(2) : 0);
+        return {
+          ...c,
+          metrics: {
+            ...c.metrics,
+            openRate: rate(c.metrics?.opened || 0),
+            clickRate: rate(c.metrics?.clicked || 0),
+            bounceRate: rate(c.metrics?.bounced || 0),
+            deliveryRate: rate(c.metrics?.delivered || 0),
+          },
+        };
+      }),
       pagination: {
         total,
         page: pageNum,
