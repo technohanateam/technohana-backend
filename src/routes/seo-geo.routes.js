@@ -4,7 +4,7 @@ import { Order } from "../models/order.model.js";
 import Enquiry from "../models/enquiry.model.js";
 import { Blogs } from "../models/blogs.model.js";
 import { CourseView } from "../models/courseView.model.js";
-import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
+import { authenticateAdmin, requirePage } from "../middleware/authenticateAdmin.js";
 
 const router = express.Router();
 
@@ -31,7 +31,7 @@ const CURRENCY_TO_REGION = {
 };
 
 // ── GET /admin/geo-analytics ──────────────────────────────────────────────────
-router.get("/geo-analytics", authenticateAdmin, async (req, res) => {
+router.get("/geo-analytics", authenticateAdmin, requirePage("geo-analysis"), async (req, res) => {
   try {
     const { from, to } = req.query;
 
@@ -140,7 +140,7 @@ router.get("/geo-analytics", authenticateAdmin, async (req, res) => {
 });
 
 // ── GET /admin/seo-analytics ──────────────────────────────────────────────────
-router.get("/seo-analytics", authenticateAdmin, async (req, res) => {
+router.get("/seo-analytics", authenticateAdmin, requirePage("seo-analysis"), async (req, res) => {
   try {
     const blogs = await Blogs.find(
       {},

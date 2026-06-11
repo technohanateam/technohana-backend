@@ -1,6 +1,5 @@
 import express from "express";
 import axios from "axios";
-import jwt from "jsonwebtoken";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
@@ -16,7 +15,8 @@ import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
-import { authenticateAdmin, requireAdmin } from "../middleware/authenticateAdmin.js";
+import { authenticateAdmin, requireAdmin, requirePage } from "../middleware/authenticateAdmin.js";
+import { adminLogin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
@@ -29,34 +29,14 @@ const __dirname = path.dirname(__filename);
 const router = express.Router();
 
 // ─── POST /admin/login ────────────────────────────────────────────────────────
-router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+router.post("/login", adminLogin);
 
-  if (!email || !password) {
-    return res.status(400).json({ message: "Email and password are required." });
-  }
-
-  let role = null;
-  if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-    role = "admin";
-  } else if (process.env.SALES_EMAIL && email === process.env.SALES_EMAIL && password === process.env.SALES_PASSWORD) {
-    role = "sales";
-  } else if (process.env.MARKETING_EMAIL && email === process.env.MARKETING_EMAIL && password === process.env.MARKETING_PASSWORD) {
-    role = "marketing";
-  }
-
-  if (!role) {
-    return res.status(401).json({ message: "Invalid credentials." });
-  }
-
-  const token = jwt.sign(
-    { email, role },
-    process.env.ADMIN_JWT_SECRET,
-    { expiresIn: "8h" }
-  );
-
-  return res.json({ token });
-});
+// ─── Admin team user management (admin role only) ─────────────────────────────
+router.get("/users", authenticateAdmin, requireAdmin, requirePage("team"), listAdminUsers);
+router.post("/users", authenticateAdmin, requireAdmin, requirePage("team"), createAdminUser);
+router.put("/users/:id", authenticateAdmin, requireAdmin, requirePage("team"), updateAdminUser);
+router.patch("/users/:id/password", authenticateAdmin, requireAdmin, requirePage("team"), resetAdminUserPassword);
+router.patch("/users/:id/active", authenticateAdmin, requireAdmin, requirePage("team"), setAdminUserActive);
 
 // ─── All routes below require admin auth ──────────────────────────────────────
 
@@ -151,7 +131,7 @@ router.get("/revenue-by-course", authenticateAdmin, async (req, res) => {
 });
 
 // GET /admin/enrollments?status=&search=&page=1&limit=20
-router.get("/enrollments", authenticateAdmin, async (req, res) => {
+router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), async (req, res) => {
   try {
     const { status, search, page = 1, limit = 20 } = req.query;
     const query = {};
@@ -179,7 +159,7 @@ router.get("/enrollments", authenticateAdmin, async (req, res) => {
 });
 
 // PATCH /admin/enrollments/:id/status
-router.patch("/enrollments/:id/status", authenticateAdmin, requireAdmin, async (req, res) => {
+router.patch("/enrollments/:id/status", authenticateAdmin, requirePage("enrollments"), requireAdmin, async (req, res) => {
   try {
     const { status, rejectionReason } = req.body;
     const allowed = ["pending-payment", "in-progress", "enrolled", "rejected"];
@@ -205,7 +185,7 @@ router.patch("/enrollments/:id/status", authenticateAdmin, requireAdmin, async (
 });
 
 // DELETE /admin/enrollments/:id
-router.delete("/enrollments/:id", authenticateAdmin, requireAdmin, async (req, res) => {
+router.delete("/enrollments/:id", authenticateAdmin, requirePage("enrollments"), requireAdmin, async (req, res) => {
   try {
     const deleted = await User.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Enrollment not found." });
@@ -217,7 +197,7 @@ router.delete("/enrollments/:id", authenticateAdmin, requireAdmin, async (req, r
 });
 
 // GET /admin/enquiries?page=1&limit=20
-router.get("/enquiries", authenticateAdmin, async (req, res) => {
+router.get("/enquiries", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -233,7 +213,7 @@ router.get("/enquiries", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/enquiries/clear
-router.delete("/enquiries/clear", authenticateAdmin, requireAdmin, async (req, res) => {
+router.delete("/enquiries/clear", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), requireAdmin, async (req, res) => {
   try {
     const result = await Enquiry.deleteMany({});
     return res.json({ message: "Cleared all enquiries", deleted: result.deletedCount });
@@ -244,7 +224,7 @@ router.delete("/enquiries/clear", authenticateAdmin, requireAdmin, async (req, r
 });
 
 // DELETE /admin/enquiries/:id
-router.delete("/enquiries/:id", authenticateAdmin, requireAdmin, async (req, res) => {
+router.delete("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), requireAdmin, async (req, res) => {
   try {
     const deleted = await Enquiry.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Enquiry not found." });
@@ -256,7 +236,7 @@ router.delete("/enquiries/:id", authenticateAdmin, requireAdmin, async (req, res
 });
 
 // PATCH /admin/enquiries/:id — update status, notes, assignedTo, nextFollowUp, lostReason
-router.patch("/enquiries/:id", authenticateAdmin, async (req, res) => {
+router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
   try {
     const { status, notes, assignedTo, nextFollowUp, lostReason } = req.body;
     const allowed = {};
@@ -307,7 +287,7 @@ router.get("/pipeline-stats", authenticateAdmin, async (req, res) => {
 });
 
 // GET /admin/testimonials?page=1&limit=20&status=pending
-router.get("/testimonials", authenticateAdmin, async (req, res) => {
+router.get("/testimonials", authenticateAdmin, requirePage("testimonials"), async (req, res) => {
   try {
     const { page = 1, limit = 20, status } = req.query;
     const filter = status && status !== "all" ? { status } : {};
@@ -324,7 +304,7 @@ router.get("/testimonials", authenticateAdmin, async (req, res) => {
 });
 
 // PATCH /admin/testimonials/:id — update status (approved/rejected/pending)
-router.patch("/testimonials/:id", authenticateAdmin, async (req, res) => {
+router.patch("/testimonials/:id", authenticateAdmin, requirePage("testimonials"), async (req, res) => {
   try {
     const { status } = req.body;
     const updated = await Testimonial.findByIdAndUpdate(req.params.id, { status }, { new: true });
@@ -337,7 +317,7 @@ router.patch("/testimonials/:id", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/testimonials/:id
-router.delete("/testimonials/:id", authenticateAdmin, async (req, res) => {
+router.delete("/testimonials/:id", authenticateAdmin, requirePage("testimonials"), async (req, res) => {
   try {
     const deleted = await Testimonial.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Testimonial not found." });
@@ -349,7 +329,7 @@ router.delete("/testimonials/:id", authenticateAdmin, async (req, res) => {
 });
 
 // GET /admin/ai-risk-reports?page=1&limit=20
-router.get("/ai-risk-reports", authenticateAdmin, async (req, res) => {
+router.get("/ai-risk-reports", authenticateAdmin, requirePage("ai-risk-reports"), async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -365,7 +345,7 @@ router.get("/ai-risk-reports", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/ai-risk-reports/clear
-router.delete("/ai-risk-reports/clear", authenticateAdmin, requireAdmin, async (req, res) => {
+router.delete("/ai-risk-reports/clear", authenticateAdmin, requirePage("ai-risk-reports"), requireAdmin, async (req, res) => {
   try {
     const { deletedCount } = await AiRiskReport.deleteMany({});
     return res.json({ message: "Cleared all AI risk reports", deleted: deletedCount });
@@ -376,7 +356,7 @@ router.delete("/ai-risk-reports/clear", authenticateAdmin, requireAdmin, async (
 });
 
 // DELETE /admin/ai-risk-reports/:id
-router.delete("/ai-risk-reports/:id", authenticateAdmin, requireAdmin, async (req, res) => {
+router.delete("/ai-risk-reports/:id", authenticateAdmin, requirePage("ai-risk-reports"), requireAdmin, async (req, res) => {
   try {
     const result = await AiRiskReport.findByIdAndDelete(req.params.id);
     if (!result) return res.status(404).json({ message: "Not found" });
@@ -388,7 +368,7 @@ router.delete("/ai-risk-reports/:id", authenticateAdmin, requireAdmin, async (re
 });
 
 // GET /admin/subscribers?page=1&limit=20
-router.get("/subscribers", authenticateAdmin, async (req, res) => {
+router.get("/subscribers", authenticateAdmin, requirePage("subscribers"), async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -404,7 +384,7 @@ router.get("/subscribers", authenticateAdmin, async (req, res) => {
 });
 
 // GET /admin/blogs
-router.get("/blogs", authenticateAdmin, async (req, res) => {
+router.get("/blogs", authenticateAdmin, requirePage("blogs"), async (req, res) => {
   try {
     const data = await Blogs.find().sort({ _id: -1 }).lean();
     return res.json({ data });
@@ -415,7 +395,7 @@ router.get("/blogs", authenticateAdmin, async (req, res) => {
 });
 
 // POST /admin/blogs
-router.post("/blogs", authenticateAdmin, requireAdmin, async (req, res) => {
+router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   try {
     const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin } = req.body;
     if (!title) return res.status(400).json({ message: "Title is required." });
@@ -455,7 +435,7 @@ router.post("/blogs", authenticateAdmin, requireAdmin, async (req, res) => {
 });
 
 // PUT /admin/blogs/:id
-router.put("/blogs/:id", authenticateAdmin, async (req, res) => {
+router.put("/blogs/:id", authenticateAdmin, requirePage("blogs"), async (req, res) => {
   try {
     const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin } = req.body;
     const updated = await Blogs.findByIdAndUpdate(
@@ -472,7 +452,7 @@ router.put("/blogs/:id", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/blogs/:id
-router.delete("/blogs/:id", authenticateAdmin, requireAdmin, async (req, res) => {
+router.delete("/blogs/:id", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   try {
     const deleted = await Blogs.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Blog not found." });
@@ -484,7 +464,7 @@ router.delete("/blogs/:id", authenticateAdmin, requireAdmin, async (req, res) =>
 });
 
 // PATCH /admin/blogs/:id/publish — toggle published status (or schedule)
-router.patch("/blogs/:id/publish", authenticateAdmin, async (req, res) => {
+router.patch("/blogs/:id/publish", authenticateAdmin, requirePage("blogs"), async (req, res) => {
   try {
     const { published, scheduledAt } = req.body;
     const blog = await Blogs.findById(req.params.id);
@@ -500,7 +480,7 @@ router.patch("/blogs/:id/publish", authenticateAdmin, async (req, res) => {
 });
 
 // POST /admin/blogs/seed-static — bulk import static blog posts, skip existing slugs
-router.post("/blogs/seed-static", authenticateAdmin, requireAdmin, async (req, res) => {
+router.post("/blogs/seed-static", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   try {
     const posts = req.body;
     if (!Array.isArray(posts) || posts.length === 0) {
@@ -525,7 +505,7 @@ router.post("/blogs/seed-static", authenticateAdmin, requireAdmin, async (req, r
 // POST /admin/blogs/generate-from-course — AI-generate a blog post for a course
 // Uses Claude's built-in web_search tool so no external search API key is needed.
 // Claude searches the web autonomously, then writes the post grounded in current data.
-router.post("/blogs/generate-from-course", authenticateAdmin, requireAdmin, async (req, res) => {
+router.post("/blogs/generate-from-course", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   try {
     const { courseId, courseTitle, category, description, relatedCourses = [] } = req.body;
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
@@ -643,7 +623,7 @@ Writing rules:
 });
 
 // POST /admin/blogs/generate-from-urls — AI-generate a blog post from live URLs
-router.post("/blogs/generate-from-urls", authenticateAdmin, requireAdmin, async (req, res) => {
+router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(503).json({ message: "ANTHROPIC_API_KEY not configured." });
 
@@ -710,7 +690,7 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requireAdmin, async 
 });
 
 // POST /admin/blogs/rewrite — AI-rewrite and improve an existing blog post
-router.post("/blogs/rewrite", authenticateAdmin, requireAdmin, async (req, res) => {
+router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   try {
     const { title, content, excerpt, category, focusKeyword, author } = req.body;
     if (!title || !content) return res.status(400).json({ message: "title and content are required." });
@@ -755,7 +735,7 @@ router.post("/blogs/rewrite", authenticateAdmin, requireAdmin, async (req, res) 
 });
 
 // POST /admin/blogs/cleanup-2026 — remove stale posts + update data science title
-router.post("/blogs/cleanup-2026", authenticateAdmin, requireAdmin, async (req, res) => {
+router.post("/blogs/cleanup-2026", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   const slugsToRemove = [
     "how-entrepreneurs-can-use-chatgpt-as-their-business-coach",
     "microsofts-3-billion-ai-investment-a-game-changer-for-india",
@@ -774,7 +754,7 @@ router.post("/blogs/cleanup-2026", authenticateAdmin, requireAdmin, async (req, 
 // ─── Courses ──────────────────────────────────────────────────────────────────
 
 // GET /admin/courses?category=&search=&page=1&limit=20
-router.get("/courses", authenticateAdmin, async (req, res) => {
+router.get("/courses", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), async (req, res) => {
   try {
     const { category, search, page = 1, limit = 20 } = req.query;
     const query = {};
@@ -799,7 +779,7 @@ router.get("/courses", authenticateAdmin, async (req, res) => {
 });
 
 // POST /admin/courses
-router.post("/courses", authenticateAdmin, requireAdmin, async (req, res) => {
+router.post("/courses", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, async (req, res) => {
   try {
     const { courseTitle, id } = req.body;
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
@@ -814,7 +794,7 @@ router.post("/courses", authenticateAdmin, requireAdmin, async (req, res) => {
 });
 
 // PUT /admin/courses/:id
-router.put("/courses/:id", authenticateAdmin, async (req, res) => {
+router.put("/courses/:id", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), async (req, res) => {
   try {
     const updated = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!updated) return res.status(404).json({ message: "Course not found." });
@@ -826,7 +806,7 @@ router.put("/courses/:id", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/courses/:id
-router.delete("/courses/:id", authenticateAdmin, requireAdmin, async (req, res) => {
+router.delete("/courses/:id", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, async (req, res) => {
   try {
     const deleted = await Course.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Course not found." });
@@ -838,7 +818,7 @@ router.delete("/courses/:id", authenticateAdmin, requireAdmin, async (req, res) 
 });
 
 // DELETE /admin/courses/clear — clear all courses
-router.delete("/courses/clear", authenticateAdmin, requireAdmin, async (req, res) => {
+router.delete("/courses/clear", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, async (req, res) => {
   try {
     const result = await Course.deleteMany({});
     return res.json({ message: "Cleared all courses", deleted: result.deletedCount });
@@ -851,7 +831,7 @@ router.delete("/courses/clear", authenticateAdmin, requireAdmin, async (req, res
 // POST /admin/courses/seed — sync from src/data/courses.json
 // force=true: upsert all (updates existing courses including prices)
 // force=false (default): additive only (insert missing courses)
-router.post("/courses/seed", authenticateAdmin, requireAdmin, async (req, res) => {
+router.post("/courses/seed", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, async (req, res) => {
   try {
     const { force } = req.body || {};
     const dataPath = path.join(__dirname, "../data/courses.json");
@@ -913,77 +893,77 @@ router.post("/courses/seed", authenticateAdmin, requireAdmin, async (req, res) =
 // ─── Coupons ──────────────────────────────────────────────────────────────────
 
 // GET /admin/coupons?search=&isActive=&page=1&limit=10
-router.get("/coupons", authenticateAdmin, getAllCoupons);
+router.get("/coupons", authenticateAdmin, requirePage("coupons"), getAllCoupons);
 
 // GET /admin/coupons/stats
-router.get("/coupons/stats", authenticateAdmin, getCouponStats);
+router.get("/coupons/stats", authenticateAdmin, requirePage("coupons"), getCouponStats);
 
 // POST /admin/coupons
-router.post("/coupons", authenticateAdmin, requireAdmin, createCoupon);
+router.post("/coupons", authenticateAdmin, requirePage("coupons"), requireAdmin, createCoupon);
 
 // GET /admin/coupons/:id
-router.get("/coupons/:id", authenticateAdmin, getCoupon);
+router.get("/coupons/:id", authenticateAdmin, requirePage("coupons"), getCoupon);
 
 // PUT /admin/coupons/:id
-router.put("/coupons/:id", authenticateAdmin, requireAdmin, updateCoupon);
+router.put("/coupons/:id", authenticateAdmin, requirePage("coupons"), requireAdmin, updateCoupon);
 
 // DELETE /admin/coupons/:id
-router.delete("/coupons/:id", authenticateAdmin, requireAdmin, deleteCoupon);
+router.delete("/coupons/:id", authenticateAdmin, requirePage("coupons"), requireAdmin, deleteCoupon);
 
 // POST /admin/coupons/:id/reset-usage
-router.post("/coupons/:id/reset-usage", authenticateAdmin, requireAdmin, resetCouponUsage);
+router.post("/coupons/:id/reset-usage", authenticateAdmin, requirePage("coupons"), requireAdmin, resetCouponUsage);
 
 // ─── Referrals ───────────────────────────────────────────────────────────────
 
 // GET /admin/referrals/analytics - Overview stats
-router.get("/referrals/analytics", authenticateAdmin, getReferralAnalytics);
+router.get("/referrals/analytics", authenticateAdmin, requirePage("referrals"), getReferralAnalytics);
 
 // GET /admin/referrals/metrics - Distribution & metrics
-router.get("/referrals/metrics", authenticateAdmin, getReferralMetrics);
+router.get("/referrals/metrics", authenticateAdmin, requirePage("referrals"), getReferralMetrics);
 
 // GET /admin/referrals - List all referrers with pagination
-router.get("/referrals", authenticateAdmin, getReferralsList);
+router.get("/referrals", authenticateAdmin, requirePage("referrals"), getReferralsList);
 
 // GET /admin/referrals/:userId - Details for specific referrer
-router.get("/referrals/:userId", authenticateAdmin, getReferrerDetails);
+router.get("/referrals/:userId", authenticateAdmin, requirePage("referrals"), getReferrerDetails);
 
 // ─── Email Campaigns ──────────────────────────────────────────────────────────
 
 // GET /admin/campaigns - List all campaigns
-router.get("/campaigns", authenticateAdmin, getAllCampaigns);
+router.get("/campaigns", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getAllCampaigns);
 
 // POST /admin/campaigns - Create new campaign
-router.post("/campaigns", authenticateAdmin, requireAdmin, createCampaign);
+router.post("/campaigns", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, createCampaign);
 
 // GET /admin/campaigns/:id - Get single campaign
-router.get("/campaigns/:id", authenticateAdmin, getCampaign);
+router.get("/campaigns/:id", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaign);
 
 // PUT /admin/campaigns/:id - Update campaign
-router.put("/campaigns/:id", authenticateAdmin, requireAdmin, updateCampaign);
+router.put("/campaigns/:id", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, updateCampaign);
 
 // DELETE /admin/campaigns/:id - Delete campaign
-router.delete("/campaigns/:id", authenticateAdmin, requireAdmin, deleteCampaign);
+router.delete("/campaigns/:id", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, deleteCampaign);
 
 // POST /admin/campaigns/:id/send - Send campaign immediately (admin + marketing)
-router.post("/campaigns/:id/send", authenticateAdmin, sendCampaignNow);
+router.post("/campaigns/:id/send", authenticateAdmin, requirePage("campaigns", "marketing-overview"), sendCampaignNow);
 
 // POST /admin/campaigns/:id/schedule - Schedule campaign for later (admin + marketing)
-router.post("/campaigns/:id/schedule", authenticateAdmin, scheduleCampaign);
+router.post("/campaigns/:id/schedule", authenticateAdmin, requirePage("campaigns", "marketing-overview"), scheduleCampaign);
 
 // POST /admin/campaigns/:id/pause - Pause running campaign (admin + marketing)
-router.post("/campaigns/:id/pause", authenticateAdmin, pauseCampaign);
+router.post("/campaigns/:id/pause", authenticateAdmin, requirePage("campaigns", "marketing-overview"), pauseCampaign);
 
 // POST /admin/campaigns/:id/resume - Resume paused campaign (admin + marketing)
-router.post("/campaigns/:id/resume", authenticateAdmin, resumeCampaign);
+router.post("/campaigns/:id/resume", authenticateAdmin, requirePage("campaigns", "marketing-overview"), resumeCampaign);
 
 // GET /admin/campaigns/:id/analytics - Get campaign metrics
-router.get("/campaigns/:id/analytics", authenticateAdmin, getCampaignAnalytics);
+router.get("/campaigns/:id/analytics", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignAnalytics);
 
 // POST /admin/campaigns/estimate-segment - Preview segment size
-router.post("/campaigns/estimate-segment", authenticateAdmin, estimateSegmentSize);
+router.post("/campaigns/estimate-segment", authenticateAdmin, requirePage("campaigns", "marketing-overview"), estimateSegmentSize);
 
 // GET /admin/campaigns/queue/stats - Get Bull queue stats
-router.get("/campaigns/queue/stats", authenticateAdmin, getCampaignQueueStats);
+router.get("/campaigns/queue/stats", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignQueueStats);
 
 // ─── Image Upload (Cloudinary) ────────────────────────────────────────────────
 
@@ -1016,7 +996,7 @@ router.post("/upload-image", authenticateAdmin, upload.single("image"), async (r
 // ─── Instructors (Trainer Pool) ───────────────────────────────────────────────
 
 // GET /admin/instructors/resume-proxy?url=<cloudinary_url>&disposition=inline|attachment
-router.get("/instructors/resume-proxy", authenticateAdmin, async (req, res) => {
+router.get("/instructors/resume-proxy", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   const { url, disposition = "attachment" } = req.query;
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   if (!url || !url.startsWith(`https://res.cloudinary.com/${cloudName}/`)) {
@@ -1044,7 +1024,7 @@ router.get("/instructors/resume-proxy", authenticateAdmin, async (req, res) => {
 });
 
 // GET /admin/instructors - List instructor applications
-router.get("/instructors", authenticateAdmin, async (req, res) => {
+router.get("/instructors", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   try {
     const { status, page = 1, limit = 500 } = req.query;
     const filter = status ? { status } : {};
@@ -1060,7 +1040,7 @@ router.get("/instructors", authenticateAdmin, async (req, res) => {
 });
 
 // PATCH /admin/instructors/:id/status - Update instructor application status
-router.patch("/instructors/:id/status", authenticateAdmin, async (req, res) => {
+router.patch("/instructors/:id/status", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   try {
     const { status } = req.body;
     if (!["pending", "shortlisted", "rejected"].includes(status))
@@ -1074,7 +1054,7 @@ router.patch("/instructors/:id/status", authenticateAdmin, async (req, res) => {
 });
 
 // PATCH /admin/instructors/:id - Update notes, assignedTo, nextFollowUp
-router.patch("/instructors/:id", authenticateAdmin, async (req, res) => {
+router.patch("/instructors/:id", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   try {
     const { notes, assignedTo, nextFollowUp } = req.body;
     const update = {};
@@ -1090,7 +1070,7 @@ router.patch("/instructors/:id", authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/instructors/:id - Delete instructor application + Cloudinary resume
-router.delete("/instructors/:id", authenticateAdmin, requireAdmin, async (req, res) => {
+router.delete("/instructors/:id", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
   try {
     const instructor = await Instructor.findById(req.params.id);
     if (!instructor) return res.status(404).json({ message: "Instructor not found." });
@@ -1105,7 +1085,7 @@ router.delete("/instructors/:id", authenticateAdmin, requireAdmin, async (req, r
 });
 
 // POST /admin/instructors/:id/email - Send templated email to instructor
-router.post("/instructors/:id/email", authenticateAdmin, async (req, res) => {
+router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   try {
     const instructor = await Instructor.findById(req.params.id).lean();
     if (!instructor) return res.status(404).json({ message: "Instructor not found." });
@@ -1150,7 +1130,7 @@ router.post("/instructors/:id/email", authenticateAdmin, async (req, res) => {
 
 // POST /admin/enquiries/migrate-instructors
 // Moves all Enquiries with enquiryType "Become Instructor" into the Instructor collection.
-router.post("/enquiries/migrate-instructors", authenticateAdmin, async (req, res) => {
+router.post("/enquiries/migrate-instructors", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
   try {
     const leads = await Enquiry.find({ enquiryType: "Become Instructor" }).lean();
     if (leads.length === 0) return res.json({ migrated: 0, skipped: 0 });

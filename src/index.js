@@ -49,7 +49,7 @@ import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.contr
 import { handleResendWebhook } from "./services/resendWebhook.js";
 import { registerCampaignEventListeners, emitCampaignEvent } from "./services/campaignEventTrigger.js";
 import Enquiry from "./models/enquiry.model.js";
-import { authenticateAdmin } from "./middleware/authenticateAdmin.js";
+import { authenticateAdmin, requirePage } from "./middleware/authenticateAdmin.js";
 import { authenticateJWT } from "./middleware/authenticateJWT.js";
 import { Order } from "./models/order.model.js";
 
@@ -1284,7 +1284,7 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
 
 // ─── UTM Attribution Report ───────────────────────────────────────────────────
 
-app.get('/admin/utm-report', authenticateAdmin, async (req, res) => {
+app.get('/admin/utm-report', authenticateAdmin, requirePage("utm-report"), async (req, res) => {
   try {
     const { from, to } = req.query;
     const dateFilter = {};
