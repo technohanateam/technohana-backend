@@ -563,3 +563,42 @@ export function generateDay7Email({ name, courseTitle }) {
 
   return emailShell({ label: 'Week 1 Update', title: 'Technohana', body });
 }
+
+// ─── PERSONA LEAD — Lead Magnet Delivery (user) ───────────────────────────────
+
+export function generateLeadMagnetEmail({ name, persona }) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Your free resource is on the way, ${name}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
+      Thanks for requesting TechnoHana's AI resources for <strong style="color:#1e293b;">${persona}</strong>. Our team will be in touch with your download link within a few minutes.
+    </p>
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#FF6B35;text-transform:uppercase;letter-spacing:1px;">While you wait</p>
+      <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.6;">
+        Browse our full AI learning catalog — practical courses built for your role, not generic overviews.
+      </p>
+    </div>
+    ${ctaButton('Explore AI Courses →', `${frontendUrl}/courses`)}
+    <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">
+      Questions? Reply to this email or reach us at <a href="mailto:connect@technohana.in" style="color:#FF6B35;text-decoration:none;">connect@technohana.in</a>
+    </p>`;
+
+  return emailShell({ label: 'Your Free Resource · Technohana', body });
+}
+
+// ─── PERSONA LEAD — Admin Notification ───────────────────────────────────────
+
+export function generateLeadAdminEmail({ name, email, persona }) {
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">New Persona Lead</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">A visitor claimed a free resource from the persona landing page.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Name', name, false)}
+      ${dataRow('Email', email, true)}
+      ${dataRow('Persona', persona, false)}
+      ${dataRow('Source', 'Persona Landing Page', true)}
+    </table>`;
+
+  return emailShell({ label: 'Persona Lead · Admin', body });
+}
