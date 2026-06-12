@@ -2,6 +2,7 @@ import Enquiry from "../models/enquiry.model.js";
 import AiRiskReport from "../models/aiRiskReport.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContactUsEmail, generateAiRiskReportEmail } from "../utils/emailTemplate.js";
+import { scoreEnquiry } from "../services/leadScoringAgent.js";
 
 export const createEnquiry = async (req, res) => {
   try {
@@ -16,6 +17,9 @@ export const createEnquiry = async (req, res) => {
 
     const enquiry = new Enquiry(body);
     await enquiry.save();
+
+    // AI lead scoring — fire and forget, never blocks the submission
+    scoreEnquiry(enquiry._id).catch((err) => console.error("Lead scoring failed (enquiry already saved):", err));
 
     let subject;
     switch (enquiryType) {
@@ -68,6 +72,8 @@ export const contactUs = async (req, res) => {
 
     const enquiry = new Enquiry({ name, email, phone, enquiryType: "Contact Us", courseTitle: subject, description: message });
     await enquiry.save();
+
+    scoreEnquiry(enquiry._id).catch((err) => console.error("Lead scoring failed (enquiry already saved):", err));
 
     await sendEmail({
       from: fromAddresses.connect,

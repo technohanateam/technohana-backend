@@ -515,6 +515,16 @@ export function generateAbandonedCartEmail({ name, courseTitle, couponCode = 'LA
   return emailShell({ label: 'Enrollment Recovery', title: 'Technohana', body });
 }
 
+// AI-personalized recovery email: trusted shell + server-side CTA around
+// model-generated body content (sanitized by the caller).
+export function generateAiRecoveryEmail({ bodyHtml }) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const body = `
+    ${bodyHtml}
+    ${ctaButton('Resume My Enrollment →', `${frontendUrl}/my-enrollments`)}`;
+  return emailShell({ label: 'Enrollment Recovery', title: 'Technohana', body });
+}
+
 // ─── POST-ENROLLMENT DAY 3 — Getting Started Tips (learner) ──────────────────
 
 export function generateDay3Email({ name, courseTitle }) {

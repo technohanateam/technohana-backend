@@ -45,6 +45,7 @@ import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
 import { handleResendWebhook } from "./services/resendWebhook.js";
 import { registerCampaignEventListeners, emitCampaignEvent } from "./services/campaignEventTrigger.js";
+import { generateRecoveryEmail } from "./services/recoveryEmailAgent.js";
 import Enquiry from "./models/enquiry.model.js";
 import { authenticateAdmin, requirePage } from "./middleware/authenticateAdmin.js";
 import { authenticateJWT } from "./middleware/authenticateJWT.js";
@@ -1239,11 +1240,13 @@ setInterval(async () => {
 
     for (const user of users) {
       try {
+        // AI-personalized recovery email; falls back to the static template
+        const aiEmail = await generateRecoveryEmail(user);
         await sendEmail({
           from: fromAddresses.sales,
           to: user.email,
-          subject: "You left something behind — complete your enrollment",
-          html: generateAbandonedCartEmail({
+          subject: aiEmail?.subject || "You left something behind — complete your enrollment",
+          html: aiEmail?.html || generateAbandonedCartEmail({
             name: user.name,
             courseTitle: user.enrollmentFormData?.courseTitle,
           }),

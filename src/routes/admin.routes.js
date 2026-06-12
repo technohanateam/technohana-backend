@@ -23,6 +23,7 @@ import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferral
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
 import Campaign from "../models/campaign.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
+import { scoreEnquiry } from "../services/leadScoringAgent.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -210,6 +211,33 @@ router.get("/enquiries", authenticateAdmin, requirePage("enquiries", "sales-pipe
   } catch (err) {
     console.error("Admin enquiries error:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/enquiries/ranked — open leads sorted by AI score
+router.get("/enquiries/ranked", authenticateAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const data = await Enquiry.find({ status: { $in: ["new", "contacted"] } })
+      .sort({ aiScore: -1, createdAt: -1 })
+      .limit(limit)
+      .lean();
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error("Admin ranked enquiries error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// POST /admin/enquiries/:id/rescore — re-run AI lead scoring
+router.post("/enquiries/:id/rescore", authenticateAdmin, async (req, res) => {
+  try {
+    const scored = await scoreEnquiry(req.params.id);
+    if (!scored) return res.status(422).json({ success: false, message: "Scoring failed. Ensure the enquiry exists and AI scoring is enabled." });
+    return res.json({ success: true, data: scored, message: "Enquiry rescored." });
+  } catch (err) {
+    console.error("Admin rescore enquiry error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

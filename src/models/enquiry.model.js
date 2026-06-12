@@ -50,6 +50,12 @@ const enquirySchema = new mongoose.Schema({
   notes: { type: String, default: "" },
   assignedTo: { type: String, default: "" },
   nextFollowUp: { type: Date, default: null },
+  aiScore: { type: Number, default: null, min: 0, max: 100 },
+  aiScoreBand: { type: String, enum: ["hot", "warm", "cold", null], default: null },
+  aiReasoning: { type: String, default: "" },
+  aiDraftReply: { type: String, default: "" },
+  aiSuggestedFollowUp: { type: Date, default: null },
+  aiScoredAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 
