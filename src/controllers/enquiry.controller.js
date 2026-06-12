@@ -15,6 +15,7 @@ export const createEnquiry = async (req, res) => {
     const { name, email, courseTitle, enquiryType, selectedPackage, timeline } = body;
 
     const enquiry = new Enquiry(body);
+    enquiry.activities = [{ type: "created", actor: "system", note: `Submitted via ${body.source || "website"}`, at: new Date() }];
     await enquiry.save();
 
     let subject;

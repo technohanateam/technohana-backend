@@ -1,5 +1,14 @@
 import mongoose from "mongoose";
 
+const activitySchema = new mongoose.Schema({
+  type: { type: String, enum: ["status_change", "note_added", "assigned", "followup_set", "created"] },
+  actor: { type: String, default: "system" },
+  note: { type: String },
+  from: { type: String },
+  to: { type: String },
+  at: { type: Date, default: Date.now },
+}, { _id: false });
+
 const enquirySchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true },
@@ -51,6 +60,7 @@ const enquirySchema = new mongoose.Schema({
   assignedTo: { type: String, default: "" },
   nextFollowUp: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
+  activities: { type: [activitySchema], default: [] },
 });
 
 export default mongoose.model("Enquiry", enquirySchema);

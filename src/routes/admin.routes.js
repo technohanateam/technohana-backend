@@ -197,6 +197,25 @@ router.delete("/enrollments/:id", authenticateAdmin, requirePage("enrollments"),
   }
 });
 
+// Helper: compute average days spent in each stage from won leads' activity logs
+function computeAvgDaysPerStage(wonLeads) {
+  const durations = { new: [], contacted: [], quoted: [] };
+  for (const lead of wonLeads) {
+    const acts = (lead.activities || [])
+      .filter((a) => a.type === "status_change")
+      .sort((a, b) => new Date(a.at) - new Date(b.at));
+    let enteredAt = new Date(lead.createdAt);
+    for (const act of acts) {
+      const from = act.from;
+      const actAt = new Date(act.at);
+      if (from in durations) durations[from].push((actAt - enteredAt) / 86400000);
+      enteredAt = actAt;
+    }
+  }
+  const avg = (arr) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+  return { new: avg(durations.new), contacted: avg(durations.contacted), quoted: avg(durations.quoted) };
+}
+
 // GET /admin/enquiries?page=1&limit=20
 router.get("/enquiries", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
   try {
@@ -210,6 +229,36 @@ router.get("/enquiries", authenticateAdmin, requirePage("enquiries", "sales-pipe
   } catch (err) {
     console.error("Admin enquiries error:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/enquiries/:id — fetch single enquiry with full activities
+router.get("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    const enquiry = await Enquiry.findById(req.params.id).lean();
+    if (!enquiry) return res.status(404).json({ success: false, message: "Enquiry not found." });
+    return res.json({ success: true, data: enquiry });
+  } catch (err) {
+    console.error("Admin get enquiry error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// POST /admin/enquiries/:id/note — append a note to the activity log
+router.post("/enquiries/:id/note", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    const { note } = req.body;
+    if (!note?.trim()) return res.status(400).json({ success: false, message: "note is required." });
+    const enquiry = await Enquiry.findByIdAndUpdate(
+      req.params.id,
+      { $push: { activities: { type: "note_added", actor: req.admin?.name || req.admin?.email || "admin", note: note.trim(), at: new Date() } } },
+      { new: true }
+    );
+    if (!enquiry) return res.status(404).json({ success: false, message: "Enquiry not found." });
+    return res.json({ success: true, data: enquiry });
+  } catch (err) {
+    console.error("Admin add note error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -240,18 +289,42 @@ router.delete("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sal
 router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
   try {
     const { status, notes, assignedTo, nextFollowUp, lostReason } = req.body;
-    const allowed = {};
-    if (status !== undefined) allowed.status = status;
-    if (notes !== undefined) allowed.notes = notes;
-    if (assignedTo !== undefined) allowed.assignedTo = assignedTo;
-    if (nextFollowUp !== undefined) allowed.nextFollowUp = nextFollowUp || null;
-    if (lostReason !== undefined) allowed.lostReason = lostReason;
-    const updated = await Enquiry.findByIdAndUpdate(req.params.id, allowed, { new: true });
-    if (!updated) return res.status(404).json({ message: "Enquiry not found." });
-    return res.json(updated);
+    const enquiry = await Enquiry.findById(req.params.id);
+    if (!enquiry) return res.status(404).json({ success: false, message: "Enquiry not found." });
+
+    const actor = req.admin?.name || req.admin?.email || "admin";
+    const newActivities = [];
+
+    if (status !== undefined && status !== enquiry.status) {
+      newActivities.push({ type: "status_change", actor, from: enquiry.status, to: status, at: new Date() });
+      enquiry.status = status;
+      // Auto-set follow-up +2 days when moved to contacted with no existing follow-up
+      if (status === "contacted" && !enquiry.nextFollowUp && nextFollowUp === undefined) {
+        const auto = new Date();
+        auto.setDate(auto.getDate() + 2);
+        enquiry.nextFollowUp = auto;
+        newActivities.push({ type: "followup_set", actor: "system", to: auto.toISOString().split("T")[0], note: "Auto-set +2 days on contacted", at: new Date() });
+      }
+    }
+    if (assignedTo !== undefined && assignedTo !== enquiry.assignedTo) {
+      newActivities.push({ type: "assigned", actor, from: enquiry.assignedTo || "(unassigned)", to: assignedTo, at: new Date() });
+      enquiry.assignedTo = assignedTo;
+    }
+    if (nextFollowUp !== undefined) {
+      const newDate = nextFollowUp || null;
+      newActivities.push({ type: "followup_set", actor, to: newDate ? new Date(newDate).toISOString().split("T")[0] : "cleared", at: new Date() });
+      enquiry.nextFollowUp = newDate;
+    }
+    if (notes !== undefined) enquiry.notes = notes;
+    if (lostReason !== undefined) enquiry.lostReason = lostReason;
+
+    if (newActivities.length > 0) enquiry.activities.push(...newActivities);
+    await enquiry.save();
+
+    return res.json({ success: true, data: enquiry });
   } catch (err) {
     console.error("Admin patch enquiry error:", err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -284,6 +357,32 @@ router.get("/pipeline-stats", authenticateAdmin, async (req, res) => {
   } catch (err) {
     console.error("Pipeline stats error:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/funnel-stats — stage conversion rates and avg time in stage
+router.get("/funnel-stats", authenticateAdmin, async (req, res) => {
+  try {
+    const stageCounts = await Enquiry.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]);
+    const counts = { new: 0, contacted: 0, quoted: 0, won: 0, lost: 0 };
+    for (const { _id, count } of stageCounts) if (_id in counts) counts[_id] = count;
+
+    const totalEntered = Object.values(counts).reduce((a, b) => a + b, 0);
+    const contactedAndBeyond = counts.contacted + counts.quoted + counts.won + counts.lost;
+    const quotedAndBeyond = counts.quoted + counts.won + counts.lost;
+
+    const newToContacted = totalEntered > 0 ? Math.round((contactedAndBeyond / totalEntered) * 100) : null;
+    const contactedToQuoted = contactedAndBeyond > 0 ? Math.round((quotedAndBeyond / contactedAndBeyond) * 100) : null;
+    const quotedToWon = quotedAndBeyond > 0 ? Math.round((counts.won / quotedAndBeyond) * 100) : null;
+    const overallConversion = totalEntered > 0 ? Math.round((counts.won / totalEntered) * 100) : 0;
+
+    const recentWon = await Enquiry.find({ status: "won" }).sort({ createdAt: -1 }).limit(100).select("activities createdAt").lean();
+    const avgDaysInStage = computeAvgDaysPerStage(recentWon);
+
+    return res.json({ success: true, data: { counts, totalEntered, conversions: { newToContacted, contactedToQuoted, quotedToWon, overallConversion }, avgDaysInStage } });
+  } catch (err) {
+    console.error("Funnel stats error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

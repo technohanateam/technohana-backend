@@ -320,3 +320,90 @@ export const clearQueues = async () => {
 };
 
 export { campaignQueue, eventQueue };
+
+// ─── Follow-up Reminder Queue ────────────────────────────────────────────────
+
+export const followupQueue = new Bull("followup-reminders", { redis: redisConfig });
+
+followupQueue.process("daily-overdue", async () => {
+  const mongoose = (await import("mongoose")).default;
+  const Enquiry = mongoose.model("Enquiry");
+
+  const overdue = await Enquiry.find({
+    nextFollowUp: { $lte: new Date(), $ne: null },
+    status: { $nin: ["won", "lost"] },
+  }).lean();
+
+  if (overdue.length === 0) {
+    console.log("[FollowupQueue] No overdue follow-ups.");
+    return { sent: 0 };
+  }
+
+  const mailTo = process.env.MAIL_TO;
+  const byAssignee = {};
+  for (const lead of overdue) {
+    const recipient = lead.assignedTo?.includes("@") ? lead.assignedTo : mailTo;
+    if (!recipient) continue;
+    if (!byAssignee[recipient]) byAssignee[recipient] = [];
+    byAssignee[recipient].push(lead);
+  }
+
+  let sent = 0;
+  for (const [email, leads] of Object.entries(byAssignee)) {
+    try {
+      const rows = leads.map((l) =>
+        `<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${l.name || "—"}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${l.courseTitle || l.enquiryType || "—"}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-transform:capitalize;">${l.status}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#dc2626;">${new Date(l.nextFollowUp).toLocaleDateString("en-IN")}</td>
+        </tr>`
+      ).join("");
+
+      await resend.emails.send({
+        from: `Sales <${process.env.MAIL_TO || "sales@technohana.in"}>`,
+        to: email,
+        subject: `${leads.length} overdue follow-up${leads.length > 1 ? "s" : ""} — action needed`,
+        html: `<h2 style="font-family:Arial,sans-serif;color:#1e293b;">Overdue Follow-ups</h2>
+          <p style="font-family:Arial,sans-serif;color:#475569;">The following leads have passed their scheduled follow-up date:</p>
+          <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">
+            <thead><tr style="background:#f1f5f9;">
+              <th style="padding:8px 12px;text-align:left;">Name</th>
+              <th style="padding:8px 12px;text-align:left;">Course</th>
+              <th style="padding:8px 12px;text-align:left;">Stage</th>
+              <th style="padding:8px 12px;text-align:left;">Due Date</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <p style="font-family:Arial,sans-serif;color:#94a3b8;font-size:12px;margin-top:24px;">Login to the admin panel to take action.</p>`,
+      });
+      sent++;
+    } catch (e) {
+      console.error(`[FollowupQueue] Failed to send to ${email}:`, e.message);
+    }
+  }
+
+  console.log(`[FollowupQueue] Sent reminders to ${sent} assignees for ${overdue.length} overdue leads.`);
+  return { sent, leads: overdue.length };
+});
+
+followupQueue.on("completed", (job, result) => {
+  console.log(`[FollowupQueue] Job ${job.id} completed:`, result);
+});
+
+followupQueue.on("failed", (job, err) => {
+  console.error(`[FollowupQueue] Job ${job.id} failed:`, err.message);
+});
+
+export const scheduleFollowupReminders = async () => {
+  try {
+    await followupQueue.removeRepeatable("daily-overdue", { cron: "0 8 * * *" });
+    await followupQueue.add("daily-overdue", {}, {
+      repeat: { cron: "0 8 * * *" },
+      jobId: "followup-daily-reminder",
+    });
+    console.log("[FollowupQueue] Daily follow-up reminder scheduled at 08:00 UTC.");
+  } catch (err) {
+    console.error("[FollowupQueue] Failed to schedule daily reminder:", err.message);
+  }
+};
