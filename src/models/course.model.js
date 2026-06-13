@@ -23,6 +23,7 @@ const courseSchema = new mongoose.Schema({
     eur: { type: Number },
   },
   instructor:       { type: String },
+  instructorId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Instructor', sparse: true },
   language:         { type: String, default: "English" },
   courseDays:       { type: String },
   courseTime:       { type: String },

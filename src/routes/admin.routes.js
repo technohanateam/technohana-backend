@@ -25,6 +25,10 @@ import Campaign from "../models/campaign.model.js";
 import Lead from "../models/lead.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
+import TrainingRequirement from "../models/trainingRequirement.model.js";
+import InstructorApplication from "../models/instructorApplication.model.js";
+import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail } from "../utils/emailTemplate.js";
+import crypto from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1155,6 +1159,188 @@ router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructor
   } catch (err) {
     console.error("Instructor email error:", err);
     return res.status(500).json({ message: "Failed to send email." });
+  }
+});
+
+// ─── Instructor Portal: Activate Account ─────────────────────────────────────
+router.patch("/instructors/:id/activate", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+  try {
+    const instructor = await Instructor.findById(req.params.id);
+    if (!instructor) return res.status(404).json({ success: false, message: "Instructor not found" });
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    await Instructor.findByIdAndUpdate(instructor._id, {
+      resetToken,
+      resetTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+
+    const link = `${process.env.FRONTEND_URL}/instructor/set-password?token=${resetToken}`;
+    await sendEmail({
+      from: fromAddresses.careers,
+      to: instructor.email,
+      subject: "Welcome to Technohana — Set up your instructor account",
+      html: instructorSetPasswordEmail(instructor.name, link),
+    });
+
+    return res.json({ success: true, message: "Activation email sent" });
+  } catch (err) {
+    console.error("Activate instructor error:", err);
+    return res.status(500).json({ success: false, message: "Failed to send activation email" });
+  }
+});
+
+// ─── Admin: Assign Instructor to Course ──────────────────────────────────────
+router.patch("/courses/:id/assign-instructor", authenticateAdmin, requirePage("courses"), requireAdmin, async (req, res) => {
+  try {
+    const { instructorId } = req.body;
+    const instructor = instructorId ? await Instructor.findById(instructorId).select("name isActive").lean() : null;
+    if (instructorId && (!instructor || !instructor.isActive))
+      return res.status(400).json({ success: false, message: "Instructor not found or not active" });
+
+    const course = await Course.findByIdAndUpdate(
+      req.params.id,
+      instructorId
+        ? { instructorId, instructor: instructor.name }
+        : { $unset: { instructorId: "" } },
+      { new: true }
+    ).lean();
+
+    if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+    return res.json({ success: true, data: course });
+  } catch (err) {
+    console.error("Assign instructor error:", err);
+    return res.status(500).json({ success: false, message: "Failed to assign instructor" });
+  }
+});
+
+// ─── Admin: Training Requirements ────────────────────────────────────────────
+router.post("/training-requirements", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const { title, description, topic, expertise, deliveryMode, duration, participants, budgetRange, startDate, deadline, location } = req.body;
+    if (!title || !description)
+      return res.status(400).json({ success: false, message: "Title and description are required" });
+
+    const requirement = await TrainingRequirement.create({
+      title, description, topic, expertise, deliveryMode, duration, participants, budgetRange,
+      startDate, deadline, location, postedBy: req.admin?.name || "Admin",
+    });
+
+    // Notify all active instructors — fire and forget so the response returns immediately
+    const activeInstructors = await Instructor.find({ isActive: true }).select("name email").lean();
+    const portalLink = `${process.env.FRONTEND_URL}/instructor/opportunities`;
+    const notifiedCount = activeInstructors.length;
+
+    Promise.allSettled(
+      activeInstructors.map((inst) =>
+        sendEmail({
+          from: fromAddresses.careers,
+          to: inst.email,
+          subject: `New Training Opportunity: ${title}`,
+          html: newRequirementNotificationEmail(inst.name, requirement, portalLink),
+        })
+      )
+    ).then((results) => {
+      const sent = results.filter((r) => r.status === "fulfilled").length;
+      TrainingRequirement.findByIdAndUpdate(requirement._id, { notifiedCount: sent }).catch(() => {});
+    }).catch(() => {});
+
+    return res.status(201).json({ success: true, data: { ...requirement.toObject(), notifiedCount } });
+  } catch (err) {
+    console.error("Create requirement error:", err);
+    return res.status(500).json({ success: false, message: "Failed to create requirement" });
+  }
+});
+
+router.get("/training-requirements", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+    const requirements = await TrainingRequirement.find(filter).sort({ createdAt: -1 }).lean();
+
+    // Attach application counts
+    const ids = requirements.map((r) => r._id);
+    const counts = await InstructorApplication.aggregate([
+      { $match: { requirementId: { $in: ids } } },
+      { $group: { _id: "$requirementId", total: { $sum: 1 } } },
+    ]);
+    const countMap = Object.fromEntries(counts.map((c) => [String(c._id), c.total]));
+
+    const data = requirements.map((r) => ({ ...r, applicationCount: countMap[String(r._id)] || 0 }));
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error("Get requirements error:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch requirements" });
+  }
+});
+
+router.patch("/training-requirements/:id", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const allowed = ["title", "description", "topic", "expertise", "deliveryMode", "duration", "participants", "budgetRange", "startDate", "deadline", "location", "status"];
+    const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)));
+    const requirement = await TrainingRequirement.findByIdAndUpdate(req.params.id, updates, { new: true }).lean();
+    if (!requirement) return res.status(404).json({ success: false, message: "Requirement not found" });
+    return res.json({ success: true, data: requirement });
+  } catch (err) {
+    console.error("Update requirement error:", err);
+    return res.status(500).json({ success: false, message: "Failed to update requirement" });
+  }
+});
+
+router.delete("/training-requirements/:id", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+  try {
+    await TrainingRequirement.findByIdAndDelete(req.params.id);
+    await InstructorApplication.deleteMany({ requirementId: req.params.id });
+    return res.json({ success: true, message: "Requirement deleted" });
+  } catch (err) {
+    console.error("Delete requirement error:", err);
+    return res.status(500).json({ success: false, message: "Failed to delete requirement" });
+  }
+});
+
+router.get("/training-requirements/:id/applications", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const applications = await InstructorApplication.find({ requirementId: req.params.id })
+      .populate("instructorId", "name email phone expertise experience dailyRate availability deliveryMode linkedinUrl")
+      .sort({ submittedAt: -1 })
+      .lean();
+    return res.json({ success: true, data: applications });
+  } catch (err) {
+    console.error("Get applications error:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch applications" });
+  }
+});
+
+router.patch("/training-requirements/:id/applications/:appId", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const { status, adminNotes } = req.body;
+    const validStatuses = ["applied", "shortlisted", "accepted", "rejected"];
+    if (status && !validStatuses.includes(status))
+      return res.status(400).json({ success: false, message: "Invalid status" });
+
+    const app = await InstructorApplication.findOneAndUpdate(
+      { _id: req.params.appId, requirementId: req.params.id },
+      { ...(status && { status, respondedAt: new Date() }), ...(adminNotes !== undefined && { adminNotes }) },
+      { new: true }
+    ).populate("instructorId", "name email").populate("requirementId", "title");
+
+    if (!app) return res.status(404).json({ success: false, message: "Application not found" });
+
+    // Email instructor on accept/reject
+    if (status === "accepted" || status === "rejected") {
+      try {
+        await sendEmail({
+          from: fromAddresses.careers,
+          to: app.instructorId.email,
+          subject: `Your application for "${app.requirementId.title}" — ${status === "accepted" ? "Great news!" : "Update"}`,
+          html: applicationStatusEmail(app.instructorId.name, app.requirementId.title, status, adminNotes),
+        });
+      } catch { /* non-blocking */ }
+    }
+
+    return res.json({ success: true, data: app });
+  } catch (err) {
+    console.error("Update application error:", err);
+    return res.status(500).json({ success: false, message: "Failed to update application" });
   }
 });
 

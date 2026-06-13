@@ -612,3 +612,74 @@ export function generateLeadAdminEmail({ name, email, persona }) {
 
   return emailShell({ label: 'Persona Lead · Admin', body });
 }
+
+// ─── INSTRUCTOR PORTAL — SET PASSWORD (onboarding) ───────────────────────────
+
+export function instructorSetPasswordEmail(name, link) {
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Welcome to Technohana, ${name}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Your instructor account has been activated. Set your password to access your portal.</p>
+    <div style="background:#f0f7ff;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#1e293b;">Once you're in, you can view your assigned courses, browse training opportunities, track earnings, and manage your profile.</p>
+    </div>
+    ${ctaButton('Set Your Password', link)}
+    <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;text-align:center;">This link expires in 24 hours. If you didn't expect this email, please contact us.</p>`;
+
+  return emailShell({ label: 'Instructor Portal', body });
+}
+
+// ─── INSTRUCTOR PORTAL — PASSWORD RESET ──────────────────────────────────────
+
+export function instructorPasswordResetEmail(name, link) {
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Reset Your Password</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${name}, we received a request to reset your instructor portal password.</p>
+    ${ctaButton('Reset Password', link)}
+    <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;text-align:center;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>`;
+
+  return emailShell({ label: 'Instructor Portal', body });
+}
+
+// ─── INSTRUCTOR PORTAL — NEW TRAINING REQUIREMENT ────────────────────────────
+
+export function newRequirementNotificationEmail(name, requirement, portalLink) {
+  const { title, topic, expertise, deliveryMode, budgetRange, duration, location, deadline } = requirement;
+  const deadlineStr = deadline ? new Date(deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
+
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">New Training Opportunity</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${name}, a new training requirement matching your profile is available. Apply before the deadline.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:24px;">
+      ${dataRow('Title', title, false)}
+      ${topic ? dataRow('Topic', topic, true) : ''}
+      ${expertise ? dataRow('Expertise Needed', expertise, false) : ''}
+      ${deliveryMode ? dataRow('Delivery Mode', deliveryMode, true) : ''}
+      ${duration ? dataRow('Duration', duration, false) : ''}
+      ${location ? dataRow('Location', location, true) : ''}
+      ${budgetRange ? dataRow('Budget Range', budgetRange, false) : ''}
+      ${deadlineStr ? dataRow('Apply By', deadlineStr, true) : ''}
+    </table>
+    ${ctaButton('View & Apply', portalLink)}`;
+
+  return emailShell({ label: 'New Training Gig', body });
+}
+
+// ─── INSTRUCTOR PORTAL — APPLICATION STATUS ───────────────────────────────────
+
+export function applicationStatusEmail(name, requirementTitle, status, notes) {
+  const isAccepted = status === 'accepted';
+  const statusColor = isAccepted ? '#16a34a' : '#dc2626';
+  const statusLabel = isAccepted ? 'Accepted' : 'Not Selected';
+
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Application Update</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${name}, here's an update on your application for <strong>${requirementTitle}</strong>.</p>
+    <div style="background:${isAccepted ? '#f0fdf4' : '#fef2f2'};border:1px solid ${isAccepted ? '#6ee7b7' : '#fca5a5'};border-radius:10px;padding:16px 20px;text-align:center;margin-bottom:20px;">
+      <p style="margin:0;font-size:18px;font-weight:700;color:${statusColor};">Status: ${statusLabel}</p>
+    </div>
+    ${notes ? `<p style="margin:0 0 20px;font-size:14px;color:#475569;"><strong>Note from team:</strong> ${notes.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}</p>` : ''}
+    ${isAccepted ? ctaButton('Go to Portal', `${process.env.FRONTEND_URL || 'https://technohana.in'}/instructor/dashboard`) : ''}
+    <p style="margin:20px 0 0;font-size:13px;color:#64748b;text-align:center;">Thank you for your interest in training with Technohana.</p>`;
+
+  return emailShell({ label: 'Application Status', body });
+}
