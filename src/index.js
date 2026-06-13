@@ -41,6 +41,7 @@ import courseViewRoutes from "./routes/courseView.routes.js";
 import testimonialRoutes from "./routes/testimonial.routes.js";
 import assessmentResultRoutes from "./routes/assessmentResult.routes.js";
 import seoGeoRoutes from "./routes/seo-geo.routes.js";
+import leadCaptureRoutes from "./routes/leadCapture.routes.js";
 import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
 import { handleResendWebhook } from "./services/resendWebhook.js";
@@ -1216,6 +1217,7 @@ app.use("/api/abandoned-enrollment", abandonedEnrollmentRoutes);
 app.use("/", testimonialRoutes);
 app.use("/", assessmentResultRoutes);
 app.use("/admin", seoGeoRoutes);
+app.use("/", leadCaptureRoutes);
 
 // ─── Campaign Automation ───────────────────────────────────────────────────────
 
