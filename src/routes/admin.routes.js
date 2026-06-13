@@ -22,6 +22,7 @@ import { quoteProposalLine, createProposal, updateProposal, getProposals, getPro
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
 import Campaign from "../models/campaign.model.js";
+import Lead from "../models/lead.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -364,6 +365,23 @@ router.delete("/ai-risk-reports/:id", authenticateAdmin, requirePage("ai-risk-re
     return res.json({ message: "Deleted" });
   } catch (err) {
     console.error("Delete AI risk report error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/leads?page=1&limit=20&persona=executives
+router.get("/leads", authenticateAdmin, requirePage("ai-risk-reports"), async (req, res) => {
+  try {
+    const { page = 1, limit = 20, persona } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+    const filter = persona ? { persona } : {};
+    const [data, total] = await Promise.all([
+      Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
+      Lead.countDocuments(filter),
+    ]);
+    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    console.error("Admin leads error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });
