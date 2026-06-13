@@ -39,7 +39,14 @@ const instructorSchema = new Schema({
     submittedAt : {
         type : Date,
         default : Date.now
-    }
+    },
+    // Portal auth fields
+    passwordHash : { type : String },
+    resetToken : { type : String },
+    resetTokenExpiry : { type : Date },
+    isActive : { type : Boolean, default : false },
+    lastLogin : { type : Date },
+    picture : { type : String },
 })
 
 const Instructor = mongoose.model("Instructor",instructorSchema);
