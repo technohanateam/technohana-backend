@@ -1221,8 +1221,18 @@ router.post("/training-requirements", authenticateAdmin, requirePage("instructor
       return res.status(400).json({ success: false, message: "Title and description are required" });
 
     const requirement = await TrainingRequirement.create({
-      title, description, topic, expertise, deliveryMode, duration, participants, budgetRange,
-      startDate, deadline, location, postedBy: req.admin?.name || "Admin",
+      title,
+      description,
+      postedBy: req.admin?.name || "Admin",
+      ...(topic        && { topic }),
+      ...(expertise    && { expertise }),
+      ...(deliveryMode && { deliveryMode }),
+      ...(duration     && { duration }),
+      ...(budgetRange  && { budgetRange }),
+      ...(location     && { location }),
+      ...(participants && { participants }),
+      ...(startDate    && { startDate }),
+      ...(deadline     && { deadline }),
     });
 
     // Notify all active instructors — fire and forget so the response returns immediately
@@ -1276,7 +1286,13 @@ router.get("/training-requirements", authenticateAdmin, requirePage("instructors
 router.patch("/training-requirements/:id", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   try {
     const allowed = ["title", "description", "topic", "expertise", "deliveryMode", "duration", "participants", "budgetRange", "startDate", "deadline", "location", "status"];
-    const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)));
+    const dateFields = new Set(["startDate", "deadline"]);
+    const numberFields = new Set(["participants"]);
+    const updates = Object.fromEntries(
+      Object.entries(req.body)
+        .filter(([k]) => allowed.includes(k))
+        .filter(([k, v]) => !(dateFields.has(k) || numberFields.has(k)) || (v !== "" && v != null))
+    );
     const requirement = await TrainingRequirement.findByIdAndUpdate(req.params.id, updates, { new: true }).lean();
     if (!requirement) return res.status(404).json({ success: false, message: "Requirement not found" });
     return res.json({ success: true, data: requirement });
