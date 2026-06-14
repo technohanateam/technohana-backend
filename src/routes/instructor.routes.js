@@ -163,9 +163,8 @@ router.post("/me/photo", authenticateInstructor, memUpload.single("photo"), asyn
 });
 
 router.post("/me/resume", authenticateInstructor, memUpload.single("resume"), async (req, res) => {
-  const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-  if (!req.file || !allowed.includes(req.file.mimetype))
-    return res.status(400).json({ success: false, message: "PDF or Word file required" });
+  if (!req.file || req.file.mimetype !== "application/pdf")
+    return res.status(400).json({ success: false, message: "PDF files only" });
   try {
     const existing = await Instructor.findById(req.instructor.id).select("resumePublicId").lean();
     if (existing?.resumePublicId) {
@@ -188,23 +187,25 @@ router.post("/me/resume", authenticateInstructor, memUpload.single("resume"), as
   }
 });
 
-router.get("/me/resume-proxy", authenticateInstructor, async (req, res) => {
-  const { url } = req.query;
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  if (!url || !url.startsWith(`https://res.cloudinary.com/${cloudName}/`))
-    return res.status(400).json({ success: false, message: "Invalid URL" });
+router.get("/me/resume-url", authenticateInstructor, async (req, res) => {
   try {
-    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(\?|$)/);
-    if (!match) return res.status(400).json({ success: false, message: "Could not parse public_id" });
+    const instructor = await Instructor.findById(req.instructor.id).select("resumeUrl").lean();
+    if (!instructor?.resumeUrl)
+      return res.status(404).json({ success: false, message: "No resume on file" });
+
+    const match = instructor.resumeUrl.match(/\/upload\/(?:v\d+\/)?(.+?)(\?|$)/);
+    if (!match)
+      return res.status(400).json({ success: false, message: "Could not parse resume URL" });
+
     const signedUrl = cloudinary.utils.private_download_url(match[1], null, {
       resource_type: "raw",
       type: "upload",
       attachment: false,
       expires_at: Math.floor(Date.now() / 1000) + 300,
     });
-    return res.redirect(302, signedUrl);
+    return res.json({ success: true, url: signedUrl });
   } catch {
-    return res.status(502).json({ success: false, message: "Failed to generate signed URL" });
+    return res.status(500).json({ success: false, message: "Failed to generate resume URL" });
   }
 });
 
