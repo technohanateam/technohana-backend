@@ -1220,10 +1220,19 @@ router.post("/training-requirements", authenticateAdmin, requirePage("instructor
     if (!title || !description)
       return res.status(400).json({ success: false, message: "Title and description are required" });
 
-    const requirement = await TrainingRequirement.create({
-      title, description, topic, expertise, deliveryMode, duration, participants, budgetRange,
-      startDate, deadline, location, postedBy: req.admin?.name || "Admin",
-    });
+    const sanitized = {
+      title, description, postedBy: req.admin?.name || "Admin",
+      ...(topic && { topic }),
+      ...(expertise && { expertise }),
+      ...(deliveryMode && { deliveryMode }),
+      ...(duration && { duration }),
+      ...(participants && { participants }),
+      ...(budgetRange && { budgetRange }),
+      ...(location && { location }),
+      ...(startDate && { startDate }),
+      ...(deadline && { deadline }),
+    };
+    const requirement = await TrainingRequirement.create(sanitized);
 
     // Notify all active instructors — fire and forget so the response returns immediately
     const activeInstructors = await Instructor.find({ isActive: true }).select("name email").lean();

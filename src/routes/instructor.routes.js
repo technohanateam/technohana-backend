@@ -2,6 +2,8 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
 import Instructor from "../models/instructor.js";
 import Course from "../models/course.model.js";
 import { User } from "../models/user.model.js";
@@ -11,6 +13,13 @@ import InstructorApplication from "../models/instructorApplication.model.js";
 import { authenticateInstructor } from "../middleware/authenticateInstructor.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { instructorPasswordResetEmail } from "../utils/emailTemplate.js";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+const uploadMiddleware = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const router = express.Router();
 
@@ -122,7 +131,7 @@ router.get("/me", authenticateInstructor, async (req, res) => {
 
 router.put("/me", authenticateInstructor, async (req, res) => {
   try {
-    const allowed = ["name", "phone", "expertise", "experience", "linkedinUrl", "dailyRate", "availability", "deliveryMode", "certifications", "picture"];
+    const allowed = ["name", "phone", "expertise", "experience", "linkedinUrl", "dailyRate", "availability", "deliveryMode", "certifications", "picture", "coverLetter"];
     const updates = Object.fromEntries(
       Object.entries(req.body).filter(([k]) => allowed.includes(k))
     );
@@ -286,6 +295,45 @@ router.get("/applications", authenticateInstructor, async (req, res) => {
     return res.json({ success: true, data: applications });
   } catch {
     return res.status(500).json({ success: false, message: "Failed to fetch applications" });
+  }
+});
+
+// ── Photo Upload ──────────────────────────────────────────────────────────────
+
+router.post("/me/photo", authenticateInstructor, uploadMiddleware.single("photo"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        { folder: "technohana/instructor-photos", resource_type: "image" },
+        (err, r) => err ? reject(err) : resolve(r)
+      ).end(req.file.buffer);
+    });
+    await Instructor.findByIdAndUpdate(req.instructor.id, { picture: result.secure_url });
+    return res.json({ success: true, url: result.secure_url });
+  } catch {
+    return res.status(500).json({ success: false, message: "Photo upload failed" });
+  }
+});
+
+// ── Resume Upload ─────────────────────────────────────────────────────────────
+
+router.post("/me/resume", authenticateInstructor, uploadMiddleware.single("resume"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        { folder: "technohana/instructor-resumes", resource_type: "raw", use_filename: true },
+        (err, r) => err ? reject(err) : resolve(r)
+      ).end(req.file.buffer);
+    });
+    await Instructor.findByIdAndUpdate(req.instructor.id, {
+      resumeUrl: result.secure_url,
+      resumePublicId: result.public_id,
+    });
+    return res.json({ success: true, url: result.secure_url });
+  } catch {
+    return res.status(500).json({ success: false, message: "Resume upload failed" });
   }
 });
 
