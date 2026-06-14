@@ -337,4 +337,25 @@ router.post("/me/resume", authenticateInstructor, uploadMiddleware.single("resum
   }
 });
 
+// ── Resume Proxy ──────────────────────────────────────────────────────────────
+
+router.get("/me/resume-proxy", authenticateInstructor, async (req, res) => {
+  const { url } = req.query;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  if (!url || !url.startsWith(`https://res.cloudinary.com/${cloudName}/`))
+    return res.status(400).json({ success: false, message: "Invalid URL" });
+  try {
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(\?|$)/);
+    if (!match) return res.status(400).json({ success: false, message: "Cannot parse URL" });
+    const signedUrl = cloudinary.utils.private_download_url(match[1], null, {
+      resource_type: "raw",
+      type: "upload",
+      expires_at: Math.floor(Date.now() / 1000) + 300,
+    });
+    return res.redirect(302, signedUrl);
+  } catch {
+    return res.status(502).json({ success: false, message: "Failed to proxy resume" });
+  }
+});
+
 export default router;
