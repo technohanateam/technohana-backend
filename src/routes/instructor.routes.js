@@ -2,6 +2,8 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
 import Instructor from "../models/instructor.js";
 import Course from "../models/course.model.js";
 import { User } from "../models/user.model.js";
@@ -11,6 +13,8 @@ import InstructorApplication from "../models/instructorApplication.model.js";
 import { authenticateInstructor } from "../middleware/authenticateInstructor.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { instructorPasswordResetEmail } from "../utils/emailTemplate.js";
+
+const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = express.Router();
 
@@ -134,6 +138,73 @@ router.put("/me", authenticateInstructor, async (req, res) => {
     return res.json({ success: true, data: instructor });
   } catch {
     return res.status(500).json({ success: false, message: "Failed to update profile" });
+  }
+});
+
+// ── File Uploads ──────────────────────────────────────────────────────────────
+
+router.post("/me/photo", authenticateInstructor, memUpload.single("photo"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
+  if (!req.file.mimetype.startsWith("image/"))
+    return res.status(400).json({ success: false, message: "Image files only" });
+  try {
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "technohana/instructor-photos", resource_type: "image" },
+        (err, r) => (err ? reject(err) : resolve(r))
+      );
+      stream.end(req.file.buffer);
+    });
+    await Instructor.findByIdAndUpdate(req.instructor.id, { picture: result.secure_url });
+    return res.json({ success: true, url: result.secure_url });
+  } catch {
+    return res.status(500).json({ success: false, message: "Upload failed" });
+  }
+});
+
+router.post("/me/resume", authenticateInstructor, memUpload.single("resume"), async (req, res) => {
+  const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+  if (!req.file || !allowed.includes(req.file.mimetype))
+    return res.status(400).json({ success: false, message: "PDF or Word file required" });
+  try {
+    const existing = await Instructor.findById(req.instructor.id).select("resumePublicId").lean();
+    if (existing?.resumePublicId) {
+      cloudinary.uploader.destroy(existing.resumePublicId, { resource_type: "raw" }).catch(() => {});
+    }
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "technohana/instructor-resumes", resource_type: "raw" },
+        (err, r) => (err ? reject(err) : resolve(r))
+      );
+      stream.end(req.file.buffer);
+    });
+    await Instructor.findByIdAndUpdate(req.instructor.id, {
+      resumeUrl: result.secure_url,
+      resumePublicId: result.public_id,
+    });
+    return res.json({ success: true, url: result.secure_url });
+  } catch {
+    return res.status(500).json({ success: false, message: "Upload failed" });
+  }
+});
+
+router.get("/me/resume-proxy", authenticateInstructor, async (req, res) => {
+  const { url } = req.query;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  if (!url || !url.startsWith(`https://res.cloudinary.com/${cloudName}/`))
+    return res.status(400).json({ success: false, message: "Invalid URL" });
+  try {
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(\?|$)/);
+    if (!match) return res.status(400).json({ success: false, message: "Could not parse public_id" });
+    const signedUrl = cloudinary.utils.private_download_url(match[1], null, {
+      resource_type: "raw",
+      type: "upload",
+      attachment: false,
+      expires_at: Math.floor(Date.now() / 1000) + 300,
+    });
+    return res.redirect(302, signedUrl);
+  } catch {
+    return res.status(502).json({ success: false, message: "Failed to generate signed URL" });
   }
 });
 
