@@ -323,8 +323,10 @@ router.get("/pipeline-stats", authenticateAdmin, async (req, res) => {
 // GET /admin/testimonials?page=1&limit=20&status=pending
 router.get("/testimonials", authenticateAdmin, requirePage("testimonials"), async (req, res) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
-    const filter = status && status !== "all" ? { status } : {};
+    const { page = 1, limit = 20, status, serviceType } = req.query;
+    const filter = {};
+    if (status && status !== "all") filter.status = status;
+    if (serviceType && serviceType !== "all") filter.serviceType = serviceType;
     const skip = (Number(page) - 1) * Number(limit);
     const [data, total] = await Promise.all([
       Testimonial.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),

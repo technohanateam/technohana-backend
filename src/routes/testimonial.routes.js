@@ -6,11 +6,11 @@ const router = express.Router();
 // POST /testimonial — public submission
 router.post("/testimonial", async (req, res) => {
   try {
-    const { name, email, courseTitle, rating, review, linkedinUrl, canPublish } = req.body;
+    const { name, email, courseTitle, rating, review, linkedinUrl, canPublish, serviceType } = req.body;
     if (!name || !email || !courseTitle || !rating || !review) {
       return res.status(400).json({ message: "All required fields must be filled." });
     }
-    const t = new Testimonial({ name, email, courseTitle, rating, review, linkedinUrl, canPublish });
+    const t = new Testimonial({ name, email, courseTitle, rating, review, linkedinUrl, canPublish, serviceType });
     await t.save();
     return res.status(201).json({ message: "Thank you! Your testimonial has been submitted for review." });
   } catch (err) {

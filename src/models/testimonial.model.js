@@ -8,6 +8,7 @@ const testimonialSchema = new mongoose.Schema({
   review: { type: String, required: true },
   linkedinUrl: { type: String, default: "" },
   canPublish: { type: Boolean, default: false },
+  serviceType: { type: String, enum: ["training", "consultancy"], default: "training" },
   status: {
     type: String,
     enum: ["pending", "approved", "rejected"],
