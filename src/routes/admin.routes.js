@@ -1224,7 +1224,7 @@ router.post("/training-requirements", authenticateAdmin, requirePage("instructor
       title, description, postedBy: req.admin?.name || "Admin",
       ...(topic && { topic }),
       ...(expertise && { expertise }),
-      ...(deliveryMode && { deliveryMode }),
+      ...(deliveryMode && { deliveryMode: deliveryMode.toLowerCase() }),
       ...(duration && { duration }),
       ...(participants && { participants }),
       ...(budgetRange && { budgetRange }),
