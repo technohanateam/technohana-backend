@@ -576,15 +576,22 @@ export function generateDay7Email({ name, courseTitle }) {
 
 // ─── PERSONA LEAD — Lead Magnet Delivery (user) ───────────────────────────────
 
-export function generateLeadMagnetEmail({ name, persona }) {
+export function generateLeadMagnetEmail({ name, persona, downloadUrl }) {
   const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const fullDownloadUrl = downloadUrl ? `${frontendUrl}${downloadUrl}` : null;
   const body = `
-    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Your free resource is on the way, ${name}!</h2>
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Your free resource is ready, ${name}!</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
-      Thanks for requesting TechnoHana's AI resources for <strong style="color:#1e293b;">${persona}</strong>. Our team will be in touch with your download link within a few minutes.
+      Thanks for requesting TechnoHana's AI resources for <strong style="color:#1e293b;">${persona}</strong>. Your download is ready below.
     </p>
+    ${fullDownloadUrl ? `
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${fullDownloadUrl}" style="display:inline-block;background:#FF6B35;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:10px;">
+        Download your free guide →
+      </a>
+    </div>` : ''}
     <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#FF6B35;text-transform:uppercase;letter-spacing:1px;">While you wait</p>
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#FF6B35;text-transform:uppercase;letter-spacing:1px;">While you're here</p>
       <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.6;">
         Browse our full AI learning catalog — practical courses built for your role, not generic overviews.
       </p>

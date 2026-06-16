@@ -3,7 +3,7 @@ import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateLeadMagnetEmail, generateLeadAdminEmail } from "../utils/emailTemplate.js";
 
 export const capturePersonaLead = async (req, res) => {
-  const { name, email, persona, utm = {} } = req.body;
+  const { name, email, persona, downloadUrl, utm = {} } = req.body;
 
   if (!name || !email || !persona) {
     return res.status(400).json({ success: false, message: "Name, email, and persona are required." });
@@ -24,7 +24,7 @@ export const capturePersonaLead = async (req, res) => {
         from: fromAddresses.connect,
         to: email,
         subject: `Your free resource from Technohana is here, ${name}`,
-        html: generateLeadMagnetEmail({ name, persona }),
+        html: generateLeadMagnetEmail({ name, persona, downloadUrl }),
       }),
     ]).catch((err) => console.error("Lead emails failed (lead already saved):", err));
 
