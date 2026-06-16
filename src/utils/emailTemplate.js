@@ -576,30 +576,93 @@ export function generateDay7Email({ name, courseTitle }) {
 
 // ─── PERSONA LEAD — Lead Magnet Delivery (user) ───────────────────────────────
 
+const PERSONA_GUIDE_NAMES = {
+  healthcare:      'Healthcare AI Use Case Guide',
+  freelancers:     'Freelancer AI Workflow Starter',
+  'real-estate':   'Real Estate AI Starter Kit',
+  coaches:         "Coach's AI Advantage",
+  'small-business':'Small Business AI Hour Saver',
+  executives:      'Executive AI Briefing',
+  finance:         'Finance AI Starter Guide',
+  legal:           'Legal AI Starter Guide',
+  marketing:       'Marketing AI Starter Guide',
+};
+
+const PERSONA_HIGHLIGHTS = {
+  healthcare:      ['Clinical note drafting with AI', 'Patient communication templates', 'Compliant tools you can use this week'],
+  freelancers:     ['AI proposal writing in minutes', 'Client onboarding automation', 'Delivery workflow templates by service type'],
+  'real-estate':   ['AI listing description writer', 'CRM follow-up automation', 'Lead qualification prompts'],
+  coaches:         ['AI-powered client prep in minutes', 'Session documentation templates', 'Frameworks for AI-enhanced delivery'],
+  'small-business':['Customer communication automation', 'Social content generation', 'Tools that save 5+ hours a week'],
+  executives:      ['AI governance frameworks', 'Team adoption playbooks', 'Board-ready AI strategy language'],
+  finance:         ['Month-end close acceleration', 'AI for variance analysis and forecasting', 'Compliant audit prep tools'],
+  legal:           ['AI-assisted contract review', 'Due diligence research automation', 'Regulatory monitoring workflows'],
+  marketing:       ['AI content production system', 'Campaign performance AI', 'Customer segmentation prompts'],
+};
+
+const PERSONA_LABELS = {
+  healthcare:      'Healthcare Professionals',
+  freelancers:     'Freelancers & Solopreneurs',
+  'real-estate':   'Real Estate Agents & Brokers',
+  coaches:         'Coaches & Consultants',
+  'small-business':'Small Business Owners',
+  executives:      'Executives & Corporate Professionals',
+  finance:         'Finance & Accounting Professionals',
+  legal:           'Legal & Compliance Professionals',
+  marketing:       'Marketing & Growth Professionals',
+};
+
 export function generateLeadMagnetEmail({ name, persona, downloadUrl }) {
   const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
   const fullDownloadUrl = downloadUrl ? `${frontendUrl}${downloadUrl}` : null;
+  const guideName = PERSONA_GUIDE_NAMES[persona] || 'Your Free Guide';
+  const highlights = PERSONA_HIGHLIGHTS[persona] || ['Practical AI applications', 'Ready to use this week', 'No technical skills required'];
+  const personaLabel = PERSONA_LABELS[persona] || persona;
+
   const body = `
-    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Your free resource is ready, ${name}!</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
-      Thanks for requesting TechnoHana's AI resources for <strong style="color:#1e293b;">${persona}</strong>. Your download is ready below.
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;font-weight:700;">Your guide is ready, ${name}! &#10003;</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
+      You requested TechnoHana's free resource for <strong style="color:#1e293b;">${personaLabel}</strong>. Your download is one click away.
     </p>
+
+    <!-- Guide name box -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #8B5CF6;border-radius:10px;background:#faf5ff;margin-bottom:20px;">
+      <tr>
+        <td style="padding:16px 20px;">
+          <table cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:28px;padding-right:14px;vertical-align:middle;">&#128196;</td>
+              <td style="vertical-align:middle;">
+                <p style="margin:0 0 2px;font-size:15px;font-weight:700;color:#4C1D95;">${guideName}</p>
+                <p style="margin:0;font-size:12px;color:#7C3AED;">Free &middot; Instant download</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Download button -->
     ${fullDownloadUrl ? `
-    <div style="text-align:center;margin-bottom:24px;">
-      <a href="${fullDownloadUrl}" style="display:inline-block;background:#FF6B35;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:10px;">
-        Download your free guide →
+    <div style="text-align:center;margin-bottom:28px;">
+      <a href="${fullDownloadUrl}" style="display:block;background:#8B5CF6;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:16px 32px;border-radius:10px;text-align:center;">
+        Download ${guideName} &#8594;
       </a>
     </div>` : ''}
-    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#FF6B35;text-transform:uppercase;letter-spacing:1px;">While you're here</p>
-      <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.6;">
-        Browse our full AI learning catalog — practical courses built for your role, not generic overviews.
-      </p>
-    </div>
-    ${ctaButton('Explore AI Courses →', `${frontendUrl}/courses`)}
-    <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">
-      Questions? Reply to this email or reach us at <a href="mailto:connect@technohana.in" style="color:#FF6B35;text-decoration:none;">connect@technohana.in</a>
-    </p>`;
+
+    <!-- What's inside -->
+    <p style="margin:0 0 12px;font-size:12px;font-weight:700;color:#2EC4B6;text-transform:uppercase;letter-spacing:1px;">What's inside</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+      ${highlights.map(h => `
+      <tr>
+        <td style="padding:5px 0;vertical-align:top;">
+          <span style="color:#8B5CF6;font-weight:700;margin-right:10px;">&#10003;</span><span style="font-size:14px;color:#1e293b;">${h}</span>
+        </td>
+      </tr>`).join('')}
+    </table>
+
+    <!-- Secondary CTA -->
+    ${ctaButton('Explore AI Courses &#8594;', `${frontendUrl}/courses`)}`;
 
   return emailShell({ label: 'Your Free Resource · Technohana', body });
 }
