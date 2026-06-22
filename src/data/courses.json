@@ -19,7 +19,7 @@
         "courseModules": "12 Modules",
         "noStudents": "10",
         "instructor": "AI Deployment Experts",
-        "price": 199999,
+        "price": 139999,
         "language": "English",
         "difficulty": "Advanced",
         "rating": "N/A",
@@ -198,11 +198,11 @@
         ],
         "categoryGroup": "AI & Generative AI",
         "prices": {
-            "inr": 199999,
-            "usd": 2599,
-            "aed": 11119,
-            "gbp": 2309,
-            "eur": 2749
+            "inr": 139999,
+            "usd": 1819,
+            "aed": 7783,
+            "gbp": 1616,
+            "eur": 1924
         }
     },
     {
