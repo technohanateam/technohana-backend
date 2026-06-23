@@ -785,6 +785,130 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
   }
 });
 
+// POST /admin/blogs/bulk-publish — set published status on multiple blogs at once
+router.post("/blogs/bulk-publish", authenticateAdmin, requirePage("blogs"), requireMarketing, async (req, res) => {
+  try {
+    const { ids, published } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: "ids array is required." });
+    if (typeof published !== "boolean") return res.status(400).json({ message: "published must be a boolean." });
+    const result = await Blogs.updateMany({ _id: { $in: ids } }, { $set: { published } });
+    return res.json({ success: true, updated: result.modifiedCount });
+  } catch (err) {
+    console.error("Bulk publish error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/blogs/bulk-delete — delete multiple blogs at once
+router.post("/blogs/bulk-delete", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: "ids array is required." });
+    const result = await Blogs.deleteMany({ _id: { $in: ids } });
+    return res.json({ success: true, deleted: result.deletedCount });
+  } catch (err) {
+    console.error("Bulk delete error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/blogs/auto-seo — AI-fill SEO fields for a single blog
+router.post("/blogs/auto-seo", authenticateAdmin, requirePage("blogs"), requireMarketing, async (req, res) => {
+  try {
+    const { _id, title, content, category } = req.body;
+    if (!_id || !title) return res.status(400).json({ message: "_id and title are required." });
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return res.status(503).json({ message: "ANTHROPIC_API_KEY not configured." });
+
+    const plainText = (content || "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<\/?[^>]+(>|$)/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 2000);
+
+    const prompt = `You are an SEO specialist. Given the blog post below, generate concise SEO metadata.
+
+Title: ${title}
+Category: ${category || "Technology"}
+Content snippet: ${plainText}
+
+Return ONLY a valid JSON object with these exact keys:
+- "metaTitle": 50–60 characters, includes the focus keyword, compelling
+- "metaDescription": 140–160 characters, includes focus keyword and a benefit
+- "excerpt": 2–3 sentence summary of the post (aim for 140–160 characters)
+- "focusKeyword": primary SEO keyword phrase, 2–4 words
+
+No markdown, no code fences, just the JSON object.`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 512,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      signal: AbortSignal.timeout(25000),
+    });
+
+    const data = await response.json();
+    const raw = data.content?.find((b) => b.type === "text")?.text?.trim() || "";
+    let seoFields;
+    try {
+      seoFields = JSON.parse(raw);
+    } catch {
+      const match = raw.match(/\{[\s\S]*\}/);
+      seoFields = match ? JSON.parse(match[0]) : null;
+    }
+    if (!seoFields) return res.status(500).json({ message: "Failed to parse AI SEO response.", raw });
+
+    const updated = await Blogs.findByIdAndUpdate(
+      _id,
+      { $set: { metaTitle: seoFields.metaTitle || "", metaDescription: seoFields.metaDescription || "", excerpt: seoFields.excerpt || "", focusKeyword: seoFields.focusKeyword || "" } },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: "Blog not found." });
+    return res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error("Auto-SEO error:", err);
+    return res.status(500).json({ message: "Failed to generate SEO fields.", detail: err.message });
+  }
+});
+
+// POST /admin/blogs/auto-schedule — spread draft blogs across upcoming dates
+router.post("/blogs/auto-schedule", authenticateAdmin, requirePage("blogs"), requireMarketing, async (req, res) => {
+  try {
+    const { startDate, intervalDays } = req.body;
+    if (!startDate) return res.status(400).json({ message: "startDate is required." });
+    const interval = parseInt(intervalDays, 10) || 7;
+    if (![1, 7, 14].includes(interval)) return res.status(400).json({ message: "intervalDays must be 1, 7, or 14." });
+
+    const drafts = await Blogs.find({ published: false }).sort({ _id: 1 }).lean();
+    if (drafts.length === 0) return res.json({ success: true, scheduled: 0, dates: [] });
+
+    const base = new Date(startDate);
+    const bulkOps = drafts.map((blog, i) => {
+      const scheduledAt = new Date(base.getTime() + i * interval * 24 * 60 * 60 * 1000);
+      return {
+        updateOne: {
+          filter: { _id: blog._id },
+          update: { $set: { published: true, scheduledAt } },
+        },
+      };
+    });
+
+    await Blogs.bulkWrite(bulkOps);
+    const dates = drafts.map((_, i) => new Date(base.getTime() + i * interval * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+    return res.json({ success: true, scheduled: drafts.length, dates });
+  } catch (err) {
+    console.error("Auto-schedule error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 // ─── Courses ──────────────────────────────────────────────────────────────────
 
 // GET /admin/courses?category=&search=&page=1&limit=20
