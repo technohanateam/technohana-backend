@@ -884,7 +884,7 @@ router.post("/blogs/auto-schedule", authenticateAdmin, requirePage("blogs"), req
     const { startDate, intervalDays } = req.body;
     if (!startDate) return res.status(400).json({ message: "startDate is required." });
     const interval = parseInt(intervalDays, 10) || 7;
-    if (![1, 7, 14].includes(interval)) return res.status(400).json({ message: "intervalDays must be 1, 7, or 14." });
+    if (!interval || interval < 1 || interval > 365) return res.status(400).json({ message: "intervalDays must be between 1 and 365." });
 
     const drafts = await Blogs.find({ published: false }).sort({ _id: 1 }).lean();
     if (drafts.length === 0) return res.json({ success: true, scheduled: 0, dates: [] });
