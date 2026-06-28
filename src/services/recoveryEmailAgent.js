@@ -36,8 +36,19 @@ function sanitizeBodyHtml(html) {
 
 // Generates a personalized recovery email for an abandoned enrollment.
 // Returns { subject, html } or null — callers fall back to the static template.
+// Caches the generated email on the user document for 24 h to avoid redundant API calls.
 export async function generateRecoveryEmail(user) {
   try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    if (
+      user.aiRecoveryEmailCachedAt &&
+      user.aiRecoveryEmailCachedAt > twentyFourHoursAgo &&
+      user.aiRecoveryEmailSubject &&
+      user.aiRecoveryEmailHtml
+    ) {
+      return { subject: user.aiRecoveryEmailSubject, html: user.aiRecoveryEmailHtml };
+    }
+
     const formData = user.enrollmentFormData || {};
     const currency = formData.currency || user.currency || "INR";
     const coupons = await findRelevantCoupons(currency);
@@ -64,10 +75,17 @@ export async function generateRecoveryEmail(user) {
     const { subject, bodyHtml } = extractJson(raw);
     if (!subject || !bodyHtml) return null;
 
-    return {
+    const result = {
       subject: String(subject).slice(0, 150),
       html: generateAiRecoveryEmail({ bodyHtml: sanitizeBodyHtml(bodyHtml) }),
     };
+
+    user.aiRecoveryEmailSubject = result.subject;
+    user.aiRecoveryEmailHtml = result.html;
+    user.aiRecoveryEmailCachedAt = new Date();
+    await user.save();
+
+    return result;
   } catch (err) {
     console.error("[RecoveryAgent] Falling back to static template:", err.message);
     return null;

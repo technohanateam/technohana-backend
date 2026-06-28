@@ -15,13 +15,15 @@ function getClient() {
   return client;
 }
 
-export async function callClaude({ system, prompt, maxTokens = 1024 }) {
-  const response = await getClient().messages.create({
-    model: "claude-sonnet-4-6",
+export async function callClaude({ system, prompt, maxTokens = 1024, model = "claude-sonnet-4-6" }) {
+  const response = await getClient().beta.promptCaching.messages.create({
+    model,
     max_tokens: maxTokens,
-    system,
+    system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: prompt }],
   });
+  const u = response.usage;
+  console.log(`[AI] model=${model} in=${u.input_tokens} out=${u.output_tokens} cache_read=${u.cache_read_input_tokens ?? 0} cache_write=${u.cache_creation_input_tokens ?? 0}`);
   return response.content.find((b) => b.type === "text")?.text ?? "";
 }
 

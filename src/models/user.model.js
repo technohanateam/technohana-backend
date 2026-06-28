@@ -169,6 +169,9 @@ const userSchema = new Schema({
         type: Boolean,
         default: false
     },
+    aiRecoveryEmailSubject: { type: String },
+    aiRecoveryEmailHtml: { type: String },
+    aiRecoveryEmailCachedAt: { type: Date, sparse: true },
     utm: { type: Object }
 })
 
