@@ -14,8 +14,6 @@ export const getContacts = async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const skip = (page - 1) * limit;
-    const { search, type, aiBand } = req.query;
-
     const pipeline = [
       // ── Normalize Lead docs ──────────────────────────────────────────────────
       {
@@ -145,9 +143,16 @@ export const getContacts = async (req, res) => {
     ];
 
     // ── Filters (post-group) ─────────────────────────────────────────────────
+    const { search, type, aiBand, followupToday } = req.query;
     const matchStage = {};
     if (type && type !== "all") matchStage.type = type;
     if (aiBand && aiBand !== "all") matchStage.aiScoreBand = aiBand;
+    if (followupToday === "true") {
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const startOfTomorrow = new Date(startOfToday.getTime() + 86400000);
+      matchStage.nextFollowUp = { $gte: startOfToday, $lt: startOfTomorrow };
+    }
     if (search) {
       const rx = new RegExp(escapeRegex(search), "i");
       matchStage.$or = [{ email: rx }, { name: rx }, { company: rx }];
@@ -190,6 +195,42 @@ export const getContacts = async (req, res) => {
   } catch (err) {
     console.error("getContacts error:", err);
     return res.status(500).json({ success: false, message: "Failed to fetch contacts" });
+  }
+};
+
+export const getCRMStats = async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfTomorrow = new Date(startOfToday.getTime() + 86400000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
+
+    const [totalResult, hotLeads, followupToday, leadsThisWeek, enquiriesThisWeek] = await Promise.all([
+      Lead.aggregate([
+        { $project: { email: { $toLower: "$email" } } },
+        { $unionWith: { coll: "enquiries", pipeline: [{ $project: { email: { $toLower: "$email" } } }] } },
+        { $unionWith: { coll: "users", pipeline: [{ $project: { email: { $toLower: "$email" } } }] } },
+        { $group: { _id: "$email" } },
+        { $count: "count" },
+      ]),
+      Enquiry.countDocuments({ aiScoreBand: "hot" }),
+      Enquiry.countDocuments({ nextFollowUp: { $gte: startOfToday, $lt: startOfTomorrow } }),
+      Lead.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+      Enquiry.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        total: totalResult[0]?.count ?? 0,
+        hotLeads,
+        followupToday,
+        newThisWeek: leadsThisWeek + enquiriesThisWeek,
+      },
+    });
+  } catch (err) {
+    console.error("getCRMStats error:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch CRM stats" });
   }
 };
 

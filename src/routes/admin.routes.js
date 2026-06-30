@@ -19,7 +19,7 @@ import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "
 import { adminLogin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
-import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
+import { getContacts, getContactProfile, getCRMStats } from "../controllers/crm.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
 import Campaign from "../models/campaign.model.js";
@@ -1494,7 +1494,8 @@ router.put("/proposals/:id",     authenticateAdmin, updateProposal);
 router.delete("/proposals/:id",  authenticateAdmin, deleteProposal);
 
 // ─── CRM Contacts ─────────────────────────────────────────────────────────────
-router.get("/contacts",       authenticateAdmin, requirePage("crm"), getContacts);
+router.get("/contacts/stats",  authenticateAdmin, requirePage("crm"), getCRMStats);
+router.get("/contacts",        authenticateAdmin, requirePage("crm"), getContacts);
 router.get("/contacts/:email", authenticateAdmin, requirePage("crm"), getContactProfile);
 
 export default router;
