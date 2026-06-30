@@ -25,6 +25,7 @@ export const ADMIN_PAGES = [
   "prompt-editor",
   "analytics",
   "ai-risk-reports",
+  "crm",
 ];
 
 export const ADMIN_ROLES = ["admin", "sales", "marketing"];
@@ -44,6 +45,7 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "referrals",
     "analytics",
     "ai-risk-reports",
+    "crm",
   ],
   marketing: [
     "marketing-overview",
