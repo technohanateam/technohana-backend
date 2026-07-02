@@ -2,6 +2,7 @@ import Campaign from "../models/campaign.model.js";
 import { Resend } from "resend";
 import { getSegmentedUsers } from "../utils/segmentationEngine.js";
 import { scheduleCampaignJob, getQueueStats } from "../services/campaignQueue.js";
+import { buildRegexQuery } from "../utils/escapeRegex.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -15,7 +16,10 @@ export const getAllCampaigns = async (req, res) => {
 
     const filter = {};
     if (search) {
-      filter.$or = [{ name: { $regex: search, $options: "i" } }];
+      const regex = buildRegexQuery(search);
+      if (regex) {
+        filter.$or = [{ name: regex }];
+      }
     }
     if (status) {
       filter.status = status;

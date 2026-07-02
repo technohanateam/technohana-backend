@@ -1,5 +1,6 @@
 import Proposal from '../models/proposal.model.js';
 import { computeQuote, applyManualDiscount } from '../utils/pricing.js';
+import { buildRegexQuery } from '../utils/escapeRegex.js';
 
 const generateRefNum = () =>
   `TH-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`;
@@ -146,12 +147,15 @@ export const getProposals = async (req, res) => {
 
     const filter = {};
     if (search) {
-      filter.$or = [
-        { refNum: { $regex: search, $options: 'i' } },
-        { 'client.name': { $regex: search, $options: 'i' } },
-        { 'client.company': { $regex: search, $options: 'i' } },
-        { 'client.email': { $regex: search, $options: 'i' } },
-      ];
+      const regex = buildRegexQuery(search);
+      if (regex) {
+        filter.$or = [
+          { refNum: regex },
+          { 'client.name': regex },
+          { 'client.company': regex },
+          { 'client.email': regex },
+        ];
+      }
     }
     if (status) filter.status = status;
 

@@ -1,4 +1,5 @@
 import { User } from "../models/user.model.js";
+import { buildRegexQuery } from "./escapeRegex.js";
 
 /**
  * Segmentation engine for email campaigns
@@ -185,7 +186,10 @@ export const applyCustomFilters = async (filters = [], options = {}) => {
           query[field] = { $lte: value };
           break;
         case "regex":
-          query[field] = { $regex: value, $options: "i" };
+          const regex = buildRegexQuery(value);
+          if (regex) {
+            query[field] = regex;
+          }
           break;
         case "in":
           query[field] = { $in: Array.isArray(value) ? value : [value] };

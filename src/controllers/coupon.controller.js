@@ -1,4 +1,5 @@
 import Coupon from "../models/coupon.model.js"
+import { buildRegexQuery } from "../utils/escapeRegex.js"
 
 // Get all coupons with optional search and filtering
 export const getAllCoupons = async (req, res) => {
@@ -11,10 +12,13 @@ export const getAllCoupons = async (req, res) => {
     // Build filter
     const filter = {}
     if (search) {
-      filter.$or = [
-        { code: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
-      ]
+      const regex = buildRegexQuery(search)
+      if (regex) {
+        filter.$or = [
+          { code: regex },
+          { description: regex }
+        ]
+      }
     }
     if (isActive !== undefined) {
       filter.isActive = isActive === 'true'

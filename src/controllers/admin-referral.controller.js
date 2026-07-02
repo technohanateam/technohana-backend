@@ -1,4 +1,5 @@
 import { User } from "../models/user.model.js";
+import { buildRegexQuery } from "../utils/escapeRegex.js";
 
 // Get comprehensive referral analytics for admin dashboard
 export const getReferralAnalytics = async (req, res) => {
@@ -96,11 +97,14 @@ export const getReferralsList = async (req, res) => {
     };
 
     if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-        { referralCode: { $regex: search, $options: "i" } },
-      ];
+      const regex = buildRegexQuery(search);
+      if (regex) {
+        filter.$or = [
+          { name: regex },
+          { email: regex },
+          { referralCode: regex },
+        ];
+      }
     }
 
     // Determine sort order

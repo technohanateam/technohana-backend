@@ -5,6 +5,7 @@ import path from "path";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { fileURLToPath } from "url";
+import { buildRegexQuery } from "../utils/escapeRegex.js";
 import { User } from "../models/user.model.js";
 import { Order } from "../models/order.model.js";
 import Enquiry from "../models/enquiry.model.js";
@@ -146,11 +147,14 @@ router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), async 
 
     if (status) query.status = status;
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-        { courseTitle: { $regex: search, $options: "i" } },
-      ];
+      const regex = buildRegexQuery(search);
+      if (regex) {
+        query.$or = [
+          { name: regex },
+          { email: regex },
+          { courseTitle: regex },
+        ];
+      }
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -919,11 +923,14 @@ router.get("/courses", authenticateAdmin, requirePage("courses", "quote-generato
     const query = {};
     if (category) query.category = category;
     if (search) {
-      query.$or = [
-        { courseTitle: { $regex: search, $options: "i" } },
-        { instructor: { $regex: search, $options: "i" } },
-        { id: { $regex: search, $options: "i" } },
-      ];
+      const regex = buildRegexQuery(search);
+      if (regex) {
+        query.$or = [
+          { courseTitle: regex },
+          { instructor: regex },
+          { id: regex },
+        ];
+      }
     }
     const skip = (Number(page) - 1) * Number(limit);
     const [data, total] = await Promise.all([
