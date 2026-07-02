@@ -13,7 +13,7 @@ import InstructorApplication from "../models/instructorApplication.model.js";
 import { authenticateInstructor } from "../middleware/authenticateInstructor.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { instructorPasswordResetEmail } from "../utils/emailTemplate.js";
-import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
+import { generateResetToken, verifyResetToken, hashToken } from "../utils/resetTokenUtil.js";
 
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -58,17 +58,11 @@ router.post("/auth/set-password", async (req, res) => {
     if (password.length < 8)
       return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
 
-    const instructors = await Instructor.find({
+    const hash = hashToken(token);
+    const instructor = await Instructor.findOne({
+      resetToken: hash,
       resetTokenExpiry: { $gt: new Date() },
     });
-
-    let instructor = null;
-    for (const inst of instructors) {
-      if (inst.resetToken && verifyResetToken(token, inst.resetToken)) {
-        instructor = inst;
-        break;
-      }
-    }
 
     if (!instructor)
       return res.status(400).json({ success: false, message: "Invalid or expired link" });
