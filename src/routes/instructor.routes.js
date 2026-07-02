@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -13,11 +14,19 @@ import InstructorApplication from "../models/instructorApplication.model.js";
 import { authenticateInstructor } from "../middleware/authenticateInstructor.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { instructorPasswordResetEmail } from "../utils/emailTemplate.js";
-import { generateResetToken, verifyResetToken, hashToken } from "../utils/resetTokenUtil.js";
+import { generateResetToken, hashToken } from "../utils/resetTokenUtil.js";
 
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = express.Router();
+
+const instructorPasswordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per IP address
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many password reset attempts. Please try again after 15 minutes.',
+});
 
 const generateInstructorToken = (instructor) =>
   jwt.sign(
@@ -50,7 +59,7 @@ router.post("/auth/login", async (req, res) => {
   }
 });
 
-router.post("/auth/set-password", async (req, res) => {
+router.post("/auth/set-password", instructorPasswordResetLimiter, async (req, res) => {
   try {
     const { token, password } = req.body;
     if (!token || !password)
@@ -81,7 +90,7 @@ router.post("/auth/set-password", async (req, res) => {
   }
 });
 
-router.post("/auth/forgot-password", async (req, res) => {
+router.post("/auth/forgot-password", instructorPasswordResetLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email)

@@ -49,6 +49,8 @@ const instructorSchema = new Schema({
     picture : { type : String },
 })
 
+instructorSchema.index({ resetToken: 1 });
+
 const Instructor = mongoose.model("Instructor",instructorSchema);
 
 export default Instructor;
