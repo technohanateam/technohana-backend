@@ -13,14 +13,14 @@ const TOKEN_EXPIRY = "8h";
 const signAdminToken = (payload) =>
   jwt.sign(payload, process.env.ADMIN_JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
 
-const matchEnvRole = (email, password) => {
-  if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
+const matchEnvRole = async (email, password) => {
+  if (email === process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD_HASH && await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH)) {
     return "admin";
   }
-  if (process.env.SALES_EMAIL && email === process.env.SALES_EMAIL && password === process.env.SALES_PASSWORD) {
+  if (process.env.SALES_EMAIL && email === process.env.SALES_EMAIL && process.env.SALES_PASSWORD_HASH && await bcrypt.compare(password, process.env.SALES_PASSWORD_HASH)) {
     return "sales";
   }
-  if (process.env.MARKETING_EMAIL && email === process.env.MARKETING_EMAIL && password === process.env.MARKETING_PASSWORD) {
+  if (process.env.MARKETING_EMAIL && email === process.env.MARKETING_EMAIL && process.env.MARKETING_PASSWORD_HASH && await bcrypt.compare(password, process.env.MARKETING_PASSWORD_HASH)) {
     return "marketing";
   }
   return null;
@@ -72,7 +72,7 @@ export const adminLogin = async (req, res) => {
       return res.json({ token, name: dbUser.name, role: dbUser.role });
     }
 
-    const envRole = matchEnvRole(email, password);
+    const envRole = await matchEnvRole(email, password);
     if (!envRole) {
       return res.status(401).json({ message: "Invalid credentials." });
     }
