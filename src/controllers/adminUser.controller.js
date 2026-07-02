@@ -14,13 +14,15 @@ const signAdminToken = (payload) =>
   jwt.sign(payload, process.env.ADMIN_JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
 
 const matchEnvRole = async (email, password) => {
-  if (email === process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD_HASH && await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH)) {
+  const normalizedEmail = String(email).toLowerCase().trim();
+
+  if (normalizedEmail === process.env.ADMIN_EMAIL?.toLowerCase() && process.env.ADMIN_PASSWORD_HASH && await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH)) {
     return "admin";
   }
-  if (process.env.SALES_EMAIL && email === process.env.SALES_EMAIL && process.env.SALES_PASSWORD_HASH && await bcrypt.compare(password, process.env.SALES_PASSWORD_HASH)) {
+  if (process.env.SALES_EMAIL && normalizedEmail === process.env.SALES_EMAIL.toLowerCase() && process.env.SALES_PASSWORD_HASH && await bcrypt.compare(password, process.env.SALES_PASSWORD_HASH)) {
     return "sales";
   }
-  if (process.env.MARKETING_EMAIL && email === process.env.MARKETING_EMAIL && process.env.MARKETING_PASSWORD_HASH && await bcrypt.compare(password, process.env.MARKETING_PASSWORD_HASH)) {
+  if (process.env.MARKETING_EMAIL && normalizedEmail === process.env.MARKETING_EMAIL.toLowerCase() && process.env.MARKETING_PASSWORD_HASH && await bcrypt.compare(password, process.env.MARKETING_PASSWORD_HASH)) {
     return "marketing";
   }
   return null;
