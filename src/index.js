@@ -64,9 +64,15 @@ const allowedOrigins = process.env.WHITELISTED_URLS
 
 const corsOption = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like curl, Postman)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
+    if (!origin) {
+      if (process.env.NODE_ENV === 'production') {
+        return callback(new Error("Origin required in production"));
+      }
+      return callback(null, true);
+    }
+    if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else if (allowedOrigins.length === 0 && process.env.NODE_ENV !== 'production') {
       return callback(null, true);
     } else {
       return callback(new Error("Not allowed by CORS"));
@@ -82,7 +88,6 @@ const corsOption = {
   ],
   credentials: true,
 };
-console.log(process.env.WHITELISTED_URLS);
 app.use(cors(corsOption));
 app.use(express.json());
 // --- Persistent order store via MongoDB (24-hour TTL) ---
