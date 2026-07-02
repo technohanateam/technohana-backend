@@ -109,6 +109,8 @@ Never leak stack traces or internal error details in production responses.
 ```
 MONGO_URI=
 JWT_SECRET=
+ADMIN_JWT_SECRET=
+ENROLLMENT_TOKEN_KEY=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 STRIPE_SECRET=

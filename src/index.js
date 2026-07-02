@@ -16,6 +16,7 @@ import Stripe from "stripe";
 import Razorpay from "razorpay";
 import { sendEmail, fromAddresses } from "./config/emailService.js";
 import { generateEnrollmentDetailsForSales, generatePaymentSuccessEmail, generateAbandonedCartEmail, generateDay3Email, generateDay7Email } from "./utils/emailTemplate.js";
+import { encryptToken } from "./utils/tokenCrypto.js";
 const stripe = new Stripe(process.env.STRIPE_SECRET);
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -653,7 +654,7 @@ app.post('/razorpay/cart-verify', async (req, res) => {
         await Order.create({ ...order, _id: undefined, invoiceNumber, status: 'paid', paidAt, razorpayPaymentId: razorpay_payment_id });
       } catch { /* duplicate, skip */ }
       if (order.couponCode) await incrementCouponUsage(order.couponCode).catch(() => {});
-      const enrollmentToken = Buffer.from(`${orderId}|${order.learner.email}|${paidAt}`).toString('base64');
+      const enrollmentToken = encryptToken({ orderId, email: order.learner.email, paidAt });
       const amountMajorStr = (order.expectedTotalMinor / 100).toFixed(2);
       try {
         const updated = await User.findOneAndUpdate({ orderId }, { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date() }, { new: true });
@@ -720,7 +721,7 @@ app.post('/razorpay/verify', async (req, res) => {
         );
       }
 
-      const enrollmentToken = Buffer.from(`${orderId}|${order.learner.email}|${Date.now()}`).toString('base64');
+      const enrollmentToken = encryptToken({ orderId, email: order.learner.email, timestamp: Date.now() });
       const amountMajorStr = Number.isFinite(Number(order.expectedTotalMinor))
         ? (Number(order.expectedTotalMinor) / 100).toFixed(2)
         : '';
@@ -848,7 +849,7 @@ app.post('/payments/confirm', async (req, res) => {
         if (!firstInvoiceNumber) firstInvoiceNumber = inv;
         try { await Order.create({ ...o, _id: undefined, invoiceNumber: inv, status: 'paid', paidAt }); } catch { /* dup */ }
         if (o.couponCode) await incrementCouponUsage(o.couponCode).catch(() => {});
-        const enrollmentToken = Buffer.from(`${oid}|${o.learner.email}|${paidAt}`).toString('base64');
+        const enrollmentToken = encryptToken({ orderId: oid, email: o.learner.email, paidAt });
         const amtStr = (o.expectedTotalMinor / 100).toFixed(2);
         try {
           const updated = await User.findOneAndUpdate({ orderId: oid }, { status: 'enrolled', price: amtStr, enrollmentToken, enrolledAt: new Date() }, { new: true });
@@ -893,7 +894,7 @@ app.post('/payments/confirm', async (req, res) => {
       }
 
       // Generate enrollment token
-      const enrollmentToken = Buffer.from(`${orderId}|${order.learner.email}|${Date.now()}`).toString('base64');
+      const enrollmentToken = encryptToken({ orderId, email: order.learner.email, timestamp: Date.now() });
 
       // Upgrade the pre-payment lead to enrolled; fallback to create if missing
       try {
