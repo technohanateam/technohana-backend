@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { timingSafeEqual } from 'crypto';
 
 const RESET_TOKEN_SECRET = process.env.RESET_TOKEN_SECRET || 'reset-token-secret';
 
@@ -17,7 +18,11 @@ export const hashToken = (token) => {
 
 export const verifyResetToken = (providedToken, storedHash) => {
   const hash = hashToken(providedToken);
-  return hash === storedHash;
+  try {
+    return timingSafeEqual(Buffer.from(hash), Buffer.from(storedHash));
+  } catch {
+    return false;
+  }
 };
 
 export const getResetTokenLink = (baseUrl, token, expiryMinutes = 60) => {
@@ -43,7 +48,11 @@ export const verifyResetTokenCode = (code, tokenSecret) => {
       .update(payload)
       .digest('hex');
 
-    if (signature !== expectedSignature) return null;
+    try {
+      if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) return null;
+    } catch {
+      return null;
+    }
 
     const [token, timestamp, duration] = payload.split('|');
     const now = Date.now();
