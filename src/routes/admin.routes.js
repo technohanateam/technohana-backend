@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
@@ -38,8 +39,16 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per IP address
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many login attempts. Please try again after 15 minutes.',
+});
+
 // ─── POST /admin/login ────────────────────────────────────────────────────────
-router.post("/login", adminLogin);
+router.post("/login", adminLoginLimiter, adminLogin);
 
 // ─── Admin team user management (admin role only) ─────────────────────────────
 router.get("/users", authenticateAdmin, requireAdmin, requirePage("team"), listAdminUsers);
