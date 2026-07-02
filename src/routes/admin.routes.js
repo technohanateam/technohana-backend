@@ -31,6 +31,7 @@ import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
 import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail } from "../utils/emailTemplate.js";
 import crypto from "crypto";
+import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1300,13 +1301,13 @@ router.patch("/instructors/:id/activate", authenticateAdmin, requirePage("instru
     const instructor = await Instructor.findById(req.params.id);
     if (!instructor) return res.status(404).json({ success: false, message: "Instructor not found" });
 
-    const resetToken = crypto.randomBytes(32).toString("hex");
+    const { token, hash } = generateResetToken();
     await Instructor.findByIdAndUpdate(instructor._id, {
-      resetToken,
+      resetToken: hash,
       resetTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
 
-    const link = `${process.env.FRONTEND_URL}/instructor/set-password?token=${resetToken}`;
+    const link = `${process.env.FRONTEND_URL}/instructor/set-password?token=${token}`;
     await sendEmail({
       from: fromAddresses.careers,
       to: instructor.email,

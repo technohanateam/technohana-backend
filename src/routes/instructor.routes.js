@@ -13,6 +13,7 @@ import InstructorApplication from "../models/instructorApplication.model.js";
 import { authenticateInstructor } from "../middleware/authenticateInstructor.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { instructorPasswordResetEmail } from "../utils/emailTemplate.js";
+import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -57,10 +58,18 @@ router.post("/auth/set-password", async (req, res) => {
     if (password.length < 8)
       return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
 
-    const instructor = await Instructor.findOne({
-      resetToken: token,
+    const instructors = await Instructor.find({
       resetTokenExpiry: { $gt: new Date() },
     });
+
+    let instructor = null;
+    for (const inst of instructors) {
+      if (inst.resetToken && verifyResetToken(token, inst.resetToken)) {
+        instructor = inst;
+        break;
+      }
+    }
+
     if (!instructor)
       return res.status(400).json({ success: false, message: "Invalid or expired link" });
 
@@ -88,13 +97,13 @@ router.post("/auth/forgot-password", async (req, res) => {
     if (!instructor)
       return res.json({ success: true, message: "If an account exists, a reset link has been sent" });
 
-    const resetToken = crypto.randomBytes(32).toString("hex");
+    const { token, hash } = generateResetToken();
     await Instructor.findByIdAndUpdate(instructor._id, {
-      resetToken,
+      resetToken: hash,
       resetTokenExpiry: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
     });
 
-    const resetLink = `${process.env.FRONTEND_URL}/instructor/set-password?token=${resetToken}`;
+    const resetLink = `${process.env.FRONTEND_URL}/instructor/set-password?token=${token}`;
     await sendEmail({
       from: fromAddresses.careers,
       to: instructor.email,
