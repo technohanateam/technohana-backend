@@ -7,7 +7,7 @@ import { authenticateJWT } from '../middleware/authenticateJWT.js';
 const router = express.Router();
 
 router.post('/enroll', enrollUser);
-router.get('/status', getUsersByStatus);
+router.get('/status', authenticateJWT, getUsersByStatus);
 router.get('/enrollments/mine', authenticateJWT, getMyEnrollments);
 
 // Update and delete enrollment

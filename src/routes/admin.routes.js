@@ -1,10 +1,12 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { fileURLToPath } from "url";
+import { buildRegexQuery } from "../utils/escapeRegex.js";
 import { User } from "../models/user.model.js";
 import { Order } from "../models/order.model.js";
 import Enquiry from "../models/enquiry.model.js";
@@ -30,14 +32,23 @@ import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
 import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail } from "../utils/emailTemplate.js";
 import crypto from "crypto";
+import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per IP address
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many login attempts. Please try again after 15 minutes.',
+});
+
 // ─── POST /admin/login ────────────────────────────────────────────────────────
-router.post("/login", adminLogin);
+router.post("/login", adminLoginLimiter, adminLogin);
 
 // ─── Admin team user management (admin role only) ─────────────────────────────
 router.get("/users", authenticateAdmin, requireAdmin, requirePage("team"), listAdminUsers);
@@ -146,11 +157,14 @@ router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), async 
 
     if (status) query.status = status;
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-        { courseTitle: { $regex: search, $options: "i" } },
-      ];
+      const regex = buildRegexQuery(search);
+      if (regex) {
+        query.$or = [
+          { name: regex },
+          { email: regex },
+          { courseTitle: regex },
+        ];
+      }
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -919,11 +933,14 @@ router.get("/courses", authenticateAdmin, requirePage("courses", "quote-generato
     const query = {};
     if (category) query.category = category;
     if (search) {
-      query.$or = [
-        { courseTitle: { $regex: search, $options: "i" } },
-        { instructor: { $regex: search, $options: "i" } },
-        { id: { $regex: search, $options: "i" } },
-      ];
+      const regex = buildRegexQuery(search);
+      if (regex) {
+        query.$or = [
+          { courseTitle: regex },
+          { instructor: regex },
+          { id: regex },
+        ];
+      }
     }
     const skip = (Number(page) - 1) * Number(limit);
     const [data, total] = await Promise.all([
@@ -1293,13 +1310,13 @@ router.patch("/instructors/:id/activate", authenticateAdmin, requirePage("instru
     const instructor = await Instructor.findById(req.params.id);
     if (!instructor) return res.status(404).json({ success: false, message: "Instructor not found" });
 
-    const resetToken = crypto.randomBytes(32).toString("hex");
+    const { token, hash } = generateResetToken();
     await Instructor.findByIdAndUpdate(instructor._id, {
-      resetToken,
+      resetToken: hash,
       resetTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
 
-    const link = `${process.env.FRONTEND_URL}/instructor/set-password?token=${resetToken}`;
+    const link = `${process.env.FRONTEND_URL}/instructor/set-password?token=${token}`;
     await sendEmail({
       from: fromAddresses.careers,
       to: instructor.email,

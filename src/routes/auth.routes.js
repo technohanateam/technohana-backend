@@ -2,10 +2,19 @@
 
 import express from "express";
 import passport from "passport";
+import rateLimit from "express-rate-limit";
 import { generateToken, verifyToken } from "../config/jwt.js";
 import { User } from "../models/user.model.js";
 
 const router = express.Router();
+
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: "Too many token refresh requests, please try again later",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // The initial call to Google
 router.get(
@@ -25,7 +34,6 @@ router.get(
     // Redirect back to the frontend with our token
     const frontendUrl = process.env.FRONTEND_URL ||
       (process.env.WHITELISTED_URLS ? process.env.WHITELISTED_URLS.split(',')[0].trim() : '');
-    console.log('Redirecting to:', `${frontendUrl}/auth/callback?token=${token}`);
 
     res.redirect(
       `${frontendUrl}/auth/callback?token=${token}`
@@ -96,7 +104,7 @@ router.put("/kyc", async (req, res) => { // Changed from POST to PUT and simplif
 });
 
 // Refresh JWT token (mobile-friendly)
-router.post("/api/auth/refresh", async (req, res) => {
+router.post("/api/auth/refresh", refreshLimiter, async (req, res) => {
   try {
     const authHeader = req.headers.authorization || "";
     const token = authHeader.startsWith("Bearer ")

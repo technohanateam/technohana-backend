@@ -3,22 +3,29 @@
 import { User } from "../models/user.model.js";
 import { generateEnrollmentConfirmationEmail, generateEnquiryTable } from "../utils/emailTemplate.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
+import { validateEnrollmentForm, sanitizeString } from "../utils/inputValidator.js";
+
 export const enrollUser = async (req, res) => {
     try {
         const { name, email, phone, company, trainingPeriod, specialRequest, trainingLocation, courseTitle, userType, trainingType, price, currency, batchDate, batchTime } = req.body;
+
+        const validation = validateEnrollmentForm({ name, email, phone, company, courseTitle, specialRequest, trainingLocation, price, currency, trainingType });
+        if (!validation.isValid) {
+            return res.status(400).json({ success: false, message: 'Invalid input', errors: validation.errors });
+        }
         const user = await User.create({
-            name,
-            email,
-            phone,
-            company,
-            trainingPeriod,
-            specialRequest,
-            trainingLocation,
-            courseTitle,
-            userType,
+            name: sanitizeString(name),
+            email: email.trim().toLowerCase(),
+            phone: sanitizeString(phone),
+            company: company ? sanitizeString(company) : undefined,
+            trainingPeriod: trainingPeriod ? sanitizeString(trainingPeriod) : undefined,
+            specialRequest: specialRequest ? sanitizeString(specialRequest) : undefined,
+            trainingLocation: trainingLocation ? sanitizeString(trainingLocation) : undefined,
+            courseTitle: sanitizeString(courseTitle),
+            userType: userType ? sanitizeString(userType) : undefined,
             trainingType: trainingType || "individual",
             price: price || "N/A",
-            currency: currency || "INR",
+            currency: (currency || "INR").toUpperCase(),
             batchDate: batchDate || null,
             batchTime: batchTime || null,
         })

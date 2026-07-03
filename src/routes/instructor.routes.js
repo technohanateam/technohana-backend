@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -13,10 +14,19 @@ import InstructorApplication from "../models/instructorApplication.model.js";
 import { authenticateInstructor } from "../middleware/authenticateInstructor.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { instructorPasswordResetEmail } from "../utils/emailTemplate.js";
+import { generateResetToken, hashToken } from "../utils/resetTokenUtil.js";
 
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = express.Router();
+
+const instructorPasswordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per IP address
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many password reset attempts. Please try again after 15 minutes.',
+});
 
 const generateInstructorToken = (instructor) =>
   jwt.sign(
@@ -49,7 +59,7 @@ router.post("/auth/login", async (req, res) => {
   }
 });
 
-router.post("/auth/set-password", async (req, res) => {
+router.post("/auth/set-password", instructorPasswordResetLimiter, async (req, res) => {
   try {
     const { token, password } = req.body;
     if (!token || !password)
@@ -57,10 +67,12 @@ router.post("/auth/set-password", async (req, res) => {
     if (password.length < 8)
       return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
 
+    const hash = hashToken(token);
     const instructor = await Instructor.findOne({
-      resetToken: token,
+      resetToken: hash,
       resetTokenExpiry: { $gt: new Date() },
     });
+
     if (!instructor)
       return res.status(400).json({ success: false, message: "Invalid or expired link" });
 
@@ -78,7 +90,7 @@ router.post("/auth/set-password", async (req, res) => {
   }
 });
 
-router.post("/auth/forgot-password", async (req, res) => {
+router.post("/auth/forgot-password", instructorPasswordResetLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email)
@@ -88,13 +100,13 @@ router.post("/auth/forgot-password", async (req, res) => {
     if (!instructor)
       return res.json({ success: true, message: "If an account exists, a reset link has been sent" });
 
-    const resetToken = crypto.randomBytes(32).toString("hex");
+    const { token, hash } = generateResetToken();
     await Instructor.findByIdAndUpdate(instructor._id, {
-      resetToken,
+      resetToken: hash,
       resetTokenExpiry: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
     });
 
-    const resetLink = `${process.env.FRONTEND_URL}/instructor/set-password?token=${resetToken}`;
+    const resetLink = `${process.env.FRONTEND_URL}/instructor/set-password?token=${token}`;
     await sendEmail({
       from: fromAddresses.careers,
       to: instructor.email,
