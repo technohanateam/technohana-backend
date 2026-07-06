@@ -58,6 +58,12 @@ import { computeQuote } from './utils/pricing.js';
 const app = express();
 app.set('trust proxy', 1); // trust first proxy (Render/Railway/Vercel reverse proxy)
 
+// Health check endpoint — registered before CORS middleware so Railway's
+// server-to-server healthcheck requests (which have no Origin header) are not blocked.
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 const allowedOrigins = process.env.WHITELISTED_URLS
   ? process.env.WHITELISTED_URLS.split(',').map(url => url.trim())
   : [];
@@ -1331,9 +1337,6 @@ setInterval(async () => {
     console.error('[AutoEmail] Post-enrollment check error:', e.message);
   }
 }, 60 * 60 * 1000);
-
-// ─── Health Check ──────────────────────────────────────────────────────────────
-app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 // ─── Server Startup ────────────────────────────────────────────────────────────
 
