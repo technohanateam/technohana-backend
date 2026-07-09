@@ -5239,132 +5239,6 @@
     "categoryGroup": "AI & Generative AI"
   },
   {
-    "id": "AIPLATFORM101",
-    "courseSlug": "claude-api-anthropic-platform-developer-course",
-    "logo": "course_thumb01.jpg",
-    "category": "AI Platforms & APIs",
-    "catdesc": "Build production-ready AI applications using the world's leading AI platforms. These hands-on courses cover the Claude, OpenAI, and Gemini APIs \u2014 teaching you to integrate frontier LLMs into real products with best practices for prompting, safety, tool use, and deployment.",
-    "catcls": "cat-eleven",
-    "courseTitle": "Claude API and Anthropic Platform \u2014 Developer Course",
-    "courseDays": "02 Days",
-    "courseTime": "16 Hours",
-    "courseModules": "07 Modules",
-    "noStudents": "15",
-    "instructor": "Industry Experts",
-    "price": 31999,
-    "language": "English",
-    "difficulty": "Intermediate",
-    "rating": "4.7",
-    "overview": "This developer course provides a comprehensive introduction to building applications with Anthropic's Claude API. Participants will learn the Claude API, master Claude-specific prompting techniques, implement tool use and multi-turn conversations, and apply Claude's safety and Constitutional AI principles to build reliable, production-grade AI applications.",
-    "courseObjective": "Participants will integrate the Claude API into real applications \u2014 covering model selection, prompt design, tool use, vision inputs, streaming, and safety \u2014 using the Anthropic Python and TypeScript SDKs.",
-    "courseOutcomes": "Upon completion, participants will be able to build end-to-end Claude-powered applications, implement tool use and computer use, design effective Claude prompts using XML tags and prefilling, and deploy Claude integrations to production.",
-    "prerequisites": "Python or JavaScript programming experience. Basic understanding of REST APIs. Familiarity with LLMs and prompting concepts.",
-    "labs": "Hands-on labs building a document analysis tool, a multi-turn customer support chatbot, a tool-using research agent, and a streaming content generation API \u2014 all using the Anthropic Python SDK.",
-    "whatWillYouLearn": [
-      "Anthropic model families: Claude 3.5 Sonnet, Claude 3 Opus, and Claude Haiku",
-      "Anthropic Python SDK and TypeScript SDK setup and usage",
-      "Claude-specific prompting: XML tags, system prompts, and assistant prefilling",
-      "Multi-turn conversations with Messages API",
-      "Tool use (function calling) with Claude: defining tools and handling tool results",
-      "Vision inputs: analysing images and documents with Claude",
-      "Streaming responses with server-sent events",
-      "Token counting, cost estimation, and context window management",
-      "Constitutional AI and responsible use of Claude's safety features"
-    ],
-    "requirements": [
-      "Python 3.9+ or Node.js 18+",
-      "Anthropic API key (free trial available)",
-      "Basic REST API and JSON knowledge"
-    ],
-    "targetAudience": [
-      "Developers building Claude-powered applications and products",
-      "AI Engineers integrating Claude into enterprise workflows",
-      "Software Engineers evaluating Claude vs other LLMs",
-      "Technical founders building AI-first products on Claude"
-    ],
-    "modules": [
-      {
-        "moduleTitle": "Module 1: Introduction to Claude and Anthropic",
-        "content": [
-          "Anthropic's mission: safe and beneficial AI",
-          "Claude model family: Haiku, Sonnet, and Opus \u2014 when to use each",
-          "Claude's context window, pricing, and rate limits",
-          "Setting up the Anthropic Python SDK and making your first API call",
-          "Claude vs GPT-4o vs Gemini: key differences"
-        ]
-      },
-      {
-        "moduleTitle": "Module 2: Claude-Specific Prompting Techniques",
-        "content": [
-          "System prompts: persona, instructions, and output formatting",
-          "XML tags for structured inputs: <document>, <instructions>, <example>",
-          "Assistant prefilling: controlling the start of Claude's response",
-          "Long-context prompting: working with Claude's 200K token window",
-          "Lab: Build a document analyst with XML-structured prompts"
-        ]
-      },
-      {
-        "moduleTitle": "Module 3: Messages API and Multi-Turn Conversations",
-        "content": [
-          "Messages API structure: system, user, and assistant roles",
-          "Building stateful multi-turn conversations with history management",
-          "Controlling response length: max_tokens and stop sequences",
-          "Temperature and top-p for creativity vs consistency",
-          "Lab: Build a context-aware customer support chatbot"
-        ]
-      },
-      {
-        "moduleTitle": "Module 4: Tool Use (Function Calling)",
-        "content": [
-          "Tool use overview: how Claude decides when and how to call tools",
-          "Defining tools: name, description, and input_schema",
-          "Handling tool_use blocks and returning tool_result content",
-          "Parallel tool calls and multi-tool workflows",
-          "Lab: Build a research agent with web search and calculator tools"
-        ]
-      },
-      {
-        "moduleTitle": "Module 5: Vision and Document Analysis",
-        "content": [
-          "Sending images to Claude: base64 and URL-referenced images",
-          "Document analysis with PDFs and multi-page documents",
-          "Vision use cases: chart interpretation, OCR, and UI analysis",
-          "Claude's computer use capability overview",
-          "Lab: Build an invoice data extraction tool with vision"
-        ]
-      },
-      {
-        "moduleTitle": "Module 6: Streaming and Production Patterns",
-        "content": [
-          "Streaming with server-sent events and the stream helper",
-          "Handling streaming tool use and partial JSON",
-          "Token counting API for cost estimation before sending requests",
-          "Prompt caching for reducing latency and cost on repeated context",
-          "Error handling: rate limits, overload errors, and retries",
-          "Lab: Build a streaming content generation API with FastAPI"
-        ]
-      },
-      {
-        "moduleTitle": "Module 7: Safety, Evaluation, and Deployment",
-        "content": [
-          "Constitutional AI and Claude's safety training principles",
-          "Handling refusals and steering Claude with clear instructions",
-          "Evaluating Claude outputs: building automated eval pipelines",
-          "Production checklist: logging, monitoring, and cost controls",
-          "Lab: Full-stack Claude app \u2014 from prompt design to deployed API"
-        ]
-      }
-    ],
-    "prices": {
-      "inr": 31999,
-      "usd": 419,
-      "aed": 1779,
-      "gbp": 369,
-      "eur": 439
-    },
-    "categoryGroup": "AI & Generative AI"
-  },
-  {
     "id": "AIPLATFORM102",
     "courseSlug": "openai-api-developer-bootcamp",
     "logo": "course_thumb01.jpg",
@@ -28082,119 +27956,6 @@
     }
   },
   {
-    "id": "CLCODE001",
-    "videoId": "",
-    "courseSlug": "claude-code-for-engineering-teams-training",
-    "logo": "course_thumb02.jpg",
-    "courseTitle": "Claude Code for Engineering Teams",
-    "overview": "Master agentic coding with Claude Code across the full software development lifecycle. Learn to plan, implement, review, and ship features with AI agents, configure CLAUDE.md and skills for your codebase, automate workflows with hooks and headless mode, and roll out Claude Code across an engineering organisation with guardrails and best practices.",
-    "courseObjective": "Equip engineering teams to adopt Claude Code effectively \u2014 from individual developer productivity to team-wide conventions, CI integration, and secure enterprise rollout.",
-    "courseOutcomes": "Upon completion, participants will drive complex multi-file changes with Claude Code, author effective CLAUDE.md files and custom skills, integrate Claude Code into CI/CD pipelines via headless mode and GitHub Actions, and define team policies for permissions, secrets, and code review.",
-    "prerequisites": "Working knowledge of Git and at least one programming language. Familiarity with the command line.",
-    "labs": "10 hands-on labs covering guided refactors, CLAUDE.md authoring, custom slash commands and skills, MCP server integration, headless automation, and CI-driven code review.",
-    "toc": "CLCODE001-ClaudeCodeEngineeringTeams.pdf",
-    "category": "AI Platforms & APIs",
-    "catdesc": "Practical training on Claude Code for professional software teams \u2014 agentic coding, automation, and enterprise rollout.",
-    "catcls": "cat-one",
-    "courseDays": "03 Days",
-    "courseTime": "24 Hours",
-    "courseModules": "06 Modules",
-    "noStudents": "10",
-    "instructor": "AI Engineering Experts",
-    "price": 47999,
-    "language": "English",
-    "difficulty": "Intermediate",
-    "rating": "N/A",
-    "whatWillYouLearn": [
-      "Agentic coding workflows \u2014 plan, implement, test, and review with Claude Code",
-      "Authoring CLAUDE.md, custom skills, and slash commands for your codebase",
-      "Extending Claude Code with MCP servers and hooks",
-      "Headless mode and CI/CD integration with GitHub Actions",
-      "Team rollout \u2014 permissions, secrets handling, and review policies",
-      "Measuring developer productivity gains from agentic coding"
-    ],
-    "requirements": [
-      "Working knowledge of Git and the command line",
-      "Proficiency in at least one programming language",
-      "A laptop capable of running Node.js"
-    ],
-    "targetAudience": [
-      "Software Engineers and Tech Leads",
-      "Engineering Managers",
-      "DevOps and Platform Engineers",
-      "QA and Developer Experience teams"
-    ],
-    "modules": [
-      {
-        "moduleTitle": "Module 1: Claude Code Foundations (4 Hrs)",
-        "content": [
-          "Agentic coding \u2014 how Claude Code plans and executes changes",
-          "Installation, authentication, and model selection",
-          "Core workflows \u2014 explore, plan, code, commit",
-          "Permission modes and safe usage patterns",
-          "Lab 1: First feature implementation with Claude Code"
-        ]
-      },
-      {
-        "moduleTitle": "Module 2: Configuring Claude Code for Your Codebase (4 Hrs)",
-        "content": [
-          "CLAUDE.md \u2014 project instructions and conventions",
-          "Settings, permissions, and environment configuration",
-          "Custom slash commands and skills",
-          "Subagents for specialised tasks",
-          "Lab 2: Authoring CLAUDE.md for a real repository",
-          "Lab 3: Building a custom skill"
-        ]
-      },
-      {
-        "moduleTitle": "Module 3: Extending with MCP and Hooks (4 Hrs)",
-        "content": [
-          "Model Context Protocol overview",
-          "Connecting Claude Code to databases, issue trackers, and internal tools",
-          "Hooks for policy enforcement and automation",
-          "Lab 4: Integrating an MCP server",
-          "Lab 5: Enforcing team policies with hooks"
-        ]
-      },
-      {
-        "moduleTitle": "Module 4: Automation and CI/CD (5 Hrs)",
-        "content": [
-          "Headless mode for scripted workflows",
-          "Claude Code in GitHub Actions \u2014 automated review and issue triage",
-          "Batch refactoring across repositories",
-          "Lab 6: Automated PR review pipeline",
-          "Lab 7: Headless batch migration"
-        ]
-      },
-      {
-        "moduleTitle": "Module 5: Team Rollout and Governance (4 Hrs)",
-        "content": [
-          "Enterprise deployment options and SSO",
-          "Secrets, data handling, and security guardrails",
-          "Code review standards for AI-generated changes",
-          "Cost management and usage analytics",
-          "Lab 8: Defining a team rollout playbook"
-        ]
-      },
-      {
-        "moduleTitle": "Module 6: Capstone (3 Hrs)",
-        "content": [
-          "End-to-end feature delivery with Claude Code",
-          "Lab 9 & 10: Team capstone \u2014 ship a feature from issue to merged PR",
-          "Breakout: Retrospective and adoption roadmap"
-        ]
-      }
-    ],
-    "categoryGroup": "AI & Generative AI",
-    "prices": {
-      "inr": 47999,
-      "usd": 629,
-      "aed": 2669,
-      "gbp": 559,
-      "eur": 659
-    }
-  },
-  {
     "id": "MCP001",
     "videoId": "",
     "courseSlug": "model-context-protocol-developer-course",
@@ -28519,107 +28280,6 @@
       "aed": 2669,
       "gbp": 559,
       "eur": 659
-    }
-  },
-  {
-    "id": "COWORK001",
-    "videoId": "",
-    "courseSlug": "claude-cowork-for-teams-knowledge-workers",
-    "logo": "course_thumb02.jpg",
-    "courseTitle": "Claude Co-work for Teams & Knowledge Workers",
-    "overview": "A practical, low-code course for business teams adopting Claude Co-work and Claude for everyday knowledge work. Learn to delegate document, spreadsheet, and research tasks to AI agents, build reusable skills for recurring workflows, collaborate with agents on shared projects, and roll out agentic AI across business functions safely.",
-    "courseObjective": "Enable knowledge workers and business teams to delegate real work to AI agents using Claude Co-work, with reusable skills and safe collaboration practices.",
-    "courseOutcomes": "Upon completion, participants will delegate multi-step document and data tasks to agents, create custom skills for recurring team workflows, manage agent task queues and reviews, and apply data-safety practices for AI in business workflows.",
-    "prerequisites": "No coding required. Comfort with standard office tools and documents.",
-    "labs": "8 hands-on labs covering task delegation, document and spreadsheet workflows, skill building for recurring processes, and a team workflow capstone.",
-    "toc": "COWORK001-ClaudeCoworkTeams.pdf",
-    "category": "AI for Business",
-    "catdesc": "No-code training for business teams to delegate real knowledge work to AI agents with Claude Co-work.",
-    "catcls": "cat-one",
-    "courseDays": "02 Days",
-    "courseTime": "16 Hours",
-    "courseModules": "05 Modules",
-    "noStudents": "10",
-    "instructor": "AI Adoption Specialists",
-    "price": 31999,
-    "language": "English",
-    "difficulty": "Beginner to Intermediate",
-    "rating": "N/A",
-    "whatWillYouLearn": [
-      "Delegating multi-step tasks to AI agents instead of chatting",
-      "Document, spreadsheet, and presentation workflows with Claude",
-      "Building reusable skills for recurring team processes",
-      "Reviewing, steering, and approving agent work",
-      "Data safety, confidentiality, and governance for business AI",
-      "Measuring productivity impact across a team"
-    ],
-    "requirements": [
-      "No programming experience required",
-      "Familiarity with documents, spreadsheets, and email workflows",
-      "Organisational Claude access for hands-on labs"
-    ],
-    "targetAudience": [
-      "Business Analysts and Operations Teams",
-      "HR, Finance, Marketing, and Legal Professionals",
-      "Project Managers and Chiefs of Staff",
-      "Team Leads driving AI adoption"
-    ],
-    "modules": [
-      {
-        "moduleTitle": "Module 1: From Chat to Delegation (3 Hrs)",
-        "content": [
-          "How agentic AI differs from chat assistants",
-          "Claude Co-work \u2014 task queues, agents, and shared context",
-          "Writing effective task briefs for agents",
-          "Lab 1: Delegating your first multi-step task"
-        ]
-      },
-      {
-        "moduleTitle": "Module 2: Document and Data Workflows (4 Hrs)",
-        "content": [
-          "Drafting, summarising, and transforming documents at scale",
-          "Spreadsheet analysis and report generation",
-          "Research and synthesis tasks with citations",
-          "Lab 2: Monthly report automation",
-          "Lab 3: Multi-document research brief"
-        ]
-      },
-      {
-        "moduleTitle": "Module 3: Skills for Recurring Processes (3 Hrs)",
-        "content": [
-          "What agent skills are and when to create them",
-          "Capturing team conventions and templates in skills",
-          "Sharing skills across a team",
-          "Lab 4: Building a skill for a recurring workflow",
-          "Lab 5: Team skill library"
-        ]
-      },
-      {
-        "moduleTitle": "Module 4: Reviewing and Steering Agent Work (3 Hrs)",
-        "content": [
-          "Quality control \u2014 reviewing and iterating on agent output",
-          "Human-in-the-loop approval patterns",
-          "When not to delegate \u2014 judgement and risk",
-          "Lab 6: Review-and-approve workflow simulation"
-        ]
-      },
-      {
-        "moduleTitle": "Module 5: Safe Rollout and Capstone (3 Hrs)",
-        "content": [
-          "Data confidentiality and acceptable-use policies",
-          "Measuring time saved and quality outcomes",
-          "Lab 7 & 8: Team capstone \u2014 automate a real workflow end-to-end",
-          "Breakout: Adoption roadmap for your function"
-        ]
-      }
-    ],
-    "categoryGroup": "AI & Generative AI",
-    "prices": {
-      "inr": 31999,
-      "usd": 419,
-      "aed": 1779,
-      "gbp": 369,
-      "eur": 439
     }
   },
   {
@@ -38912,6 +38572,581 @@
       "aed": 2229,
       "gbp": 469,
       "eur": 549
+    }
+  },
+  {
+    "id": "CCAF001",
+    "videoId": "",
+    "courseSlug": "claude-certified-associate-foundations",
+    "logo": "ai.png",
+    "courseTitle": "Claude Certified Associate \u2013 Foundations",
+    "overview": "Claude Certified Associate \u2013 Foundations is Technohana's exam-prep course for Anthropic's Claude Certified Associate \u2013 Foundations credential (exam code CCAO-F). Designed for consultants, business users, analysts, and knowledge workers who use Claude as a core productivity tool, the course builds structured prompting skill, rigorous output evaluation habits, and responsible-use judgement \u2014 covering all seven domains of the official exam blueprint so participants finish ready to sit the proctored exam.",
+    "courseObjective": "Prepare candidates to pass the Claude Certified Associate \u2013 Foundations exam (CCAO-F) by building applied skill across prompting, output evaluation, product/model selection, workflow integration, configuration, governance, and troubleshooting \u2014 Anthropic's seven official exam domains.",
+    "courseOutcomes": "Upon completion, participants will structure and iterate effective prompts, evaluate Claude output for hallucinations and bias, select the right Claude model and product feature for a task, configure Claude Projects with instructions and knowledge sources, apply responsible-AI and data-governance judgement, troubleshoot underperforming prompts, and sit a full-length mock exam mirroring the real 60-item, 120-minute CCAO-F format.",
+    "prerequisites": "No mandatory prerequisites. No coding or API experience required. Regular hands-on use of Claude in a professional setting and a foundational understanding of workflow design are recommended, per Anthropic's exam guide.",
+    "labs": "16 hours of hands-on exercises across all seven exam domains \u2014 prompt structuring drills, output fact-checking and bias-spotting exercises, Claude Projects configuration, data-sensitivity scenario judgement calls, and a full 60-item mock exam mirroring the real CCAO-F format and time limit.",
+    "toc": "CCAF001-ClaudeCertifiedAssociateFoundations.pdf",
+    "category": "AI Platforms & APIs",
+    "catdesc": "Official-style Claude certification tracks \u2014 from business-user foundations to professional enterprise architecture \u2014 for teams standardising on Anthropic's Claude platform.",
+    "catcls": "cat-eleven",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "08 Modules",
+    "noStudents": "20",
+    "instructor": "Industry Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "Creating and iterating effective prompts for business and technical tasks (Domain 1: Prompting and Task Execution \u2014 14%)",
+      "Evaluating Claude output for accuracy, hallucinations, inconsistencies, and bias (Domain 2: Output Evaluation and Validation \u2014 21%)",
+      "Selecting the right Claude product feature and model tier \u2014 Haiku, Sonnet, Opus \u2014 for cost, speed, and quality (Domain 3: Product and Model Selection \u2014 12%)",
+      "Applying Claude to requirements analysis, research, and process optimization (Domain 4: Workflow Integration and Solution Design \u2014 16%)",
+      "Configuring Claude Projects with instructions, knowledge sources, and connectors (Domain 5: Configuration and Knowledge Management \u2014 12%)",
+      "Applying data-sensitivity, regulatory, and organizational AI-governance judgement (Domain 6: Governance, Risk, and Responsible Use \u2014 15%)",
+      "Diagnosing and fixing underperforming prompts and workflows (Domain 7: Troubleshooting and Optimization \u2014 10%)",
+      "Sitting a full-length mock exam mirroring the official CCAO-F format"
+    ],
+    "requirements": [
+      "A Claude.ai account (free or paid)",
+      "Regular use of Claude in a business or productivity context",
+      "No coding or API experience required"
+    ],
+    "targetAudience": [
+      "Business Consultants, Analysts, and Operations Professionals",
+      "Marketing, Communications, and HR Professionals",
+      "Project Managers and Education Professionals",
+      "External Consultants supporting AI implementation and process redesign",
+      "Anyone preparing to sit Anthropic's Claude Certified Associate \u2013 Foundations (CCAO-F) exam"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Prompting and Task Execution (Domain 1 \u2014 14%)",
+        "content": [
+          "Anatomy of an effective prompt: context, role, and desired output",
+          "Task decomposition techniques for structuring complex requests",
+          "Iterating prompts to improve output quality",
+          "Adapting prompting strategy by task type \u2014 analysis, research, drafting, brainstorming",
+          "Lab: Prompt-structuring and iteration drills across five business scenarios"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Output Evaluation and Validation (Domain 2 \u2014 21%)",
+        "content": [
+          "Evaluating Claude-generated output for accuracy and completeness",
+          "Identifying hallucinations, inconsistencies, and bias in responses",
+          "Fact-checking and validation techniques",
+          "Determining when human review or additional verification is required",
+          "Editing, adapting, and comparing outputs for the intended audience",
+          "Choosing output formats \u2014 Artifacts, inline text, structured data",
+          "Lab: Fact-checking a Claude-generated compliance summary against source documents"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Product and Model Selection (Domain 3 \u2014 12%)",
+        "content": [
+          "Claude product features: Projects, research mode, chat, Artifacts",
+          "Claude model tiers \u2014 Haiku, Sonnet, Opus \u2014 and when to use each",
+          "Aligning model selection with cost, speed, and quality requirements",
+          "Managing context limitations: when to restart, summarize, or persist",
+          "Lab: Matching five task briefs to the correct product feature and model tier"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Workflow Integration and Solution Design (Domain 4 \u2014 16%)",
+        "content": [
+          "Using Claude to analyze requirements and identify use cases",
+          "Leveraging Claude for research, planning, and process optimization",
+          "Supporting solution design, development, and iteration with Claude",
+          "Integrating Claude into existing workflows to augment or redesign them",
+          "Communicating Claude's value and limitations to stakeholders",
+          "Lab: Redesigning a manual reporting workflow around Claude"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Configuration and Knowledge Management (Domain 5 \u2014 12%)",
+        "content": [
+          "Configuring Claude Projects with instructions and knowledge sources",
+          "Managing uploaded knowledge and connectors \u2014 Google Drive, Gmail",
+          "Writing effective system-level instructions",
+          "Maintaining and updating configurations as needs evolve",
+          "Lab: Building a Claude Project with instructions, knowledge sources, and a connector"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Governance, Risk, and Responsible Use (Domain 6 \u2014 15%)",
+        "content": [
+          "Identifying appropriate and inappropriate use cases",
+          "Applying data-sensitivity, regulatory, and privacy considerations",
+          "Following organizational AI policies and governance standards",
+          "Ethical implications of AI usage",
+          "Lab: Deciding how to handle a spreadsheet containing regulated personal data"
+        ]
+      },
+      {
+        "moduleTitle": "Module 7: Troubleshooting and Optimization (Domain 7 \u2014 10%)",
+        "content": [
+          "Diagnosing underperforming prompts and poor outputs",
+          "Adjusting approach based on feedback and results",
+          "Optimizing workflows for efficiency and effectiveness",
+          "Lab: Debugging a low-quality prompt and iterating to a passing result"
+        ]
+      },
+      {
+        "moduleTitle": "Module 8: Certification Readiness",
+        "content": [
+          "Exam blueprint walkthrough: domains, weights, and item format",
+          "Exam logistics: 60 items, 120 minutes, $99 USD fee, Pearson VUE proctored delivery",
+          "Scoring: scaled 100\u20131,000, cut score 720, 12-month credential validity",
+          "Lab: Full-length mock exam mirroring the official CCAO-F format"
+        ]
+      }
+    ],
+    "categoryGroup": "AI & Generative AI",
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    }
+  },
+  {
+    "id": "CCDF001",
+    "videoId": "",
+    "courseSlug": "claude-certified-developer-foundations",
+    "logo": "ai.png",
+    "courseTitle": "Claude Certified Developer \u2013 Foundations",
+    "overview": "Claude Certified Developer \u2013 Foundations is Technohana's exam-prep course for Anthropic's Claude Certified Developer \u2013 Foundations credential (exam code CCDV-F). Built for software engineers and AI/ML engineers who build, integrate, and ship production Claude-powered applications, the course covers all eight domains of the official exam blueprint \u2014 from the Claude Agent SDK and API mechanics to security, tools, and MCP servers \u2014 so participants finish ready to sit the proctored exam.",
+    "courseObjective": "Prepare candidates to pass the Claude Certified Developer \u2013 Foundations exam (CCDV-F) by building hands-on skill across agents and workflows, application integration, Claude Code, evaluation and debugging, model selection, prompt and context engineering, security, and tools/MCPs \u2014 Anthropic's eight official exam domains.",
+    "courseOutcomes": "Upon completion, participants will build agents with the Claude Agent SDK, integrate the Claude API into production applications (streaming, vision, caching, batch), configure Claude Code and CLAUDE.md for team workflows, design evals and debug failure modes via trace analysis, select and cost-optimize across Claude model tiers, apply context-engineering and prompt techniques, defend applications against prompt injection with guardrails and hooks, and build custom tools and MCP servers \u2014 then sit a full-length mock exam mirroring the real 53-item, 120-minute CCDV-F format.",
+    "prerequisites": "Recommended (not mandatory, per Anthropic's exam guide): 1\u20135 years of software engineering experience, 6+ months of hands-on experience with Claude or a comparable LLM platform, proficiency in Python and/or TypeScript, and fluency with REST APIs and CLI tools.",
+    "labs": "32 hours of hands-on labs: building an agent with the Claude Agent SDK, integrating the Messages API with streaming and vision, configuring Claude Code for a team repository, designing an eval suite and debugging a failing prompt via trace analysis, implementing prompt-injection guardrails with hooks, building a custom tool and MCP server, and a full 53-item mock exam mirroring the real CCDV-F format.",
+    "toc": "CCDF001-ClaudeCertifiedDeveloperFoundations.pdf",
+    "category": "AI Platforms & APIs",
+    "catdesc": "Official-style Claude certification tracks \u2014 from business-user foundations to professional enterprise architecture \u2014 for teams standardising on Anthropic's Claude platform.",
+    "catcls": "cat-eleven",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "10 Modules",
+    "noStudents": "15",
+    "instructor": "Industry Experts",
+    "price": 63999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "Agent architecture and construction with the Claude Agent SDK, custom loops, and agentic frameworks (Domain 1: Agents and Workflows \u2014 14.7%)",
+      "Claude API mechanics \u2014 messages, tools, streaming, vision, thinking, caching, batch API (Domain 2: Applications and Integration \u2014 33.1%)",
+      "Software engineering foundations for Claude apps \u2014 REST, JSON, async, SDLC, code review (Domain 2)",
+      "Operating Claude Code \u2014 Rules, Skills, Commands, Agents, CLAUDE.md hierarchy, settings.json (Domain 3: Claude Code \u2014 3.1%)",
+      "Debugging and error handling via trace analysis (Domain 4: Eval, Testing, and Debugging \u2014 2.6%)",
+      "Model selection and cost/token/caching optimization across Opus, Sonnet, and Haiku (Domain 5: Model Selection and Optimization \u2014 16.8%)",
+      "Context engineering and prompt engineering techniques (Domain 6: Prompt and Context Engineering \u2014 11.0%)",
+      "AI application security \u2014 prompt injection defense, guardrails, hooks, secrets management (Domain 7: Security and Safety \u2014 8.1%)",
+      "Building custom tools, function schemas, and MCP servers; tool vs. Skill vs. MCP tradeoffs (Domain 8: Tools and MCPs \u2014 10.6%)"
+    ],
+    "requirements": [
+      "Proficiency in Python and/or TypeScript",
+      "Fluency with REST APIs and command-line tools",
+      "An Anthropic API key (free trial available)",
+      "6+ months of hands-on Claude or comparable LLM experience recommended"
+    ],
+    "targetAudience": [
+      "AI/ML Engineers and Technical Leads",
+      "Senior Software Engineers building production Claude applications",
+      "Backend and Full-Stack Developers integrating Claude via API",
+      "Anyone preparing to sit Anthropic's Claude Certified Developer \u2013 Foundations (CCDV-F) exam"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Agents and Workflows (Domain 1 \u2014 14.7%)",
+        "content": [
+          "Workflow vs. agent: decision criteria and manager/supervisor hierarchies",
+          "Building agents with the Claude Agent SDK and custom agent loops/harnesses",
+          "Managed agent deployment models \u2014 self-hosted vs. Anthropic-hosted",
+          "Hooks for deterministic actions within an agent loop",
+          "Agentic frameworks \u2014 Strands, LangGraph, PydanticAI \u2014 and when to use them",
+          "Lab: Build a tool-using agent with the Claude Agent SDK"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Applications and Integration I \u2014 Requirements & API Mechanics (Domain 2)",
+        "content": [
+          "Translating business requirements into functional and infrastructure requirements",
+          "Systems life cycle management for Claude-powered IT systems",
+          "Claude API mechanics: Messages API, tool use, streaming, vision, extended thinking",
+          "Prompt caching and cache checkpointing",
+          "Realtime vs. batch API selection; invoking Claude via third-party vendors",
+          "Lab: Build a streaming, vision-enabled Claude API integration"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Applications and Integration II \u2014 Engineering & App Design (Domain 2)",
+        "content": [
+          "REST APIs, JSON, and asynchronous programming for Claude apps",
+          "Version control, SDLC integration, code review, and refactoring practices",
+          "How Claude interprets instructions across interfaces \u2014 Claude Code, Desktop, claude.ai, API, SDKs",
+          "Content boundaries, schema design, and session hygiene",
+          "Configuration management \u2014 CLAUDE.md, settings.json, model version pinning, prompt versioning, plugin dependencies",
+          "Lab: Design a schema and session-hygiene strategy for a multi-turn Claude application"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Claude Code (Domain 3 \u2014 3.1%)",
+        "content": [
+          "Claude Code core components: Rules, Skills, Commands, Agents, Agent Memory",
+          "Session management, built-in and custom slash commands, headless mode, streaming mode, auto-mode",
+          "CLAUDE.md hierarchy and repository initialization",
+          "settings.json configuration",
+          "Lab: Configure Claude Code with custom commands and settings.json for a team repo"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Eval, Testing, and Debugging (Domain 4 \u2014 2.6%)",
+        "content": [
+          "Error type identification and recovery strategy selection",
+          "Trace analysis to identify failure modes",
+          "Isolating problem origin \u2014 integration layer vs. model output",
+          "Lab: Diagnose a failing Claude integration via trace analysis"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Model Selection and Optimization (Domain 5 \u2014 16.8%)",
+        "content": [
+          "LLM fundamentals \u2014 tokens, context windows, sampling, non-determinism",
+          "Model options \u2014 fast mode, extended thinking, adaptive thinking, effort levels",
+          "Opus vs. Sonnet vs. Haiku: capability, cost, and latency trade-offs",
+          "Breaking behavior changes across model releases",
+          "Token budgeting, cost modeling, and caching for cost optimization",
+          "Lab: Benchmark cost/latency/quality trade-offs across Claude model tiers"
+        ]
+      },
+      {
+        "moduleTitle": "Module 7: Prompt and Context Engineering (Domain 6 \u2014 11.0%)",
+        "content": [
+          "Context window management and prevention of context drift and bloat",
+          "Tool-output pruning, compaction, and context isolation via subagents",
+          "Instruction clarity, few-shot examples, system vs. user placement",
+          "Output constraints, iterative refinement, and input sanitization",
+          "Structured output patterns, response validation, and defensive parsing",
+          "Lab: Build a context-pruning pipeline for a long multi-turn conversation"
+        ]
+      },
+      {
+        "moduleTitle": "Module 8: Security and Safety (Domain 7 \u2014 8.1%)",
+        "content": [
+          "Prompt injection awareness and mitigation; jailbreak defense",
+          "Untrusted input handling and data leakage prevention; PII handling",
+          "Guardrail layering and secure-by-design principles \u2014 least privilege",
+          "Leveraging hooks for guardrails and safety controls",
+          "Managing secrets, credentials, and API keys across environments",
+          "Lab: Implement a prompt-injection guardrail using hooks"
+        ]
+      },
+      {
+        "moduleTitle": "Module 9: Tools and MCPs (Domain 8 \u2014 10.6%)",
+        "content": [
+          "Tool use and function calling; tool description writing and error handling",
+          "Tool usage patterns \u2014 agentic harness dispatch, client-side vs. server-side, approval patterns",
+          "MCP server authoring, deployment, and communication patterns \u2014 stdio, sockets, client vs. server",
+          "MCP resources, tools, and prompts",
+          "Tradeoffs among built-in Tools, custom Tools, Skills, and MCPs",
+          "Lab: Build and deploy a custom MCP server exposing a REST integration as tools"
+        ]
+      },
+      {
+        "moduleTitle": "Module 10: Certification Readiness",
+        "content": [
+          "Exam blueprint walkthrough: 8 domains and their weights",
+          "Exam logistics: 53 items, 120 minutes, $125 USD fee, Pearson VUE proctored delivery",
+          "Scoring: scaled 100\u20131,000, cut score 720, 12-month credential validity",
+          "Lab: Full-length mock exam mirroring the official CCDV-F format"
+        ]
+      }
+    ],
+    "categoryGroup": "AI & Generative AI",
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    }
+  },
+  {
+    "id": "CCARF001",
+    "videoId": "",
+    "courseSlug": "claude-certified-architect-foundations",
+    "logo": "ai.png",
+    "courseTitle": "Claude Certified Architect \u2013 Foundations",
+    "overview": "Claude Certified Architect \u2013 Foundations is Technohana's exam-prep course for Anthropic's Claude Certified Architect \u2013 Foundations credential (exam code CCAR-F), a scenario-based exam for architects who make production tradeoffs across Claude Code, the Claude Agent SDK, the Claude API, and MCP. The course works through all six official exam scenarios \u2014 customer support agents, Claude Code CI/CD, multi-agent research pipelines, developer productivity tooling, and structured data extraction \u2014 mapped to the five official exam domains, so participants finish ready to sit the proctored exam.",
+    "courseObjective": "Prepare candidates to pass the Claude Certified Architect \u2013 Foundations exam (CCAR-F) by building judgement across agentic architecture and orchestration, tool design and MCP integration, Claude Code configuration, prompt engineering for structured output, and context management and reliability \u2014 Anthropic's five official exam domains, tested through realistic production scenarios.",
+    "courseOutcomes": "Upon completion, participants will design agentic loops and coordinator-subagent orchestration with the Claude Agent SDK, write MCP tool descriptions and structured error responses that hold up in production, configure CLAUDE.md hierarchies and Claude Code workflows for teams, enforce structured output with tool_use and JSON schemas, design context-management and escalation strategies for long-running and multi-agent systems, and sit a full-length mock exam mirroring the real 60-item, scenario-based CCAR-F format.",
+    "prerequisites": "Claude Certified Developer \u2013 Foundations or equivalent hands-on experience is strongly recommended. Anthropic's guide describes the ideal candidate as having 6+ months of practical experience building with the Claude API, Agent SDK, Claude Code, and MCP.",
+    "labs": "32 hours of hands-on labs built around Anthropic's six official CCAR-F exam scenarios: a customer-support resolution agent with MCP tools, Claude Code in a CI/CD pipeline, a multi-agent research system with coordinator-subagent delegation, a developer-productivity agent using built-in tools, and a structured-data-extraction pipeline with JSON-schema validation \u2014 plus a full 60-item mock exam.",
+    "toc": "CCARF001-ClaudeCertifiedArchitectFoundations.pdf",
+    "category": "AI Platforms & APIs",
+    "catdesc": "Official-style Claude certification tracks \u2014 from business-user foundations to professional enterprise architecture \u2014 for teams standardising on Anthropic's Claude platform.",
+    "catcls": "cat-eleven",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "07 Modules",
+    "noStudents": "15",
+    "instructor": "Industry Experts",
+    "price": 63999,
+    "language": "English",
+    "difficulty": "Intermediate to Advanced",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "The agentic loop lifecycle \u2014 stop_reason handling, tool result handling, loop termination (Domain 1: Agentic Architecture & Orchestration \u2014 27%)",
+      "Coordinator-subagent orchestration, the Task tool, and session management \u2014 --resume, fork_session (Domain 1)",
+      "Designing effective MCP tool interfaces, structured error responses, and tool distribution (Domain 2: Tool Design & MCP Integration \u2014 18%)",
+      "Configuring the CLAUDE.md hierarchy, .claude/rules/, custom commands and Skills, and plan mode vs. direct execution (Domain 3: Claude Code Configuration & Workflows \u2014 20%)",
+      "Enforcing structured output with tool_use and JSON schemas, few-shot prompting, and batch processing (Domain 4: Prompt Engineering & Structured Output \u2014 20%)",
+      "Managing context across long conversations, escalation patterns, and error propagation in multi-agent systems (Domain 5: Context Management & Reliability \u2014 15%)",
+      "Working through Anthropic's six official exam scenarios end to end"
+    ],
+    "requirements": [
+      "Hands-on experience with the Claude API, Agent SDK, Claude Code, and MCP (6+ months recommended)",
+      "Completion of Claude Certified Developer \u2013 Foundations or equivalent experience",
+      "A code editor, terminal, and Anthropic API key"
+    ],
+    "targetAudience": [
+      "Solution Architects designing production Claude applications",
+      "Engineers building agentic systems, MCP servers, and Claude Code workflows",
+      "Technical Leads responsible for CI/CD integration of AI coding assistants",
+      "Anyone preparing to sit Anthropic's Claude Certified Architect \u2013 Foundations (CCAR-F) exam"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Agentic Architecture & Orchestration I \u2014 Agentic Loops & Hooks (Domain 1 \u2014 27%)",
+        "content": [
+          "The agentic loop lifecycle: stop_reason ('tool_use' vs 'end_turn') and tool result handling",
+          "Anti-patterns: parsing natural-language stop signals, arbitrary iteration caps",
+          "Agent SDK hooks \u2014 PostToolUse interception and data normalization",
+          "Programmatic prerequisites and enforcement vs. prompt-based guidance",
+          "Task decomposition strategies \u2014 prompt chaining vs. dynamic decomposition",
+          "Lab: Implement an agentic loop with structured error handling and a compliance-enforcing hook"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Agentic Architecture & Orchestration II \u2014 Multi-Agent Orchestration (Domain 1 \u2014 27%)",
+        "content": [
+          "Hub-and-spoke coordinator-subagent architecture and isolated subagent context",
+          "The Task tool, allowedTools configuration, and AgentDefinition",
+          "Parallel subagent spawning and iterative refinement loops",
+          "Structured handoff protocols for escalation",
+          "Session state: --resume, fork_session, and when to start fresh with a summary",
+          "Lab: Build a multi-agent research pipeline with a coordinator and specialized subagents"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Tool Design & MCP Integration (Domain 2 \u2014 18%)",
+        "content": [
+          "Writing tool descriptions that clearly differentiate similar tools",
+          "Structured MCP error responses \u2014 isError, errorCategory, isRetryable",
+          "Distributing tools across agents and tool_choice configuration",
+          "MCP server scoping \u2014 .mcp.json vs. ~/.claude.json \u2014 and MCP resources",
+          "Built-in tools \u2014 Read, Write, Edit, Bash, Grep, Glob \u2014 selection criteria",
+          "Lab: Design MCP tools with structured errors for a customer-support agent"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Claude Code Configuration & Workflows (Domain 3 \u2014 20%)",
+        "content": [
+          "CLAUDE.md hierarchy, @import, and .claude/rules/ path-scoped conventions",
+          "Custom slash commands and Skills \u2014 context: fork, allowed-tools, argument-hint",
+          "Plan mode vs. direct execution \u2014 complexity assessment",
+          "Iterative refinement: input/output examples, test-driven iteration, the interview pattern",
+          "Integrating Claude Code into CI/CD \u2014 the -p flag, --output-format json, --json-schema",
+          "Lab: Configure Claude Code for a team repo and integrate it into a CI/CD review pipeline"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Prompt Engineering & Structured Output (Domain 4 \u2014 20%)",
+        "content": [
+          "Designing prompts with explicit criteria to reduce false positives",
+          "Few-shot prompting for ambiguous scenarios and output consistency",
+          "Enforcing structured output with tool_use and JSON schemas; nullable and enum fields",
+          "Validation, retry, and feedback loops for extraction quality",
+          "Batch processing with the Message Batches API",
+          "Multi-instance and multi-pass review architectures",
+          "Lab: Build a structured-data-extraction pipeline with JSON-schema validation and retry logic"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Context Management & Reliability (Domain 5 \u2014 15%)",
+        "content": [
+          "Preserving critical information across long conversations; the lost-in-the-middle effect",
+          "Escalation and ambiguity-resolution patterns",
+          "Error propagation strategies across multi-agent systems",
+          "Managing context in large codebase exploration \u2014 scratchpad files, /compact",
+          "Human review workflows and confidence calibration",
+          "Provenance and uncertainty handling in multi-source synthesis",
+          "Lab: Design an escalation and error-propagation strategy for the customer-support scenario"
+        ]
+      },
+      {
+        "moduleTitle": "Module 7: Certification Readiness",
+        "content": [
+          "Working through all six official CCAR-F exam scenarios",
+          "Exam logistics: 60 items, 120 minutes, $125 USD fee, 4-of-6 scenarios per sitting",
+          "Scoring: scaled 100\u20131,000, cut score 720, 12-month credential validity",
+          "Lab: Full-length mock exam mirroring the official CCAR-F format"
+        ]
+      }
+    ],
+    "categoryGroup": "AI & Generative AI",
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    }
+  },
+  {
+    "id": "CCARP001",
+    "videoId": "",
+    "courseSlug": "claude-certified-architect-professional",
+    "logo": "ai.png",
+    "courseTitle": "Claude Certified Architect \u2013 Professional",
+    "overview": "Claude Certified Architect \u2013 Professional is Technohana's exam-prep course for Anthropic's Claude Certified Architect \u2013 Professional credential (exam code CCAR-P), the senior-level certification for architects who own the full lifecycle of production Claude solutions. The course covers all seven official exam domains \u2014 solution design, models/prompting/context, integration, evaluation, governance, stakeholder communication, and developer enablement \u2014 so participants finish ready to sit the proctored exam.",
+    "courseObjective": "Prepare candidates to pass the Claude Certified Architect \u2013 Professional exam (CCAR-P) by building senior-architect judgement across solution design, Claude model/prompt/context strategy, enterprise integration, evaluation and optimization, governance and risk, stakeholder communication, and developer enablement \u2014 Anthropic's seven official exam domains.",
+    "courseOutcomes": "Upon completion, participants will translate business problems into end-to-end Claude architectures, select models and design RAG and integration pipelines with appropriate protocols (MCP, API/CLI, agent-to-agent), define evaluation frameworks and diagnose production failures, apply governance and regulatory controls (GDPR, HIPAA, FedRAMP) and human-in-the-loop validation, manage stakeholder discovery and lifecycle handoffs, enable developer productivity with Claude Code, and sit a full-length mock exam mirroring the real 63-item, 120-minute CCAR-P format.",
+    "prerequisites": "Claude Certified Architect \u2013 Foundations or equivalent experience recommended. Anthropic's guide describes the ideal candidate as having 3+ years in systems architecture or platform engineering and 6+ months of hands-on production Claude/LLM experience, delivering end-to-end systems from discovery through operationalization.",
+    "labs": "40 hours of senior-architect labs: designing an end-to-end Claude solution architecture from a business problem statement, building a RAG pipeline with a chunking/indexing/retrieval strategy, evaluating integration protocols (MCP vs. API/CLI vs. agent-to-agent) for a real scenario, designing an evaluation and A/B testing framework, drafting a governance and compliance control set, and leading a mock stakeholder discovery and architecture-review session.",
+    "toc": "CCARP001-ClaudeCertifiedArchitectProfessional.pdf",
+    "category": "AI Platforms & APIs",
+    "catdesc": "Official-style Claude certification tracks \u2014 from business-user foundations to professional enterprise architecture \u2014 for teams standardising on Anthropic's Claude platform.",
+    "catcls": "cat-eleven",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "08 Modules",
+    "noStudents": "12",
+    "instructor": "Industry Experts",
+    "price": 79999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "Translating business problems into end-to-end Claude architectures \u2014 input, processing, output, feedback loops (Domain 1: Solution Design & Architecture \u2014 17%)",
+      "Selecting Claude models, designing system prompts/guardrails, and optimizing context and prompt reuse (Domain 2: Claude Models, Prompting & Context Engineering \u2014 13%)",
+      "Designing RAG pipelines, evaluating integration protocols (MCP, API/CLI, agent-to-agent), and managing capability bloat and auth gaps (Domain 3: Integration \u2014 19%)",
+      "Defining evaluation metrics, test frameworks, A/B testing, and diagnosing production failures (Domain 4: Evaluation, Testing & Optimization \u2014 16%)",
+      "Implementing guardrails, human-in-the-loop validation, and regulatory compliance \u2014 GDPR, HIPAA, FedRAMP (Domain 5: Governance, Safety & Risk Management \u2014 14%)",
+      "Running structured discovery, communicating trade-offs, and managing SLAs and lifecycle handoffs (Domain 6: Stakeholder Communication & Lifecycle Management \u2014 14%)",
+      "Configuring Claude Code and AI-assisted tooling for team productivity (Domain 7: Developer Productivity & Operational Enablement \u2014 7%)"
+    ],
+    "requirements": [
+      "3+ years of systems architecture or platform engineering experience recommended",
+      "6+ months of hands-on production Claude or comparable LLM experience recommended",
+      "Experience delivering end-to-end systems from discovery through deployment"
+    ],
+    "targetAudience": [
+      "Senior Solution Architects and Chief Architects",
+      "AI/ML Engineering Leads and Technical Directors",
+      "Consultants advising clients on enterprise AI architecture",
+      "Anyone preparing to sit Anthropic's Claude Certified Architect \u2013 Professional (CCAR-P) exam"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Solution Design & Architecture (Domain 1 \u2014 17%)",
+        "content": [
+          "Translating business problems into Claude-based AI solutions",
+          "Designing end-to-end architectures \u2014 input, processing, output, feedback loops",
+          "Architectural patterns: workflow, agentic, and augmented-LLM",
+          "Designing multi-agent systems and orchestration strategies",
+          "Decomposition techniques for complex problem solving",
+          "Aligning solutions to business value pillars \u2014 efficiency, transformation, productivity, cost, SLAs",
+          "Lab: Design an end-to-end architecture from a business problem statement"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Claude Models, Prompting & Context Engineering (Domain 2 \u2014 13%)",
+        "content": [
+          "Selecting Claude models based on cost, latency, and capability trade-offs",
+          "Designing system prompts, templates, and guardrails",
+          "Prompt engineering techniques \u2014 zero-shot, few-shot, chain-of-thought",
+          "Optimizing context windows and managing token usage",
+          "Prompt reuse strategies \u2014 caching, modular prompts, Skills",
+          "Lab: Design a cacheable prompt architecture for a high-volume, latency-sensitive application"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Integration (Domain 3 \u2014 19%)",
+        "content": [
+          "Evaluating tool/agent configuration for capability bloat and least privilege",
+          "Analyzing authentication and authorization requirements for security gaps",
+          "Evaluating accuracy-latency trade-offs and justifying configuration decisions",
+          "Designing a RAG pipeline \u2014 chunking and indexing strategies matched to data shape",
+          "Selecting integration protocols \u2014 MCP, API/CLI, agent-to-agent",
+          "Progressive discovery vs. monolithic context strategy; observability at scale",
+          "Lab: Design and justify an integration architecture for a multi-system enterprise scenario"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Evaluation, Testing & Optimization (Domain 4 \u2014 16%)",
+        "content": [
+          "Defining evaluation metrics \u2014 accuracy, latency, cost, safety, security",
+          "Designing evaluation datasets and test frameworks using mixed methodologies",
+          "Conducting A/B testing and iterative improvement cycles",
+          "Diagnosing system issues \u2014 prompt failure, hallucination, model mismatch",
+          "Optimizing token usage, latency, and cost-performance trade-offs",
+          "Monitoring system performance with logging and observability tools",
+          "Lab: Diagnose a production RAG system returning confident but incorrect answers"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Governance, Safety & Risk Management (Domain 5 \u2014 14%)",
+        "content": [
+          "Implementing guardrails and safety controls",
+          "Identifying risks, limitations, and failure modes of LLM systems",
+          "Human-in-the-loop validation strategies",
+          "Regulatory compliance \u2014 GDPR, HIPAA, FedRAMP",
+          "Ethical AI considerations \u2014 bias, fairness, transparency",
+          "Lab: Draft a governance and compliance control set for a regulated-industry deployment"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Stakeholder Communication & Lifecycle Management (Domain 6 \u2014 14%)",
+        "content": [
+          "Structured discovery and requirements gathering",
+          "Communicating architectural decisions and trade-offs to non-technical stakeholders",
+          "Managing stakeholder feedback loops and SLA expectation alignment",
+          "Documenting architectures and providing implementation guidance",
+          "Supporting lifecycle phases \u2014 discovery, design, handoff, monitoring, iteration",
+          "Lab: Lead a mock stakeholder discovery and architecture-review session"
+        ]
+      },
+      {
+        "moduleTitle": "Module 7: Developer Productivity & Operational Enablement (Domain 7 \u2014 7%)",
+        "content": [
+          "Configuring Claude tools and environments for teams \u2014 Claude Code",
+          "Improving developer workflows with AI-assisted tooling",
+          "Supporting debugging and operational issue resolution",
+          "Lab: Configure a team Claude Code environment and resolve a simulated operational incident"
+        ]
+      },
+      {
+        "moduleTitle": "Module 8: Certification Readiness",
+        "content": [
+          "Exam blueprint walkthrough: 7 domains and their weights",
+          "Exam logistics: 63 items, 120 minutes, $175 USD fee, Pearson VUE proctored delivery",
+          "Scoring: scaled 100\u20131,000, cut score 720, 12-month credential validity",
+          "Lab: Full-length mock exam mirroring the official CCAR-P format"
+        ]
+      }
+    ],
+    "categoryGroup": "AI & Generative AI",
+    "prices": {
+      "inr": 79999,
+      "usd": 1049,
+      "aed": 4449,
+      "gbp": 929,
+      "eur": 1099
     }
   }
 ]
