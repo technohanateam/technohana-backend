@@ -92,6 +92,30 @@ export const adminLogin = async (req, res) => {
   }
 };
 
+// POST /admin/setup — one-time bootstrap; disabled once any AdminUser exists
+export const setupAdmin = async (req, res) => {
+  try {
+    const count = await AdminUser.countDocuments();
+    if (count > 0) {
+      return res.status(403).json({ success: false, message: "Setup already complete. Use /admin/login." });
+    }
+    const { email, password, name = "Admin" } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password are required." });
+    }
+    if (String(password).length < 8) {
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
+    }
+    const normalizedEmail = String(email).toLowerCase().trim();
+    const passwordHash = await bcrypt.hash(password, 10);
+    await AdminUser.create({ email: normalizedEmail, name, passwordHash, role: "admin" });
+    return res.status(201).json({ success: true, message: "Admin account created. You can now log in." });
+  } catch (error) {
+    console.error("Admin setup error:", error);
+    return res.status(500).json({ success: false, message: "Setup failed." });
+  }
+};
+
 // GET /admin/users
 export const listAdminUsers = async (req, res) => {
   try {

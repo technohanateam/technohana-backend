@@ -18,7 +18,7 @@ import { Blogs } from "../models/blogs.model.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
-import { adminLogin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive } from "../controllers/adminUser.controller.js";
+import { adminLogin, setupAdmin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
@@ -49,6 +49,9 @@ const adminLoginLimiter = rateLimit({
 
 // ─── POST /admin/login ────────────────────────────────────────────────────────
 router.post("/login", adminLoginLimiter, adminLogin);
+
+// ─── POST /admin/setup — one-time bootstrap (self-disables once any admin exists)
+router.post("/setup", setupAdmin);
 
 // ─── Admin team user management (admin role only) ─────────────────────────────
 router.get("/users", authenticateAdmin, requireAdmin, requirePage("team"), listAdminUsers);
