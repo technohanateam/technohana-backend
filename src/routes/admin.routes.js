@@ -696,7 +696,7 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(503).json({ message: "ANTHROPIC_API_KEY not configured." });
 
-  const { urls, topic, category, focusKeyword } = req.body;
+  const { urls, topic, category, focusKeyword, relatedCourses = [] } = req.body;
   if (!Array.isArray(urls) || urls.length === 0) {
     return res.status(400).json({ message: "Provide at least one URL." });
   }
@@ -721,7 +721,15 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
   const categoryLine = category ? `Category: ${category}.` : "";
   const keywordLine = focusKeyword ? `Focus keyword for SEO: "${focusKeyword}".` : "";
 
-  const userPrompt = `I have collected the following source articles. Read them carefully.\n\n${sourceSections.join("\n\n")}\n\n${topicLine} ${categoryLine} ${keywordLine}\n\nWrite a complete, high-quality, SEO-optimised blog post for Technohana (an online tech training company with students in India, UAE, US, UK, EU) grounded in the facts and ideas from those sources. Year: ${year}.\n\nReturn ONLY a valid JSON object (no markdown, no code fences) with these exact keys:\n- "title": compelling blog post title\n- "slug": URL-friendly slug\n- "excerpt": 1–2 sentence summary (max 160 chars)\n- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, practical tips section, conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>\n- "metaTitle": 50–60 characters, includes focus keyword if provided\n- "metaDescription": 140–160 characters\n- "focusKeyword": primary SEO keyword\n- "tags": array of 5–8 relevant tags\n- "readTimeMin": estimated read time in minutes (number)\n- "author": "Technohana Team"\n- "category": blog category string\n\nNo emojis. Professional prose. Valid semantic HTML only.`;
+  const sanitize = (str) => String(str || "").replace(/[`${}]/g, "");
+  const relatedCoursesBullets = Array.isArray(relatedCourses) && relatedCourses.length
+    ? relatedCourses.map(c => `  • <a href="/courses/${sanitize(c.id)}">${sanitize(c.title)}</a>`).join("\n")
+    : "";
+  const courseLinkInstruction = relatedCoursesBullets
+    ? `conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>. Also include internal links within the body prose (not in a separate list at the end): where topically relevant, link inline to 2–3 of these related Technohana courses using their exact URLs — do NOT invent a course or id that isn't in this list:\n${relatedCoursesBullets}\n  Do NOT add a standalone "Recommended Courses" section — all links must appear inside paragraph or list content`
+    : `conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>`;
+
+  const userPrompt = `I have collected the following source articles. Read them carefully.\n\n${sourceSections.join("\n\n")}\n\n${topicLine} ${categoryLine} ${keywordLine}\n\nWrite a complete, high-quality, SEO-optimised blog post for Technohana (an online tech training company with students in India, UAE, US, UK, EU) grounded in the facts and ideas from those sources. Year: ${year}.\n\nReturn ONLY a valid JSON object (no markdown, no code fences) with these exact keys:\n- "title": compelling blog post title\n- "slug": URL-friendly slug\n- "excerpt": 1–2 sentence summary (max 160 chars)\n- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, practical tips section, ${courseLinkInstruction}\n- "metaTitle": 50–60 characters, includes focus keyword if provided\n- "metaDescription": 140–160 characters\n- "focusKeyword": primary SEO keyword\n- "tags": array of 5–8 relevant tags\n- "readTimeMin": estimated read time in minutes (number)\n- "author": "Technohana Team"\n- "category": blog category string\n\nNo emojis. Professional prose. Valid semantic HTML only.`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
