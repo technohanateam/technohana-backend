@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { parseModelJson } from "../utils/parseModelJson.js";
 
 // Shared Claude client for backend AI agents (lead scoring, recovery emails).
 // Callers must handle thrown errors and fall back to non-AI behaviour.
@@ -27,11 +28,4 @@ export async function callClaude({ system, prompt, maxTokens = 1024 }) {
 
 // Pull a JSON object out of a model reply that may include surrounding prose
 // or markdown fences.
-export function extractJson(text) {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error("No JSON object found in model response");
-  }
-  return JSON.parse(text.slice(start, end + 1));
-}
+export const extractJson = parseModelJson;

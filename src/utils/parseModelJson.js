@@ -12,16 +12,35 @@ export function parseModelJson(text) {
   return JSON.parse(escapeControlCharsInStrings(text.slice(start, end + 1)));
 }
 
+const VALID_JSON_ESCAPES = new Set(['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u']);
+
 function escapeControlCharsInStrings(str) {
   let result = "";
   let inString = false;
-  let escaped = false;
+  let pendingBackslash = false;
   for (const ch of str) {
     if (inString) {
-      if (escaped) { result += ch; escaped = false; }
-      else if (ch === "\\") { result += ch; escaped = true; }
-      else if (ch === '"') { result += ch; inString = false; }
-      else if (ch === "\n") result += "\\n";
+      if (pendingBackslash) {
+        pendingBackslash = false;
+        if (VALID_JSON_ESCAPES.has(ch)) {
+          result += "\\" + ch;
+        } else {
+          // The backslash wasn't followed by a real escape target — it was a
+          // stray/dangling backslash (e.g. a Windows path right before a raw
+          // line break), not a genuine escape sequence. Escape the backslash
+          // itself and handle this character on its own merits below.
+          result += "\\\\";
+          if (ch === "\n") result += "\\n";
+          else if (ch === "\r") result += "\\r";
+          else if (ch === "\t") result += "\\t";
+          else if (ch === '"') { result += ch; inString = false; }
+          else result += ch;
+        }
+      } else if (ch === "\\") {
+        pendingBackslash = true;
+      } else if (ch === '"') {
+        result += ch; inString = false;
+      } else if (ch === "\n") result += "\\n";
       else if (ch === "\r") result += "\\r";
       else if (ch === "\t") result += "\\t";
       else result += ch;
