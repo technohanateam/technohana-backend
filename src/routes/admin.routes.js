@@ -713,6 +713,10 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
   for (const url of urls.slice(0, 5)) {
     try {
       const pageRes = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; TechnohanaBot/1.0)" }, signal: AbortSignal.timeout(12000) });
+      // fetch() only throws on network-level failures, not HTTP error statuses —
+      // without this check a 404/500 page's own title (e.g. "Page Not Found")
+      // would get cited as a legitimate source.
+      if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status}`);
       const html = await pageRes.text();
       const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
       const text = stripHtml(html).slice(0, 3000);
