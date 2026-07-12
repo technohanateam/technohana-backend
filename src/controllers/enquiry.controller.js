@@ -32,6 +32,9 @@ export const createEnquiry = async (req, res) => {
       case "AI Agent Build":
         subject = `New AI Agent Build Request${selectedPackage ? ` — ${selectedPackage} package` : ""}`;
         break;
+      case "Skills Gap":
+        subject = `New Skills Gap Lead${body.description ? ` — ${body.description}` : ""}`;
+        break;
       case "General Enquiry":
       default:
         subject = `New General Enquiry for: ${courseTitle}`;
