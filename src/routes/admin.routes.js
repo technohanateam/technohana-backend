@@ -466,7 +466,7 @@ router.get("/blogs", authenticateAdmin, requirePage("blogs"), async (req, res) =
 // POST /admin/blogs
 router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   try {
-    const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin } = req.body;
+    const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs } = req.body;
     if (!title) return res.status(400).json({ message: "Title is required." });
 
     const lastBlog = await Blogs.findOne().sort({ id: -1 }).lean();
@@ -494,6 +494,8 @@ router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, asy
       focusKeyword: focusKeyword || "",
       tags: tags || [],
       readTimeMin: readTimeMin || null,
+      sources: sources || [],
+      faqs: faqs || [],
     });
     await blog.save();
     return res.status(201).json({ data: blog });
@@ -506,10 +508,10 @@ router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, asy
 // PUT /admin/blogs/:id
 router.put("/blogs/:id", authenticateAdmin, requirePage("blogs"), requireMarketing, async (req, res) => {
   try {
-    const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin } = req.body;
+    const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs } = req.body;
     const updated = await Blogs.findByIdAndUpdate(
       req.params.id,
-      { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin },
+      { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs },
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "Blog not found." });
@@ -616,6 +618,8 @@ ${relatedCoursesBullets}
 - "readTimeMin": estimated reading time in minutes (number)
 - "author": "Technohana Team"
 - "category": "${category || "Technology"}"
+- "sources": array of 2–5 objects {"title": string, "url": string} for the real web pages you searched and drew facts/stats from. Only include pages you actually retrieved via web_search — never invent a URL.
+- "faqs": array of 3–5 objects {"question": string, "answer": string} — common reader questions about this course (prerequisites, duration, career outcomes, certification value). Answers 2–4 sentences, grounded in the course/category info given above.
 
 Writing rules:
 - No emojis anywhere
@@ -633,7 +637,7 @@ Writing rules:
       const response = await axios.post(
         "https://api.anthropic.com/v1/messages",
         {
-          model: "claude-sonnet-4-6",
+          model: "claude-sonnet-5",
           max_tokens: 8192,
           system: systemPrompt,
           tools,
@@ -705,12 +709,19 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
   const stripHtml = (html) => html.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<\/?[^>]+(>|$)/g, " ").replace(/\s+/g, " ").trim();
 
   const sourceSections = [];
+  const sourcesList = [];
   for (const url of urls.slice(0, 5)) {
     try {
       const pageRes = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; TechnohanaBot/1.0)" }, signal: AbortSignal.timeout(12000) });
+      // fetch() only throws on network-level failures, not HTTP error statuses —
+      // without this check a 404/500 page's own title (e.g. "Page Not Found")
+      // would get cited as a legitimate source.
+      if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status}`);
       const html = await pageRes.text();
+      const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
       const text = stripHtml(html).slice(0, 3000);
       sourceSections.push(`--- SOURCE: ${url} ---\n${text}`);
+      sourcesList.push({ title: titleMatch ? stripHtml(titleMatch[1]).trim() : url, url });
     } catch {
       sourceSections.push(`--- SOURCE: ${url} ---\n[Could not fetch this URL]`);
     }
@@ -729,7 +740,7 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
     ? `conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>. Also include internal links within the body prose (not in a separate list at the end): where topically relevant, link inline to 2–3 of these related Technohana courses using their exact URLs — do NOT invent a course or id that isn't in this list:\n${relatedCoursesBullets}\n  Do NOT add a standalone "Recommended Courses" section — all links must appear inside paragraph or list content`
     : `conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>`;
 
-  const userPrompt = `I have collected the following source articles. Read them carefully.\n\n${sourceSections.join("\n\n")}\n\n${topicLine} ${categoryLine} ${keywordLine}\n\nWrite a complete, high-quality, SEO-optimised blog post for Technohana (an online tech training company with students in India, UAE, US, UK, EU) grounded in the facts and ideas from those sources. Year: ${year}.\n\nReturn ONLY a valid JSON object (no markdown, no code fences) with these exact keys:\n- "title": compelling blog post title\n- "slug": URL-friendly slug\n- "excerpt": 1–2 sentence summary (max 160 chars)\n- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, practical tips section, ${courseLinkInstruction}\n- "metaTitle": 50–60 characters, includes focus keyword if provided\n- "metaDescription": 140–160 characters\n- "focusKeyword": primary SEO keyword\n- "tags": array of 5–8 relevant tags\n- "readTimeMin": estimated read time in minutes (number)\n- "author": "Technohana Team"\n- "category": blog category string\n\nNo emojis. Professional prose. Valid semantic HTML only.`;
+  const userPrompt = `I have collected the following source articles. Read them carefully.\n\n${sourceSections.join("\n\n")}\n\n${topicLine} ${categoryLine} ${keywordLine}\n\nWrite a complete, high-quality, SEO-optimised blog post for Technohana (an online tech training company with students in India, UAE, US, UK, EU) grounded in the facts and ideas from those sources. Year: ${year}.\n\nReturn ONLY a valid JSON object (no markdown, no code fences) with these exact keys:\n- "title": compelling blog post title\n- "slug": URL-friendly slug\n- "excerpt": 1–2 sentence summary (max 160 chars)\n- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, practical tips section, ${courseLinkInstruction}\n- "metaTitle": 50–60 characters, includes focus keyword if provided\n- "metaDescription": 140–160 characters\n- "focusKeyword": primary SEO keyword\n- "tags": array of 5–8 relevant tags\n- "readTimeMin": estimated read time in minutes (number)\n- "author": "Technohana Team"\n- "category": blog category string\n- "faqs": array of 3–5 objects {"question": string, "answer": string} — common reader questions grounded in the source material above, 2–4 sentence answers\n\nNo emojis. Professional prose. Valid semantic HTML only.`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -740,7 +751,7 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-5",
         max_tokens: 8192,
         system: "You are an expert SEO content writer for Technohana, an online tech training company based in India with global students. Write accurate, factual blog posts grounded in the source material provided. Never fabricate statistics.",
         messages: [{ role: "user", content: userPrompt }],
@@ -758,6 +769,9 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
       generated = match ? JSON.parse(match[0]) : null;
     }
     if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw: finalText });
+    // sources are deterministic from the input URLs (with titles fetched server-side)
+    // rather than trusted to the model, which could otherwise invent or drop entries.
+    generated.sources = sourcesList;
     return res.json({ data: generated });
   } catch (err) {
     const detail = err?.message;
@@ -769,7 +783,7 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
 // POST /admin/blogs/rewrite — AI-rewrite and improve an existing blog post
 router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   try {
-    const { title, content, excerpt, category, focusKeyword, author } = req.body;
+    const { title, content, excerpt, category, focusKeyword, author, sources, faqs } = req.body;
     if (!title || !content) return res.status(400).json({ message: "title and content are required." });
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -780,7 +794,7 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
     const response = await axios.post(
       "https://api.anthropic.com/v1/messages",
       {
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-5",
         max_tokens: 8192,
         messages: [{ role: "user", content: prompt }],
       },
@@ -803,6 +817,11 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
       generated = match ? JSON.parse(match[0]) : null;
     }
     if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw });
+    // Rewrite only touches prose/SEO fields — carry the original post's
+    // sources and FAQs through unchanged rather than asking the model to
+    // reproduce them (which risks silent drift or invented entries).
+    generated.sources = sources || [];
+    generated.faqs = faqs || [];
     return res.json({ data: generated });
   } catch (err) {
     const detail = err?.response?.data?.error?.message || err.message;

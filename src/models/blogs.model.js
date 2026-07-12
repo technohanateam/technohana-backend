@@ -44,6 +44,14 @@ const blogSchema = new mongoose.Schema({
     readTimeMin: {
         type: Number
     },
+    sources: {
+        type: [{ title: String, url: String, _id: false }],
+        default: []
+    },
+    faqs: {
+        type: [{ question: String, answer: String, _id: false }],
+        default: []
+    },
     published: {
         type: Boolean,
         default: false
