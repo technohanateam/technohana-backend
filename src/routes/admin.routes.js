@@ -7,6 +7,7 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { fileURLToPath } from "url";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
+import { parseModelJson } from "../utils/parseModelJson.js";
 import { User } from "../models/user.model.js";
 import { Order } from "../models/order.model.js";
 import Enquiry from "../models/enquiry.model.js";
@@ -681,10 +682,9 @@ Writing rules:
 
     let generated;
     try {
-      generated = JSON.parse(finalText);
+      generated = parseModelJson(finalText);
     } catch {
-      const match = finalText.match(/\{[\s\S]*\}/);
-      generated = match ? JSON.parse(match[0]) : null;
+      generated = null;
     }
     if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw: finalText });
     return res.json({ data: generated });
@@ -763,10 +763,9 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
     const finalText = data.content?.find((b) => b.type === "text")?.text || "";
     let generated;
     try {
-      generated = JSON.parse(finalText);
+      generated = parseModelJson(finalText);
     } catch {
-      const match = finalText.match(/\{[\s\S]*\}/);
-      generated = match ? JSON.parse(match[0]) : null;
+      generated = null;
     }
     if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw: finalText });
     // sources are deterministic from the input URLs (with titles fetched server-side)
@@ -811,10 +810,9 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
     const raw = response.data.content?.[0]?.text?.trim() || "";
     let generated;
     try {
-      generated = JSON.parse(raw);
+      generated = parseModelJson(raw);
     } catch {
-      const match = raw.match(/\{[\s\S]*\}/);
-      generated = match ? JSON.parse(match[0]) : null;
+      generated = null;
     }
     if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw });
     // Rewrite only touches prose/SEO fields — carry the original post's
