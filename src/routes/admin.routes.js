@@ -633,7 +633,7 @@ Writing rules:
       const response = await axios.post(
         "https://api.anthropic.com/v1/messages",
         {
-          model: "claude-sonnet-4-6",
+          model: "claude-sonnet-5",
           max_tokens: 8192,
           system: systemPrompt,
           tools,
@@ -740,7 +740,7 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-5",
         max_tokens: 8192,
         system: "You are an expert SEO content writer for Technohana, an online tech training company based in India with global students. Write accurate, factual blog posts grounded in the source material provided. Never fabricate statistics.",
         messages: [{ role: "user", content: userPrompt }],
@@ -780,7 +780,7 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
     const response = await axios.post(
       "https://api.anthropic.com/v1/messages",
       {
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-5",
         max_tokens: 8192,
         messages: [{ role: "user", content: prompt }],
       },
