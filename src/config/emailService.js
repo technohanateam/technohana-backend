@@ -16,7 +16,7 @@ export const fromAddresses = {
 };
 
 // Make the 'from' address a parameter
-export const sendEmail = async ({ from, to, subject, html }) => {
+export const sendEmail = async ({ from, to, subject, html, attachments }) => {
   try {
     const resendClient = getResend();
     const data = await resendClient.emails.send({
@@ -24,6 +24,7 @@ export const sendEmail = async ({ from, to, subject, html }) => {
       to: to,
       subject: subject,
       html: html,
+      ...(attachments ? { attachments } : {}),
     });
     console.log(`Email sent to ${to} with subject "${subject}"`);
     return data;

@@ -128,6 +128,26 @@ export function generateEnquiryConfirmationEmail({ name, enquiryType, courseTitl
   return emailShell({ label: 'Enquiry Confirmation', body });
 }
 
+// ─── SKILLS GAP PLAN (user) ───────────────────────────────────────────────────
+
+export function generateSkillsGapPlanEmail({ name, currentRole, targetRole, summary }) {
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Your learning path is ready${name ? `, ${name}` : ''}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
+      Your personalized plan from <strong style="color:#1e293b;">${currentRole}</strong> to
+      <strong style="color:#1e293b;">${targetRole}</strong> is attached as a PDF — save it, share it,
+      or revisit it anytime.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Current Role', currentRole, false)}
+      ${dataRow('Target Role', targetRole, true)}
+      ${summary ? dataRow('Summary', summary, false) : ''}
+    </table>
+    ${ctaButton('Browse Courses', `${process.env.FRONTEND_URL || 'https://technohana.in'}/courses`)}`;
+
+  return emailShell({ label: 'Your Learning Path', body });
+}
+
 // ─── ENROLLMENT CONFIRMATION (user) ──────────────────────────────────────────
 
 export function generateEnrollmentConfirmationEmail({ name, courseTitle, trainingType, trainingPeriod, specialRequest, price, currency }) {

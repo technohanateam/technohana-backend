@@ -44,6 +44,7 @@ import assessmentResultRoutes from "./routes/assessmentResult.routes.js";
 import seoGeoRoutes from "./routes/seo-geo.routes.js";
 import leadCaptureRoutes from "./routes/leadCapture.routes.js";
 import instructorRoutes from "./routes/instructor.routes.js";
+import skillsGapRoutes from "./routes/skillsGap.routes.js";
 import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
 import { handleResendWebhook } from "./services/resendWebhook.js";
@@ -1232,6 +1233,7 @@ app.use("/", assessmentResultRoutes);
 app.use("/admin", seoGeoRoutes);
 app.use("/", leadCaptureRoutes);
 app.use("/instructor", instructorRoutes);
+app.use("/", skillsGapRoutes);
 
 // ─── Campaign Automation ───────────────────────────────────────────────────────
 
