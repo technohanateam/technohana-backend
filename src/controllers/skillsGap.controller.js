@@ -7,6 +7,8 @@ export const emailSkillsGapPlan = async (req, res) => {
     const { name, email, result } = req.body;
     const currentRole = req.body.current_role || "your current role";
     const targetRole = req.body.target_role || "your target role";
+    const validCurrencies = ["inr", "usd", "aed"];
+    const currency = validCurrencies.includes(req.body.currency) ? req.body.currency : "inr";
     if (!email || !result || result.error) {
       // Nothing meaningful to email (analysis failed/absent) — not an error,
       // just nothing to send.
@@ -23,6 +25,7 @@ export const emailSkillsGapPlan = async (req, res) => {
       timeline: result.timeline,
       totalCost: result.totalCost,
       nextStep: result.nextStep,
+      currency,
     });
 
     await sendEmail({
