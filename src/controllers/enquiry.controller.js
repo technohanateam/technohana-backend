@@ -32,6 +32,9 @@ export const createEnquiry = async (req, res) => {
       case "AI Agent Build":
         subject = `New AI Agent Build Request${selectedPackage ? ` — ${selectedPackage} package` : ""}`;
         break;
+      case "Skills Gap":
+        subject = `New Skills Gap Lead${body.description ? ` — ${body.description}` : ""}`;
+        break;
       case "General Enquiry":
       default:
         subject = `New General Enquiry for: ${courseTitle}`;
@@ -46,12 +49,16 @@ export const createEnquiry = async (req, res) => {
       html: generateEnquiryTable(req.body),
     });
 
-    sendEmail({
-      from: fromAddresses.sales,
-      to: email,
-      subject: `We received your request — Technohana will be in touch within 24 hours`,
-      html: generateEnquiryConfirmationEmail({ name, enquiryType, courseTitle, selectedPackage, timeline }),
-    }).catch((err) => console.error("Enquiry confirmation email failed (lead already saved):", err));
+    // Skills Gap leads get a dedicated, tailored plan email (POST /skills-gap/email-plan)
+    // instead of this generic confirmation — sending both would double-email the user.
+    if (enquiryType !== "Skills Gap") {
+      sendEmail({
+        from: fromAddresses.sales,
+        to: email,
+        subject: `We received your request — Technohana will be in touch within 24 hours`,
+        html: generateEnquiryConfirmationEmail({ name, enquiryType, courseTitle, selectedPackage, timeline }),
+      }).catch((err) => console.error("Enquiry confirmation email failed (lead already saved):", err));
+    }
 
     res
       .status(201)
