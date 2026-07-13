@@ -67,7 +67,7 @@ export function generateSkillsGapPdf({
     if (timeline?.description) {
       doc.fillColor(DARK).fontSize(14).font("Helvetica-Bold").text("Timeline");
       doc.moveDown(0.3);
-      const weeks = timeline.totalWeeks ? `${timeline.totalWeeks} weeks — ` : "";
+      const weeks = timeline.totalWeeks != null ? `${timeline.totalWeeks} weeks — ` : "";
       doc.fillColor(GRAY).fontSize(11).font("Helvetica").text(`${weeks}${timeline.description}`);
       doc.moveDown(1);
     }
