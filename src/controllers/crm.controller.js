@@ -3,6 +3,9 @@ import Lead from "../models/lead.model.js";
 import { User } from "../models/user.model.js";
 import { Order } from "../models/order.model.js";
 import Campaign from "../models/campaign.model.js";
+import AiRiskReport from "../models/aiRiskReport.model.js";
+import Subscription from "../models/subscription.model.js";
+import Instructor from "../models/instructor.js";
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -79,6 +82,75 @@ export const getContacts = async (req, res) => {
           ],
         },
       },
+      // ── Union with AI Career Risk Test submissions ──────────────────────────
+      {
+        $unionWith: {
+          coll: "airiskreports",
+          pipeline: [
+            {
+              $project: {
+                email: { $toLower: "$email" },
+                name: 1,
+                company: { $literal: null },
+                phone: 1,
+                _sourceType: { $literal: "ai-risk-report" },
+                aiScore: { $literal: null },
+                aiScoreBand: { $literal: null },
+                status: { $literal: null },
+                assignedTo: { $literal: null },
+                nextFollowUp: { $literal: FAR_FUTURE },
+                createdAt: 1,
+              },
+            },
+          ],
+        },
+      },
+      // ── Union with newsletter subscribers ───────────────────────────────────
+      {
+        $unionWith: {
+          coll: "subscriptions",
+          pipeline: [
+            {
+              $project: {
+                email: { $toLower: "$email" },
+                name: { $literal: null },
+                company: { $literal: null },
+                phone: { $literal: null },
+                _sourceType: { $literal: "subscriber" },
+                aiScore: { $literal: null },
+                aiScoreBand: { $literal: null },
+                status: { $literal: null },
+                assignedTo: { $literal: null },
+                nextFollowUp: { $literal: FAR_FUTURE },
+                createdAt: 1,
+              },
+            },
+          ],
+        },
+      },
+      // ── Union with instructor applicants ────────────────────────────────────
+      {
+        $unionWith: {
+          coll: "instructors",
+          pipeline: [
+            {
+              $project: {
+                email: { $toLower: "$email" },
+                name: 1,
+                company: { $literal: null },
+                phone: 1,
+                _sourceType: { $literal: "instructor" },
+                aiScore: { $literal: null },
+                aiScoreBand: { $literal: null },
+                status: 1,
+                assignedTo: 1,
+                nextFollowUp: { $ifNull: ["$nextFollowUp", FAR_FUTURE] },
+                createdAt: "$submittedAt",
+              },
+            },
+          ],
+        },
+      },
       // ── Group by email ───────────────────────────────────────────────────────
       {
         $group: {
@@ -106,6 +178,18 @@ export const getContacts = async (req, res) => {
           _hasEnquiry: {
             $max: { $cond: [{ $eq: ["$_sourceType", "enquiry"] }, 1, 0] },
           },
+          _hasLead: {
+            $max: { $cond: [{ $eq: ["$_sourceType", "lead"] }, 1, 0] },
+          },
+          _hasInstructor: {
+            $max: { $cond: [{ $eq: ["$_sourceType", "instructor"] }, 1, 0] },
+          },
+          _hasSubscriber: {
+            $max: { $cond: [{ $eq: ["$_sourceType", "subscriber"] }, 1, 0] },
+          },
+          _hasAiRisk: {
+            $max: { $cond: [{ $eq: ["$_sourceType", "ai-risk-report"] }, 1, 0] },
+          },
           status: { $max: "$status" },
           assignedTo: { $max: "$assignedTo" },
           nextFollowUp: { $min: "$nextFollowUp" },
@@ -116,11 +200,17 @@ export const getContacts = async (req, res) => {
       {
         $addFields: {
           type: {
-            $cond: [
-              { $eq: ["$_hasUser", 1] },
-              "customer",
-              { $cond: [{ $eq: ["$_hasEnquiry", 1] }, "prospect", "lead"] },
-            ],
+            $switch: {
+              branches: [
+                { case: { $eq: ["$_hasUser", 1] }, then: "customer" },
+                { case: { $eq: ["$_hasEnquiry", 1] }, then: "prospect" },
+                { case: { $eq: ["$_hasLead", 1] }, then: "lead" },
+                { case: { $eq: ["$_hasInstructor", 1] }, then: "instructor" },
+                { case: { $eq: ["$_hasSubscriber", 1] }, then: "subscriber" },
+                { case: { $eq: ["$_hasAiRisk", 1] }, then: "ai-risk-lead" },
+              ],
+              default: "lead",
+            },
           },
           aiScoreBand: {
             $switch: {
@@ -200,25 +290,40 @@ export const getContactProfile = async (req, res) => {
 
     const emailRegex = new RegExp(`^${escapeRegex(email)}$`, "i");
 
-    const [enquiries, enrollments, orders, lead, campaigns] = await Promise.all([
+    const [enquiries, enrollments, orders, lead, campaigns, aiRiskReport, subscription, instructorApplication] = await Promise.all([
       Enquiry.find({ email: emailRegex }).sort({ createdAt: -1 }).lean(),
       User.find({ email: emailRegex }).sort({ createdAt: -1 }).lean(),
       Order.find({ "learner.email": emailRegex }).sort({ createdAt: -1 }).lean(),
       Lead.findOne({ email: emailRegex }).lean(),
       Campaign.find({ "recipientMetrics.email": emailRegex }, { name: 1, recipientMetrics: 1, sentAt: 1 }).lean(),
+      AiRiskReport.findOne({ email: emailRegex }).sort({ createdAt: -1 }).lean(),
+      Subscription.findOne({ email: emailRegex }).lean(),
+      Instructor.findOne({ email: emailRegex }).lean(),
     ]);
 
     // ── Merge best identity fields ───────────────────────────────────────────
     const bestEnquiry = enquiries[0] || {};
     const bestUser = enrollments[0] || {};
-    const name = bestEnquiry.name || bestUser.name || lead?.name || "";
+    const name = bestEnquiry.name || bestUser.name || lead?.name || instructorApplication?.name || aiRiskReport?.name || "";
     const company = bestEnquiry.company || bestUser.company || null;
-    const phone = bestEnquiry.phone || bestUser.phone || null;
+    const phone = bestEnquiry.phone || bestUser.phone || instructorApplication?.phone || aiRiskReport?.phone || null;
     const utm = bestEnquiry.utm || bestUser.utm || lead?.utm || null;
     const source = bestEnquiry.source || lead?.source || null;
 
     const topEnquiry = enquiries.find((e) => e.aiScore != null) || enquiries[0] || {};
-    const type = enrollments.length > 0 ? "customer" : enquiries.length > 0 ? "prospect" : "lead";
+    const type = enrollments.length > 0
+      ? "customer"
+      : enquiries.length > 0
+      ? "prospect"
+      : lead
+      ? "lead"
+      : instructorApplication
+      ? "instructor"
+      : subscription
+      ? "subscriber"
+      : aiRiskReport
+      ? "ai-risk-lead"
+      : "lead";
 
     // ── Campaign interactions ────────────────────────────────────────────────
     const campaignInteractions = [];
@@ -283,6 +388,33 @@ export const getContactProfile = async (req, res) => {
         at: lead.createdAt,
         label: `Lead captured via ${lead.persona || lead.source || "persona page"}`,
         meta: { persona: lead.persona, source: lead.source },
+      });
+    }
+
+    if (aiRiskReport) {
+      timeline.push({
+        type: "ai_risk_test_taken",
+        at: aiRiskReport.createdAt,
+        label: `Took the AI Career Risk Test (${aiRiskReport.band})`,
+        meta: { score: aiRiskReport.score, band: aiRiskReport.band },
+      });
+    }
+
+    if (subscription) {
+      timeline.push({
+        type: "subscribed",
+        at: subscription.createdAt,
+        label: "Subscribed to the newsletter",
+        meta: { isActive: subscription.isActive },
+      });
+    }
+
+    if (instructorApplication) {
+      timeline.push({
+        type: "instructor_applied",
+        at: instructorApplication.submittedAt,
+        label: "Applied to become an instructor",
+        meta: { status: instructorApplication.status },
       });
     }
 
@@ -357,6 +489,15 @@ export const getContactProfile = async (req, res) => {
       })),
       lead: lead
         ? { persona: lead.persona, source: lead.source, createdAt: lead.createdAt }
+        : null,
+      aiRiskReport: aiRiskReport
+        ? { score: aiRiskReport.score, band: aiRiskReport.band, jobRole: aiRiskReport.jobRole, createdAt: aiRiskReport.createdAt }
+        : null,
+      subscription: subscription
+        ? { isActive: subscription.isActive, createdAt: subscription.createdAt }
+        : null,
+      instructorApplication: instructorApplication
+        ? { status: instructorApplication.status, expertise: instructorApplication.expertise, submittedAt: instructorApplication.submittedAt }
         : null,
       campaignInteractions,
       timeline,
