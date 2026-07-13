@@ -69,33 +69,44 @@ const allowedOrigins = process.env.WHITELISTED_URLS
   ? process.env.WHITELISTED_URLS.split(',').map(url => url.trim())
   : [];
 
-const corsOption = {
-  origin: function (origin, callback) {
-    if (!origin) {
-      if (process.env.NODE_ENV === 'production') {
-        return callback(new Error("Origin required in production"));
+// Routes hit by the Hana Agent (Python service) via server-to-server POSTs,
+// which never carry a browser Origin header — exempt them from the
+// Origin-required-in-production check below (same reasoning as /health).
+const noOriginRequiredPaths = ['/enquiry', '/skills-gap/email-plan'];
+
+const corsOptionsDelegate = function (req, callback) {
+  const exemptFromOriginRequirement = !req.headers.origin && noOriginRequiredPaths.includes(req.path);
+  callback(null, {
+    origin: function (origin, cb) {
+      if (!origin) {
+        if (exemptFromOriginRequirement) {
+          return cb(null, true);
+        }
+        if (process.env.NODE_ENV === 'production') {
+          return cb(new Error("Origin required in production"));
+        }
+        return cb(null, true);
       }
-      return callback(null, true);
-    }
-    if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else if (allowedOrigins.length === 0 && process.env.NODE_ENV !== 'production') {
-      return callback(null, true);
-    } else {
-      return callback(new Error("Not allowed by CORS"));
-    }
-  },
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "x-timestamp",
-    "x-checksum",
-    "Access-Control-Allow-Origin",
-  ],
-  credentials: true,
+      if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
+        return cb(null, true);
+      } else if (allowedOrigins.length === 0 && process.env.NODE_ENV !== 'production') {
+        return cb(null, true);
+      } else {
+        return cb(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-timestamp",
+      "x-checksum",
+      "Access-Control-Allow-Origin",
+    ],
+    credentials: true,
+  });
 };
-app.use(cors(corsOption));
+app.use(cors(corsOptionsDelegate));
 app.use(express.json());
 // --- Persistent order store via MongoDB (24-hour TTL) ---
 
