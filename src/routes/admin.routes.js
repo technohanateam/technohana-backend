@@ -1,5 +1,6 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
+import mongoose from "mongoose";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
@@ -47,6 +48,19 @@ const adminLoginLimiter = rateLimit({
   legacyHeaders: false,
   message: 'Too many login attempts. Please try again after 15 minutes.',
 });
+
+// Throttles PII-bearing admin read endpoints (contacts, enquiries, leads, subscribers)
+// keyed by admin id so one bulk-scraping token can't hammer the DB unbounded.
+const adminDataLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.admin?.uid || req.ip,
+  message: 'Too many requests. Please slow down.',
+});
+
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 // ─── POST /admin/login ────────────────────────────────────────────────────────
 router.post("/login", adminLoginLimiter, adminLogin);
@@ -154,7 +168,7 @@ router.get("/revenue-by-course", authenticateAdmin, async (req, res) => {
 });
 
 // GET /admin/enrollments?status=&search=&page=1&limit=20
-router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), async (req, res) => {
+router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), adminDataLimiter, async (req, res) => {
   try {
     const { status, search, page = 1, limit = 20 } = req.query;
     const query = {};
@@ -177,7 +191,7 @@ router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), async 
       User.countDocuments(query),
     ]);
 
-    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+    return res.json({ success: true, data, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     console.error("Admin enrollments error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -187,6 +201,10 @@ router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), async 
 // PATCH /admin/enrollments/:id/status
 router.patch("/enrollments/:id/status", authenticateAdmin, requirePage("enrollments"), requireAdmin, async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid id" });
+    }
+
     const { status, rejectionReason } = req.body;
     const allowed = ["pending-payment", "in-progress", "enrolled", "rejected"];
     if (!allowed.includes(status)) {
@@ -213,6 +231,9 @@ router.patch("/enrollments/:id/status", authenticateAdmin, requirePage("enrollme
 // DELETE /admin/enrollments/:id
 router.delete("/enrollments/:id", authenticateAdmin, requirePage("enrollments"), requireAdmin, async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid id" });
+    }
     const deleted = await User.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Enrollment not found." });
     return res.json({ message: "Enrollment deleted.", data: deleted });
@@ -223,7 +244,7 @@ router.delete("/enrollments/:id", authenticateAdmin, requirePage("enrollments"),
 });
 
 // GET /admin/enquiries?page=1&limit=20
-router.get("/enquiries", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+router.get("/enquiries", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), adminDataLimiter, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -231,7 +252,7 @@ router.get("/enquiries", authenticateAdmin, requirePage("enquiries", "sales-pipe
       Enquiry.find().sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
       Enquiry.countDocuments(),
     ]);
-    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+    return res.json({ success: true, data, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     console.error("Admin enquiries error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -279,6 +300,9 @@ router.delete("/enquiries/clear", authenticateAdmin, requirePage("enquiries", "s
 // DELETE /admin/enquiries/:id
 router.delete("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), requireAdmin, async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid id" });
+    }
     const deleted = await Enquiry.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Enquiry not found." });
     return res.json({ message: "Enquiry deleted." });
@@ -291,6 +315,9 @@ router.delete("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sal
 // PATCH /admin/enquiries/:id — update status, notes, assignedTo, nextFollowUp, lostReason
 router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid id" });
+    }
     const { status, notes, assignedTo, nextFollowUp, lostReason } = req.body;
     const allowed = {};
     if (status !== undefined) allowed.status = status;
@@ -421,7 +448,7 @@ router.delete("/ai-risk-reports/:id", authenticateAdmin, requirePage("ai-risk-re
 });
 
 // GET /admin/leads?page=1&limit=20&persona=executives
-router.get("/leads", authenticateAdmin, requirePage("ai-risk-reports"), async (req, res) => {
+router.get("/leads", authenticateAdmin, requirePage("crm"), adminDataLimiter, async (req, res) => {
   try {
     const { page = 1, limit = 20, persona } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -430,7 +457,7 @@ router.get("/leads", authenticateAdmin, requirePage("ai-risk-reports"), async (r
       Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
       Lead.countDocuments(filter),
     ]);
-    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+    return res.json({ success: true, data, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     console.error("Admin leads error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -438,7 +465,7 @@ router.get("/leads", authenticateAdmin, requirePage("ai-risk-reports"), async (r
 });
 
 // GET /admin/subscribers?page=1&limit=20
-router.get("/subscribers", authenticateAdmin, requirePage("subscribers"), async (req, res) => {
+router.get("/subscribers", authenticateAdmin, requirePage("subscribers"), adminDataLimiter, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -446,7 +473,7 @@ router.get("/subscribers", authenticateAdmin, requirePage("subscribers"), async 
       Subscription.find().sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
       Subscription.countDocuments(),
     ]);
-    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+    return res.json({ success: true, data, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     console.error("Admin subscribers error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -1539,7 +1566,7 @@ router.put("/proposals/:id",     authenticateAdmin, updateProposal);
 router.delete("/proposals/:id",  authenticateAdmin, deleteProposal);
 
 // ─── CRM Contacts ─────────────────────────────────────────────────────────────
-router.get("/contacts",       authenticateAdmin, requirePage("crm"), getContacts);
-router.get("/contacts/:email", authenticateAdmin, requirePage("crm"), getContactProfile);
+router.get("/contacts",       authenticateAdmin, requirePage("crm"), adminDataLimiter, getContacts);
+router.get("/contacts/:email", authenticateAdmin, requirePage("crm"), adminDataLimiter, getContactProfile);
 
 export default router;
