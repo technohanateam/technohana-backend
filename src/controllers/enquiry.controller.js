@@ -182,7 +182,7 @@ export const handleAIRiskReportRequest = async (req, res) => {
           </tr>
           <tr>
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
-              <p style="margin:0;font-size:11px;color:#94a3b8;">© 2025 Technohana · <a href="https://technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
+              <p style="margin:0;font-size:11px;color:#94a3b8;">© ${new Date().getFullYear()} Technohana · <a href="https://technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
             </td>
           </tr>
         </table>

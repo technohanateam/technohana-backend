@@ -24,10 +24,12 @@ const FOOTER_TOP = 792 - FOOTER_HEIGHT;
 // include → (U+2192) or ₹ (U+20B9) — both silently render as the wrong
 // glyph instead of erroring, so avoid them entirely (arrow is drawn as a
 // vector shape below; rupee uses the "INR" text label).
-const fmtPrice = (prices) =>
-  prices
-    ? `INR ${prices.inr ?? "-"} · $${prices.usd ?? "-"} · AED ${prices.aed ?? "-"}`
-    : "";
+const CURRENCY_PREFIX = { inr: "INR ", usd: "$", aed: "AED " };
+const fmtPrice = (prices, currency = "inr") => {
+  if (!prices) return "";
+  const key = CURRENCY_PREFIX[currency] ? currency : "inr";
+  return `${CURRENCY_PREFIX[key]}${prices[key] ?? prices.inr ?? "-"}`;
+};
 
 // PDFKit auto-adds a page mid-draw once doc.y would overflow the bottom
 // margin, which corrupts any block that mixes a pre-computed startY with
@@ -59,22 +61,38 @@ function drawFooter(doc, pageNum) {
     .stroke()
     .restore();
 
+  doc.fontSize(8.5).font("Helvetica");
   doc
     .fillColor(GRAY)
-    .fontSize(8.5)
-    .font("Helvetica")
-    .text(
-      "Questions? connect@technohana.in  ·  WhatsApp +91 98219 67863  ·  technohana.in",
-      PAGE_MARGIN,
-      FOOTER_TOP + 14,
-      { width: CONTENT_WIDTH - 60, lineBreak: false }
-    );
+    .text("Questions? ", PAGE_MARGIN, FOOTER_TOP + 14, { continued: true })
+    .fillColor(VIOLET)
+    .text("connect@technohana.in", {
+      continued: true,
+      link: "mailto:connect@technohana.in",
+      underline: true,
+    })
+    .fillColor(GRAY)
+    .text("  ·  WhatsApp ", { continued: true })
+    .fillColor(VIOLET)
+    .text("+91 98219 67863", {
+      continued: true,
+      link: "https://wa.me/919821967863",
+      underline: true,
+    })
+    .fillColor(GRAY)
+    .text("  ·  ", { continued: true })
+    .fillColor(VIOLET)
+    .text("technohana.in", {
+      link: "https://technohana.in",
+      underline: true,
+    });
 
-  doc.text(`${pageNum}`, PAGE_WIDTH - PAGE_MARGIN - 20, FOOTER_TOP + 14, {
-    width: 20,
-    align: "right",
-    lineBreak: false,
-  });
+  doc
+    .fillColor(GRAY)
+    .text(`${pageNum}`, PAGE_WIDTH - PAGE_MARGIN - 20, FOOTER_TOP + 14, {
+      width: 20,
+      align: "right",
+    });
 
   doc.page.margins.bottom = savedBottom;
 }
@@ -291,6 +309,7 @@ export function generateSkillsGapPdf({
   timeline,
   totalCost,
   nextStep,
+  currency = "inr",
 }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: PAGE_MARGIN, bufferPages: true });
@@ -302,6 +321,24 @@ export function generateSkillsGapPdf({
     drawHeader(doc);
     doc.y = 150;
     doc.x = PAGE_MARGIN;
+
+    if (name) {
+      const dateStr = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      doc
+        .fillColor(GRAY)
+        .fontSize(9.5)
+        .font("Helvetica")
+        .text(`Prepared for ${name}  ·  Generated on ${dateStr}`, PAGE_MARGIN, doc.y, {
+          width: CONTENT_WIDTH,
+        });
+      doc.moveDown(0.5);
+      doc.x = PAGE_MARGIN;
+    }
+
     drawRolePills(doc, currentRole, targetRole);
 
     if (summary) {
@@ -328,7 +365,7 @@ export function generateSkillsGapPdf({
         const meta = [course.category, course.duration, course.difficulty]
           .filter(Boolean)
           .join(" · ");
-        const price = fmtPrice(course.prices);
+        const price = fmtPrice(course.prices, currency);
         const gapsLine = course.gapsAddressed?.length
           ? `Addresses: ${course.gapsAddressed.join(", ")}`
           : "";
@@ -368,6 +405,7 @@ export function generateSkillsGapPdf({
           .roundedRect(PAGE_MARGIN, cardStartY, CONTENT_WIDTH, cardHeight, 6)
           .fillAndStroke(CARD_BG, BORDER);
         doc.restore();
+        doc.rect(PAGE_MARGIN, cardStartY, 4, cardHeight).fill(VIOLET);
 
         doc.circle(PAGE_MARGIN + 16, cardStartY + 20, badgeR).fill(VIOLET);
         doc
@@ -427,7 +465,7 @@ export function generateSkillsGapPdf({
     if (totalCost) {
       highlightBox(doc, {
         title: "ESTIMATED TOTAL COST",
-        body: fmtPrice(totalCost),
+        body: fmtPrice(totalCost, currency),
         accent: VIOLET,
         bg: VIOLET_LIGHT,
       });
