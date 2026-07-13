@@ -8,7 +8,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
-import Enquiry from "../models/enquiry.model.js";
 
 const router = express.Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -171,66 +170,10 @@ router.delete("/api/chat/:session_id", (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Skills Gap API
+// Skills Gap API — handled by the separate Hana Python Agent
+// (technohana-frontend-master/backend/main.py), which forwards leads to
+// POST /enquiry and POST /skills-gap/email-plan on this backend.
 // ---------------------------------------------------------------------------
-
-function buildSkillsGapCatalog(courses) {
-  return courses
-    .map((c) => {
-      const audience = (c.targetAudience || [])[0] || "";
-      const outcomes = (c.whatWillYouLearn || []).slice(0, 2).join("; ");
-      const prices = c.prices || {};
-      return (
-        `${c.courseTitle} | ID:${c.id} | ${c.category || "N/A"} | ` +
-        `${c.courseDays || "?"} ${c.courseTime || "?"} | ` +
-        `INR:${prices.inr || c.price || "?"} | USD:${prices.usd || "?"} | AED:${prices.aed || "?"} | ` +
-        `${c.difficulty || "N/A"} | ${audience} | ${outcomes}`
-      );
-    })
-    .join("\n");
-}
-
-const SKILLS_GAP_SYSTEM = `You are a career advisor AI for Technohana, an AI and tech training company.
-
-Your job: given a user's CURRENT ROLE and TARGET ROLE, identify their skill gaps and recommend the best matching courses from the Technohana catalog.
-
-COURSE CATALOG (format: Title | ID | Category | Duration | INR Price | USD Price | AED Price | Level | Audience | Key outcomes):
-${buildSkillsGapCatalog(courses)}
-
-RULES:
-- Identify 3–6 specific, concrete skill gaps between the current role and target role
-- Recommend 2–4 courses from the catalog that directly address those gaps — ONLY use courses from the catalog above
-- For each recommended course, explain which gap(s) it addresses
-- Calculate total cost (INR, USD, AED) and a realistic timeline in weeks
-- Include group savings for team sizes 5 and 10+ (15% and 35% discounts)
-- Keep the tone encouraging and direct
-
-RESPONSE FORMAT — always respond with ONLY valid JSON, no extra text:
-{
-  "summary": "One encouraging sentence about this career transition",
-  "skillGaps": ["Specific skill gap 1", "Specific skill gap 2", "Specific skill gap 3"],
-  "recommendedCourses": [
-    {
-      "id": "COURSE_ID",
-      "title": "Course Title",
-      "category": "Category",
-      "duration": "X Days / Y Hours",
-      "prices": { "inr": 12000, "usd": 150, "aed": 550 },
-      "difficulty": "Beginner/Intermediate/Advanced",
-      "gapsAddressed": ["Gap 1", "Gap 3"],
-      "slug": "course-slug"
-    }
-  ],
-  "timeline": { "totalWeeks": 24, "description": "Brief timeline explanation" },
-  "totalCost": { "inr": 45000, "usd": 560, "aed": 2050 },
-  "groupSavings": {
-    "team5": { "inr": 38250, "usd": 476, "aed": 1742, "discountPercent": 15 },
-    "team10": { "inr": 29250, "usd": 364, "aed": 1332, "discountPercent": 35 }
-  },
-  "nextStep": "Enroll in [first course title] to get started."
-}
-
-Never include markdown, code fences, or extra text — ONLY the JSON object.`;
 
 function parseJsonResponse(raw) {
   try { return JSON.parse(raw.trim()); } catch (_) {}
@@ -238,70 +181,6 @@ function parseJsonResponse(raw) {
   if (m) { try { return JSON.parse(m[0]); } catch (_) {} }
   return null;
 }
-
-// POST /api/skills-gap
-router.post("/api/skills-gap", async (req, res) => {
-  const { current_role, target_role, currency = "inr" } = req.body || {};
-  if (!current_role?.trim() || !target_role?.trim()) {
-    return res.status(422).json({ error: "current_role and target_role are required." });
-  }
-
-  const userMessage =
-    `Current role: ${current_role.trim()}\nTarget role: ${target_role.trim()}\nPreferred currency: ${currency.toUpperCase()}\n\nPlease identify my skill gaps and recommend courses.`;
-
-  try {
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      max_tokens: 2048,
-      temperature: 0.3,
-      messages: [
-        { role: "system", content: SKILLS_GAP_SYSTEM },
-        { role: "user", content: userMessage },
-      ],
-    });
-    const result = parseJsonResponse(response.choices[0].message.content);
-    if (!result) throw new Error("parse_failed");
-    new Enquiry({
-      name: "Anonymous",
-      email: `skillsgap+${Date.now()}@anonymous.technohana.in`,
-      enquiryType: "Skills Gap",
-      description: `${current_role.trim()} → ${target_role.trim()}`,
-      source: "skills_gap_tool",
-    }).save().catch(() => {});
-    return res.json(result);
-  } catch (err) {
-    console.error("Skills gap error:", err.message);
-    return res.json({
-      summary: "Unable to analyze right now. Please try again shortly.",
-      skillGaps: [],
-      recommendedCourses: [],
-      timeline: { totalWeeks: 0, description: "" },
-      totalCost: { inr: 0, usd: 0, aed: 0 },
-      groupSavings: {},
-      nextStep: "Contact us on WhatsApp at +91 98219 67863 for a personalized recommendation.",
-    });
-  }
-});
-
-// POST /api/skills-gap/save-lead
-router.post("/api/skills-gap/save-lead", async (req, res) => {
-  const { name, email, current_role, target_role } = req.body || {};
-  if (!email) return res.status(422).json({ error: "email is required." });
-
-  try {
-    await new Enquiry({
-      name: name || "Unknown",
-      email,
-      enquiryType: "Skills Gap",
-      description: `Skills gap analysis: ${current_role || "?"} → ${target_role || "?"}`,
-      source: "skills_gap_tool",
-    }).save();
-  } catch (err) {
-    console.error("save-lead error:", err.message);
-  }
-  return res.json({ success: true });
-});
 
 // ---------------------------------------------------------------------------
 // Interview Coach API
