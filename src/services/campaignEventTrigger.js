@@ -10,7 +10,6 @@ export const CAMPAIGN_EVENTS = {
   ENROLLMENT_COMPLETE: "enrollment_complete",
   REFERRAL_MADE: "referral_made",
   PAYMENT_RECEIVED: "payment_received",
-  USER_INACTIVE: "user_inactive",
   ENROLLMENT_ABANDONED: "enrollment_abandoned",
 };
 
@@ -41,11 +40,6 @@ export const registerCampaignEventListeners = async () => {
       await handlePaymentReceived(userData);
     }
   );
-
-  // Listen for inactive users
-  campaignEventEmitter.on(CAMPAIGN_EVENTS.USER_INACTIVE, async (userData) => {
-    await handleUserInactive(userData);
-  });
 
   // Listen for abandoned enrollments
   campaignEventEmitter.on(
@@ -170,40 +164,6 @@ async function handlePaymentReceived(userData) {
     console.log(`[Events] Queued ${campaigns.length} campaigns for payment`);
   } catch (error) {
     console.error("[Events] Error handling payment_received:", error.message);
-  }
-}
-
-/**
- * Handle inactive user
- */
-async function handleUserInactive(userData) {
-  try {
-    console.log(
-      `[Events] Processing user_inactive for ${userData.email}`
-    );
-
-    const campaigns = await Campaign.find({
-      "eventTrigger.event": CAMPAIGN_EVENTS.USER_INACTIVE,
-      status: { $ne: "deleted" },
-      isPaused: false,
-    });
-
-    for (const campaign of campaigns) {
-      const delayMinutes = campaign.eventTrigger?.delayMinutes || 0;
-      await queueEventTriggeredCampaign(
-        CAMPAIGN_EVENTS.USER_INACTIVE,
-        userData.email,
-        userData,
-        campaign._id.toString(),
-        delayMinutes
-      );
-    }
-
-    console.log(
-      `[Events] Queued ${campaigns.length} campaigns for inactive user`
-    );
-  } catch (error) {
-    console.error("[Events] Error handling user_inactive:", error.message);
   }
 }
 

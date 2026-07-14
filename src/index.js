@@ -1024,8 +1024,8 @@ app.post('/payments/confirm', async (req, res) => {
   }
 });
 
-// Get order details by orderId
-app.get('/payments/order/:orderId', async (req, res) => {
+// Get order details by orderId — requires ownership: logged-in user's email must match the order
+app.get('/payments/order/:orderId', authenticateJWT, async (req, res) => {
   try {
     const { orderId } = req.params;
     if (!orderId) {
@@ -1035,6 +1035,10 @@ app.get('/payments/order/:orderId', async (req, res) => {
     const order = (await Order.findOne({ orderId }).lean()) || (await PendingOrder.findOne({ orderId }).lean());
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.learner?.email !== req.user?.email) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
     return res.json({
@@ -1152,6 +1156,9 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
 app.get('/admin/utm-report', authenticateAdmin, requirePage("utm-report"), async (req, res) => {
   try {
     const { from, to } = req.query;
+    const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
+    if (from && !isValidDate(from)) return res.status(400).json({ message: "Invalid 'from' date. Use YYYY-MM-DD." });
+    if (to && !isValidDate(to)) return res.status(400).json({ message: "Invalid 'to' date. Use YYYY-MM-DD." });
     const dateFilter = {};
     if (from) dateFilter.$gte = new Date(from);
     if (to) {
