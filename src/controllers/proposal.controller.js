@@ -1,4 +1,5 @@
 import Proposal from '../models/proposal.model.js';
+import Course from '../models/course.model.js';
 import { computeQuote, applyManualDiscount } from '../utils/pricing.js';
 import { buildRegexQuery } from '../utils/escapeRegex.js';
 
@@ -16,6 +17,11 @@ async function resolveRefNum(provided) {
     if (!exists) return candidate;
   }
   throw new Error('Could not generate unique ref number');
+}
+
+async function validateCourseExists(courseId) {
+  const course = await Course.findOne({ id: courseId }).lean();
+  if (!course) throw new Error(`Course not found: ${courseId}`);
 }
 
 function computeLine({ courseId, seats, currency, manualDiscountPercent }) {
@@ -45,6 +51,15 @@ export const createProposal = async (req, res) => {
 
     if (!courses || !Array.isArray(courses) || courses.length === 0) {
       return res.status(400).json({ success: false, message: 'At least one course is required' });
+    }
+
+    // Validate all course IDs exist and all courses share a single currency
+    for (const c of courses) {
+      await validateCourseExists(c.courseId);
+    }
+    const uniqueCurrencies = [...new Set(courses.map((c) => (c.currency || '').toLowerCase()))];
+    if (uniqueCurrencies.length > 1) {
+      return res.status(400).json({ success: false, message: 'All courses in a proposal must use the same currency.' });
     }
 
     const computedCourses = courses.map((c) => {
@@ -99,6 +114,14 @@ export const updateProposal = async (req, res) => {
     const { client, validUntil, notes, status, courses } = req.body;
 
     if (courses && Array.isArray(courses) && courses.length > 0) {
+      for (const c of courses) {
+        await validateCourseExists(c.courseId);
+      }
+      const uniqueCurrencies = [...new Set(courses.map((c) => (c.currency || '').toLowerCase()))];
+      if (uniqueCurrencies.length > 1) {
+        return res.status(400).json({ success: false, message: 'All courses in a proposal must use the same currency.' });
+      }
+
       const computedCourses = courses.map((c) => {
         const quote = computeLine(c);
         return {

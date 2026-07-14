@@ -710,3 +710,40 @@ export function applicationStatusEmail(name, requirementTitle, status, notes) {
 
   return emailShell({ label: 'Application Status', body });
 }
+
+// ─── ENROLLMENT STATUS NOTIFICATIONS (learner) ───────────────────────────────
+
+export function enrollmentApprovedEmail({ name, courseTitle }) {
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">You're Enrolled${name ? `, ${name}` : ''}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
+      Great news — your enrollment for <strong style="color:#1e293b;">${courseTitle}</strong> has been
+      <strong style="color:#059669;">approved</strong>. Our team will reach out shortly with your
+      schedule and joining details.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Course', courseTitle, false)}
+      ${dataRow('Status', 'Enrolled — Welcome aboard!', true)}
+      ${dataRow('Next Step', 'Watch your inbox for joining instructions', false)}
+    </table>
+    ${ctaButton('View My Enrollments', `${process.env.FRONTEND_URL || 'https://technohana.in'}/my-enrollments`)}`;
+
+  return emailShell({ label: 'Enrollment Approved', body });
+}
+
+export function enrollmentRejectedEmail({ name, courseTitle, reason }) {
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Enrollment Update${name ? `, ${name}` : ''}</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
+      We were unable to process your enrollment for <strong style="color:#1e293b;">${courseTitle}</strong>
+      at this time. Please see the reason below and contact us if you have any questions.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Course', courseTitle, false)}
+      ${dataRow('Status', 'Not approved', true)}
+      ${reason ? dataRow('Reason', reason.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'), false) : ''}
+    </table>
+    ${ctaButton('Contact Us', `${process.env.FRONTEND_URL || 'https://technohana.in'}/contact`)}`;
+
+  return emailShell({ label: 'Enrollment Update', body });
+}

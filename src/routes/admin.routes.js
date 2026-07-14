@@ -32,7 +32,7 @@ import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
-import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail } from "../utils/emailTemplate.js";
+import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail } from "../utils/emailTemplate.js";
 import crypto from "crypto";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 
@@ -195,6 +195,7 @@ router.get("/revenue-by-course", authenticateAdmin, requirePage("overview", "sal
 router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), adminDataLimiter, async (req, res) => {
   try {
     const { status, search, page = 1, limit = 20 } = req.query;
+    const safeLimit = Math.min(Number(limit) || 20, 200);
     const query = {};
 
     if (status) query.status = status;
@@ -209,9 +210,9 @@ router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), adminD
       }
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const skip = (Number(page) - 1) * safeLimit;
     const [data, total] = await Promise.all([
-      User.find(query).sort({ _id: -1 }).skip(skip).limit(Number(limit)).lean(),
+      User.find(query).sort({ _id: -1 }).skip(skip).limit(safeLimit).lean(),
       User.countDocuments(query),
     ]);
 
@@ -235,15 +236,42 @@ router.patch("/enrollments/:id/status", authenticateAdmin, requirePage("enrollme
       return res.status(400).json({ message: "Invalid status value." });
     }
 
-    const update = { status };
-    if (status === "rejected" && rejectionReason) update.rejectionReason = rejectionReason;
+    const updateFields = {
+      status,
+      statusChangedBy: req.admin?.uid || req.admin?.email || null,
+      statusChangedAt: new Date(),
+    };
+    if (status === "rejected" && rejectionReason) {
+      updateFields.rejectionReason = rejectionReason;
+    }
 
-    const updated = await User.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true }
-    );
+    const update = status === "rejected"
+      ? updateFields
+      : { ...updateFields, $unset: { rejectionReason: "" } };
+
+    const updated = await User.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!updated) return res.status(404).json({ message: "Enrollment not found." });
+
+    // Send email notification to learner
+    if (updated.email) {
+      try {
+        if (status === "enrolled") {
+          await sendEmail({
+            to: updated.email,
+            subject: "You're enrolled — Welcome to Technohana!",
+            html: enrollmentApprovedEmail({ name: updated.name, courseTitle: updated.courseTitle }),
+          });
+        } else if (status === "rejected") {
+          await sendEmail({
+            to: updated.email,
+            subject: "Update on your Technohana enrollment",
+            html: enrollmentRejectedEmail({ name: updated.name, courseTitle: updated.courseTitle, reason: rejectionReason }),
+          });
+        }
+      } catch (emailErr) {
+        console.error("Enrollment status email failed:", emailErr.message);
+      }
+    }
 
     return res.json({ data: updated });
   } catch (err) {
@@ -373,6 +401,24 @@ router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sale
   }
 });
 
+// GET /admin/hot-courses?limit=5 — top N courses by enquiry count (server-side aggregation)
+router.get("/hot-courses", authenticateAdmin, requirePage("sales-dashboard", "sales-pipeline"), adminDataLimiter, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 5, 20);
+    const results = await Enquiry.aggregate([
+      { $match: { courseTitle: { $exists: true, $ne: null, $ne: "" } } },
+      { $group: { _id: "$courseTitle", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: limit },
+      { $project: { _id: 0, courseTitle: "$_id", count: 1 } },
+    ]);
+    return res.json({ data: results });
+  } catch (err) {
+    console.error("Hot courses error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 // GET /admin/pipeline-stats — stage breakdown, stale counts, win rate, follow-up due today
 router.get("/pipeline-stats", authenticateAdmin, requirePage("sales-pipeline", "sales-dashboard"), async (req, res) => {
   try {
@@ -405,11 +451,13 @@ router.get("/pipeline-stats", authenticateAdmin, requirePage("sales-pipeline", "
   }
 });
 
-// GET /admin/testimonials?page=1&limit=20&status=pending
+// GET /admin/testimonials?page=1&limit=20&status=pending&serviceType=training
 router.get("/testimonials", authenticateAdmin, requirePage("testimonials"), async (req, res) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
-    const filter = status && status !== "all" ? { status } : {};
+    const { page = 1, limit = 20, status, serviceType } = req.query;
+    const filter = {};
+    if (status && status !== "all") filter.status = status;
+    if (serviceType && serviceType !== "all") filter.serviceType = serviceType;
     const skip = (Number(page) - 1) * Number(limit);
     const [data, total] = await Promise.all([
       Testimonial.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
@@ -423,8 +471,11 @@ router.get("/testimonials", authenticateAdmin, requirePage("testimonials"), asyn
 });
 
 // PATCH /admin/testimonials/:id — update status (approved/rejected/pending)
-router.patch("/testimonials/:id", authenticateAdmin, requirePage("testimonials"), async (req, res) => {
+router.patch("/testimonials/:id", authenticateAdmin, requirePage("testimonials"), requireAdmin, async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid testimonial ID." });
+    }
     const { status } = req.body;
     const VALID_STATUSES = ["pending", "approved", "rejected"];
     if (!VALID_STATUSES.includes(status)) {
@@ -442,6 +493,9 @@ router.patch("/testimonials/:id", authenticateAdmin, requirePage("testimonials")
 // DELETE /admin/testimonials/:id
 router.delete("/testimonials/:id", authenticateAdmin, requirePage("testimonials"), async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid testimonial ID." });
+    }
     const deleted = await Testimonial.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Testimonial not found." });
     return res.json({ message: "Testimonial deleted." });
