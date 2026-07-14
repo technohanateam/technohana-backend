@@ -1,6 +1,8 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import AdminUser from "../models/adminUser.model.js";
+import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
+import { sendEmail, fromAddresses } from "../config/emailService.js";
 import {
   ADMIN_PAGES,
   ADMIN_ROLES,
@@ -266,5 +268,64 @@ export const setAdminUserActive = async (req, res) => {
   } catch (error) {
     console.error("Set admin user active error:", error);
     return res.status(500).json({ success: false, message: "Failed to update user status." });
+  }
+};
+
+// POST /admin/forgot-password — send a reset link to the admin's registered email
+export const forgotAdminPassword = async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ success: false, message: "Email required." });
+  try {
+    const user = await AdminUser.findOne({ email: String(email).toLowerCase().trim() });
+    // Always return 200 to prevent email enumeration
+    if (!user || !user.active) {
+      return res.json({ success: true, message: "If that email is registered, a reset link has been sent." });
+    }
+    const { token, hash } = generateResetToken();
+    user.resetTokenHash = hash;
+    user.resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+    const resetLink = `${process.env.FRONTEND_URL}/admin/reset-password?token=${token}&id=${user._id}`;
+    await sendEmail({
+      from: fromAddresses.noreply,
+      to: user.email,
+      subject: "Technohana Admin — Password Reset",
+      html: `<p>Hi ${user.name},</p><p>Click the link below to reset your admin password. This link is valid for 1 hour.</p><p><a href="${resetLink}">${resetLink}</a></p><p>If you did not request this, please ignore this email.</p>`,
+    });
+    return res.json({ success: true, message: "If that email is registered, a reset link has been sent." });
+  } catch (err) {
+    console.error("Admin forgot-password error:", err);
+    return res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
+// POST /admin/reset-password — verify the token and set a new password
+export const resetAdminPasswordViaToken = async (req, res) => {
+  const { id, token, newPassword } = req.body;
+  if (!id || !token || !newPassword) {
+    return res.status(400).json({ success: false, message: "id, token, and newPassword are required." });
+  }
+  if (String(newPassword).length < 8) {
+    return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
+  }
+  try {
+    const user = await AdminUser.findById(id);
+    if (!user || !user.resetTokenHash || !user.resetTokenExpiry) {
+      return res.status(400).json({ success: false, message: "Invalid or expired reset link." });
+    }
+    if (user.resetTokenExpiry < new Date()) {
+      return res.status(400).json({ success: false, message: "Reset link has expired." });
+    }
+    if (!verifyResetToken(token, user.resetTokenHash)) {
+      return res.status(400).json({ success: false, message: "Invalid reset token." });
+    }
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.resetTokenHash = null;
+    user.resetTokenExpiry = null;
+    await user.save();
+    return res.json({ success: true, message: "Password reset successfully. You can now log in." });
+  } catch (err) {
+    console.error("Admin reset-password error:", err);
+    return res.status(500).json({ success: false, message: "Server error." });
   }
 };

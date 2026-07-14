@@ -34,6 +34,9 @@ const CURRENCY_TO_REGION = {
 router.get("/geo-analytics", authenticateAdmin, requirePage("geo-analysis"), async (req, res) => {
   try {
     const { from, to } = req.query;
+    const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
+    if (from && !isValidDate(from)) return res.status(400).json({ message: "Invalid 'from' date. Use YYYY-MM-DD." });
+    if (to && !isValidDate(to)) return res.status(400).json({ message: "Invalid 'to' date. Use YYYY-MM-DD." });
 
     const makeDateFilter = (field) => {
       const f = {};

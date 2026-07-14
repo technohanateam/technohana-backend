@@ -20,7 +20,7 @@ import { Blogs } from "../models/blogs.model.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
-import { adminLogin, setupAdmin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive } from "../controllers/adminUser.controller.js";
+import { adminLogin, setupAdmin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive, forgotAdminPassword, resetAdminPasswordViaToken } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
@@ -32,7 +32,7 @@ import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
-import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail } from "../utils/emailTemplate.js";
+import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail } from "../utils/emailTemplate.js";
 import crypto from "crypto";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 
@@ -60,10 +60,34 @@ const adminDataLimiter = rateLimit({
   message: 'Too many requests. Please slow down.',
 });
 
+// Throttles AI-generation endpoints to prevent unbounded API cost from a single admin session.
+const adminAiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.admin?.uid || req.ip,
+  message: 'AI generation rate limit reached. Try again later.',
+});
+
+// Throttles Cloudinary uploads per admin to prevent quota abuse.
+const adminUploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.admin?.uid || req.ip,
+  message: 'Upload rate limit reached. Try again later.',
+});
+
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 // ─── POST /admin/login ────────────────────────────────────────────────────────
 router.post("/login", adminLoginLimiter, adminLogin);
+
+// ─── POST /admin/forgot-password / POST /admin/reset-password ────────────────
+router.post("/forgot-password", adminLoginLimiter, forgotAdminPassword);
+router.post("/reset-password", adminLoginLimiter, resetAdminPasswordViaToken);
 
 // ─── POST /admin/setup — one-time bootstrap (self-disables once any admin exists)
 router.post("/setup", setupAdmin);
@@ -78,7 +102,7 @@ router.patch("/users/:id/active", authenticateAdmin, requireAdmin, requirePage("
 // ─── All routes below require admin auth ──────────────────────────────────────
 
 // GET /admin/stats
-router.get("/stats", authenticateAdmin, async (req, res) => {
+router.get("/stats", authenticateAdmin, requirePage("overview"), async (req, res) => {
   try {
     const [
       totalEnrollments,
@@ -134,14 +158,14 @@ router.get("/stats", authenticateAdmin, async (req, res) => {
 });
 
 // GET /admin/revenue-by-course — top courses by paid revenue (INR equivalent, top 10)
-router.get("/revenue-by-course", authenticateAdmin, async (req, res) => {
+router.get("/revenue-by-course", authenticateAdmin, requirePage("overview", "sales-dashboard"), async (req, res) => {
   try {
     const rows = await Order.aggregate([
       { $match: { status: "paid" } },
       {
         $group: {
           _id: "$courseId",
-          courseTitle: { $first: "$courseInfo.courseTitle" },
+          courseTitle: { $first: { $ifNull: ["$courseInfo.title", "$courseTitle"] } },
           totalMinor: { $sum: "$expectedTotalMinor" },
           currency: { $first: "$currency" },
           orders: { $sum: 1 },
@@ -171,6 +195,7 @@ router.get("/revenue-by-course", authenticateAdmin, async (req, res) => {
 router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), adminDataLimiter, async (req, res) => {
   try {
     const { status, search, page = 1, limit = 20 } = req.query;
+    const safeLimit = Math.min(Number(limit) || 20, 200);
     const query = {};
 
     if (status) query.status = status;
@@ -185,9 +210,9 @@ router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), adminD
       }
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const skip = (Number(page) - 1) * safeLimit;
     const [data, total] = await Promise.all([
-      User.find(query).sort({ _id: -1 }).skip(skip).limit(Number(limit)).lean(),
+      User.find(query).sort({ _id: -1 }).skip(skip).limit(safeLimit).lean(),
       User.countDocuments(query),
     ]);
 
@@ -211,15 +236,42 @@ router.patch("/enrollments/:id/status", authenticateAdmin, requirePage("enrollme
       return res.status(400).json({ message: "Invalid status value." });
     }
 
-    const update = { status };
-    if (status === "rejected" && rejectionReason) update.rejectionReason = rejectionReason;
+    const updateFields = {
+      status,
+      statusChangedBy: req.admin?.uid || req.admin?.email || null,
+      statusChangedAt: new Date(),
+    };
+    if (status === "rejected" && rejectionReason) {
+      updateFields.rejectionReason = rejectionReason;
+    }
 
-    const updated = await User.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true }
-    );
+    const update = status === "rejected"
+      ? updateFields
+      : { ...updateFields, $unset: { rejectionReason: "" } };
+
+    const updated = await User.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!updated) return res.status(404).json({ message: "Enrollment not found." });
+
+    // Send email notification to learner
+    if (updated.email) {
+      try {
+        if (status === "enrolled") {
+          await sendEmail({
+            to: updated.email,
+            subject: "You're enrolled — Welcome to Technohana!",
+            html: enrollmentApprovedEmail({ name: updated.name, courseTitle: updated.courseTitle }),
+          });
+        } else if (status === "rejected") {
+          await sendEmail({
+            to: updated.email,
+            subject: "Update on your Technohana enrollment",
+            html: enrollmentRejectedEmail({ name: updated.name, courseTitle: updated.courseTitle, reason: rejectionReason }),
+          });
+        }
+      } catch (emailErr) {
+        console.error("Enrollment status email failed:", emailErr.message);
+      }
+    }
 
     return res.json({ data: updated });
   } catch (err) {
@@ -243,14 +295,29 @@ router.delete("/enrollments/:id", authenticateAdmin, requirePage("enrollments"),
   }
 });
 
-// GET /admin/enquiries?page=1&limit=20
+// GET /admin/enquiries?page=1&limit=20&search=&status=&enquiryType=
 router.get("/enquiries", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), adminDataLimiter, async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, search, status, enquiryType } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
+    const filter = {};
+    if (search) {
+      const regex = buildRegexQuery(search);
+      if (regex) {
+        filter.$or = [
+          { name: regex },
+          { email: regex },
+          { phone: regex },
+          { courseTitle: regex },
+          { enquiryType: regex },
+        ];
+      }
+    }
+    if (status && status !== "All Statuses") filter.status = status;
+    if (enquiryType && enquiryType !== "All Types") filter.enquiryType = enquiryType;
     const [data, total] = await Promise.all([
-      Enquiry.find().sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
-      Enquiry.countDocuments(),
+      Enquiry.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
+      Enquiry.countDocuments(filter),
     ]);
     return res.json({ success: true, data, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
@@ -260,7 +327,7 @@ router.get("/enquiries", authenticateAdmin, requirePage("enquiries", "sales-pipe
 });
 
 // GET /admin/enquiries/ranked — open leads sorted by AI score
-router.get("/enquiries/ranked", authenticateAdmin, async (req, res) => {
+router.get("/enquiries/ranked", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const data = await Enquiry.find({ status: { $in: ["new", "contacted"] } })
@@ -275,7 +342,7 @@ router.get("/enquiries/ranked", authenticateAdmin, async (req, res) => {
 });
 
 // POST /admin/enquiries/:id/rescore — re-run AI lead scoring
-router.post("/enquiries/:id/rescore", authenticateAdmin, async (req, res) => {
+router.post("/enquiries/:id/rescore", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), adminAiLimiter, async (req, res) => {
   try {
     const scored = await scoreEnquiry(req.params.id);
     if (!scored) return res.status(422).json({ success: false, message: "Scoring failed. Ensure the enquiry exists and AI scoring is enabled." });
@@ -334,8 +401,26 @@ router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sale
   }
 });
 
+// GET /admin/hot-courses?limit=5 — top N courses by enquiry count (server-side aggregation)
+router.get("/hot-courses", authenticateAdmin, requirePage("sales-dashboard", "sales-pipeline"), adminDataLimiter, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 5, 20);
+    const results = await Enquiry.aggregate([
+      { $match: { courseTitle: { $exists: true, $ne: null, $ne: "" } } },
+      { $group: { _id: "$courseTitle", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: limit },
+      { $project: { _id: 0, courseTitle: "$_id", count: 1 } },
+    ]);
+    return res.json({ data: results });
+  } catch (err) {
+    console.error("Hot courses error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 // GET /admin/pipeline-stats — stage breakdown, stale counts, win rate, follow-up due today
-router.get("/pipeline-stats", authenticateAdmin, async (req, res) => {
+router.get("/pipeline-stats", authenticateAdmin, requirePage("sales-pipeline", "sales-dashboard"), async (req, res) => {
   try {
     const now = new Date();
     const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
@@ -366,11 +451,13 @@ router.get("/pipeline-stats", authenticateAdmin, async (req, res) => {
   }
 });
 
-// GET /admin/testimonials?page=1&limit=20&status=pending
+// GET /admin/testimonials?page=1&limit=20&status=pending&serviceType=training
 router.get("/testimonials", authenticateAdmin, requirePage("testimonials"), async (req, res) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
-    const filter = status && status !== "all" ? { status } : {};
+    const { page = 1, limit = 20, status, serviceType } = req.query;
+    const filter = {};
+    if (status && status !== "all") filter.status = status;
+    if (serviceType && serviceType !== "all") filter.serviceType = serviceType;
     const skip = (Number(page) - 1) * Number(limit);
     const [data, total] = await Promise.all([
       Testimonial.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
@@ -384,10 +471,17 @@ router.get("/testimonials", authenticateAdmin, requirePage("testimonials"), asyn
 });
 
 // PATCH /admin/testimonials/:id — update status (approved/rejected/pending)
-router.patch("/testimonials/:id", authenticateAdmin, requirePage("testimonials"), async (req, res) => {
+router.patch("/testimonials/:id", authenticateAdmin, requirePage("testimonials"), requireAdmin, async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid testimonial ID." });
+    }
     const { status } = req.body;
-    const updated = await Testimonial.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    const VALID_STATUSES = ["pending", "approved", "rejected"];
+    if (!VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ message: `status must be one of: ${VALID_STATUSES.join(", ")}` });
+    }
+    const updated = await Testimonial.findByIdAndUpdate(req.params.id, { status }, { new: true, runValidators: true });
     if (!updated) return res.status(404).json({ message: "Testimonial not found." });
     return res.json(updated);
   } catch (err) {
@@ -399,6 +493,9 @@ router.patch("/testimonials/:id", authenticateAdmin, requirePage("testimonials")
 // DELETE /admin/testimonials/:id
 router.delete("/testimonials/:id", authenticateAdmin, requirePage("testimonials"), async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid testimonial ID." });
+    }
     const deleted = await Testimonial.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Testimonial not found." });
     return res.json({ message: "Testimonial deleted." });
@@ -604,7 +701,7 @@ router.post("/blogs/seed-static", authenticateAdmin, requirePage("blogs"), requi
 // POST /admin/blogs/generate-from-course — AI-generate a blog post for a course
 // Uses Claude's built-in web_search tool so no external search API key is needed.
 // Claude searches the web autonomously, then writes the post grounded in current data.
-router.post("/blogs/generate-from-course", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
+router.post("/blogs/generate-from-course", authenticateAdmin, requirePage("blogs"), requireAdmin, adminAiLimiter, async (req, res) => {
   try {
     const { courseId, courseTitle, category, description, relatedCourses = [] } = req.body;
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
@@ -713,23 +810,46 @@ Writing rules:
     } catch {
       generated = null;
     }
-    if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw: finalText });
+    if (!generated) {
+      console.error("generate-from-course: failed to parse AI response. Raw:", finalText?.slice(0, 500));
+      return res.status(500).json({ message: "Failed to parse AI response. Please try again." });
+    }
     return res.json({ data: generated });
   } catch (err) {
-    const detail = err?.response?.data?.error?.message || err.message;
-    console.error("Blog generation error:", detail);
-    return res.status(500).json({ message: "Failed to generate blog.", detail });
+    console.error("Blog generation error:", err?.response?.data?.error?.message || err.message);
+    return res.status(500).json({ message: "Failed to generate blog." });
   }
 });
 
 // POST /admin/blogs/generate-from-urls — AI-generate a blog post from live URLs
-router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
+router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs"), requireAdmin, adminAiLimiter, async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(503).json({ message: "ANTHROPIC_API_KEY not configured." });
 
   const { urls, topic, category, focusKeyword, relatedCourses = [] } = req.body;
   if (!Array.isArray(urls) || urls.length === 0) {
     return res.status(400).json({ message: "Provide at least one URL." });
+  }
+
+  // Block requests to internal/private IP ranges to prevent SSRF
+  const SSRF_BLOCKED_PATTERNS = [
+    /^https?:\/\/169\.254\./,
+    /^https?:\/\/10\./,
+    /^https?:\/\/172\.(1[6-9]|2\d|3[01])\./,
+    /^https?:\/\/192\.168\./,
+    /^https?:\/\/127\./,
+    /^https?:\/\/\[::1\]/,
+    /^https?:\/\/localhost/i,
+  ];
+  const isSsrfBlocked = (url) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return true;
+      return SSRF_BLOCKED_PATTERNS.some((re) => re.test(url));
+    } catch { return true; }
+  };
+  if (urls.slice(0, 5).some(isSsrfBlocked)) {
+    return res.status(400).json({ message: "One or more URLs are not allowed." });
   }
 
   // Fetch and extract plain text from each URL (server-side)
@@ -794,20 +914,22 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
     } catch {
       generated = null;
     }
-    if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw: finalText });
+    if (!generated) {
+      console.error("generate-from-urls: failed to parse AI response. Raw:", finalText?.slice(0, 500));
+      return res.status(500).json({ message: "Failed to parse AI response. Please try again." });
+    }
     // sources are deterministic from the input URLs (with titles fetched server-side)
     // rather than trusted to the model, which could otherwise invent or drop entries.
     generated.sources = sourcesList;
     return res.json({ data: generated });
   } catch (err) {
-    const detail = err?.message;
-    console.error("Blog generate-from-urls error:", detail);
-    return res.status(500).json({ message: "Failed to generate blog from URLs.", detail });
+    console.error("Blog generate-from-urls error:", err?.message);
+    return res.status(500).json({ message: "Failed to generate blog from URLs." });
   }
 });
 
 // POST /admin/blogs/rewrite — AI-rewrite and improve an existing blog post
-router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
+router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAdmin, adminAiLimiter, async (req, res) => {
   try {
     const { title, content, excerpt, category, focusKeyword, author, sources, faqs } = req.body;
     if (!title || !content) return res.status(400).json({ message: "title and content are required." });
@@ -841,7 +963,10 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
     } catch {
       generated = null;
     }
-    if (!generated) return res.status(500).json({ message: "Failed to parse AI response.", raw });
+    if (!generated) {
+      console.error("blogs/rewrite: failed to parse AI response. Raw:", raw?.slice(0, 500));
+      return res.status(500).json({ message: "Failed to parse AI response. Please try again." });
+    }
     // Rewrite only touches prose/SEO fields — carry the original post's
     // sources and FAQs through unchanged rather than asking the model to
     // reproduce them (which risks silent drift or invented entries).
@@ -849,9 +974,8 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
     generated.faqs = faqs || [];
     return res.json({ data: generated });
   } catch (err) {
-    const detail = err?.response?.data?.error?.message || err.message;
-    console.error("Blog rewrite error:", detail);
-    return res.status(500).json({ message: "Failed to rewrite blog.", detail });
+    console.error("Blog rewrite error:", err?.response?.data?.error?.message || err.message);
+    return res.status(500).json({ message: "Failed to rewrite blog." });
   }
 });
 
@@ -883,7 +1007,7 @@ router.post("/blogs/bulk-delete", authenticateAdmin, requirePage("blogs"), requi
 });
 
 // POST /admin/blogs/auto-seo — AI-fill SEO fields for a single blog
-router.post("/blogs/auto-seo", authenticateAdmin, requirePage("blogs"), requireMarketing, async (req, res) => {
+router.post("/blogs/auto-seo", authenticateAdmin, requirePage("blogs"), requireMarketing, adminAiLimiter, async (req, res) => {
   try {
     const { _id, title, content, category } = req.body;
     if (!_id || !title) return res.status(400).json({ message: "_id and title are required." });
@@ -1009,13 +1133,23 @@ router.get("/courses", authenticateAdmin, requirePage("courses", "quote-generato
   }
 });
 
+const ALLOWED_COURSE_FIELDS = [
+  "id", "courseTitle", "courseSlug", "category", "difficulty", "price", "prices",
+  "instructor", "instructorId", "language", "courseDays", "courseTime", "courseModules",
+  "noStudents", "rating", "logo", "toc", "videoId", "catcls", "overview",
+  "courseObjective", "courseOutcomes", "labs", "prerequisites", "whatWillYouLearn",
+  "requirements", "targetAudience", "modules",
+];
+const pickCourseFields = (body) =>
+  Object.fromEntries(ALLOWED_COURSE_FIELDS.filter((k) => k in body).map((k) => [k, body[k]]));
+
 // POST /admin/courses
 router.post("/courses", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, async (req, res) => {
   try {
-    const { courseTitle, id } = req.body;
+    const { courseTitle } = req.body;
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
 
-    const course = new Course(req.body);
+    const course = new Course(pickCourseFields(req.body));
     await course.save();
     return res.status(201).json({ data: course });
   } catch (err) {
@@ -1027,7 +1161,7 @@ router.post("/courses", authenticateAdmin, requirePage("courses", "quote-generat
 // PUT /admin/courses/:id
 router.put("/courses/:id", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, async (req, res) => {
   try {
-    const updated = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await Course.findByIdAndUpdate(req.params.id, pickCourseFields(req.body), { new: true });
     if (!updated) return res.status(404).json({ message: "Course not found." });
     return res.json({ data: updated });
   } catch (err) {
@@ -1207,7 +1341,7 @@ cloudinary.config({
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // POST /admin/upload-image
-router.post("/upload-image", authenticateAdmin, upload.single("image"), async (req, res) => {
+router.post("/upload-image", authenticateAdmin, requirePage("blogs", "courses"), adminUploadLimiter, upload.single("image"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded." });
     const result = await new Promise((resolve, reject) => {
@@ -1558,12 +1692,12 @@ router.patch("/training-requirements/:id/applications/:appId", authenticateAdmin
 });
 
 // ─── Proposals ───────────────────────────────────────────────────────────────
-router.post("/proposals/quote",  authenticateAdmin, quoteProposalLine);
-router.get("/proposals",         authenticateAdmin, getProposals);
-router.post("/proposals",        authenticateAdmin, createProposal);
-router.get("/proposals/:id",     authenticateAdmin, getProposal);
-router.put("/proposals/:id",     authenticateAdmin, updateProposal);
-router.delete("/proposals/:id",  authenticateAdmin, deleteProposal);
+router.post("/proposals/quote",  authenticateAdmin, requirePage("proposals", "proposal-builder"), quoteProposalLine);
+router.get("/proposals",         authenticateAdmin, requirePage("proposals", "proposal-builder"), getProposals);
+router.post("/proposals",        authenticateAdmin, requirePage("proposals", "proposal-builder"), createProposal);
+router.get("/proposals/:id",     authenticateAdmin, requirePage("proposals", "proposal-builder"), getProposal);
+router.put("/proposals/:id",     authenticateAdmin, requirePage("proposals", "proposal-builder"), updateProposal);
+router.delete("/proposals/:id",  authenticateAdmin, requirePage("proposals", "proposal-builder"), requireAdmin, deleteProposal);
 
 // ─── CRM Contacts ─────────────────────────────────────────────────────────────
 router.get("/contacts",       authenticateAdmin, requirePage("crm"), adminDataLimiter, getContacts);

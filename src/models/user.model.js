@@ -169,7 +169,10 @@ const userSchema = new Schema({
         type: Boolean,
         default: false
     },
-    utm: { type: Object }
+    utm: { type: Object },
+    // Enrollment status audit trail
+    statusChangedBy: { type: String, default: null },
+    statusChangedAt: { type: Date, default: null },
 })
 
 export const User = mongoose.model("User", userSchema);
