@@ -330,8 +330,9 @@ export const getSegmentedUsers = async (segmentRules, options = {}) => {
         options
       );
       users.forEach((u) => {
-        if (!userIds.has(u._id.toString())) {
-          userIds.add(u._id.toString());
+        const key = u._id ? u._id.toString() : u.email;
+        if (!userIds.has(key)) {
+          userIds.add(key);
           allUsers.push(u);
         }
       });
