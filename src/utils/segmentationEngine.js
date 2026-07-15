@@ -154,6 +154,12 @@ export const getAbandonedEnrollmentUsers = async (daysAbandoned = 3, options = {
   }
 };
 
+const ALLOWED_FILTER_FIELDS = new Set([
+  "status", "courseTitle", "trainingType", "trainingLocation",
+  "city", "userType", "currency", "participants",
+  "utm.utm_source", "utm.utm_medium", "utm.utm_campaign",
+]);
+
 /**
  * Apply custom filters to user query
  */
@@ -168,6 +174,8 @@ export const applyCustomFilters = async (filters = [], options = {}) => {
 
     filters.forEach((filter) => {
       const { field, operator, value } = filter;
+
+      if (!ALLOWED_FILTER_FIELDS.has(field)) return;
 
       switch (operator) {
         case "equals":

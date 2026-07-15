@@ -30,10 +30,15 @@ const upload = multer({
     storage: diskStorage,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     fileFilter: function(req, file, cb) {
-        const allowedTypes = /pdf|doc|docx/;
-        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-        const mimeType = allowedTypes.test(file.mimetype);
-        if(extname && mimeType) {
+        const allowedExts = /\.(pdf|doc|docx)$/i;
+        const allowedMimes = [
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ];
+        const extname = allowedExts.test(path.extname(file.originalname));
+        const mimeType = allowedMimes.includes(file.mimetype);
+        if (extname && mimeType) {
             return cb(null, true);
         } else {
             cb(new Error("Invalid file type. Only PDF, DOC, and DOCX files are allowed."));

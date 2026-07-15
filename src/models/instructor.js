@@ -17,6 +17,7 @@ const instructorSchema = new Schema({
     availability : { type : String },
     deliveryMode : { type : String },
     certifications : { type : String },
+    expertiseOther : { type : String },
     coverLetter : {
         type : String
     },
@@ -50,6 +51,7 @@ const instructorSchema = new Schema({
 })
 
 instructorSchema.index({ resetToken: 1 });
+instructorSchema.index({ email: 1 });
 
 const Instructor = mongoose.model("Instructor",instructorSchema);
 

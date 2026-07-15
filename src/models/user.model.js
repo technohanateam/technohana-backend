@@ -173,6 +173,9 @@ const userSchema = new Schema({
     // Enrollment status audit trail
     statusChangedBy: { type: String, default: null },
     statusChangedAt: { type: Date, default: null },
+    createdAt: { type: Date, default: Date.now },
 })
+
+userSchema.index({ createdAt: -1 });
 
 export const User = mongoose.model("User", userSchema);

@@ -89,8 +89,13 @@ router.post("/login", adminLoginLimiter, adminLogin);
 router.post("/forgot-password", adminLoginLimiter, forgotAdminPassword);
 router.post("/reset-password", adminLoginLimiter, resetAdminPasswordViaToken);
 
-// ─── POST /admin/setup — one-time bootstrap (self-disables once any admin exists)
-router.post("/setup", setupAdmin);
+// ─── POST /admin/setup — one-time bootstrap (disabled unless ALLOW_ADMIN_SETUP=true)
+router.post("/setup", (req, res, next) => {
+  if (process.env.ALLOW_ADMIN_SETUP !== "true") {
+    return res.status(403).json({ success: false, message: "Setup endpoint is disabled. Set ALLOW_ADMIN_SETUP=true to enable." });
+  }
+  next();
+}, setupAdmin);
 
 // ─── Admin team user management (admin role only) ─────────────────────────────
 router.get("/users", authenticateAdmin, requireAdmin, requirePage("team"), listAdminUsers);
@@ -356,11 +361,14 @@ router.post("/enquiries/:id/rescore", authenticateAdmin, requirePage("enquiries"
 // DELETE /admin/enquiries/clear
 router.delete("/enquiries/clear", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), requireAdmin, async (req, res) => {
   try {
+    if (req.body?.confirm !== "DELETE ALL") {
+      return res.status(400).json({ success: false, message: "Pass { confirm: 'DELETE ALL' } in the request body to confirm bulk deletion." });
+    }
     const result = await Enquiry.deleteMany({});
-    return res.json({ message: "Cleared all enquiries", deleted: result.deletedCount });
+    return res.json({ success: true, message: "Cleared all enquiries", deleted: result.deletedCount });
   } catch (err) {
     console.error("Admin clear enquiries error:", err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
