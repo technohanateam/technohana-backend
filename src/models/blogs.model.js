@@ -6,9 +6,12 @@ const blogSchema = new mongoose.Schema({
     },
     title : {
         type : String,
+        required: true,
     },
     slug : {
-        type : String
+        type : String,
+        unique: true,
+        sparse: true,
     },
     img : {
         type : String
@@ -60,6 +63,8 @@ const blogSchema = new mongoose.Schema({
         type: Date,
         default: null
     }
-})
+}, { timestamps: true });
 
-export const Blogs = mongoose.model("Blogs",blogSchema);
+blogSchema.index({ published: 1, scheduledAt: 1 });
+
+export const Blogs = mongoose.model("Blogs", blogSchema);
