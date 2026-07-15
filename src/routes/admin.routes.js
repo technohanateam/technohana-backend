@@ -5,6 +5,7 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
+import sanitizeHtml from "sanitize-html";
 import { v2 as cloudinary } from "cloudinary";
 import { fileURLToPath } from "url";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
@@ -613,6 +614,9 @@ router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, asy
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
+    const existing = await Blogs.findOne({ slug: generatedSlug });
+    if (existing) return res.status(409).json({ message: "A blog with this slug already exists." });
+
     const blog = new Blogs({
       id: nextId,
       title,
@@ -620,7 +624,7 @@ router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, asy
       img: img || "",
       author: author || "",
       date: date || new Date().toISOString().split("T")[0],
-      content: content || "",
+      content: sanitizeContent(content) || "",
       category: category || "",
       excerpt: excerpt || "",
       metaTitle: metaTitle || "",
@@ -645,7 +649,7 @@ router.put("/blogs/:id", authenticateAdmin, requirePage("blogs"), requireMarketi
     const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs } = req.body;
     const updated = await Blogs.findByIdAndUpdate(
       req.params.id,
-      { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs },
+      { title, slug, img, author, date, content: sanitizeContent(content), category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs },
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "Blog not found." });
@@ -1357,10 +1361,36 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const imageFileFilter = (req, file, cb) => {
+  if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) cb(null, true);
+  else cb(new Error("Only JPEG, PNG, WebP, and GIF images are allowed."), false);
+};
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: imageFileFilter,
+});
+
+const SANITIZE_OPTIONS = {
+  allowedTags: ["p", "h2", "h3", "ul", "ol", "li", "strong", "em", "a", "blockquote", "br", "hr", "span", "div", "table", "thead", "tbody", "tr", "th", "td", "img", "figure", "figcaption", "code", "pre"],
+  allowedAttributes: {
+    a: ["href", "target", "rel"],
+    img: ["src", "alt", "width", "height", "loading"],
+    "*": ["class", "id"],
+  },
+  allowedSchemes: ["http", "https", "mailto"],
+};
+
+const sanitizeContent = (content) => content ? sanitizeHtml(content, SANITIZE_OPTIONS) : content;
 
 // POST /admin/upload-image
-router.post("/upload-image", authenticateAdmin, requirePage("blogs", "courses"), adminUploadLimiter, upload.single("image"), async (req, res) => {
+router.post("/upload-image", authenticateAdmin, requirePage("blogs", "courses"), adminUploadLimiter, (req, res, next) => {
+  upload.single("image")(req, res, (err) => {
+    if (err) return res.status(400).json({ message: err.message || "Upload error." });
+    next();
+  });
+}, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded." });
     const result = await new Promise((resolve, reject) => {
