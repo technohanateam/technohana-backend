@@ -5,7 +5,7 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
-import sanitizeHtml from "sanitize-html";
+import xss from "xss";
 import { v2 as cloudinary } from "cloudinary";
 import { fileURLToPath } from "url";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
@@ -1372,17 +1372,26 @@ const upload = multer({
   fileFilter: imageFileFilter,
 });
 
-const SANITIZE_OPTIONS = {
-  allowedTags: ["p", "h2", "h3", "ul", "ol", "li", "strong", "em", "a", "blockquote", "br", "hr", "span", "div", "table", "thead", "tbody", "tr", "th", "td", "img", "figure", "figcaption", "code", "pre"],
-  allowedAttributes: {
+const XSS_OPTIONS = new xss.FilterXSS({
+  whiteList: {
+    p: ["class", "id"], h2: ["class", "id"], h3: ["class", "id"],
+    ul: ["class", "id"], ol: ["class", "id"], li: ["class", "id"],
+    strong: [], em: [], br: [], hr: [],
     a: ["href", "target", "rel"],
-    img: ["src", "alt", "width", "height", "loading"],
-    "*": ["class", "id"],
+    blockquote: ["class", "id"],
+    span: ["class", "id"], div: ["class", "id"],
+    table: ["class", "id"], thead: [], tbody: [], tr: [], th: ["class", "id"], td: ["class", "id"],
+    img: ["src", "alt", "width", "height", "loading", "class", "id"],
+    figure: ["class", "id"], figcaption: [],
+    code: ["class", "id"], pre: ["class", "id"],
   },
-  allowedSchemes: ["http", "https", "mailto"],
-};
+  onTagAttr: (tag, name, value) => {
+    if (name === "href" && !/^https?:|^mailto:|^\//i.test(value)) return "";
+    if (name === "src" && !/^https?:|^\//i.test(value)) return "";
+  },
+});
 
-const sanitizeContent = (content) => content ? sanitizeHtml(content, SANITIZE_OPTIONS) : content;
+const sanitizeContent = (content) => content ? XSS_OPTIONS.process(content) : content;
 
 // POST /admin/upload-image
 router.post("/upload-image", authenticateAdmin, requirePage("blogs", "courses"), adminUploadLimiter, (req, res, next) => {
