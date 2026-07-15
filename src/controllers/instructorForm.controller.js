@@ -32,7 +32,7 @@ const sendEmail = async(to,subject,html,attachment = null)=>{
 
 export const InstructorForm = async(req,res)=>{
     try {
-        const {name,email,coverLetter,phone,expertise,experience,linkedinUrl,dailyRate,availability,deliveryMode,certifications} = req.body;
+        const {name,email,coverLetter,phone,expertise,expertiseOther,experience,linkedinUrl,dailyRate,availability,deliveryMode,certifications} = req.body;
         const file = req.file;
 
         if(!name || !email){
@@ -42,11 +42,13 @@ export const InstructorForm = async(req,res)=>{
             })
         }
 
-        const existing = await Instructor.findOne({ email });
+        const normalizedEmail = String(email).toLowerCase().trim();
+
+        const existing = await Instructor.findOne({ email: normalizedEmail });
         if (existing) {
             return res.status(409).json({
                 success: false,
-                message: "An application for this email has already been received."
+                message: "An application with this email address has already been submitted. Please contact us if you need to update your application."
             });
         }
 
@@ -75,9 +77,10 @@ export const InstructorForm = async(req,res)=>{
 
         const instructor = new Instructor({
             name,
-            email,
+            email: normalizedEmail,
             phone,
             expertise,
+            expertiseOther,
             experience,
             linkedinUrl,
             dailyRate,

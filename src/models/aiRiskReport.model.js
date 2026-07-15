@@ -24,4 +24,6 @@ const aiRiskReportSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+aiRiskReportSchema.index({ email: 1 });
+
 export default mongoose.model("AiRiskReport", aiRiskReportSchema);
