@@ -1,6 +1,7 @@
 import { EventEmitter } from "events";
 import Campaign from "../models/campaign.model.js";
-import { queueEventTriggeredCampaign } from "./campaignQueue.js";
+import DripSequence from "../models/dripSequence.model.js";
+import { queueEventTriggeredCampaign, queueDripEmail } from "./campaignQueue.js";
 
 // Create global event emitter
 const campaignEventEmitter = new EventEmitter();
@@ -77,11 +78,6 @@ async function handleEnrollmentComplete(userData) {
       isPaused: false,
     });
 
-    if (campaigns.length === 0) {
-      console.log("[Events] No campaigns trigger on enrollment_complete");
-      return;
-    }
-
     // Queue email for each campaign
     for (const campaign of campaigns) {
       const delayMinutes = campaign.eventTrigger?.delayMinutes || 0;
@@ -94,14 +90,10 @@ async function handleEnrollmentComplete(userData) {
       );
     }
 
-    console.log(
-      `[Events] Queued ${campaigns.length} campaigns for enrollment completion`
-    );
+    console.log(`[Events] Queued ${campaigns.length} campaigns for enrollment completion`);
+    await queueDripSequences(CAMPAIGN_EVENTS.ENROLLMENT_COMPLETE, userData);
   } catch (error) {
-    console.error(
-      "[Events] Error handling enrollment_complete:",
-      error.message
-    );
+    console.error("[Events] Error handling enrollment_complete:", error.message);
   }
 }
 
@@ -130,6 +122,7 @@ async function handleReferralMade(userData) {
     }
 
     console.log(`[Events] Queued ${campaigns.length} campaigns for referral`);
+    await queueDripSequences(CAMPAIGN_EVENTS.REFERRAL_MADE, userData);
   } catch (error) {
     console.error("[Events] Error handling referral_made:", error.message);
   }
@@ -162,6 +155,7 @@ async function handlePaymentReceived(userData) {
     }
 
     console.log(`[Events] Queued ${campaigns.length} campaigns for payment`);
+    await queueDripSequences(CAMPAIGN_EVENTS.PAYMENT_RECEIVED, userData);
   } catch (error) {
     console.error("[Events] Error handling payment_received:", error.message);
   }
@@ -193,14 +187,36 @@ async function handleEnrollmentAbandoned(userData) {
       );
     }
 
-    console.log(
-      `[Events] Queued ${campaigns.length} campaigns for abandoned enrollment`
-    );
+    console.log(`[Events] Queued ${campaigns.length} campaigns for abandoned enrollment`);
+    await queueDripSequences(CAMPAIGN_EVENTS.ENROLLMENT_ABANDONED, userData);
   } catch (error) {
-    console.error(
-      "[Events] Error handling enrollment_abandoned:",
-      error.message
-    );
+    console.error("[Events] Error handling enrollment_abandoned:", error.message);
+  }
+}
+
+/**
+ * Queue all steps of active drip sequences for a given trigger event
+ */
+async function queueDripSequences(eventType, userData) {
+  try {
+    const sequences = await DripSequence.find({ triggerEvent: eventType, status: "active" });
+    if (sequences.length === 0) return;
+
+    for (const seq of sequences) {
+      let cumulativeDelayMinutes = 0;
+      for (const step of seq.steps) {
+        cumulativeDelayMinutes += step.delayDays * 24 * 60 + step.delayHours * 60;
+        await queueDripEmail(
+          userData.email,
+          { ...step.toObject(), fromName: seq.fromName, fromEmail: seq.fromEmail },
+          seq._id.toString(),
+          cumulativeDelayMinutes
+        );
+      }
+      console.log(`[Events] Queued ${seq.steps.length} drip steps for "${seq.name}" → ${userData.email}`);
+    }
+  } catch (error) {
+    console.error("[Events] Error queuing drip sequences:", error.message);
   }
 }
 

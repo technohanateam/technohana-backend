@@ -12,6 +12,7 @@ export const ADMIN_PAGES = [
   "quote-generator",
   "marketing-overview",
   "campaigns",
+  "drip-sequences",
   "utm-report",
   "geo-analysis",
   "seo-analysis",
@@ -55,6 +56,7 @@ export const DEFAULT_PAGES_BY_ROLE = {
   marketing: [
     "marketing-overview",
     "campaigns",
+    "drip-sequences",
     "utm-report",
     "geo-analysis",
     "seo-analysis",
