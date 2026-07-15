@@ -1,4 +1,9 @@
 import { User } from "../models/user.model.js";
+import Lead from "../models/lead.model.js";
+import Enquiry from "../models/enquiry.model.js";
+import Instructor from "../models/instructor.js";
+import Subscription from "../models/subscription.model.js";
+import AiRiskReport from "../models/aiRiskReport.model.js";
 import { buildRegexQuery } from "./escapeRegex.js";
 
 /**
@@ -158,68 +163,96 @@ const ALLOWED_FILTER_FIELDS = new Set([
   "status", "courseTitle", "trainingType", "trainingLocation",
   "city", "userType", "currency", "participants",
   "utm.utm_source", "utm.utm_medium", "utm.utm_campaign",
-  "type", "aiScoreBand",
 ]);
+
+const CRM_TYPE_CUSTOMER_STATUSES = ["enrolled", "in-progress", "completed"];
+
+const getUsersByContactType = async (types = [], aiBands = []) => {
+  const emailSet = new Set();
+
+  const addEmails = (docs) => docs.forEach((d) => { if (d.email) emailSet.add(d.email.toLowerCase()); });
+
+  for (const type of types) {
+    switch (type) {
+      case "customer":
+        addEmails(await User.find({ status: { $in: CRM_TYPE_CUSTOMER_STATUSES }, email: { $exists: true } }).select("email").lean());
+        break;
+      case "prospect": {
+        const q = { email: { $exists: true } };
+        if (aiBands.length > 0) q.aiScoreBand = { $in: aiBands };
+        addEmails(await Enquiry.find(q).select("email").lean());
+        break;
+      }
+      case "lead":
+        addEmails(await Lead.find({ email: { $exists: true } }).select("email").lean());
+        break;
+      case "instructor":
+        addEmails(await Instructor.find({ email: { $exists: true } }).select("email").lean());
+        break;
+      case "subscriber":
+        addEmails(await Subscription.find({ isActive: true, email: { $exists: true } }).select("email").lean());
+        break;
+      case "ai-risk-lead":
+        addEmails(await AiRiskReport.find({ email: { $exists: true } }).select("email").lean());
+        break;
+    }
+  }
+
+  // If only bands selected (no types), include prospects matching those bands
+  if (types.length === 0 && aiBands.length > 0) {
+    addEmails(await Enquiry.find({ aiScoreBand: { $in: aiBands }, email: { $exists: true } }).select("email").lean());
+  }
+
+  const users = Array.from(emailSet).map((email) => ({ email }));
+  return { users, total: users.length };
+};
 
 /**
  * Apply custom filters to user query
  */
 export const applyCustomFilters = async (filters = [], options = {}) => {
   try {
-    if (!filters || filters.length === 0) {
-      return { users: [], total: 0 };
+    if (!filters || filters.length === 0) return { users: [], total: 0 };
+
+    const typeFilter = filters.find((f) => f.field === "type");
+    const bandFilter = filters.find((f) => f.field === "aiScoreBand");
+    const genericFilters = filters.filter((f) => f.field !== "type" && f.field !== "aiScoreBand");
+
+    const emailSet = new Set();
+
+    // CRM type / AI band filters — route to their real collections
+    if (typeFilter?.value?.length > 0 || bandFilter?.value?.length > 0) {
+      const { users } = await getUsersByContactType(
+        typeFilter?.value || [],
+        bandFilter?.value || []
+      );
+      users.forEach((u) => emailSet.add(u.email));
     }
 
-    // Build MongoDB query from filters
-    const query = { email: { $exists: true, $ne: null } };
+    // Generic field filters against the User collection
+    if (genericFilters.length > 0) {
+      const query = { email: { $exists: true, $ne: null } };
+      genericFilters.forEach(({ field, operator, value }) => {
+        if (!ALLOWED_FILTER_FIELDS.has(field)) return;
+        switch (operator) {
+          case "equals": query[field] = value; break;
+          case "gt": query[field] = { $gt: value }; break;
+          case "gte": query[field] = { $gte: value }; break;
+          case "lt": query[field] = { $lt: value }; break;
+          case "lte": query[field] = { $lte: value }; break;
+          case "regex": { const rx = buildRegexQuery(value); if (rx) query[field] = rx; break; }
+          case "in": query[field] = { $in: Array.isArray(value) ? value : [value] }; break;
+          case "nin": query[field] = { $nin: Array.isArray(value) ? value : [value] }; break;
+        }
+      });
+      const limit = options.limit || 10000;
+      const skip = options.skip || 0;
+      const users = await User.find(query).select("email name status enrolledAt").limit(limit).skip(skip).lean();
+      users.forEach((u) => emailSet.add(u.email));
+    }
 
-    filters.forEach((filter) => {
-      const { field, operator, value } = filter;
-
-      if (!ALLOWED_FILTER_FIELDS.has(field)) return;
-
-      switch (operator) {
-        case "equals":
-          query[field] = value;
-          break;
-        case "gt":
-          query[field] = { $gt: value };
-          break;
-        case "gte":
-          query[field] = { $gte: value };
-          break;
-        case "lt":
-          query[field] = { $lt: value };
-          break;
-        case "lte":
-          query[field] = { $lte: value };
-          break;
-        case "regex":
-          const regex = buildRegexQuery(value);
-          if (regex) {
-            query[field] = regex;
-          }
-          break;
-        case "in":
-          query[field] = { $in: Array.isArray(value) ? value : [value] };
-          break;
-        case "nin":
-          query[field] = { $nin: Array.isArray(value) ? value : [value] };
-          break;
-      }
-    });
-
-    const limit = options.limit || 10000;
-    const skip = options.skip || 0;
-
-    const users = await User.find(query)
-      .select("email name status enrolledAt")
-      .limit(limit)
-      .skip(skip)
-      .lean();
-
-    const total = await User.countDocuments(query);
-    return { users, total };
+    const result = Array.from(emailSet).map((email) => ({ email }));
+    return { users: result, total: result.length };
   } catch (error) {
     console.error("Error applying custom filters:", error);
     throw error;
