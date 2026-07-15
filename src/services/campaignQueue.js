@@ -359,6 +359,7 @@ export const queueDripEmail = async (userEmail, step, dripSequenceId, delayMinut
         stepNumber: step.stepNumber,
       },
       {
+        jobId: `drip:${dripSequenceId}:${userEmail}:step:${step.stepNumber}`,
         delay: delayMinutes * 60 * 1000,
         attempts: 3,
         backoff: { type: "exponential", delay: 2000 },
