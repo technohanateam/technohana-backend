@@ -76,10 +76,13 @@ campaignQueue.process(async (job) => {
             let variantName = "default";
 
             if (campaign.variants && campaign.variants.length > 0) {
-              const randomVariant =
-                campaign.variants[
-                Math.floor(Math.random() * campaign.variants.length)
-                ];
+              const totalWeight = campaign.variants.reduce((sum, v) => sum + (v.weight || 0), 0);
+              let rand = Math.random() * (totalWeight || campaign.variants.length);
+              let randomVariant = campaign.variants[campaign.variants.length - 1];
+              for (const v of campaign.variants) {
+                rand -= totalWeight ? (v.weight || 0) : 1;
+                if (rand <= 0) { randomVariant = v; break; }
+              }
               emailSubject = randomVariant.subject || campaign.subject;
               emailContent = randomVariant.htmlContent || campaign.htmlContent;
               variantName = randomVariant.name || "variant";
@@ -306,17 +309,67 @@ export const getQueueStats = async () => {
   }
 };
 
-/**
- * Clear all queues (use with caution!)
- */
+// Drip sequence step queue
+const dripQueue = new Bull("drip-emails", { redis: redisConfig });
+
+dripQueue.process(async (job) => {
+  const { userEmail, subject, htmlContent, fromName, fromEmail, dripSequenceId, stepNumber } = job.data;
+
+  await resend.emails.send({
+    from: `${fromName} <${fromEmail}>`,
+    to: userEmail,
+    subject,
+    html: htmlContent,
+    headers: {
+      "List-Unsubscribe": "<mailto:unsubscribe@technohana.in?subject=unsubscribe>",
+      "X-Drip-Sequence-ID": dripSequenceId,
+      "X-Drip-Step": String(stepNumber),
+    },
+  });
+
+  console.log(`[Drip Queue] Step ${stepNumber} sent to ${userEmail} (seq ${dripSequenceId})`);
+  return { sent: true, email: userEmail, step: stepNumber };
+});
+
+dripQueue.on("failed", (job, err) => {
+  console.error(`[Drip Queue] Job ${job.id} failed:`, err.message);
+});
+
 export const clearQueues = async () => {
   try {
     await campaignQueue.empty();
     await eventQueue.empty();
+    await dripQueue.empty();
     console.log("[Queue] All queues cleared");
   } catch (error) {
     console.error("[Queue] Error clearing queues:", error);
   }
 };
 
-export { campaignQueue, eventQueue };
+export const queueDripEmail = async (userEmail, step, dripSequenceId, delayMinutes = 0) => {
+  try {
+    const job = await dripQueue.add(
+      {
+        userEmail,
+        subject: step.subject,
+        htmlContent: step.htmlContent,
+        fromName: step.fromName || "Technohana",
+        fromEmail: step.fromEmail || "noreply@technohana.in",
+        dripSequenceId,
+        stepNumber: step.stepNumber,
+      },
+      {
+        jobId: `drip:${dripSequenceId}:${userEmail}:step:${step.stepNumber}`,
+        delay: delayMinutes * 60 * 1000,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 2000 },
+      }
+    );
+    return job;
+  } catch (error) {
+    console.error("[Drip Queue] Error queuing drip email:", error);
+    throw error;
+  }
+};
+
+export { campaignQueue, eventQueue, dripQueue };

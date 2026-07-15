@@ -158,6 +158,7 @@ const ALLOWED_FILTER_FIELDS = new Set([
   "status", "courseTitle", "trainingType", "trainingLocation",
   "city", "userType", "currency", "participants",
   "utm.utm_source", "utm.utm_medium", "utm.utm_campaign",
+  "type", "aiScoreBand",
 ]);
 
 /**

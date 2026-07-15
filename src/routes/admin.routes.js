@@ -26,6 +26,7 @@ import { quoteProposalLine, createProposal, updateProposal, getProposals, getPro
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
 import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
+import { getAllDripSequences, getDripSequence, createDripSequence, updateDripSequence, deleteDripSequence, activateDripSequence, deactivateDripSequence } from "../controllers/dripSequence.controller.js";
 import Campaign from "../models/campaign.model.js";
 import Lead from "../models/lead.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
@@ -1337,6 +1338,16 @@ router.post("/campaigns/estimate-segment", authenticateAdmin, requirePage("campa
 
 // GET /admin/campaigns/queue/stats - Get Bull queue stats
 router.get("/campaigns/queue/stats", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignQueueStats);
+
+// ─── Drip Sequences ───────────────────────────────────────────────────────────
+
+router.get("/drip-sequences", authenticateAdmin, requirePage("drip-sequences", "campaigns"), getAllDripSequences);
+router.post("/drip-sequences", authenticateAdmin, requirePage("drip-sequences", "campaigns"), requireAdmin, createDripSequence);
+router.get("/drip-sequences/:id", authenticateAdmin, requirePage("drip-sequences", "campaigns"), getDripSequence);
+router.put("/drip-sequences/:id", authenticateAdmin, requirePage("drip-sequences", "campaigns"), requireAdmin, updateDripSequence);
+router.delete("/drip-sequences/:id", authenticateAdmin, requirePage("drip-sequences", "campaigns"), requireAdmin, deleteDripSequence);
+router.post("/drip-sequences/:id/activate", authenticateAdmin, requirePage("drip-sequences", "campaigns"), requireAdmin, activateDripSequence);
+router.post("/drip-sequences/:id/deactivate", authenticateAdmin, requirePage("drip-sequences", "campaigns"), requireMarketing, deactivateDripSequence);
 
 // ─── Image Upload (Cloudinary) ────────────────────────────────────────────────
 
