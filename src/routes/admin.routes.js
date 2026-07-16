@@ -825,12 +825,12 @@ Writing rules:
     }
     if (!generated) {
       console.error("generate-from-course: failed to parse AI response. Raw:", finalText?.slice(0, 500));
-      return res.status(500).json({ message: "Failed to parse AI response. Please try again." });
+      return res.status(500).json({ success: false, message: "Failed to parse AI response. Please try again." });
     }
-    return res.json({ data: generated });
+    return res.json({ success: true, data: generated });
   } catch (err) {
     console.error("Blog generation error:", err?.response?.data?.error?.message || err.message);
-    return res.status(500).json({ message: "Failed to generate blog." });
+    return res.status(500).json({ success: false, message: "Failed to generate blog." });
   }
 });
 
@@ -841,7 +841,10 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
 
   const { urls, topic, category, focusKeyword, relatedCourses = [] } = req.body;
   if (!Array.isArray(urls) || urls.length === 0) {
-    return res.status(400).json({ message: "Provide at least one URL." });
+    return res.status(400).json({ success: false, message: "Provide at least one URL." });
+  }
+  if (urls.length > 5) {
+    return res.status(400).json({ success: false, message: "Maximum 5 URLs allowed." });
   }
 
   // Block requests to internal/private IP ranges to prevent SSRF
@@ -861,8 +864,8 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
       return SSRF_BLOCKED_PATTERNS.some((re) => re.test(url));
     } catch { return true; }
   };
-  if (urls.slice(0, 5).some(isSsrfBlocked)) {
-    return res.status(400).json({ message: "One or more URLs are not allowed." });
+  if (urls.some(isSsrfBlocked)) {
+    return res.status(400).json({ success: false, message: "One or more URLs are not allowed." });
   }
 
   // Fetch and extract plain text from each URL (server-side)
@@ -870,7 +873,8 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
 
   const sourceSections = [];
   const sourcesList = [];
-  for (const url of urls.slice(0, 5)) {
+  const failedUrls = [];
+  for (const url of urls) {
     try {
       const pageRes = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; TechnohanaBot/1.0)" }, signal: AbortSignal.timeout(12000) });
       // fetch() only throws on network-level failures, not HTTP error statuses —
@@ -883,6 +887,7 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
       sourceSections.push(`--- SOURCE: ${url} ---\n${text}`);
       sourcesList.push({ title: titleMatch ? stripHtml(titleMatch[1]).trim() : url, url });
     } catch {
+      failedUrls.push(url);
       sourceSections.push(`--- SOURCE: ${url} ---\n[Could not fetch this URL]`);
     }
   }
@@ -929,15 +934,19 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
     }
     if (!generated) {
       console.error("generate-from-urls: failed to parse AI response. Raw:", finalText?.slice(0, 500));
-      return res.status(500).json({ message: "Failed to parse AI response. Please try again." });
+      return res.status(500).json({ success: false, message: "Failed to parse AI response. Please try again." });
     }
     // sources are deterministic from the input URLs (with titles fetched server-side)
     // rather than trusted to the model, which could otherwise invent or drop entries.
     generated.sources = sourcesList;
-    return res.json({ data: generated });
+    return res.json({
+      success: true,
+      data: generated,
+      ...(failedUrls.length ? { warnings: failedUrls.map((u) => `Could not fetch: ${u}`) } : {}),
+    });
   } catch (err) {
     console.error("Blog generate-from-urls error:", err?.message);
-    return res.status(500).json({ message: "Failed to generate blog from URLs." });
+    return res.status(500).json({ success: false, message: "Failed to generate blog from URLs." });
   }
 });
 
@@ -978,17 +987,17 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
     }
     if (!generated) {
       console.error("blogs/rewrite: failed to parse AI response. Raw:", raw?.slice(0, 500));
-      return res.status(500).json({ message: "Failed to parse AI response. Please try again." });
+      return res.status(500).json({ success: false, message: "Failed to parse AI response. Please try again." });
     }
     // Rewrite only touches prose/SEO fields — carry the original post's
     // sources and FAQs through unchanged rather than asking the model to
     // reproduce them (which risks silent drift or invented entries).
     generated.sources = sources || [];
     generated.faqs = faqs || [];
-    return res.json({ data: generated });
+    return res.json({ success: true, data: generated });
   } catch (err) {
     console.error("Blog rewrite error:", err?.response?.data?.error?.message || err.message);
-    return res.status(500).json({ message: "Failed to rewrite blog." });
+    return res.status(500).json({ success: false, message: "Failed to rewrite blog." });
   }
 });
 
