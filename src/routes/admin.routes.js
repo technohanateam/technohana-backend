@@ -729,42 +729,83 @@ router.post("/blogs/generate-from-course", authenticateAdmin, requirePage("blogs
       ? relatedCourses.map(c => `  • <a href="/courses/${sanitize(c.id)}">${sanitize(c.title)}</a>`).join("\n")
       : "  (none — use only the main course link above)";
 
-    const systemPrompt = "You are an expert SEO content writer for Technohana, an online tech training company based in India with global students. Always search the web before writing to ground your post in current facts, stats, and trends. Never fabricate statistics.";
+    const systemPrompt = `You are Technohana's Senior SEO Content Strategist and Technical Writer.
 
-    const userPrompt = `Write a complete, high-quality blog post for the following course:
-Course: ${courseTitle}
-Category: ${category || "Technology"}
+Your goal is to produce authoritative, accurate, search-optimized technical blog articles that rank well on search engines while genuinely helping readers.
+
+You have access to a web search tool.
+
+Before writing:
+1. Search for recent information.
+2. Verify facts.
+3. Use only information supported by search results.
+4. Never invent statistics, rankings, salaries, certifications, trends, company statements, or URLs.
+
+Writing style:
+• Professional and educational
+• Clear and concise
+• Technical where appropriate
+• Written for professionals, students, developers and decision makers
+• Avoid marketing hype
+• Avoid exaggerated claims
+• Never use emojis
+• Use short paragraphs
+• Prefer bullet lists where useful
+• Explain technical concepts simply
+
+SEO Requirements:
+• Naturally use the focus keyword.
+• Include it in the title, first paragraph, one H2, and conclusion.
+• Write compelling metadata.
+• Avoid keyword stuffing.
+• Create human-first content.
+
+HTML Requirements:
+Only return HTML inside the content field.
+Allowed tags: <p> <h2> <h3> <ul> <ol> <li> <strong> <em> <a>
+Never use inline CSS.
+Internal links must be naturally integrated into relevant sentences.
+External links should never be inserted into the HTML. Only list them in sources.
+If a fact cannot be verified from search results, omit it.
+
+Return ONLY valid JSON. No markdown. No explanations.`;
+
+    const userPrompt = `Create a long-form SEO blog post for Technohana.
+
+Course
+Title: ${courseTitle}
+Year: ${year}
 ${description ? `Description: ${description}` : ""}
 
-Before writing, search the web for:
-1. "${courseTitle} trends ${year}"
-2. "${courseTitle} jobs salary demand ${year}"
+Search the web before writing. Perform searches similar to:
+- "${courseTitle} trends ${year}"
+- "${courseTitle} jobs salary demand ${year}"
+- "${courseTitle} certifications ${year}"
+- "${courseTitle} enterprise adoption ${year}"
 
-Use real facts and stats from those results in the blog post.
+After collecting information, create a blog with these requirements.
 
-Return ONLY a valid JSON object (no markdown, no code fences, no explanation) with these exact keys:
-- "title": compelling blog post title (NOT the course title; e.g. "Why Every Professional Should Learn [Topic]" or "The Complete Guide to [Topic] in ${year}")
-- "slug": URL-friendly slug derived from the title
-- "excerpt": 2–3 sentence summary (aim for 140–160 characters)
-- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, a practical tips section, conclusion paragraph with a call-to-action to explore Technohana courses at https://technohana.in/courses. Include internal links within the body prose (not in a separate list at the end): link to the main course at least once using <a href="/courses/${courseId}">${courseTitle}</a>; link to at least 2 of these related Technohana courses where they fit naturally in the text:
+Requirements
+Length: 700–1200 words
+Structure: Introduction, 4–5 H2 sections, Conclusion, 3–5 FAQs
+Tone: Educational, Objective, Actionable, Trustworthy
+Use examples where appropriate.
+Never fabricate statistics. If statistics are unavailable, discuss trends qualitatively.
+
+Internal links — naturally include these in the article:
+Primary Course: <a href="/courses/${courseId}">${courseTitle}</a>
+Related Courses:
 ${relatedCoursesBullets}
-  Link once to <a href="/blog/">the Technohana blog</a> in the conclusion. Do NOT add a standalone "Recommended Courses" section — all links must appear inside paragraph or list content.
-- "metaTitle": SEO meta title, 50–60 characters, includes focus keyword
-- "metaDescription": SEO meta description, 140–160 characters, includes focus keyword and a benefit
-- "focusKeyword": primary target keyword phrase (2–4 words)
-- "tags": array of 4–6 relevant tag strings
-- "readTimeMin": estimated reading time in minutes (number)
-- "author": "Technohana Team"
-- "category": "${category || "Technology"}"
-- "sources": array of 2–5 objects {"title": string, "url": string} for the real web pages you searched and drew facts/stats from. Only include pages you actually retrieved via web_search — never invent a URL.
-- "faqs": array of 3–5 objects {"question": string, "answer": string} — common reader questions about this course (prerequisites, duration, career outcomes, certification value). Answers 2–4 sentences, grounded in the course/category info given above.
+Blog: <a href="/blog/">the Technohana blog</a>
 
-Writing rules:
-- No emojis anywhere
-- Clean, professional prose — no hype words ("game-changing", "revolutionary")
-- Focus keyword must appear in title, first paragraph, and at least one <h2>
-- HTML must be valid and well-structured
-- Weave web-sourced facts naturally into the prose`;
+Do NOT create a "Recommended Courses" section. Integrate links naturally into paragraphs.
+
+SEO — generate: title, slug, excerpt, meta title (50–60 chars), meta description (140–160 chars), focus keyword, tags, read time, author, category.
+
+Return ONLY this JSON object:
+{"title":"","slug":"","excerpt":"","content":"","metaTitle":"","metaDescription":"","focusKeyword":"","tags":[],"readTimeMin":0,"author":"","category":"","sources":[],"faqs":[{"question":"","answer":""}]}
+
+Sources: only URLs returned by web search. Never invent URLs.`;
 
     // Agentic loop: Claude may call web_search multiple times before producing the final text
     const messages = [{ role: "user", content: userPrompt }];
@@ -905,7 +946,43 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
     ? `conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>. Also include internal links within the body prose (not in a separate list at the end): where topically relevant, link inline to 2–3 of these related Technohana courses using their exact URLs — do NOT invent a course or id that isn't in this list:\n${relatedCoursesBullets}\n  Do NOT add a standalone "Recommended Courses" section — all links must appear inside paragraph or list content`
     : `conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>`;
 
-  const userPrompt = `I have collected the following source articles. Read them carefully.\n\n${sourceSections.join("\n\n")}\n\n${topicLine} ${categoryLine} ${keywordLine}\n\nWrite a complete, high-quality, SEO-optimised blog post for Technohana (an online tech training company with students in India, UAE, US, UK, EU) grounded in the facts and ideas from those sources. Year: ${year}.\n\nReturn ONLY a valid JSON object (no markdown, no code fences) with these exact keys:\n- "title": compelling blog post title\n- "slug": URL-friendly slug\n- "excerpt": 1–2 sentence summary (max 160 chars)\n- "content": full blog post in clean HTML using <h2>, <p>, <ul>, <li> tags. Minimum 700 words. Structure: intro paragraph, 4–5 sections with <h2> headings, practical tips section, ${courseLinkInstruction}\n- "metaTitle": 50–60 characters, includes focus keyword if provided\n- "metaDescription": 140–160 characters\n- "focusKeyword": primary SEO keyword\n- "tags": array of 5–8 relevant tags\n- "readTimeMin": estimated read time in minutes (number)\n- "author": "Technohana Team"\n- "category": blog category string\n- "faqs": array of 3–5 objects {"question": string, "answer": string} — common reader questions grounded in the source material above, 2–4 sentence answers\n\nNo emojis. Professional prose. Valid semantic HTML only.`;
+  const systemPromptUrls = `You are Technohana's Senior Technical Content Writer.
+
+You are given extracted content from trusted web pages.
+
+Treat this content as your only factual source.
+
+Rules:
+Never invent facts.
+Never invent statistics.
+Never reference websites that are not included.
+Never claim to have searched the web.
+Summarize, synthesize and explain the provided material in your own words.
+Write a high-quality SEO article.
+Avoid copying long passages.
+Return only valid JSON.`;
+
+  const userPrompt = `Write a technical SEO blog using the source material below.
+
+Topic: ${topicLine}
+Category: ${categoryLine}
+Preferred focus keyword: ${keywordLine}
+
+Source Material:
+${sourceSections.join("\n\n")}
+
+Requirements:
+700–1200 words
+Introduction, 4–5 H2 sections, Conclusion, 3–5 FAQs
+Short paragraphs. Use bullet points where useful.
+Professional tone. Educational.
+Do not mention that the content came from supplied sources.
+
+Internal links — naturally include:
+${courseLinkInstruction}
+
+Return this JSON only:
+{"title":"","slug":"","excerpt":"","content":"","metaTitle":"","metaDescription":"","focusKeyword":"","tags":[],"readTimeMin":0,"author":"","category":"","faqs":[]}`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -918,7 +995,7 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
       body: JSON.stringify({
         model: "claude-sonnet-5",
         max_tokens: 8192,
-        system: "You are an expert SEO content writer for Technohana, an online tech training company based in India with global students. Write accurate, factual blog posts grounded in the source material provided. Never fabricate statistics.",
+        system: systemPromptUrls,
         messages: [{ role: "user", content: userPrompt }],
       }),
       signal: AbortSignal.timeout(120000),
@@ -959,13 +1036,45 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return res.status(503).json({ success: false, message: "AI rewrite not configured. Add ANTHROPIC_API_KEY to .env" });
 
-    const prompt = `You are an SEO content editor for Technohana, an online tech training company based in India with global students.\n\nRewrite and significantly improve the following existing blog post. Keep the same topic and core message but make it substantially better.\n\nCurrent post:\nTitle: ${title}\nCategory: ${category || "Technology"}\nFocus keyword: ${focusKeyword || ""}\nExcerpt: ${excerpt || ""}\nContent:\n${content}\n\nImprovements required:\n- Deepen the content with specific data, statistics, real examples, and step-by-step guidance\n- Improve SEO: place focus keyword naturally in title, first paragraph, and at least one <h2>\n- Sharpen readability: shorter paragraphs, clear prose, no hype words ("game-changing", "revolutionary")\n- Structure: intro paragraph, 4–5 sections with <h2> headings, conclusion with CTA to https://technohana.in/courses\n- Include 2 internal links: one to <a href="/courses/">Technohana courses</a> and one to <a href="/blog/">related blog posts</a>\n- Minimum 700 words, valid semantic HTML\n\nReturn ONLY a valid JSON object (no markdown, no code fences, no explanation) with these exact keys:\n- "title": improved blog post title\n- "slug": URL-friendly slug derived from the title\n- "excerpt": 2–3 sentence summary (aim for 140–160 characters)\n- "content": full rewritten blog post in clean HTML using <h2>, <p>, <ul>, <li> tags\n- "metaTitle": SEO meta title, 50–60 characters, includes focus keyword\n- "metaDescription": SEO meta description, 140–160 characters, includes focus keyword and a benefit\n- "focusKeyword": primary target keyword phrase (2–4 words)\n- "tags": array of 4–6 relevant tag strings\n- "readTimeMin": estimated reading time in minutes (number)\n- "author": "${author || "Technohana Team"}"\n- "category": "${category || "Technology"}"\n\nWriting rules:\n- No emojis anywhere\n- Clean, professional prose\n- HTML must be valid and well-structured`;
+    const rewriteSystemPrompt = `You are Technohana's Senior Content Editor.
+
+Your job is to improve existing articles without changing their intent.
+
+Preserve factual accuracy.
+Do not invent facts.
+Do not invent statistics.
+Do not remove important information.
+
+Improve: SEO, readability, flow, technical accuracy, paragraph structure, internal linking.
+Keep HTML valid.
+Return only JSON.`;
+
+    const prompt = `Rewrite the following blog.
+
+Title: ${title}
+Excerpt: ${excerpt || ""}
+Category: ${category || "Technology"}
+Focus keyword: ${focusKeyword || ""}
+
+Content:
+${content}
+
+Requirements:
+Minimum 700 words.
+Improve SEO. Naturally place the focus keyword in: title, first paragraph, one H2, conclusion.
+Shorten long paragraphs. Improve transitions. Add practical examples. Expand explanations.
+Include exactly two internal links: <a href="/courses/">Technohana courses</a> and <a href="/blog/">related blog posts</a>.
+Do not remove existing meaning. Do not modify FAQs. Do not modify sources.
+
+Return only:
+{"title":"","slug":"","excerpt":"","content":"","metaTitle":"","metaDescription":"","focusKeyword":"","tags":[],"readTimeMin":0,"author":"${author || "Technohana Team"}","category":"${category || "Technology"}"}`;
 
     const response = await axios.post(
       "https://api.anthropic.com/v1/messages",
       {
         model: "claude-sonnet-5",
         max_tokens: 8192,
+        system: rewriteSystemPrompt,
         messages: [{ role: "user", content: prompt }],
       },
       {
@@ -1045,19 +1154,24 @@ router.post("/blogs/auto-seo", authenticateAdmin, requirePage("blogs"), requireM
       .trim()
       .slice(0, 2000);
 
-    const prompt = `You are an SEO specialist. Given the blog post below, generate concise SEO metadata.
+    const seoSystemPrompt = `You are an SEO metadata optimization assistant.
+Generate concise metadata from article content.
+Never invent topics not present.
+Keep titles readable.
+Avoid clickbait.
+Return only JSON.`;
 
-Title: ${title}
-Category: ${category || "Technology"}
-Content snippet: ${plainText}
+    const prompt = `Article:
+${plainText}
 
-Return ONLY a valid JSON object with these exact keys:
-- "metaTitle": 50–60 characters, includes the focus keyword, compelling
-- "metaDescription": 140–160 characters, includes focus keyword and a benefit
-- "excerpt": 2–3 sentence summary of the post (aim for 140–160 characters)
-- "focusKeyword": primary SEO keyword phrase, 2–4 words
+Generate:
+Meta title — 50–60 characters
+Meta description — 140–160 characters
+Excerpt — 40–70 words
+Focus keyword — one primary keyword only
 
-No markdown, no code fences, just the JSON object.`;
+Return only:
+{"metaTitle":"","metaDescription":"","excerpt":"","focusKeyword":""}`;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -1065,6 +1179,7 @@ No markdown, no code fences, just the JSON object.`;
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 512,
+        system: seoSystemPrompt,
         messages: [{ role: "user", content: prompt }],
       }),
       signal: AbortSignal.timeout(25000),
