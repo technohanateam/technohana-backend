@@ -934,9 +934,9 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
   }
 
   const year = new Date().getFullYear();
-  const topicLine = topic ? `The blog post topic is: "${topic}".` : "Determine the best topic from the source material.";
-  const categoryLine = category ? `Category: ${category}.` : "";
-  const keywordLine = focusKeyword ? `Focus keyword for SEO: "${focusKeyword}".` : "";
+  const topicLine = topic || "Determine the best topic from the source material.";
+  const categoryLine = category || "";
+  const keywordLine = focusKeyword || "";
 
   const sanitize = (str) => String(str || "").replace(/[`${}]/g, "");
   const relatedCoursesBullets = Array.isArray(relatedCourses) && relatedCourses.length
