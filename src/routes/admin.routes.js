@@ -1160,7 +1160,7 @@ const ALLOWED_COURSE_FIELDS = [
   "instructor", "instructorId", "language", "courseDays", "courseTime", "courseModules",
   "noStudents", "rating", "logo", "toc", "videoId", "catcls", "overview",
   "courseObjective", "courseOutcomes", "labs", "prerequisites", "whatWillYouLearn",
-  "requirements", "targetAudience", "modules",
+  "requirements", "targetAudience", "modules", "categoryGroup",
 ];
 const pickCourseFields = (body) =>
   Object.fromEntries(ALLOWED_COURSE_FIELDS.filter((k) => k in body).map((k) => [k, body[k]]));

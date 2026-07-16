@@ -34,6 +34,7 @@ const courseSchema = new mongoose.Schema({
   toc:              { type: String },
   videoId:          { type: String },
   catcls:           { type: String },
+  categoryGroup:    { type: String },
   overview:         { type: String },
   courseObjective:  { type: String },
   courseOutcomes:   { type: String },
