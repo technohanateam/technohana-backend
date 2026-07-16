@@ -720,7 +720,7 @@ router.post("/blogs/generate-from-course", authenticateAdmin, requirePage("blogs
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(503).json({ message: "AI generation not configured. Add ANTHROPIC_API_KEY to .env" });
+    if (!apiKey) return res.status(503).json({ success: false, message: "AI generation not configured. Add ANTHROPIC_API_KEY to .env" });
 
     const year = new Date().getFullYear();
 
@@ -825,23 +825,26 @@ Writing rules:
     }
     if (!generated) {
       console.error("generate-from-course: failed to parse AI response. Raw:", finalText?.slice(0, 500));
-      return res.status(500).json({ message: "Failed to parse AI response. Please try again." });
+      return res.status(500).json({ success: false, message: "Failed to parse AI response. Please try again." });
     }
-    return res.json({ data: generated });
+    return res.json({ success: true, data: generated });
   } catch (err) {
     console.error("Blog generation error:", err?.response?.data?.error?.message || err.message);
-    return res.status(500).json({ message: "Failed to generate blog." });
+    return res.status(500).json({ success: false, message: "Failed to generate blog." });
   }
 });
 
 // POST /admin/blogs/generate-from-urls — AI-generate a blog post from live URLs
 router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs"), requireAdmin, adminAiLimiter, async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(503).json({ message: "ANTHROPIC_API_KEY not configured." });
+  if (!apiKey) return res.status(503).json({ success: false, message: "ANTHROPIC_API_KEY not configured." });
 
   const { urls, topic, category, focusKeyword, relatedCourses = [] } = req.body;
   if (!Array.isArray(urls) || urls.length === 0) {
-    return res.status(400).json({ message: "Provide at least one URL." });
+    return res.status(400).json({ success: false, message: "Provide at least one URL." });
+  }
+  if (urls.length > 5) {
+    return res.status(400).json({ success: false, message: "Maximum 5 URLs allowed." });
   }
 
   // Block requests to internal/private IP ranges to prevent SSRF
@@ -861,8 +864,8 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
       return SSRF_BLOCKED_PATTERNS.some((re) => re.test(url));
     } catch { return true; }
   };
-  if (urls.slice(0, 5).some(isSsrfBlocked)) {
-    return res.status(400).json({ message: "One or more URLs are not allowed." });
+  if (urls.some(isSsrfBlocked)) {
+    return res.status(400).json({ success: false, message: "One or more URLs are not allowed." });
   }
 
   // Fetch and extract plain text from each URL (server-side)
@@ -870,7 +873,8 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
 
   const sourceSections = [];
   const sourcesList = [];
-  for (const url of urls.slice(0, 5)) {
+  const failedUrls = [];
+  for (const url of urls) {
     try {
       const pageRes = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; TechnohanaBot/1.0)" }, signal: AbortSignal.timeout(12000) });
       // fetch() only throws on network-level failures, not HTTP error statuses —
@@ -883,6 +887,7 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
       sourceSections.push(`--- SOURCE: ${url} ---\n${text}`);
       sourcesList.push({ title: titleMatch ? stripHtml(titleMatch[1]).trim() : url, url });
     } catch {
+      failedUrls.push(url);
       sourceSections.push(`--- SOURCE: ${url} ---\n[Could not fetch this URL]`);
     }
   }
@@ -929,15 +934,19 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
     }
     if (!generated) {
       console.error("generate-from-urls: failed to parse AI response. Raw:", finalText?.slice(0, 500));
-      return res.status(500).json({ message: "Failed to parse AI response. Please try again." });
+      return res.status(500).json({ success: false, message: "Failed to parse AI response. Please try again." });
     }
     // sources are deterministic from the input URLs (with titles fetched server-side)
     // rather than trusted to the model, which could otherwise invent or drop entries.
     generated.sources = sourcesList;
-    return res.json({ data: generated });
+    return res.json({
+      success: true,
+      data: generated,
+      ...(failedUrls.length ? { warnings: failedUrls } : {}),
+    });
   } catch (err) {
     console.error("Blog generate-from-urls error:", err?.message);
-    return res.status(500).json({ message: "Failed to generate blog from URLs." });
+    return res.status(500).json({ success: false, message: "Failed to generate blog from URLs." });
   }
 });
 
@@ -948,7 +957,7 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
     if (!title || !content) return res.status(400).json({ message: "title and content are required." });
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(503).json({ message: "AI rewrite not configured. Add ANTHROPIC_API_KEY to .env" });
+    if (!apiKey) return res.status(503).json({ success: false, message: "AI rewrite not configured. Add ANTHROPIC_API_KEY to .env" });
 
     const prompt = `You are an SEO content editor for Technohana, an online tech training company based in India with global students.\n\nRewrite and significantly improve the following existing blog post. Keep the same topic and core message but make it substantially better.\n\nCurrent post:\nTitle: ${title}\nCategory: ${category || "Technology"}\nFocus keyword: ${focusKeyword || ""}\nExcerpt: ${excerpt || ""}\nContent:\n${content}\n\nImprovements required:\n- Deepen the content with specific data, statistics, real examples, and step-by-step guidance\n- Improve SEO: place focus keyword naturally in title, first paragraph, and at least one <h2>\n- Sharpen readability: shorter paragraphs, clear prose, no hype words ("game-changing", "revolutionary")\n- Structure: intro paragraph, 4–5 sections with <h2> headings, conclusion with CTA to https://technohana.in/courses\n- Include 2 internal links: one to <a href="/courses/">Technohana courses</a> and one to <a href="/blog/">related blog posts</a>\n- Minimum 700 words, valid semantic HTML\n\nReturn ONLY a valid JSON object (no markdown, no code fences, no explanation) with these exact keys:\n- "title": improved blog post title\n- "slug": URL-friendly slug derived from the title\n- "excerpt": 2–3 sentence summary (aim for 140–160 characters)\n- "content": full rewritten blog post in clean HTML using <h2>, <p>, <ul>, <li> tags\n- "metaTitle": SEO meta title, 50–60 characters, includes focus keyword\n- "metaDescription": SEO meta description, 140–160 characters, includes focus keyword and a benefit\n- "focusKeyword": primary target keyword phrase (2–4 words)\n- "tags": array of 4–6 relevant tag strings\n- "readTimeMin": estimated reading time in minutes (number)\n- "author": "${author || "Technohana Team"}"\n- "category": "${category || "Technology"}"\n\nWriting rules:\n- No emojis anywhere\n- Clean, professional prose\n- HTML must be valid and well-structured`;
 
@@ -978,17 +987,17 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
     }
     if (!generated) {
       console.error("blogs/rewrite: failed to parse AI response. Raw:", raw?.slice(0, 500));
-      return res.status(500).json({ message: "Failed to parse AI response. Please try again." });
+      return res.status(500).json({ success: false, message: "Failed to parse AI response. Please try again." });
     }
     // Rewrite only touches prose/SEO fields — carry the original post's
     // sources and FAQs through unchanged rather than asking the model to
     // reproduce them (which risks silent drift or invented entries).
     generated.sources = sources || [];
     generated.faqs = faqs || [];
-    return res.json({ data: generated });
+    return res.json({ success: true, data: generated });
   } catch (err) {
     console.error("Blog rewrite error:", err?.response?.data?.error?.message || err.message);
-    return res.status(500).json({ message: "Failed to rewrite blog." });
+    return res.status(500).json({ success: false, message: "Failed to rewrite blog." });
   }
 });
 
@@ -1026,7 +1035,7 @@ router.post("/blogs/auto-seo", authenticateAdmin, requirePage("blogs"), requireM
     if (!_id || !title) return res.status(400).json({ message: "_id and title are required." });
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(503).json({ message: "ANTHROPIC_API_KEY not configured." });
+    if (!apiKey) return res.status(503).json({ success: false, message: "ANTHROPIC_API_KEY not configured." });
 
     const plainText = (content || "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
