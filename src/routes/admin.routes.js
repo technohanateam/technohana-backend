@@ -720,7 +720,7 @@ router.post("/blogs/generate-from-course", authenticateAdmin, requirePage("blogs
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(503).json({ message: "AI generation not configured. Add ANTHROPIC_API_KEY to .env" });
+    if (!apiKey) return res.status(503).json({ success: false, message: "AI generation not configured. Add ANTHROPIC_API_KEY to .env" });
 
     const year = new Date().getFullYear();
 
@@ -837,7 +837,7 @@ Writing rules:
 // POST /admin/blogs/generate-from-urls — AI-generate a blog post from live URLs
 router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs"), requireAdmin, adminAiLimiter, async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(503).json({ message: "ANTHROPIC_API_KEY not configured." });
+  if (!apiKey) return res.status(503).json({ success: false, message: "ANTHROPIC_API_KEY not configured." });
 
   const { urls, topic, category, focusKeyword, relatedCourses = [] } = req.body;
   if (!Array.isArray(urls) || urls.length === 0) {
@@ -942,7 +942,7 @@ router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs")
     return res.json({
       success: true,
       data: generated,
-      ...(failedUrls.length ? { warnings: failedUrls.map((u) => `Could not fetch: ${u}`) } : {}),
+      ...(failedUrls.length ? { warnings: failedUrls } : {}),
     });
   } catch (err) {
     console.error("Blog generate-from-urls error:", err?.message);
@@ -957,7 +957,7 @@ router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAd
     if (!title || !content) return res.status(400).json({ message: "title and content are required." });
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(503).json({ message: "AI rewrite not configured. Add ANTHROPIC_API_KEY to .env" });
+    if (!apiKey) return res.status(503).json({ success: false, message: "AI rewrite not configured. Add ANTHROPIC_API_KEY to .env" });
 
     const prompt = `You are an SEO content editor for Technohana, an online tech training company based in India with global students.\n\nRewrite and significantly improve the following existing blog post. Keep the same topic and core message but make it substantially better.\n\nCurrent post:\nTitle: ${title}\nCategory: ${category || "Technology"}\nFocus keyword: ${focusKeyword || ""}\nExcerpt: ${excerpt || ""}\nContent:\n${content}\n\nImprovements required:\n- Deepen the content with specific data, statistics, real examples, and step-by-step guidance\n- Improve SEO: place focus keyword naturally in title, first paragraph, and at least one <h2>\n- Sharpen readability: shorter paragraphs, clear prose, no hype words ("game-changing", "revolutionary")\n- Structure: intro paragraph, 4–5 sections with <h2> headings, conclusion with CTA to https://technohana.in/courses\n- Include 2 internal links: one to <a href="/courses/">Technohana courses</a> and one to <a href="/blog/">related blog posts</a>\n- Minimum 700 words, valid semantic HTML\n\nReturn ONLY a valid JSON object (no markdown, no code fences, no explanation) with these exact keys:\n- "title": improved blog post title\n- "slug": URL-friendly slug derived from the title\n- "excerpt": 2–3 sentence summary (aim for 140–160 characters)\n- "content": full rewritten blog post in clean HTML using <h2>, <p>, <ul>, <li> tags\n- "metaTitle": SEO meta title, 50–60 characters, includes focus keyword\n- "metaDescription": SEO meta description, 140–160 characters, includes focus keyword and a benefit\n- "focusKeyword": primary target keyword phrase (2–4 words)\n- "tags": array of 4–6 relevant tag strings\n- "readTimeMin": estimated reading time in minutes (number)\n- "author": "${author || "Technohana Team"}"\n- "category": "${category || "Technology"}"\n\nWriting rules:\n- No emojis anywhere\n- Clean, professional prose\n- HTML must be valid and well-structured`;
 
@@ -1035,7 +1035,7 @@ router.post("/blogs/auto-seo", authenticateAdmin, requirePage("blogs"), requireM
     if (!_id || !title) return res.status(400).json({ message: "_id and title are required." });
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(503).json({ message: "ANTHROPIC_API_KEY not configured." });
+    if (!apiKey) return res.status(503).json({ success: false, message: "ANTHROPIC_API_KEY not configured." });
 
     const plainText = (content || "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
