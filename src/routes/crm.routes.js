@@ -6,6 +6,7 @@ import {
   getLeads, getLead, createLead, updateLead, deleteLead,
   bulkLeadAction, mergeLead, addNote, getLeadActivities,
   getLeadExport, importLeads, aiLeadSummary, aiScoreLead, aiEmailDraft,
+  createLeadFromEnquiry,
 } from "../controllers/crmLead.controller.js";
 import {
   getContacts, getContact, createContact, updateContact, deleteContact,
@@ -35,6 +36,7 @@ router.get("/dashboard/funnel",  crmRead("dashboard"),  getFunnelData);
 router.get("/dashboard/sources", crmRead("dashboard"),  getLeadSourcesBreakdown);
 
 // ── Leads ─────────────────────────────────────────────────────────────────────
+router.post("/leads/from-enquiry/:enquiryId", crmWrite("leads"), createLeadFromEnquiry);
 router.get("/leads/export",         crmRead("leads"),         getLeadExport);
 router.post("/leads/import",        crmWrite("leads"),        importLeads);
 router.post("/leads/bulk",          crmWrite("leads"),        bulkLeadAction);
