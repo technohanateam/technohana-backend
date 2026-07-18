@@ -73,10 +73,13 @@ export const createDeal = async (req, res) => {
     if (!pipe) return res.status(400).json({ success: false, message: "Invalid pipeline" });
 
     const firstStage = pipe.stages.sort((a, b) => a.order - b.order)[0];
+    if (!req.body.stageKey && !firstStage) {
+      return res.status(400).json({ success: false, message: "Pipeline has no stages" });
+    }
 
     const deal = await CRMDeal.create({
       ...req.body,
-      stageKey: req.body.stageKey || firstStage?.key,
+      stageKey: req.body.stageKey || firstStage.key,
       stageOrder: req.body.stageOrder ?? firstStage?.order ?? 0,
       probability: req.body.probability ?? firstStage?.probability ?? 20,
       assignedTo: req.body.assignedTo || req.admin._id,
@@ -129,7 +132,10 @@ export const moveDealStage = async (req, res) => {
     if (!deal) return res.status(404).json({ success: false, message: "Deal not found" });
 
     const pipe = await CRMPipeline.findById(deal.pipeline);
-    const stage = pipe?.stages.find((s) => s.key === stageKey);
+    if (!pipe) return res.status(400).json({ success: false, message: "Associated pipeline not found" });
+
+    const stage = pipe.stages.find((s) => s.key === stageKey);
+    if (!stage) return res.status(400).json({ success: false, message: "Stage not found in pipeline" });
 
     const prevStage = deal.stageKey;
     deal.stageKey   = stageKey;
@@ -154,6 +160,7 @@ export const deleteDeal = async (req, res) => {
     const deal = await CRMDeal.findOne({ _id: req.params.id, isDeleted: false });
     if (!deal) return res.status(404).json({ success: false, message: "Deal not found" });
     deal.isDeleted = true;
+    deal.deletedAt = new Date();
     await deal.save();
     res.json({ success: true, message: "Deal deleted" });
   } catch (err) {

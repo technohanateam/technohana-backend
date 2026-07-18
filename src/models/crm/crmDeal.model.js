@@ -34,7 +34,7 @@ const crmDealSchema = new mongoose.Schema(
     purchaseOrderRef: { type: String },
     purchaseOrderUrl: { type: String },
     invoiceRef: { type: String },
-    batchId: { type: mongoose.Schema.Types.ObjectId, ref: "CRMBatch" },
+    batchId: { type: String },
 
     tags: [{ type: mongoose.Schema.Types.ObjectId, ref: "CRMTag" }],
     notes: [noteSchema],
@@ -47,6 +47,7 @@ const crmDealSchema = new mongoose.Schema(
     ],
 
     isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" },
   },
   { timestamps: true }

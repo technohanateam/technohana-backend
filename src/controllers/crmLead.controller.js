@@ -216,17 +216,17 @@ export const bulkLeadAction = async (req, res) => {
     }
 
     if (action === "assign" && payload?.assignedTo) {
-      await CRMLead.updateMany({ _id: { $in: objectIds } }, { assignedTo: payload.assignedTo });
+      await CRMLead.updateMany({ _id: { $in: objectIds }, isDeleted: false }, { assignedTo: payload.assignedTo });
       return res.json({ success: true, message: `${ids.length} leads reassigned` });
     }
 
     if (action === "status" && payload?.status) {
-      await CRMLead.updateMany({ _id: { $in: objectIds } }, { status: payload.status });
+      await CRMLead.updateMany({ _id: { $in: objectIds }, isDeleted: false }, { status: payload.status });
       return res.json({ success: true, message: `${ids.length} leads status updated` });
     }
 
     if (action === "priority" && payload?.priority) {
-      await CRMLead.updateMany({ _id: { $in: objectIds } }, { priority: payload.priority });
+      await CRMLead.updateMany({ _id: { $in: objectIds }, isDeleted: false }, { priority: payload.priority });
       return res.json({ success: true, message: `${ids.length} leads priority updated` });
     }
 
@@ -306,6 +306,9 @@ export const addNote = async (req, res) => {
 
 export const getLeadActivities = async (req, res) => {
   try {
+    const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false }).lean();
+    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+
     const page  = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, parseInt(req.query.limit) || 30);
     const skip  = (page - 1) * limit;
