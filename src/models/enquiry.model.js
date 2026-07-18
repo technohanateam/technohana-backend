@@ -57,6 +57,7 @@ const enquirySchema = new mongoose.Schema({
   aiSuggestedFollowUp: { type: Date, default: null },
   aiScoredAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
+  crmLeadId: { type: mongoose.Schema.Types.ObjectId, ref: "CRMLead", default: null },
 });
 
 export default mongoose.model("Enquiry", enquirySchema);

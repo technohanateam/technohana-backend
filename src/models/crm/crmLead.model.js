@@ -90,6 +90,9 @@ const crmLeadSchema = new mongoose.Schema(
     notes: [noteSchema],
     attachments: [attachmentSchema],
 
+    // Source reference — set when lead is promoted from an Enquiry
+    enquiryRef: { type: mongoose.Schema.Types.ObjectId, ref: "Enquiry", default: null },
+
     // Dedup
     isDuplicate: { type: Boolean, default: false },
     mergedInto: { type: mongoose.Schema.Types.ObjectId, ref: "CRMLead" },
