@@ -2,11 +2,12 @@ import { Router } from "express";
 import { crmRead, crmWrite, crmDelete } from "../middleware/crmPermission.js";
 
 import { getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents } from "../controllers/crmDashboard.controller.js";
+import { getRevenueTrend, getRepStats, getConversionStats } from "../controllers/crmAnalytics.controller.js";
 import {
   getLeads, getLead, createLead, updateLead, deleteLead,
   bulkLeadAction, mergeLead, addNote, getLeadActivities,
   getLeadExport, importLeads, aiLeadSummary, aiScoreLead, aiEmailDraft,
-  createLeadFromEnquiry,
+  createLeadFromEnquiry, draftProposal,
 } from "../controllers/crmLead.controller.js";
 import {
   getContacts, getContact, createContact, updateContact, deleteContact,
@@ -37,6 +38,11 @@ router.get("/dashboard/sources", crmRead("dashboard"),  getLeadSourcesBreakdown)
 router.get("/analytics",         crmRead("dashboard"),  getAnalytics);
 router.get("/calendar",          crmRead("dashboard"),  getCalendarEvents);
 
+// ── Analytics ─────────────────────────────────────────────────────────────────
+router.get("/analytics/revenue-trend", crmRead("dashboard"), getRevenueTrend);
+router.get("/analytics/rep-stats",     crmRead("dashboard"), getRepStats);
+router.get("/analytics/conversions",   crmRead("dashboard"), getConversionStats);
+
 // ── Leads ─────────────────────────────────────────────────────────────────────
 router.post("/leads/from-enquiry/:enquiryId", crmWrite("leads"), createLeadFromEnquiry);
 router.get("/leads/export",         crmRead("leads"),         getLeadExport);
@@ -52,9 +58,10 @@ router.post("/leads/:id/notes",     crmWrite("leads"),        addNote);
 router.get("/leads/:id/activities", crmRead("leads"),         getLeadActivities);
 
 // ── AI on Leads ───────────────────────────────────────────────────────────────
-router.get("/leads/:id/ai-summary", crmRead("ai"),   aiLeadSummary);
-router.post("/leads/:id/ai-score",  crmWrite("ai"),  aiScoreLead);
-router.post("/ai/email-draft",      crmWrite("ai"),  aiEmailDraft);
+router.get("/leads/:id/ai-summary",      crmRead("ai"),  aiLeadSummary);
+router.post("/leads/:id/ai-score",       crmWrite("ai"), aiScoreLead);
+router.post("/leads/:id/draft-proposal", crmWrite("ai"), draftProposal);
+router.post("/ai/email-draft",           crmWrite("ai"), aiEmailDraft);
 
 // ── Contacts ──────────────────────────────────────────────────────────────────
 router.get("/contacts",                  crmRead("contacts"),   getContacts);

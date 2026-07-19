@@ -26,7 +26,7 @@ import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, res
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
-import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats } from "../controllers/campaign.controller.js";
+import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy } from "../controllers/campaign.controller.js";
 import { getAllDripSequences, getDripSequence, createDripSequence, updateDripSequence, deleteDripSequence, activateDripSequence, deactivateDripSequence } from "../controllers/dripSequence.controller.js";
 import Campaign from "../models/campaign.model.js";
 import Lead from "../models/lead.model.js";
@@ -344,6 +344,18 @@ router.get("/enquiries/ranked", authenticateAdmin, requirePage("enquiries", "sal
     return res.json({ success: true, data });
   } catch (err) {
     console.error("Admin ranked enquiries error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET /admin/enquiries/:id — fetch a single enquiry with its activities
+router.get("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    const enquiry = await Enquiry.findById(req.params.id).lean();
+    if (!enquiry) return res.status(404).json({ success: false, message: "Enquiry not found" });
+    return res.json({ success: true, data: enquiry, message: "Enquiry loaded" });
+  } catch (err) {
+    console.error("Admin get enquiry error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -1466,6 +1478,9 @@ router.post("/campaigns/estimate-segment", authenticateAdmin, requirePage("campa
 
 // GET /admin/campaigns/queue/stats - Get Bull queue stats
 router.get("/campaigns/queue/stats", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignQueueStats);
+
+// POST /admin/campaigns/:id/ai-copy - Generate AI copy for a campaign
+router.post("/campaigns/:id/ai-copy", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, generateAICopy);
 
 // ─── Drip Sequences ───────────────────────────────────────────────────────────
 
