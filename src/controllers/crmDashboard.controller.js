@@ -174,3 +174,86 @@ export const getLeadSourcesBreakdown = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to load lead sources" });
   }
 };
+
+export const getAnalytics = async (req, res) => {
+  try {
+    const now = new Date();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+    const [dealsWonByMonth, leadsCreatedByMonth, dealStatusCounts, activityByType, wonDealsAll] = await Promise.all([
+      CRMDeal.aggregate([
+        { $match: { isDeleted: false, status: "won", wonAt: { $gte: sixMonthsAgo } } },
+        { $group: {
+          _id: { year: { $year: "$wonAt" }, month: { $month: "$wonAt" } },
+          revenue: { $sum: "$value" },
+          count: { $sum: 1 },
+        }},
+        { $sort: { "_id.year": 1, "_id.month": 1 } },
+      ]),
+
+      CRMLead.aggregate([
+        { $match: { isDeleted: false, createdAt: { $gte: sixMonthsAgo } } },
+        { $group: {
+          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+          count: { $sum: 1 },
+        }},
+        { $sort: { "_id.year": 1, "_id.month": 1 } },
+      ]),
+
+      CRMDeal.aggregate([
+        { $match: { isDeleted: false } },
+        { $group: { _id: "$status", count: { $sum: 1 }, value: { $sum: "$value" } } },
+      ]),
+
+      CRMActivity.aggregate([
+        { $match: { createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
+        { $group: { _id: "$type", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+
+      CRMDeal.find({ isDeleted: false, status: "won" }).select("value").lean(),
+    ]);
+
+    const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthKeys = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthKeys.push({ year: d.getFullYear(), month: d.getMonth() + 1, label: MONTHS[d.getMonth()] });
+    }
+
+    const dealsWonMap = Object.fromEntries(dealsWonByMonth.map((d) => [`${d._id.year}-${d._id.month}`, d]));
+    const leadsMap    = Object.fromEntries(leadsCreatedByMonth.map((d) => [`${d._id.year}-${d._id.month}`, d]));
+
+    const monthlyTrends = monthKeys.map((m) => {
+      const key = `${m.year}-${m.month}`;
+      return {
+        month: m.label,
+        revenue: dealsWonMap[key]?.revenue || 0,
+        dealsWon: dealsWonMap[key]?.count || 0,
+        newLeads: leadsMap[key]?.count || 0,
+      };
+    });
+
+    const wonCount  = dealStatusCounts.find((d) => d._id === "won")?.count || 0;
+    const lostCount = dealStatusCounts.find((d) => d._id === "lost")?.count || 0;
+    const winRate   = wonCount + lostCount > 0 ? Math.round((wonCount / (wonCount + lostCount)) * 100) : 0;
+    const avgDealValue = wonDealsAll.length
+      ? Math.round(wonDealsAll.reduce((s, d) => s + (d.value || 0), 0) / wonDealsAll.length)
+      : 0;
+
+    res.json({
+      success: true,
+      data: {
+        monthlyTrends,
+        dealsByStatus: dealStatusCounts,
+        activityByType,
+        winRate,
+        avgDealValue,
+        totalWon: wonCount,
+        totalLost: lostCount,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to load analytics" });
+  }
+};

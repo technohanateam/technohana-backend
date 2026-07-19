@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { crmRead, crmWrite, crmDelete } from "../middleware/crmPermission.js";
 
-import { getDashboardStats, getFunnelData, getLeadSourcesBreakdown } from "../controllers/crmDashboard.controller.js";
+import { getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics } from "../controllers/crmDashboard.controller.js";
 import {
   getLeads, getLead, createLead, updateLead, deleteLead,
   bulkLeadAction, mergeLead, addNote, getLeadActivities,
@@ -34,6 +34,7 @@ const router = Router();
 router.get("/dashboard/stats",   crmRead("dashboard"),  getDashboardStats);
 router.get("/dashboard/funnel",  crmRead("dashboard"),  getFunnelData);
 router.get("/dashboard/sources", crmRead("dashboard"),  getLeadSourcesBreakdown);
+router.get("/analytics",         crmRead("dashboard"),  getAnalytics);
 
 // ── Leads ─────────────────────────────────────────────────────────────────────
 router.post("/leads/from-enquiry/:enquiryId", crmWrite("leads"), createLeadFromEnquiry);
