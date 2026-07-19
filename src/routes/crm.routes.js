@@ -13,7 +13,7 @@ import {
   addContactNote, getContactActivities,
 } from "../controllers/crmContact.controller.js";
 import {
-  getCompanies, getCompany, createCompany, updateCompany, deleteCompany,
+  getCompanies, getCompany, createCompany, updateCompany, deleteCompany, addCompanyNote,
 } from "../controllers/crmCompany.controller.js";
 import {
   getDeals, getDeal, createDeal, updateDeal, moveDealStage, deleteDeal, addDealNote,
@@ -64,11 +64,12 @@ router.post("/contacts/:id/notes",       crmWrite("contacts"),  addContactNote);
 router.get("/contacts/:id/activities",   crmRead("contacts"),   getContactActivities);
 
 // ── Companies ─────────────────────────────────────────────────────────────────
-router.get("/companies",        crmRead("companies"),   getCompanies);
-router.post("/companies",       crmWrite("companies"),  createCompany);
-router.get("/companies/:id",    crmRead("companies"),   getCompany);
-router.put("/companies/:id",    crmWrite("companies"),  updateCompany);
-router.delete("/companies/:id", crmDelete("companies"), deleteCompany);
+router.get("/companies",              crmRead("companies"),   getCompanies);
+router.post("/companies",             crmWrite("companies"),  createCompany);
+router.get("/companies/:id",          crmRead("companies"),   getCompany);
+router.put("/companies/:id",          crmWrite("companies"),  updateCompany);
+router.delete("/companies/:id",       crmDelete("companies"), deleteCompany);
+router.post("/companies/:id/notes",   crmWrite("companies"),  addCompanyNote);
 
 // ── Deals ─────────────────────────────────────────────────────────────────────
 router.get("/deals",                crmRead("deals"),   getDeals);

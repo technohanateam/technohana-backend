@@ -126,3 +126,17 @@ export const deleteCompany = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to delete company" });
   }
 };
+
+export const addCompanyNote = async (req, res) => {
+  try {
+    const { body } = req.body;
+    if (!body?.trim()) return res.status(400).json({ success: false, message: "Note body required" });
+    const company = await CRMCompany.findOne({ _id: req.params.id, isDeleted: false });
+    if (!company) return res.status(404).json({ success: false, message: "Company not found" });
+    company.notes.push({ body: body.trim(), createdBy: req.admin._id });
+    await company.save();
+    res.json({ success: true, data: company.notes[company.notes.length - 1] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to add note" });
+  }
+};
