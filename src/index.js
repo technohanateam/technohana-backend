@@ -51,6 +51,7 @@ import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.contr
 import { handleResendWebhook } from "./services/resendWebhook.js";
 import { registerCampaignEventListeners, emitCampaignEvent } from "./services/campaignEventTrigger.js";
 import { generateRecoveryEmail } from "./services/recoveryEmailAgent.js";
+import { runAtRiskScan } from "./services/atRiskLearnerAgent.js";
 import Enquiry from "./models/enquiry.model.js";
 import { authenticateAdmin, requirePage } from "./middleware/authenticateAdmin.js";
 import { authenticateJWT } from "./middleware/authenticateJWT.js";
@@ -1359,6 +1360,17 @@ setInterval(async () => {
     console.error('[AutoEmail] Post-enrollment check error:', e.message);
   }
 }, 60 * 60 * 1000);
+
+// At-risk learner scan: run once daily (every 24h)
+const DAILY_MS = 24 * 60 * 60 * 1000;
+setInterval(async () => {
+  try {
+    const result = await runAtRiskScan();
+    console.log(`[AtRisk] Scan complete — processed: ${result.processed}, nudged: ${result.nudged}`);
+  } catch (e) {
+    console.error('[AtRisk] Scan error:', e.message);
+  }
+}, DAILY_MS);
 
 // ─── Server Startup ────────────────────────────────────────────────────────────
 
