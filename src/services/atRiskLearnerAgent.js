@@ -1,4 +1,4 @@
-import User from "../models/user.model.js";
+import { User } from "../models/user.model.js";
 import { callClaude } from "./aiAgent.service.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 
