@@ -528,6 +528,22 @@ export const getCampaignQueueStats = async (req, res) => {
   }
 };
 
+export const generateAICopy = async (req, res) => {
+  try {
+    const { brief } = req.body;
+    if (!brief || brief.trim().length < 10) {
+      return res.status(400).json({ success: false, message: "Brief must be at least 10 characters" });
+    }
+
+    const { generateCampaignCopy } = await import("../services/campaignCopywriterAgent.js");
+    const result = await generateCampaignCopy(req.params.id, brief);
+    res.json({ success: true, data: result, message: "AI copy generated and saved to campaign" });
+  } catch (err) {
+    console.error("generateAICopy error:", err);
+    res.status(500).json({ success: false, message: err.message || "AI copy generation failed" });
+  }
+};
+
 export default {
   getAllCampaigns,
   getCampaign,
@@ -541,4 +557,5 @@ export default {
   getCampaignAnalytics,
   estimateSegmentSize,
   getCampaignQueueStats,
+  generateAICopy,
 };
