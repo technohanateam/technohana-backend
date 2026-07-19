@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { crmRead, crmWrite, crmDelete } from "../middleware/crmPermission.js";
 
-import { getDashboardStats, getFunnelData, getLeadSourcesBreakdown } from "../controllers/crmDashboard.controller.js";
+import { getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents } from "../controllers/crmDashboard.controller.js";
 import { getRevenueTrend, getRepStats, getConversionStats } from "../controllers/crmAnalytics.controller.js";
 import {
   getLeads, getLead, createLead, updateLead, deleteLead,
@@ -14,7 +14,7 @@ import {
   addContactNote, getContactActivities,
 } from "../controllers/crmContact.controller.js";
 import {
-  getCompanies, getCompany, createCompany, updateCompany, deleteCompany,
+  getCompanies, getCompany, createCompany, updateCompany, deleteCompany, addCompanyNote,
 } from "../controllers/crmCompany.controller.js";
 import {
   getDeals, getDeal, createDeal, updateDeal, moveDealStage, deleteDeal, addDealNote,
@@ -35,6 +35,8 @@ const router = Router();
 router.get("/dashboard/stats",   crmRead("dashboard"),  getDashboardStats);
 router.get("/dashboard/funnel",  crmRead("dashboard"),  getFunnelData);
 router.get("/dashboard/sources", crmRead("dashboard"),  getLeadSourcesBreakdown);
+router.get("/analytics",         crmRead("dashboard"),  getAnalytics);
+router.get("/calendar",          crmRead("dashboard"),  getCalendarEvents);
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 router.get("/analytics/revenue-trend", crmRead("dashboard"), getRevenueTrend);
@@ -71,11 +73,12 @@ router.post("/contacts/:id/notes",       crmWrite("contacts"),  addContactNote);
 router.get("/contacts/:id/activities",   crmRead("contacts"),   getContactActivities);
 
 // ── Companies ─────────────────────────────────────────────────────────────────
-router.get("/companies",        crmRead("companies"),   getCompanies);
-router.post("/companies",       crmWrite("companies"),  createCompany);
-router.get("/companies/:id",    crmRead("companies"),   getCompany);
-router.put("/companies/:id",    crmWrite("companies"),  updateCompany);
-router.delete("/companies/:id", crmDelete("companies"), deleteCompany);
+router.get("/companies",              crmRead("companies"),   getCompanies);
+router.post("/companies",             crmWrite("companies"),  createCompany);
+router.get("/companies/:id",          crmRead("companies"),   getCompany);
+router.put("/companies/:id",          crmWrite("companies"),  updateCompany);
+router.delete("/companies/:id",       crmDelete("companies"), deleteCompany);
+router.post("/companies/:id/notes",   crmWrite("companies"),  addCompanyNote);
 
 // ── Deals ─────────────────────────────────────────────────────────────────────
 router.get("/deals",                crmRead("deals"),   getDeals);
