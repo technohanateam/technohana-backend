@@ -257,3 +257,36 @@ export const getAnalytics = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to load analytics" });
   }
 };
+
+export const getCalendarEvents = async (req, res) => {
+  try {
+    const { month } = req.query;
+    const now = new Date();
+    const [yr, mo] = month
+      ? month.split("-").map(Number)
+      : [now.getFullYear(), now.getMonth() + 1];
+
+    const start = new Date(yr, mo - 1, 1);
+    const end   = new Date(yr, mo, 0, 23, 59, 59, 999);
+
+    const role     = req.crmRole || req.admin.role;
+    const adminId  = req.admin._id;
+    const taskFilter = ["sales"].includes(role) ? { assignedTo: adminId } : {};
+
+    const [tasks, activities] = await Promise.all([
+      CRMTask.find({ isDeleted: false, dueDate: { $gte: start, $lte: end }, ...taskFilter })
+        .populate("assignedTo", "name")
+        .populate("relatedTo", "name email title")
+        .select("title type status priority dueDate relatedTo relatedToType assignedTo")
+        .lean(),
+      CRMActivity.find({ createdAt: { $gte: start, $lte: end } })
+        .populate("createdBy", "name")
+        .select("type title body relatedTo relatedToType createdAt createdBy")
+        .lean(),
+    ]);
+
+    res.json({ success: true, data: { tasks, activities } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to load calendar" });
+  }
+};
