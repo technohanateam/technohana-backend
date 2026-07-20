@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { crmRead, crmWrite, crmDelete } from "../middleware/crmPermission.js";
+import { crmRead, crmWrite, crmDelete, crmBulk, crmImport, crmExport } from "../middleware/crmPermission.js";
 
 import { getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents } from "../controllers/crmDashboard.controller.js";
 import { getRevenueTrend, getRepStats, getConversionStats } from "../controllers/crmAnalytics.controller.js";
@@ -45,9 +45,9 @@ router.get("/analytics/conversions",   crmRead("dashboard"), getConversionStats)
 
 // ── Leads ─────────────────────────────────────────────────────────────────────
 router.post("/leads/from-enquiry/:enquiryId", crmWrite("leads"), createLeadFromEnquiry);
-router.get("/leads/export",         crmRead("leads"),         getLeadExport);
-router.post("/leads/import",        crmWrite("leads"),        importLeads);
-router.post("/leads/bulk",          crmWrite("leads"),        bulkLeadAction);
+router.get("/leads/export",         crmExport("leads"),       getLeadExport);
+router.post("/leads/import",        crmImport("leads"),       importLeads);
+router.post("/leads/bulk",          crmBulk("leads"),         bulkLeadAction);
 router.get("/leads",                crmRead("leads"),         getLeads);
 router.post("/leads",               crmWrite("leads"),        createLead);
 router.get("/leads/:id",            crmRead("leads"),         getLead);

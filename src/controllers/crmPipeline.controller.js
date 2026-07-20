@@ -111,7 +111,11 @@ export const createPipeline = async (req, res) => {
       await CRMPipeline.updateMany({}, { isDefault: false });
     }
 
-    const pipeline = await CRMPipeline.create({ ...req.body, createdBy: req.admin._id });
+    const allowed = ["name", "type", "description", "isDefault", "isActive", "stages", "currency"];
+    const fields = {};
+    allowed.forEach((f) => { if (req.body[f] !== undefined) fields[f] = req.body[f]; });
+
+    const pipeline = await CRMPipeline.create({ ...fields, createdBy: req.admin._id });
     res.status(201).json({ success: true, data: pipeline, message: "Pipeline created" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to create pipeline" });

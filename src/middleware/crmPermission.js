@@ -99,3 +99,6 @@ export function crmPermission(resource, action = "read") {
 export const crmRead  = (resource) => crmPermission(resource, "read");
 export const crmWrite = (resource) => crmPermission(resource, "write");
 export const crmDelete = (resource) => crmPermission(resource, "delete");
+export const crmBulk = (resource) => crmPermission(resource, "bulk");
+export const crmImport = (resource) => crmPermission(resource, "import");
+export const crmExport = (resource) => crmPermission(resource, "export");

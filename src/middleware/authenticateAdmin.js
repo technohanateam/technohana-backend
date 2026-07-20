@@ -2,6 +2,10 @@ import jwt from "jsonwebtoken";
 import AdminUser from "../models/adminUser.model.js";
 import { DEFAULT_PAGES_BY_ROLE } from "../constants/adminPages.js";
 
+// Roles that only make sense inside the CRM — accounts assigned one of these
+// must never get admin-panel access, regardless of their legacy `role`.
+const CRM_ONLY_ROLES = ["trainer", "accounts", "hr", "student_support", "readonly"];
+
 export const authenticateAdmin = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -27,6 +31,13 @@ export const authenticateAdmin = async (req, res, next) => {
       }
     }
 
+    // req.baseUrl reflects the mount path ("/admin" vs "/api/crm") of whichever
+    // router this middleware is running inside of — safe to gate on here since
+    // it's the same shared middleware for both surfaces.
+    if (req.baseUrl.startsWith("/admin") && CRM_ONLY_ROLES.includes(payload.crmRole)) {
+      return res.status(403).json({ message: "This account is CRM-only and cannot access the admin panel." });
+    }
+
     req.admin = payload;
     next();
   } catch (error) {
@@ -36,7 +47,7 @@ export const authenticateAdmin = async (req, res, next) => {
 
 // Requires full admin role — blocks sales and marketing roles from destructive operations
 export const requireAdmin = (req, res, next) => {
-  if (req.admin?.role !== "admin") {
+  if (req.admin?.role !== "admin" && req.admin?.crmRole !== "super_admin") {
     return res.status(403).json({ message: "Access denied. Admin role required." });
   }
   next();

@@ -5,12 +5,18 @@ import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import {
   ADMIN_PAGES,
-  ADMIN_ROLES,
   DEFAULT_PAGES_BY_ROLE,
   computeEffectivePages,
 } from "../constants/adminPages.js";
 
 const TOKEN_EXPIRY = "8h";
+
+// CRM role hierarchy (see src/middleware/crmPermission.js CRM_ROLE_HIERARCHY — keep in sync)
+const CRM_ROLES = ["super_admin", "admin", "sales", "marketing", "trainer", "accounts", "hr", "student_support", "readonly"];
+
+// Legacy admin-panel role field (adminUser.model.js `role` enum) stays 3-way — ADMIN_ROLES was
+// broadened for CRM page defaults but the underlying schema enum for `role` is unchanged.
+const LEGACY_ROLES = ["admin", "sales", "marketing"];
 
 const signAdminToken = (payload) =>
   jwt.sign(payload, process.env.ADMIN_JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
@@ -70,10 +76,11 @@ export const adminLogin = async (req, res) => {
         email: dbUser.email,
         name: dbUser.name,
         role: dbUser.role,
+        crmRole: dbUser.crmRole,
         pages: computeEffectivePages(dbUser.role, dbUser.extraPages, dbUser.revokedPages),
         src: "db",
       });
-      return res.json({ token, name: dbUser.name, role: dbUser.role });
+      return res.json({ token, name: dbUser.name, role: dbUser.role, crmRole: dbUser.crmRole });
     }
 
     const envRole = await matchEnvRole(email, password);
@@ -132,13 +139,16 @@ export const listAdminUsers = async (req, res) => {
 // POST /admin/users
 export const createAdminUser = async (req, res) => {
   try {
-    const { email, name, password, role, extraPages = [], revokedPages = [] } = req.body;
+    const { email, name, password, role, crmRole, extraPages = [], revokedPages = [] } = req.body;
 
     if (!email || !name || !password || !role) {
       return res.status(400).json({ success: false, message: "Email, name, password and role are required." });
     }
-    if (!ADMIN_ROLES.includes(role)) {
+    if (!LEGACY_ROLES.includes(role)) {
       return res.status(400).json({ success: false, message: "Invalid role." });
+    }
+    if (crmRole !== undefined && crmRole !== "" && !CRM_ROLES.includes(crmRole)) {
+      return res.status(400).json({ success: false, message: "Invalid CRM role." });
     }
     if (String(password).length < 8) {
       return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
@@ -160,6 +170,7 @@ export const createAdminUser = async (req, res) => {
       name,
       passwordHash,
       role,
+      crmRole: crmRole || undefined,
       extraPages,
       revokedPages,
     });
@@ -180,7 +191,7 @@ const isLastActiveAdmin = async (userId) => {
 export const updateAdminUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, role, extraPages, revokedPages } = req.body;
+    const { name, role, crmRole, extraPages, revokedPages } = req.body;
 
     const user = await AdminUser.findById(id);
     if (!user) {
@@ -188,13 +199,19 @@ export const updateAdminUser = async (req, res) => {
     }
 
     if (role !== undefined) {
-      if (!ADMIN_ROLES.includes(role)) {
+      if (!LEGACY_ROLES.includes(role)) {
         return res.status(400).json({ success: false, message: "Invalid role." });
       }
       if (role !== "admin" && user.role === "admin" && user.active && (await isLastActiveAdmin(id))) {
         return res.status(400).json({ success: false, message: "Cannot demote the last active admin." });
       }
       user.role = role;
+    }
+    if (crmRole !== undefined) {
+      if (crmRole !== "" && !CRM_ROLES.includes(crmRole)) {
+        return res.status(400).json({ success: false, message: "Invalid CRM role." });
+      }
+      user.crmRole = crmRole || undefined;
     }
     if (name !== undefined) user.name = name;
     if (extraPages !== undefined || revokedPages !== undefined) {

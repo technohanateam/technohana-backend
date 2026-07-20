@@ -12,6 +12,12 @@ export const getTasks = async (req, res) => {
     const role    = req.crmRole || req.admin.role;
     const adminId = req.admin._id;
 
+    for (const [key, val] of [["assignedTo", assignedTo], ["relatedToId", relatedToId]]) {
+      if (val && !mongoose.Types.ObjectId.isValid(val)) {
+        return res.status(400).json({ success: false, message: `Invalid ${key} id` });
+      }
+    }
+
     const filter = { isDeleted: false };
 
     if (role === "sales" || role === "trainer") filter.assignedTo = adminId;
@@ -62,8 +68,13 @@ export const createTask = async (req, res) => {
     const { title } = req.body;
     if (!title?.trim()) return res.status(400).json({ success: false, message: "Task title is required" });
 
+    const allowed = ["title", "description", "priority", "status",
+      "dueDate", "reminderAt", "type", "relatedToType", "relatedToId", "checklist"];
+    const fields = {};
+    allowed.forEach((f) => { if (req.body[f] !== undefined) fields[f] = req.body[f]; });
+
     const task = await CRMTask.create({
-      ...req.body,
+      ...fields,
       assignedTo: req.body.assignedTo || req.admin._id,
       createdBy: req.admin._id,
     });

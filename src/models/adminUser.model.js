@@ -6,6 +6,10 @@ const adminUserSchema = new Schema(
     name: { type: String, required: true, trim: true },
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ["admin", "sales", "marketing"], required: true },
+    crmRole: {
+      type: String,
+      enum: ["super_admin", "admin", "sales", "marketing", "trainer", "accounts", "hr", "student_support", "readonly"],
+    },
     extraPages: { type: [String], default: [] },
     revokedPages: { type: [String], default: [] },
     active: { type: Boolean, default: true },
