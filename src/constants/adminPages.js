@@ -76,35 +76,9 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "analytics",
     "ai-risk-reports",
   ],
-  trainer: [
-    "training-requirements",
-    "courses",
-    "instructors",
-    "crm",
-  ],
-  accounts: [
-    "enrollments",
-    "coupons",
-    "referrals",
-    "crm",
-    "analytics",
-  ],
-  hr: [
-    "team",
-    "instructors",
-    "crm",
-  ],
-  student_support: [
-    "enquiries",
-    "enrollments",
-    "testimonials",
-    "crm",
-  ],
-  readonly: [
-    "overview",
-    "analytics",
-    "crm",
-  ],
+  // trainer/accounts/hr/student_support/readonly are CRM-only crmRoles — they
+  // never get admin-panel pages (see authenticateAdmin.js CRM_ONLY_ROLES block),
+  // so no entries here are needed for them.
 };
 
 export const computeEffectivePages = (role, extraPages = [], revokedPages = []) => {
