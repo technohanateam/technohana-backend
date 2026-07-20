@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
+import CRMDeal from "../models/crm/crmDeal.model.js";
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -19,7 +20,10 @@ export const getContacts = async (req, res) => {
     const { search, company, isDecisionMaker } = req.query;
     const filter = { isDeleted: false };
 
-    if (company)         filter.company = new mongoose.Types.ObjectId(company);
+    if (company) {
+      if (!mongoose.Types.ObjectId.isValid(company)) return res.status(400).json({ success: false, message: "Invalid company id" });
+      filter.company = new mongoose.Types.ObjectId(company);
+    }
     if (isDecisionMaker) filter.isDecisionMaker = true;
     if (search) {
       const re = new RegExp(escapeRegex(search), "i");
@@ -51,10 +55,14 @@ export const getContact = async (req, res) => {
       .lean();
     if (!contact) return res.status(404).json({ success: false, message: "Contact not found" });
 
-    const activities = await CRMActivity.find({ relatedToType: "contact", relatedToId: contact._id })
-      .sort({ createdAt: -1 }).limit(30).populate("performedBy", "name").lean();
+    const [activities, deals] = await Promise.all([
+      CRMActivity.find({ relatedToType: "contact", relatedToId: contact._id })
+        .sort({ createdAt: -1 }).limit(30).populate("performedBy", "name").lean(),
+      CRMDeal.find({ contact: contact._id, isDeleted: false })
+        .select("title value currency status stageKey expectedCloseDate").lean(),
+    ]);
 
-    res.json({ success: true, data: { ...contact, activities } });
+    res.json({ success: true, data: { ...contact, activities, deals } });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to fetch contact" });
   }
@@ -70,7 +78,13 @@ export const createContact = async (req, res) => {
       if (exists) return res.status(409).json({ success: false, message: "Contact with this email already exists" });
     }
 
-    const contact = await CRMContact.create({ ...req.body, createdBy: req.admin._id });
+    const allowed = ["firstName", "lastName", "email", "phone", "whatsApp", "company", "designation",
+      "department", "linkedIn", "twitter", "website", "country", "state", "city", "timezone",
+      "isDecisionMaker", "isPrimaryContact", "tags", "notes"];
+    const fields = {};
+    allowed.forEach((f) => { if (req.body[f] !== undefined) fields[f] = req.body[f]; });
+
+    const contact = await CRMContact.create({ ...fields, createdBy: req.admin._id });
     await logActivity(contact._id, "created", "Contact created", `${firstName} added to CRM`, req.admin._id);
 
     res.status(201).json({ success: true, data: contact, message: "Contact created" });

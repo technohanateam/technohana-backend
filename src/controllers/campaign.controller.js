@@ -540,7 +540,7 @@ export const generateAICopy = async (req, res) => {
     res.json({ success: true, data: result, message: "AI copy generated and saved to campaign" });
   } catch (err) {
     console.error("generateAICopy error:", err);
-    res.status(500).json({ success: false, message: err.message || "AI copy generation failed" });
+    res.status(500).json({ success: false, message: "AI copy generation failed" });
   }
 };
 

@@ -4,7 +4,6 @@ import CRMActivity from "../models/crm/crmActivity.model.js";
 import Enquiry from "../models/enquiry.model.js";
 import { callClaude } from "../services/aiAgent.service.js";
 import { computeQuote, getBasePriceMinor } from "../utils/pricing.js";
-import { v2 as cloudinary } from "cloudinary";
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -33,6 +32,12 @@ export const getLeads = async (req, res) => {
     const adminId = req.admin._id;
 
     const filter = { isDeleted: false };
+
+    for (const [key, val] of [["assignedTo", assignedTo], ["pipeline", pipeline]]) {
+      if (val && !mongoose.Types.ObjectId.isValid(val)) {
+        return res.status(400).json({ success: false, message: `Invalid ${key} id` });
+      }
+    }
 
     // Sales reps only see their own leads
     if (role === "sales") filter.assignedTo = adminId;
@@ -210,6 +215,9 @@ export const bulkLeadAction = async (req, res) => {
       return res.status(400).json({ success: false, message: "action and ids are required" });
     }
 
+    if (ids.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+      return res.status(400).json({ success: false, message: "Invalid lead id in ids" });
+    }
     const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
 
     if (action === "delete") {
@@ -334,6 +342,9 @@ export const getLeadActivities = async (req, res) => {
 export const getLeadExport = async (req, res) => {
   try {
     const { status, assignedTo, source, priority } = req.query;
+    if (assignedTo && !mongoose.Types.ObjectId.isValid(assignedTo)) {
+      return res.status(400).json({ success: false, message: "Invalid assignedTo id" });
+    }
     const filter = { isDeleted: false };
     if (status)     filter.status     = status;
     if (source)     filter.source     = source;
@@ -355,7 +366,9 @@ export const getLeadExport = async (req, res) => {
       return fields.map((f) => {
         let v = f === "assignedTo" ? (l.assignedTo?.name || "") : (l[f] ?? "");
         if (v instanceof Date) v = v.toISOString();
-        return `"${String(v).replace(/"/g, '""')}"`;
+        let s = String(v);
+        if (/^[=+\-@]/.test(s)) s = `'${s}`;
+        return `"${s.replace(/"/g, '""')}"`;
       }).join(",");
     });
 
@@ -377,6 +390,15 @@ export const importLeads = async (req, res) => {
       return res.status(400).json({ success: false, message: "Max 1000 leads per import" });
     }
 
+    const allowed = [
+      "name", "email", "phone", "whatsApp", "designation", "company",
+      "country", "state", "city", "source", "website", "linkedIn",
+      "interest", "budget", "currency", "teamSize", "industry",
+      "priority", "leadScore", "expectedRevenue", "probability",
+      "status", "pipeline", "pipelineStage", "assignedTo",
+      "nextFollowUp", "contactId", "companyId", "tags", "customFields",
+    ];
+
     const results = { created: 0, skipped: 0, errors: [] };
     const toInsert = [];
 
@@ -388,7 +410,9 @@ export const importLeads = async (req, res) => {
         if (exists) { results.skipped++; continue; }
       }
 
-      toInsert.push({ ...raw, createdBy: req.admin._id, assignedTo: raw.assignedTo || req.admin._id });
+      const fields = {};
+      allowed.forEach((f) => { if (raw[f] !== undefined) fields[f] = raw[f]; });
+      toInsert.push({ ...fields, createdBy: req.admin._id, assignedTo: raw.assignedTo || req.admin._id });
     }
 
     if (toInsert.length > 0) {
@@ -471,13 +495,18 @@ Respond ONLY with valid JSON: {"score": <number>, "band": "<hot|warm|cold>", "re
       return res.status(500).json({ success: false, message: "AI response parsing failed" });
     }
 
+    const score = Number(parsed.score);
+    if (!Number.isFinite(score) || score < 0 || score > 100 || !["hot", "warm", "cold"].includes(parsed.band)) {
+      return res.status(500).json({ success: false, message: "AI response failed validation" });
+    }
+
     await CRMLead.updateOne({ _id: lead._id }, {
-      aiScore: parsed.score,
+      aiScore: score,
       aiScoreBand: parsed.band,
       aiReasoning: parsed.reasoning,
       aiSuggestedFollowUp: parsed.suggestedFollowUp,
       aiScoredAt: new Date(),
-    });
+    }, { runValidators: true });
 
     res.json({ success: true, data: parsed });
   } catch (err) {

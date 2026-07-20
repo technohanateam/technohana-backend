@@ -9,6 +9,9 @@ export const getActivities = async (req, res) => {
     const skip  = (page - 1) * limit;
 
     const { relatedToType, relatedToId, type } = req.query;
+    if (relatedToId && !mongoose.Types.ObjectId.isValid(relatedToId)) {
+      return res.status(400).json({ success: false, message: "Invalid relatedToId" });
+    }
     const filter = {};
 
     if (relatedToType) filter.relatedToType = relatedToType;

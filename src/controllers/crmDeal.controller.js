@@ -17,6 +17,11 @@ export const getDeals = async (req, res) => {
 
     const { pipeline, status, assignedTo, company } = req.query;
     const filter = { isDeleted: false };
+    for (const [key, val] of [["pipeline", pipeline], ["assignedTo", assignedTo], ["company", company]]) {
+      if (val && !mongoose.Types.ObjectId.isValid(val)) {
+        return res.status(400).json({ success: false, message: `Invalid ${key} id` });
+      }
+    }
     if (pipeline)   filter.pipeline   = new mongoose.Types.ObjectId(pipeline);
     if (status)     filter.status     = status;
     if (assignedTo) filter.assignedTo = new mongoose.Types.ObjectId(assignedTo);
@@ -77,8 +82,15 @@ export const createDeal = async (req, res) => {
       return res.status(400).json({ success: false, message: "Pipeline has no stages" });
     }
 
+    const allowed = ["title", "value", "currency", "lead", "contact", "company",
+      "proposalId", "quotationRef", "purchaseOrderRef", "purchaseOrderUrl", "invoiceRef",
+      "tags", "notes", "attachments", "expectedCloseDate"];
+    const fields = {};
+    allowed.forEach((f) => { if (req.body[f] !== undefined) fields[f] = req.body[f]; });
+
     const deal = await CRMDeal.create({
-      ...req.body,
+      ...fields,
+      pipeline,
       stageKey: req.body.stageKey || firstStage.key,
       stageOrder: req.body.stageOrder ?? firstStage?.order ?? 0,
       probability: req.body.probability ?? firstStage?.probability ?? 20,

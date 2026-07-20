@@ -36,7 +36,7 @@ export const authenticateAdmin = async (req, res, next) => {
 
 // Requires full admin role — blocks sales and marketing roles from destructive operations
 export const requireAdmin = (req, res, next) => {
-  if (req.admin?.role !== "admin") {
+  if (!["admin", "super_admin"].includes(req.admin?.role)) {
     return res.status(403).json({ message: "Access denied. Admin role required." });
   }
   next();

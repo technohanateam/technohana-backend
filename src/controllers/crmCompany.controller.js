@@ -92,7 +92,12 @@ export const createCompany = async (req, res) => {
     const exists = await CRMCompany.exists({ name: name.trim(), isDeleted: false });
     if (exists) return res.status(409).json({ success: false, message: "Company with this name already exists" });
 
-    const company = await CRMCompany.create({ ...req.body, createdBy: req.admin._id });
+    const allowed = ["name", "gst", "pan", "industry", "subIndustry", "annualRevenue", "employees",
+      "employeeRange", "website", "linkedIn", "email", "phone", "address", "primaryContact", "tags", "notes"];
+    const fields = {};
+    allowed.forEach((f) => { if (req.body[f] !== undefined) fields[f] = req.body[f]; });
+
+    const company = await CRMCompany.create({ ...fields, createdBy: req.admin._id });
     res.status(201).json({ success: true, data: company, message: "Company created" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to create company" });
