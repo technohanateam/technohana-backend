@@ -541,7 +541,7 @@ Write subject line and email body. Keep it concise (under 150 words). Focus on v
 // Status mapping from old 5-stage Enquiry to 12-stage CRMLead
 const ENQUIRY_STATUS_MAP = {
   new:       "new",
-  contacted: "contacted",
+  contacted: "discovery",
   quoted:    "proposal_sent",
   won:       "won",
   lost:      "lost",
@@ -576,7 +576,7 @@ export const createLeadFromEnquiry = async (req, res) => {
       teamSize,
       interest,
       source:       "website",
-      source_utm:   enquiry.utm || undefined,
+      utm:          enquiry.utm || undefined,
       currency:     enquiry.currency || "INR",
       budget,
       status:       ENQUIRY_STATUS_MAP[enquiry.status] || "new",
