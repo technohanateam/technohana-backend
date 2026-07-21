@@ -4,7 +4,9 @@ import { DEFAULT_PAGES_BY_ROLE } from "../constants/adminPages.js";
 
 // Roles that only make sense inside the CRM — accounts assigned one of these
 // must never get admin-panel access, regardless of their legacy `role`.
-const CRM_ONLY_ROLES = ["trainer", "accounts", "hr", "student_support", "readonly"];
+// super_admin included so a CRM-only owner (full CRM control) never gets
+// admin-panel access just because their legacy `role` defaults to admin pages.
+const CRM_ONLY_ROLES = ["super_admin", "trainer", "accounts", "hr", "student_support", "readonly"];
 
 export const authenticateAdmin = async (req, res, next) => {
   const authHeader = req.headers.authorization;
