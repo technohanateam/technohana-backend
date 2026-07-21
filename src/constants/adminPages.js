@@ -64,18 +64,6 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "instructors",
     "training-requirements",
   ],
-  marketing: [
-    "marketing-overview",
-    "campaigns",
-    "drip-sequences",
-    "utm-report",
-    "geo-analysis",
-    "seo-analysis",
-    "blogs",
-    "subscribers",
-    "analytics",
-    "ai-risk-reports",
-  ],
   // trainer/accounts/hr/student_support/readonly are CRM-only crmRoles — they
   // never get admin-panel pages (see authenticateAdmin.js CRM_ONLY_ROLES block),
   // so no entries here are needed for them.
