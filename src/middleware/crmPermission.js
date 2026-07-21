@@ -64,6 +64,14 @@ const CRM_PERMISSIONS = {
     write:  ["super_admin", "admin", "sales", "marketing"],
     delete: ["super_admin", "admin"],
   },
+  // CRM team member management — restricted to full CRM control (mirrors the
+  // admin panel's Team page, but reachable by crmRole=super_admin accounts
+  // that are blocked from /admin entirely).
+  users: {
+    read:   ["super_admin", "admin"],
+    write:  ["super_admin", "admin"],
+    delete: ["super_admin", "admin"],
+  },
 };
 
 // Extend existing admin roles for CRM context.

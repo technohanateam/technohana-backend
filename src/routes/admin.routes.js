@@ -21,7 +21,7 @@ import { Blogs } from "../models/blogs.model.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
-import { adminLogin, setupAdmin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive, forgotAdminPassword, resetAdminPasswordViaToken } from "../controllers/adminUser.controller.js";
+import { adminLogin, setupAdmin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive, deleteAdminUser, forgotAdminPassword, resetAdminPasswordViaToken } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
@@ -105,6 +105,7 @@ router.post("/users", authenticateAdmin, requireAdmin, requirePage("team"), crea
 router.put("/users/:id", authenticateAdmin, requireAdmin, requirePage("team"), updateAdminUser);
 router.patch("/users/:id/password", authenticateAdmin, requireAdmin, requirePage("team"), resetAdminUserPassword);
 router.patch("/users/:id/active", authenticateAdmin, requireAdmin, requirePage("team"), setAdminUserActive);
+router.delete("/users/:id", authenticateAdmin, requireAdmin, requirePage("team"), deleteAdminUser);
 
 // ─── All routes below require admin auth ──────────────────────────────────────
 
