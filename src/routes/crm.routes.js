@@ -28,6 +28,10 @@ import {
 import {
   getActivities, logActivity, getTags, createTag, deleteTag,
 } from "../controllers/crmActivity.controller.js";
+import {
+  listAdminUsers, createAdminUser, updateAdminUser,
+  resetAdminUserPassword, setAdminUserActive, deleteAdminUser,
+} from "../controllers/adminUser.controller.js";
 
 const router = Router();
 
@@ -113,5 +117,14 @@ router.post("/activities", crmWrite("activities"), logActivity);
 router.get("/tags",        crmRead("tags"),   getTags);
 router.post("/tags",       crmWrite("tags"),  createTag);
 router.delete("/tags/:id", crmDelete("tags"), deleteTag);
+
+// ── Team (CRM user management — reachable by crmRole=super_admin/admin, who
+// are otherwise blocked from the admin panel's own Team page) ─────────────────
+router.get("/team",               crmRead("users"),   listAdminUsers);
+router.post("/team",              crmWrite("users"),  createAdminUser);
+router.put("/team/:id",           crmWrite("users"),  updateAdminUser);
+router.patch("/team/:id/password", crmWrite("users"), resetAdminUserPassword);
+router.patch("/team/:id/active",  crmWrite("users"),  setAdminUserActive);
+router.delete("/team/:id",        crmDelete("users"), deleteAdminUser);
 
 export default router;

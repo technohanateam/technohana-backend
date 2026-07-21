@@ -62,7 +62,7 @@ export const getRepStats = async (req, res) => {
         },
         {
           $lookup: {
-            from: "admins",
+            from: "adminusers",
             localField: "_id",
             foreignField: "_id",
             as: "rep",

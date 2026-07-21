@@ -288,6 +288,32 @@ export const setAdminUserActive = async (req, res) => {
   }
 };
 
+// DELETE /admin/users/:id
+export const deleteAdminUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (req.admin?.uid === id) {
+      return res.status(400).json({ success: false, message: "You cannot delete your own account." });
+    }
+
+    const user = await AdminUser.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    if (user.role === "admin" && user.active && (await isLastActiveAdmin(id))) {
+      return res.status(400).json({ success: false, message: "Cannot delete the last active admin." });
+    }
+
+    await AdminUser.deleteOne({ _id: id });
+    return res.json({ success: true, message: "User deleted." });
+  } catch (error) {
+    console.error("Delete admin user error:", error);
+    return res.status(500).json({ success: false, message: "Failed to delete user." });
+  }
+};
+
 // POST /admin/forgot-password — send a reset link to the admin's registered email
 export const forgotAdminPassword = async (req, res) => {
   const { email } = req.body;
