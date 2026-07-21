@@ -40,6 +40,12 @@ export const authenticateAdmin = async (req, res, next) => {
       return res.status(403).json({ message: "This account is CRM-only and cannot access the admin panel." });
     }
 
+    // Only the legacy "admin" role may reach the admin panel — sales/CRM accounts
+    // belong in /crm with a crmRole, not in /admin with a legacy role.
+    if (req.baseUrl.startsWith("/admin") && payload.role !== "admin") {
+      return res.status(403).json({ message: "This account cannot access the admin panel." });
+    }
+
     req.admin = payload;
     next();
   } catch (error) {

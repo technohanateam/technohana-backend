@@ -14,9 +14,9 @@ const TOKEN_EXPIRY = "8h";
 // CRM role hierarchy (see src/middleware/crmPermission.js CRM_ROLE_HIERARCHY — keep in sync)
 const CRM_ROLES = ["super_admin", "admin", "sales", "marketing", "trainer", "accounts", "hr", "student_support", "readonly"];
 
-// Legacy admin-panel role field (adminUser.model.js `role` enum) stays 3-way — ADMIN_ROLES was
-// broadened for CRM page defaults but the underlying schema enum for `role` is unchanged.
-const LEGACY_ROLES = ["admin", "sales", "marketing"];
+// Legacy admin-panel role field (adminUser.model.js `role` enum) — no marketing team,
+// so this stays 2-way: "admin" for the admin panel, "sales" for CRM-only accounts.
+const LEGACY_ROLES = ["admin", "sales"];
 
 const signAdminToken = (payload) =>
   jwt.sign(payload, process.env.ADMIN_JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
@@ -29,9 +29,6 @@ const matchEnvRole = async (email, password) => {
   }
   if (process.env.SALES_EMAIL && normalizedEmail === process.env.SALES_EMAIL.toLowerCase() && process.env.SALES_PASSWORD_HASH && await bcrypt.compare(password, process.env.SALES_PASSWORD_HASH)) {
     return "sales";
-  }
-  if (process.env.MARKETING_EMAIL && normalizedEmail === process.env.MARKETING_EMAIL.toLowerCase() && process.env.MARKETING_PASSWORD_HASH && await bcrypt.compare(password, process.env.MARKETING_PASSWORD_HASH)) {
-    return "marketing";
   }
   return null;
 };
