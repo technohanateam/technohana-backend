@@ -32,6 +32,11 @@ import {
   listAdminUsers, createAdminUser, updateAdminUser,
   resetAdminUserPassword, setAdminUserActive, deleteAdminUser,
 } from "../controllers/adminUser.controller.js";
+import {
+  getInternApplications, getInternApplication, updateInternApplication,
+  updateInternApplicationStatus, deleteInternApplication, emailInternApplicant,
+  getInternResumeProxy,
+} from "../controllers/crmInternship.controller.js";
 
 const router = Router();
 
@@ -117,6 +122,15 @@ router.post("/activities", crmWrite("activities"), logActivity);
 router.get("/tags",        crmRead("tags"),   getTags);
 router.post("/tags",       crmWrite("tags"),  createTag);
 router.delete("/tags/:id", crmDelete("tags"), deleteTag);
+
+// ── Internships (Hiring) ──────────────────────────────────────────────────────
+router.get("/internships/resume-proxy", crmRead("internships"),   getInternResumeProxy);
+router.get("/internships",              crmRead("internships"),   getInternApplications);
+router.get("/internships/:id",          crmRead("internships"),   getInternApplication);
+router.put("/internships/:id",          crmWrite("internships"),  updateInternApplication);
+router.patch("/internships/:id/status", crmWrite("internships"),  updateInternApplicationStatus);
+router.post("/internships/:id/email",   crmWrite("internships"),  emailInternApplicant);
+router.delete("/internships/:id",       crmDelete("internships"), deleteInternApplication);
 
 // ── Team (CRM user management — reachable by crmRole=super_admin/admin, who
 // are otherwise blocked from the admin panel's own Team page) ─────────────────
