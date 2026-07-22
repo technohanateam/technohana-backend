@@ -4,6 +4,15 @@ import InternApplication from "../models/internApplication.model.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 
+const safeUnlink = (filePath) => {
+  if (!filePath) return;
+  try {
+    fs.unlinkSync(filePath);
+  } catch (fileError) {
+    console.error("Failed to delete local file:", fileError);
+  }
+};
+
 export const submitInternApplication = async (req, res) => {
   try {
     const {
@@ -30,6 +39,7 @@ export const submitInternApplication = async (req, res) => {
 
     const existing = await InternApplication.findOne({ email: normalizedEmail, department });
     if (existing) {
+      safeUnlink(file.path);
       return res.status(409).json({
         success: false,
         message: "An application for this department with this email address has already been submitted.",
@@ -45,6 +55,7 @@ export const submitInternApplication = async (req, res) => {
       });
     } catch (error) {
       console.log("Error in uploading resume", error);
+      safeUnlink(file.path);
       return res.status(500).json({
         success: false,
         message: "Error in uploading resume",
@@ -162,13 +173,7 @@ export const submitInternApplication = async (req, res) => {
       console.error("Failed to send internal notification email:", emailError);
     }
 
-    if (file) {
-      try {
-        fs.unlinkSync(file.path);
-      } catch (fileError) {
-        console.error("Failed to delete local file:", fileError);
-      }
-    }
+    safeUnlink(file.path);
 
     return res.status(201).json({
       success: true,
@@ -177,6 +182,7 @@ export const submitInternApplication = async (req, res) => {
     });
   } catch (error) {
     console.log("Error in submitting internship application", error);
+    safeUnlink(req.file?.path);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
