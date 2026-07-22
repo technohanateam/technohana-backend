@@ -189,7 +189,7 @@ export function generateResumeAcknowledgementEmail({ name }) {
 // ─── INTERNSHIP APPLICATION (applicant) ─────────────────────────────────────
 
 export function generateInternshipAcknowledgementEmail({ name, department }) {
-  const deptLabel = department === 'marketing' ? 'Marketing' : 'Sales';
+  const deptLabel = department ? department.charAt(0).toUpperCase() + department.slice(1) : 'Internship';
   const body = `
     <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Application Received${name ? `, ${name}` : ''}!</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">Thank you for applying for the ${deptLabel} Internship at Technohana. We've received your application and resume successfully.</p>

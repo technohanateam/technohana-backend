@@ -4,7 +4,7 @@ const internApplicationSchema = new Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, lowercase: true, trim: true },
   phone: { type: String },
-  department: { type: String, enum: ["sales", "marketing"], required: true },
+  department: { type: String, enum: ["sales", "marketing", "engineering", "design"], required: true },
   college: { type: String },
   degree: { type: String },
   graduationYear: { type: String },

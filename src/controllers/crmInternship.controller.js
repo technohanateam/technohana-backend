@@ -5,6 +5,7 @@ import cloudinary from "../config/cloudinary.js";
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const STATUSES = ["applied", "shortlisted", "interviewing", "offered", "hired", "rejected"];
+const DEPARTMENTS = ["sales", "marketing", "engineering", "design"];
 
 export const getInternApplications = async (req, res) => {
   try {
@@ -14,7 +15,7 @@ export const getInternApplications = async (req, res) => {
 
     const { department, status, search } = req.query;
     const filter = {};
-    if (department && ["sales", "marketing"].includes(department)) filter.department = department;
+    if (department && DEPARTMENTS.includes(department)) filter.department = department;
     if (status && STATUSES.includes(status)) filter.status = status;
     if (search) {
       const re = new RegExp(escapeRegex(search), "i");
