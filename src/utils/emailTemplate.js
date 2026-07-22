@@ -52,6 +52,12 @@ function dataRow(label, value, shade) {
   </tr>`;
 }
 
+// Escapes user-supplied text before interpolating into HTML email bodies
+function escapeHtml(str) {
+  if (!str) return str;
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // CTA button
 function ctaButton(text, href) {
   return `<div style="text-align:center;margin-top:28px;">
@@ -201,6 +207,55 @@ export function generateInternshipAcknowledgementEmail({ name, department }) {
     ${ctaButton('Visit Technohana', 'https://technohana.in')}`;
 
   return emailShell({ label: 'Careers', body });
+}
+
+// ─── CAREER PAGE APPLICATION (applicant) ────────────────────────────────────
+
+export function generateCareerApplicationAcknowledgementEmail({ name, requirementTitle }) {
+  const safeName = escapeHtml(name);
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Application Received${safeName ? `, ${safeName}` : ''}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">Thank you for applying for <strong>${requirementTitle}</strong> at Technohana. We've received your application and resume successfully.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Role', requirementTitle, false)}
+      ${dataRow('Status', 'Under Review', true)}
+      ${dataRow('Next Step', 'Our team will reach out if your profile is shortlisted', false)}
+    </table>
+    ${ctaButton('Visit Technohana', 'https://technohana.in')}`;
+
+  return emailShell({ label: 'Careers', body });
+}
+
+// ─── CAREER PAGE APPLICATION (admin) ────────────────────────────────────────
+
+export function generateCareerApplicationAdminEmail({ name, email, phone, expertise, coverLetter, requirementTitle, resumeUrl }) {
+  const safeName = escapeHtml(name);
+  const safeEmail = escapeHtml(email);
+  const safePhone = escapeHtml(phone);
+  const safeExpertise = escapeHtml(expertise);
+  const safeCoverLetter = escapeHtml(coverLetter);
+
+  const rows = [
+    dataRow('Applicant', safeName, false),
+    dataRow('Email', `<a href="mailto:${safeEmail}" style="color:#27A8F5;text-decoration:none;">${safeEmail}</a>`, true),
+    safePhone && dataRow('Phone', safePhone, false),
+    dataRow('Applied For', requirementTitle, true),
+    safeExpertise && dataRow('Expertise', safeExpertise, false),
+    dataRow('Resume', `<a href="${resumeUrl}" style="color:#27A8F5;text-decoration:none;">Cloudinary link</a>`, true),
+  ].filter(Boolean).join('');
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">New Career Page Application</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">A new application was submitted via the public careers page.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:20px;">
+      ${rows}
+    </table>
+    ${safeCoverLetter ? `<div style="background:#f8fafc;border-left:4px solid #27A8F5;border-radius:0 8px 8px 0;padding:16px 20px;">
+      <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Cover Letter / Message</p>
+      <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.7;">${safeCoverLetter}</p>
+    </div>` : ''}`;
+
+  return emailShell({ label: 'Careers · Admin', body });
 }
 
 // ─── CONTACT US (admin) ──────────────────────────────────────────────────────

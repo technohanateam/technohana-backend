@@ -46,6 +46,7 @@ import leadCaptureRoutes from "./routes/leadCapture.routes.js";
 import instructorRoutes from "./routes/instructor.routes.js";
 import skillsGapRoutes from "./routes/skillsGap.routes.js";
 import crmRoutes from "./routes/crm.routes.js";
+import careerRoutes from "./routes/career.routes.js";
 import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
 import { handleResendWebhook } from "./services/resendWebhook.js";
@@ -1254,6 +1255,7 @@ app.use("/admin", seoGeoRoutes);
 app.use("/", leadCaptureRoutes);
 app.use("/instructor", instructorRoutes);
 app.use("/", skillsGapRoutes);
+app.use("/", careerRoutes);
 app.use("/api/crm", authenticateAdmin, crmRoutes);
 
 // ─── Campaign Automation ───────────────────────────────────────────────────────
