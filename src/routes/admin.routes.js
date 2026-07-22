@@ -34,6 +34,7 @@ import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
+import CareerApplication from "../models/careerApplication.model.js";
 import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail } from "../utils/emailTemplate.js";
 import crypto from "crypto";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
@@ -1796,13 +1797,22 @@ router.get("/training-requirements", authenticateAdmin, requirePage("instructors
     const filter = status ? { status } : {};
     const requirements = await TrainingRequirement.find(filter).sort({ createdAt: -1 }).lean();
 
-    // Attach application counts
+    // Attach application counts (instructor-portal + public career page applicants)
     const ids = requirements.map((r) => r._id);
-    const counts = await InstructorApplication.aggregate([
-      { $match: { requirementId: { $in: ids } } },
-      { $group: { _id: "$requirementId", total: { $sum: 1 } } },
+    const [instructorCounts, careerCounts] = await Promise.all([
+      InstructorApplication.aggregate([
+        { $match: { requirementId: { $in: ids } } },
+        { $group: { _id: "$requirementId", total: { $sum: 1 } } },
+      ]),
+      CareerApplication.aggregate([
+        { $match: { requirementId: { $in: ids } } },
+        { $group: { _id: "$requirementId", total: { $sum: 1 } } },
+      ]),
     ]);
-    const countMap = Object.fromEntries(counts.map((c) => [String(c._id), c.total]));
+    const countMap = {};
+    for (const c of [...instructorCounts, ...careerCounts]) {
+      countMap[String(c._id)] = (countMap[String(c._id)] || 0) + c.total;
+    }
 
     const data = requirements.map((r) => ({ ...r, applicationCount: countMap[String(r._id)] || 0 }));
     return res.json({ success: true, data });
@@ -1844,11 +1854,19 @@ router.delete("/training-requirements/:id", authenticateAdmin, requirePage("inst
 
 router.get("/training-requirements/:id/applications", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   try {
-    const applications = await InstructorApplication.find({ requirementId: req.params.id })
-      .populate("instructorId", "name email phone expertise experience dailyRate availability deliveryMode linkedinUrl")
-      .sort({ submittedAt: -1 })
-      .lean();
-    return res.json({ success: true, data: applications });
+    const [instructorApps, careerApps] = await Promise.all([
+      InstructorApplication.find({ requirementId: req.params.id })
+        .populate("instructorId", "name email phone expertise experience dailyRate availability deliveryMode linkedinUrl")
+        .lean(),
+      CareerApplication.find({ requirementId: req.params.id }).lean(),
+    ]);
+
+    const merged = [
+      ...instructorApps.map((a) => ({ ...a, source: "instructor" })),
+      ...careerApps.map((a) => ({ ...a, source: "public" })),
+    ].sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+
+    return res.json({ success: true, data: merged });
   } catch (err) {
     console.error("Get applications error:", err);
     return res.status(500).json({ success: false, message: "Failed to fetch applications" });
@@ -1862,27 +1880,48 @@ router.patch("/training-requirements/:id/applications/:appId", authenticateAdmin
     if (status && !validStatuses.includes(status))
       return res.status(400).json({ success: false, message: "Invalid status" });
 
-    const app = await InstructorApplication.findOneAndUpdate(
+    const update = { ...(status && { status, respondedAt: new Date() }), ...(adminNotes !== undefined && { adminNotes }) };
+
+    let app = await InstructorApplication.findOneAndUpdate(
       { _id: req.params.appId, requirementId: req.params.id },
-      { ...(status && { status, respondedAt: new Date() }), ...(adminNotes !== undefined && { adminNotes }) },
+      update,
       { new: true }
     ).populate("instructorId", "name email").populate("requirementId", "title");
 
-    if (!app) return res.status(404).json({ success: false, message: "Application not found" });
+    if (app) {
+      if (status === "accepted" || status === "rejected") {
+        try {
+          await sendEmail({
+            from: fromAddresses.careers,
+            to: app.instructorId.email,
+            subject: `Your application for "${app.requirementId.title}" — ${status === "accepted" ? "Great news!" : "Update"}`,
+            html: applicationStatusEmail(app.instructorId.name, app.requirementId.title, status, adminNotes),
+          });
+        } catch { /* non-blocking */ }
+      }
+      return res.json({ success: true, data: { ...app.toObject(), source: "instructor" } });
+    }
 
-    // Email instructor on accept/reject
+    const careerApp = await CareerApplication.findOneAndUpdate(
+      { _id: req.params.appId, requirementId: req.params.id },
+      update,
+      { new: true }
+    ).populate("requirementId", "title");
+
+    if (!careerApp) return res.status(404).json({ success: false, message: "Application not found" });
+
     if (status === "accepted" || status === "rejected") {
       try {
         await sendEmail({
           from: fromAddresses.careers,
-          to: app.instructorId.email,
-          subject: `Your application for "${app.requirementId.title}" — ${status === "accepted" ? "Great news!" : "Update"}`,
-          html: applicationStatusEmail(app.instructorId.name, app.requirementId.title, status, adminNotes),
+          to: careerApp.email,
+          subject: `Your application for "${careerApp.requirementId.title}" — ${status === "accepted" ? "Great news!" : "Update"}`,
+          html: applicationStatusEmail(careerApp.name, careerApp.requirementId.title, status, adminNotes),
         });
       } catch { /* non-blocking */ }
     }
 
-    return res.json({ success: true, data: app });
+    return res.json({ success: true, data: { ...careerApp.toObject(), source: "public" } });
   } catch (err) {
     console.error("Update application error:", err);
     return res.status(500).json({ success: false, message: "Failed to update application" });
