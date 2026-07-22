@@ -4,6 +4,8 @@ import InternApplication from "../models/internApplication.model.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 
+const DEPARTMENTS = ["sales", "marketing", "engineering", "design"];
+
 const safeUnlink = (filePath) => {
   if (!filePath) return;
   try {
@@ -21,10 +23,10 @@ export const submitInternApplication = async (req, res) => {
     } = req.body;
     const file = req.file;
 
-    if (!name || !email || !["sales", "marketing"].includes(department)) {
+    if (!name || !email || !DEPARTMENTS.includes(department)) {
       return res.status(400).json({
         success: false,
-        message: "Name, email, and a valid department (sales or marketing) are required",
+        message: `Name, email, and a valid department (${DEPARTMENTS.join(", ")}) are required`,
       });
     }
 
@@ -96,7 +98,7 @@ export const submitInternApplication = async (req, res) => {
       ["Name", name],
       ["Email", `<a href="mailto:${normalizedEmail}" style="color:#27A8F5;text-decoration:none;">${normalizedEmail}</a>`],
       ["Phone", phone],
-      ["Department", department === "marketing" ? "Marketing" : "Sales"],
+      ["Department", department.charAt(0).toUpperCase() + department.slice(1)],
       ["College", college],
       ["Degree", degree],
       ["Graduation Year", graduationYear],
