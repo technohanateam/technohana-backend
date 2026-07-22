@@ -186,6 +186,23 @@ export function generateResumeAcknowledgementEmail({ name }) {
   return emailShell({ label: 'Careers', body });
 }
 
+// ─── INTERNSHIP APPLICATION (applicant) ─────────────────────────────────────
+
+export function generateInternshipAcknowledgementEmail({ name, department }) {
+  const deptLabel = department === 'marketing' ? 'Marketing' : 'Sales';
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Application Received${name ? `, ${name}` : ''}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">Thank you for applying for the ${deptLabel} Internship at Technohana. We've received your application and resume successfully.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Department', `${deptLabel} Internship`, false)}
+      ${dataRow('Status', 'Under Review', true)}
+      ${dataRow('Next Step', 'Our team will reach out if your profile matches current openings', false)}
+    </table>
+    ${ctaButton('Visit Technohana', 'https://technohana.in')}`;
+
+  return emailShell({ label: 'Careers', body });
+}
+
 // ─── CONTACT US (admin) ──────────────────────────────────────────────────────
 
 export function generateContactUsEmail({ name, email, subject, message }) {
