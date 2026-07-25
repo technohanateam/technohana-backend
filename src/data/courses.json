@@ -7951,131 +7951,6 @@
     "categoryGroup": "Cybersecurity"
   },
   {
-    "id": "ISO31000",
-    "courseSlug": "iso-31000-risk-management-framework",
-    "logo": "course_thumb01.jpg",
-    "category": "Cybersecurity",
-    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
-    "catcls": "cat-eight",
-    "courseTitle": "ISO 31000: Risk Management Framework",
-    "courseDays": "02 Days",
-    "courseTime": "16 Hours",
-    "courseModules": "05 Modules",
-    "noStudents": "15",
-    "instructor": "Industry Experts",
-    "price": 31999,
-    "language": "English",
-    "difficulty": "Intermediate",
-    "rating": "4.5",
-    "overview": "ISO 31000:2018 is the international standard for risk management, providing universal principles, a flexible framework, and a structured process applicable to any organization regardless of size, sector, or industry. This 2-day course covers the complete ISO 31000 standard \u2014 from foundational principles and leadership commitment to risk identification, assessment, treatment, monitoring, and continual improvement. Participants gain practical skills to embed risk management into organizational decision-making and governance.",
-    "courseObjective": "Provide participants with a thorough understanding of the ISO 31000:2018 standard, enabling them to design, implement, and continually improve an enterprise risk management framework aligned with international best practices.",
-    "courseOutcomes": "Upon completion, participants will be able to apply ISO 31000 principles, establish a risk management framework, execute the risk management process (including identification, analysis, evaluation, and treatment), and integrate risk management into organizational governance.",
-    "prerequisites": "Basic understanding of organizational management or governance is recommended. No prior risk management certification required.",
-    "labs": "Practical workshops on risk identification, risk register development, risk assessment techniques, and risk treatment planning using real-world organizational scenarios.",
-    "whatWillYouLearn": [
-      "Core principles of ISO 31000:2018 risk management",
-      "Risk management framework \u2014 leadership, integration, and design",
-      "Risk management process \u2014 scope, context, and criteria",
-      "Risk identification techniques and tools",
-      "Qualitative and quantitative risk analysis methods",
-      "Risk evaluation and risk appetite alignment",
-      "Risk treatment options \u2014 avoid, reduce, share, retain",
-      "Risk monitoring, review, and reporting practices",
-      "Integrating risk management with organizational decision-making",
-      "Relationship of ISO 31000 with other standards (ISO 27001, COBIT, CRISC)"
-    ],
-    "requirements": [
-      "Familiarity with basic organizational management concepts",
-      "No prior risk management framework knowledge required",
-      "Experience in IT, operations, or compliance is advantageous"
-    ],
-    "targetAudience": [
-      "Risk Managers and Risk Officers",
-      "Compliance Officers",
-      "IT Auditors",
-      "GRC (Governance, Risk, Compliance) Professionals",
-      "Operations Managers",
-      "Project Managers and Program Managers",
-      "Business Continuity Professionals",
-      "Information Security Managers",
-      "Internal Auditors",
-      "C-Suite Executives and Board Members",
-      "Management Consultants",
-      "Professionals pursuing risk management certifications (CRISC, IRM)"
-    ],
-    "modules": [
-      {
-        "moduleTitle": "Module 1: Introduction to ISO 31000 and Risk Management Principles",
-        "content": [
-          "Overview of ISO 31000:2018 Standard",
-          "Why Risk Management Matters",
-          "Key Definitions \u2014 Risk, Uncertainty, Opportunity",
-          "Eight Core Principles of ISO 31000",
-          "Integration with Organizational Governance",
-          "Relationship with ISO 27001, COBIT, and CRISC",
-          "Risk Culture and Leadership Commitment"
-        ]
-      },
-      {
-        "moduleTitle": "Module 2: Risk Management Framework",
-        "content": [
-          "Framework Components Overview",
-          "Leadership and Commitment",
-          "Integration of Risk Management into the Organization",
-          "Framework Design \u2014 Understanding the Organization",
-          "Risk Policy and Risk Appetite Statement",
-          "Accountability and Roles",
-          "Framework Implementation",
-          "Evaluation and Improvement of the Framework"
-        ]
-      },
-      {
-        "moduleTitle": "Module 3: Risk Management Process \u2014 Context, Scope, and Criteria",
-        "content": [
-          "Scope, Context, and Criteria Setting",
-          "External and Internal Context Analysis",
-          "Stakeholder Identification and Engagement",
-          "Defining Risk Criteria and Risk Appetite",
-          "Risk Communication and Consultation",
-          "Documentation and Reporting Requirements"
-        ]
-      },
-      {
-        "moduleTitle": "Module 4: Risk Assessment \u2014 Identification, Analysis, and Evaluation",
-        "content": [
-          "Risk Identification Techniques \u2014 Brainstorming, SWOT, Checklists",
-          "Risk Register Development",
-          "Qualitative Risk Analysis Methods",
-          "Quantitative Risk Analysis Methods",
-          "Risk Matrix and Heatmap Construction",
-          "Risk Evaluation against Criteria",
-          "Prioritization of Risks for Treatment"
-        ]
-      },
-      {
-        "moduleTitle": "Module 5: Risk Treatment, Monitoring, and Continual Improvement",
-        "content": [
-          "Risk Treatment Options \u2014 Avoid, Reduce, Share, Retain",
-          "Treatment Plan Development",
-          "Residual Risk Assessment",
-          "Risk Monitoring and Review Processes",
-          "KPIs and KRIs for Risk Management",
-          "Reporting to Stakeholders",
-          "Continual Improvement of the Risk Management System",
-          "Preparing for Risk Management Certifications"
-        ]
-      }
-    ],
-    "prices": {
-      "inr": 31999,
-      "usd": 419,
-      "aed": 1779,
-      "gbp": 369,
-      "eur": 439
-    },
-    "categoryGroup": "Cybersecurity"
-  },
-  {
     "id": "AWS-SA-PRO",
     "courseSlug": "aws-solutions-architect-certification-training",
     "logo": "course_thumb01.jpg",
@@ -39147,6 +39022,894 @@
       "aed": 4449,
       "gbp": 929,
       "eur": 1099
+    }
+  },
+  {
+    "id": "PECB109",
+    "courseSlug": "iso-27001-foundation",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "ISO/IEC 27001 Foundation",
+    "category": "PECB",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "categoryGroup": "Cybersecurity",
+    "overview": "This 2-day PECB-accredited Foundation course introduces the core requirements and concepts of ISO/IEC 27001:2022, the international standard for Information Security Management Systems (ISMS). You will gain a working understanding of ISMS structure, key security controls from Annex A, and the certification process, preparing you for the PECB ISO/IEC 27001 Foundation exam and setting the stage for Lead Implementer or Lead Auditor training.",
+    "courseObjective": "Participants will understand the fundamental concepts, principles, and terminology of information security management, describe the structure and clauses of ISO/IEC 27001:2022, explain the certification audit process, and identify key ISMS documentation requirements.",
+    "courseOutcomes": "Upon completion, participants will be able to explain ISMS fundamentals to stakeholders, contribute to ISMS implementation projects, and sit for the PECB ISO/IEC 27001 Foundation certification exam \u2014 forming a strong basis for progressing to Lead Implementer or Lead Auditor certification.",
+    "prerequisites": "No prior information security experience required. Basic IT literacy is helpful.",
+    "labs": "Guided walkthrough of ISMS clause structure, Annex A control mapping exercise, and a sample certification audit scenario review.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "12",
+    "instructor": "PECB Certified Trainers",
+    "price": 39999,
+    "language": "English",
+    "difficulty": "Beginner to Intermediate",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "Explain the fundamental concepts and principles of information security management",
+      "Describe the structure and mandatory clauses of ISO/IEC 27001:2022",
+      "Identify the Annex A control categories and their purpose",
+      "Understand the ISMS certification audit process and lifecycle",
+      "Recognize the roles and responsibilities within an ISMS",
+      "Interpret the Statement of Applicability and its role in scoping an ISMS",
+      "Describe risk assessment and risk treatment fundamentals within an ISMS",
+      "Prepare for the PECB ISO/IEC 27001 Foundation certification examination"
+    ],
+    "requirements": [
+      "No prior certification or information security experience required",
+      "Basic familiarity with IT concepts is beneficial"
+    ],
+    "targetAudience": [
+      "Professionals seeking an introduction to information security management",
+      "IT and compliance staff supporting ISMS initiatives",
+      "Individuals preparing for Lead Implementer or Lead Auditor training",
+      "Managers who need ISMS awareness for governance responsibilities"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Information Security & ISMS Fundamentals",
+        "content": [
+          "Information security concepts: confidentiality, integrity, availability",
+          "Overview of ISO/IEC 27001:2022 and its role within the ISO 27000 family",
+          "Annex SL high-level structure and integration with other management systems",
+          "Key terminology: asset, threat, vulnerability, risk, and control",
+          "Workshop: Map organizational assets to information security objectives"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: ISMS Requirements Walkthrough",
+        "content": [
+          "Context of the organization, leadership, and planning clauses",
+          "Risk assessment and risk treatment fundamentals",
+          "Support, operation, performance evaluation, and improvement clauses",
+          "Interested party requirements and ISMS scope definition",
+          "Workshop: Identify ISMS documentation required for each clause"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Annex A Controls Overview",
+        "content": [
+          "Organizational, people, physical, and technological control categories",
+          "Common control examples: access control, incident management, cryptography",
+          "Statement of Applicability (SoA) purpose and structure",
+          "Control attributes and their use in filtering and reporting",
+          "Workshop: Select applicable controls for a sample SME organization"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Certification Process & Exam Preparation",
+        "content": [
+          "Certification audit stages: Stage 1, Stage 2, and surveillance audits",
+          "Roles of certification bodies and accreditation",
+          "PECB Foundation exam format and sample questions",
+          "Continual improvement and the recertification cycle",
+          "Workshop: Full-length practice quiz covering all four modules"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 39999,
+      "usd": 529,
+      "aed": 2229,
+      "gbp": 469,
+      "eur": 549
+    }
+  },
+  {
+    "id": "PECB110",
+    "courseSlug": "iso-9001-lead-implementer",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "ISO 9001 Lead Implementer",
+    "category": "PECB",
+    "catdesc": "Master Agile, Scrum, and project management frameworks used by leading organizations worldwide. Earn globally recognized certifications and lead high-performing teams with confidence.",
+    "catcls": "cat-fifteen",
+    "categoryGroup": "Management",
+    "overview": "This 5-day PECB-accredited course prepares you to plan, implement, and manage a Quality Management System (QMS) based on ISO 9001:2015. You will learn to establish quality objectives, design process-based QMS documentation, manage nonconformities and corrective actions, and lead an organization through certification readiness \u2014 complementing the existing ISO 9001 Lead Auditor track.",
+    "courseObjective": "Participants will interpret ISO 9001:2015 requirements, design a process-approach QMS, plan implementation projects using PDCA methodology, establish quality objectives and KPIs, and prepare an organization for third-party certification audits.",
+    "courseOutcomes": "Upon completion, participants will be able to lead QMS implementation projects end-to-end, build the required documented information, drive continual improvement initiatives, and qualify for the PECB ISO 9001 Lead Implementer certification exam.",
+    "prerequisites": "Basic understanding of quality management principles. ISO 9001 Foundation or equivalent QMS experience is recommended.",
+    "labs": "Implementation simulation: process mapping, QMS documentation drafting, quality objective setting, and internal audit program design.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "12",
+    "instructor": "PECB Certified Trainers",
+    "price": 69999,
+    "language": "English",
+    "difficulty": "Intermediate to Advanced",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "Interpret ISO 9001:2015 clauses and process-approach requirements",
+      "Design QMS documentation: quality manual, procedures, and records",
+      "Establish quality objectives, KPIs, and process performance indicators",
+      "Plan and manage a QMS implementation project using PDCA",
+      "Design an internal audit program and manage corrective actions",
+      "Prepare an organization for Stage 1 and Stage 2 certification audits",
+      "Apply risk-based thinking to QMS planning and change management",
+      "Manage customer satisfaction monitoring and continual improvement cycles"
+    ],
+    "requirements": [
+      "Basic understanding of quality management principles",
+      "ISO 9001 Foundation or 2+ years of QMS experience recommended",
+      "Familiarity with process mapping is beneficial"
+    ],
+    "targetAudience": [
+      "Quality managers leading QMS implementation projects",
+      "Process owners responsible for QMS documentation",
+      "Consultants guiding organizations toward ISO 9001 certification",
+      "Operations leaders driving continual improvement initiatives"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: ISO 9001:2015 Fundamentals & Implementation Approach",
+        "content": [
+          "ISO 9001:2015 structure: Annex SL alignment and quality-specific clauses",
+          "Process approach and the PDCA implementation methodology",
+          "Quality policy and objectives: alignment with organizational strategy",
+          "Gap analysis: assessing current state against ISO 9001 requirements",
+          "Workshop: Draft a QMS implementation roadmap for a case study organization"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Context, Leadership & Planning",
+        "content": [
+          "Determining internal and external issues and interested party needs",
+          "Leadership commitment and quality policy communication",
+          "Risk-based thinking and planning for QMS changes",
+          "Determining QMS scope and documenting boundaries and applicability",
+          "Workshop: Conduct a context analysis and interested party register"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: QMS Documentation & Process Design",
+        "content": [
+          "Documented information requirements and control of records",
+          "Process mapping: inputs, outputs, controls, and resources",
+          "Designing procedures for operational planning and control",
+          "Document control: versioning, approval, and retention requirements",
+          "Workshop: Map a core business process and identify required controls"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Support, Competence & Operational Controls",
+        "content": [
+          "Resource management: competence, awareness, and infrastructure",
+          "Operational planning: design and development controls",
+          "Supplier and outsourced process control",
+          "Awareness and internal communication planning for the QMS",
+          "Workshop: Build a competence matrix and training plan"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Performance Evaluation & Improvement",
+        "content": [
+          "Monitoring, measurement, analysis, and evaluation of QMS performance",
+          "Internal audit program design and management review inputs",
+          "Nonconformity management and root cause analysis",
+          "Customer satisfaction measurement and feedback analysis",
+          "Workshop: Design an internal audit program and corrective action process"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Certification Readiness & Exam Preparation",
+        "content": [
+          "Certification audit stages and readiness assessment",
+          "Common implementation pitfalls and how to avoid them",
+          "PECB exam preparation: ISO 9001 Lead Implementer exam format and sample questions",
+          "Post-certification: surveillance audits and maintaining conformity",
+          "Workshop: Full-length mock exam and implementation readiness checklist review"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 69999,
+      "usd": 899,
+      "aed": 3299,
+      "gbp": 719,
+      "eur": 829
+    }
+  },
+  {
+    "id": "PECB111",
+    "courseSlug": "iso-27701-lead-implementer",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "ISO/IEC 27701 Lead Implementer",
+    "category": "PECB",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "categoryGroup": "Cybersecurity",
+    "overview": "This 5-day PECB-accredited course prepares you to implement and manage a Privacy Information Management System (PIMS) based on ISO/IEC 27701, extending an existing ISO/IEC 27001 ISMS. You will learn to map data processing activities, implement PII controller and processor controls, and align privacy operations with regulations such as GDPR \u2014 qualifying you to lead PIMS implementation projects.",
+    "courseObjective": "Participants will interpret ISO/IEC 27701 requirements, extend an ISMS into a PIMS, implement PII controller and processor specific controls, conduct privacy risk and impact assessments, and prepare an organization for PIMS certification audits.",
+    "courseOutcomes": "Upon completion, participants will be able to lead privacy information management implementation projects, build data processing inventories, manage data subject rights processes, and qualify for the PECB ISO/IEC 27701 Lead Implementer certification exam.",
+    "prerequisites": "Working knowledge of ISO/IEC 27001 ISMS concepts. ISO/IEC 27001 Foundation or equivalent information security experience is recommended.",
+    "labs": "Implementation simulation: data processing inventory mapping, privacy impact assessment, PII controller/processor control selection, and data subject request workflow design.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "12",
+    "instructor": "PECB Certified Trainers",
+    "price": 79999,
+    "language": "English",
+    "difficulty": "Intermediate to Advanced",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "Interpret ISO/IEC 27701 requirements and its relationship to ISO/IEC 27001",
+      "Extend an existing ISMS into a Privacy Information Management System",
+      "Implement PII controller and PII processor specific controls",
+      "Conduct data processing inventories and privacy impact assessments",
+      "Design data subject rights and breach notification processes",
+      "Prepare an organization for PIMS certification audits",
+      "Integrate PIMS requirements with existing ISMS risk management processes",
+      "Establish privacy roles, responsibilities, and governance structures"
+    ],
+    "requirements": [
+      "Working knowledge of ISO/IEC 27001 ISMS concepts",
+      "ISO/IEC 27001 Foundation or 2+ years of information security experience recommended",
+      "Basic understanding of data protection regulations is beneficial"
+    ],
+    "targetAudience": [
+      "Data protection officers and privacy program managers",
+      "Information security managers extending ISMS scope to privacy",
+      "Consultants implementing GDPR-aligned privacy programs",
+      "Compliance officers responsible for PII governance"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: ISO/IEC 27701 Fundamentals & PIMS Extension",
+        "content": [
+          "Relationship between ISO/IEC 27001, 27002, and 27701",
+          "PIMS-specific requirements and additional Annex A, B, C, D guidance",
+          "Roles: PII controller vs PII processor obligations",
+          "Determining controller and processor roles across processing activities",
+          "Workshop: Determine PIMS scope for a case study organization"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Data Processing Inventory & Legal Basis",
+        "content": [
+          "Building a record of processing activities (RoPA)",
+          "Identifying lawful basis for processing under common regulations",
+          "Data flow mapping across systems and third parties",
+          "Purpose limitation and data minimisation in processing records",
+          "Workshop: Build a data processing inventory for a sample data flow"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Privacy Risk & Impact Assessment",
+        "content": [
+          "Privacy risk assessment methodology and criteria",
+          "Data Protection Impact Assessment (DPIA) triggers and process",
+          "Privacy by design and by default principles",
+          "Risk criteria for privacy: severity, likelihood, and residual risk",
+          "Workshop: Conduct a DPIA for a new data processing activity"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: PII Controller & Processor Controls",
+        "content": [
+          "Consent management and data subject notice requirements",
+          "Third-party and processor contract clauses",
+          "Cross-border data transfer safeguards",
+          "Privacy notices: content, timing, and accessibility requirements",
+          "Workshop: Select applicable PIMS controls for a controller organization"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Data Subject Rights & Incident Management",
+        "content": [
+          "Data subject access, rectification, and erasure request workflows",
+          "Privacy breach detection, assessment, and notification procedures",
+          "Retention and disposal schedules for personal data",
+          "Records of data subject requests and regulator communication logs",
+          "Workshop: Design a data subject rights request handling process"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Certification Readiness & Exam Preparation",
+        "content": [
+          "PIMS certification audit process and readiness assessment",
+          "Integrating PIMS into existing ISMS management review",
+          "PECB exam preparation: ISO/IEC 27701 Lead Implementer exam format and sample questions",
+          "Integrating PIMS metrics into privacy performance reporting",
+          "Workshop: Full-length mock exam and PIMS implementation checklist review"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 79999,
+      "usd": 999,
+      "aed": 3669,
+      "gbp": 799,
+      "eur": 919
+    }
+  },
+  {
+    "id": "PECB112",
+    "courseSlug": "iso-31000-risk-manager",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "ISO 31000 Risk Manager",
+    "category": "PECB",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "categoryGroup": "Cybersecurity",
+    "overview": "This 3-day PECB-accredited course prepares you to establish and manage an enterprise risk management framework based on ISO 31000:2018 guidelines. You will learn to design risk management processes, apply risk assessment techniques across business functions, and embed risk-based decision-making into governance structures \u2014 qualifying you for the PECB Certified ISO 31000 Risk Manager credential.",
+    "courseObjective": "Participants will interpret ISO 31000:2018 principles and framework, design an enterprise risk management process, apply qualitative and quantitative risk assessment techniques, and integrate risk management into organizational governance and decision-making.",
+    "courseOutcomes": "Upon completion, participants will be able to establish enterprise-wide risk management frameworks, facilitate risk assessment workshops, advise leadership on risk-based decisions, and qualify for the PECB Certified ISO 31000 Risk Manager certification exam.",
+    "prerequisites": "Basic understanding of organizational governance or risk management concepts recommended, but not mandatory.",
+    "labs": "Risk workshop simulation: risk identification, likelihood/impact scoring, risk treatment planning, and risk register development for a case study organization.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "05 Modules",
+    "noStudents": "12",
+    "instructor": "PECB Certified Trainers",
+    "price": 69999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "Interpret ISO 31000:2018 principles, framework, and process",
+      "Integrate risk management into organizational governance",
+      "Apply qualitative and quantitative risk assessment techniques",
+      "Design and maintain an enterprise risk register",
+      "Facilitate risk workshops and report to leadership and boards",
+      "Define risk criteria, appetite, and tolerance aligned to strategy",
+      "Evaluate risk treatment options and build treatment plans with owners",
+      "Monitor, review, and continually improve the risk management framework"
+    ],
+    "requirements": [
+      "No mandatory prerequisites",
+      "Basic understanding of organizational governance is beneficial"
+    ],
+    "targetAudience": [
+      "Enterprise risk managers and governance, risk & compliance (GRC) professionals",
+      "Internal auditors expanding into enterprise risk management",
+      "Project and operations managers responsible for risk oversight",
+      "Consultants advising on organizational risk frameworks"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: ISO 31000:2018 Principles & Framework",
+        "content": [
+          "Risk management principles: value creation, integration, and structured approach",
+          "Framework components: leadership, integration, design, implementation, evaluation",
+          "Relationship between ISO 31000 and ISO/IEC 27005, COSO ERM",
+          "Risk management maturity models and framework evaluation",
+          "Workshop: Assess an organization's current risk management maturity"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Establishing the Risk Management Process",
+        "content": [
+          "Scope, context, and criteria definition",
+          "Communication and consultation with stakeholders",
+          "Embedding risk management into decision-making structures",
+          "Defining risk appetite and tolerance statements",
+          "Workshop: Define risk criteria and context for a case study organization"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Risk Identification & Assessment",
+        "content": [
+          "Risk identification techniques: workshops, checklists, and interviews",
+          "Risk analysis: likelihood, consequence, and risk level scoring",
+          "Risk evaluation and prioritization criteria",
+          "Bow-tie analysis, scenario analysis, and root cause techniques",
+          "Workshop: Conduct a risk identification and assessment session"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Risk Treatment & Monitoring",
+        "content": [
+          "Risk treatment options: avoid, mitigate, transfer, accept",
+          "Building a risk treatment plan with owners and timelines",
+          "Monitoring, review, and recording risk management activities",
+          "Residual risk evaluation and acceptance sign-off",
+          "Workshop: Build a risk treatment plan and enterprise risk register"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Reporting & Exam Preparation",
+        "content": [
+          "Risk reporting formats for leadership and boards",
+          "Continual improvement of the risk management framework",
+          "PECB exam preparation: ISO 31000 Risk Manager exam format and sample questions",
+          "Risk culture and embedding risk awareness across teams",
+          "Workshop: Full-length mock exam and risk register peer review"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 69999,
+      "usd": 899,
+      "aed": 3299,
+      "gbp": 719,
+      "eur": 829
+    }
+  },
+  {
+    "id": "PECB113",
+    "courseSlug": "iso-22000-lead-auditor",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "ISO 22000 Lead Auditor",
+    "category": "PECB",
+    "catdesc": "Master Agile, Scrum, and project management frameworks used by leading organizations worldwide. Earn globally recognized certifications and lead high-performing teams with confidence.",
+    "catcls": "cat-fifteen",
+    "categoryGroup": "Management",
+    "overview": "This 5-day PECB-accredited course prepares you to plan and lead Food Safety Management System (FSMS) audits in accordance with ISO 22000:2018 and ISO 19011 audit guidelines. You will learn to audit HACCP-based prerequisite programs, hazard analysis processes, and traceability systems \u2014 qualifying you to conduct first-, second-, and third-party ISO 22000 audits as a lead auditor.",
+    "courseObjective": "Participants will plan and conduct ISO 22000:2018 FSMS audits, assess hazard analysis and critical control point (HACCP) processes, audit prerequisite programs and traceability systems, verify food safety legal compliance, and produce comprehensive audit reports \u2014 preparing them for the PECB ISO 22000 Lead Auditor certification exam.",
+    "courseOutcomes": "Upon completion, participants will be able to independently lead ISO 22000 FSMS audits across food production, processing, and distribution environments, write evidence-based nonconformities, manage audit teams, and produce audit reports \u2014 qualifying for certification body auditor and food safety compliance audit roles.",
+    "prerequisites": "Basic understanding of food safety or HACCP principles. ISO 22000 Foundation or 2+ years of FSMS experience is recommended.",
+    "labs": "Audit simulation: HACCP plan review, prerequisite program audit, traceability trace exercise, and nonconformity writing for a food processing case study.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "12",
+    "instructor": "PECB Certified Trainers",
+    "price": 69999,
+    "language": "English",
+    "difficulty": "Intermediate to Advanced",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "Understand ISO 22000:2018 requirements and food safety management principles",
+      "Apply ISO 19011 audit principles to Food Safety Management System audits",
+      "Audit HACCP-based hazard analysis and critical control points",
+      "Verify prerequisite programs: hygiene, pest control, and supplier controls",
+      "Audit traceability and recall procedures",
+      "Write evidence-based nonconformities with ISO 22000 clause references",
+      "Assess management review and continual improvement of the FSMS",
+      "Manage audit teams and conduct opening and closing meetings"
+    ],
+    "requirements": [
+      "Basic understanding of food safety or HACCP principles",
+      "ISO 22000 Foundation or 2+ years of FSMS experience recommended",
+      "Familiarity with audit methodology is beneficial"
+    ],
+    "targetAudience": [
+      "Food safety managers seeking lead auditor qualification",
+      "Certification body auditors specializing in food safety",
+      "Quality consultants conducting FSMS gap assessments",
+      "Supply chain teams responsible for supplier food safety audits"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: ISO 22000:2018 Requirements Overview",
+        "content": [
+          "ISO 22000:2018 structure: Annex SL alignment and food-safety-specific clauses",
+          "Key concepts: hazard analysis, prerequisite programs, and HACCP principles",
+          "Food safety policy and objectives across the supply chain",
+          "Food safety culture and management commitment requirements",
+          "Workshop: Identify food safety hazards for a case study production line"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: FSMS Audit Planning",
+        "content": [
+          "FSMS audit programme: risk-based prioritisation across product lines",
+          "Audit plan development: facility requirements and regulatory context",
+          "Audit checklists for clause-by-clause and hazard-based coverage",
+          "Audit team selection: competence, technical expertise, and impartiality",
+          "Workshop: Develop an FSMS audit plan for a food processing facility"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Auditing Hazard Analysis & Critical Control Points",
+        "content": [
+          "Auditing hazard identification, risk assessment, and control measures",
+          "Critical control point (CCP) monitoring and verification audit trail",
+          "Operational prerequisite program (oPRP) auditing",
+          "Validation and verification of control measures",
+          "Workshop: Trace a CCP from hazard identification to monitoring records"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Prerequisite Programs & Traceability Auditing",
+        "content": [
+          "Prerequisite program audit: hygiene, pest control, and maintenance",
+          "Supplier approval and incoming material control auditing",
+          "Traceability and recall/withdrawal procedure auditing",
+          "Allergen management and product labelling control auditing",
+          "Workshop: Conduct a mock traceability trace exercise"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: FSMS Performance & Internal Audit Auditing",
+        "content": [
+          "FSMS performance monitoring: food safety KPIs and trend analysis",
+          "Internal audit audit trail: competency, findings, and follow-up",
+          "Management review inputs and outputs: completeness and action tracking",
+          "Emergency preparedness and food defence auditing",
+          "Workshop: Review FSMS KPI data and assess food safety objective attainment"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Nonconformity Writing, Reporting & Exam Prep",
+        "content": [
+          "Food safety nonconformity writing: regulatory breaches vs. system nonconformities",
+          "Immediate escalation: critical limit deviations and recall triggers",
+          "Audit report for FSMS: structure, findings, and recommendations",
+          "PECB exam preparation: ISO 22000 Lead Auditor exam format and sample questions",
+          "Workshop: Write 5 FSMS nonconformities from case study evidence and produce a complete audit report"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 69999,
+      "usd": 899,
+      "aed": 3299,
+      "gbp": 719,
+      "eur": 829
+    }
+  },
+  {
+    "id": "PECB114",
+    "courseSlug": "iso-37001-lead-implementer",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "ISO 37001 Lead Implementer",
+    "category": "PECB",
+    "catdesc": "Master Agile, Scrum, and project management frameworks used by leading organizations worldwide. Earn globally recognized certifications and lead high-performing teams with confidence.",
+    "catcls": "cat-fifteen",
+    "categoryGroup": "Management",
+    "overview": "This 5-day PECB-accredited course prepares you to implement an Anti-Bribery Management System (ABMS) based on ISO 37001:2016. You will learn to design bribery risk assessments, due diligence procedures, and control frameworks that satisfy regulators, auditors, and enterprise vendor compliance requirements \u2014 qualifying you to lead ABMS implementation projects.",
+    "courseObjective": "Participants will interpret ISO 37001:2016 requirements, conduct bribery risk assessments, design due diligence and gift/hospitality controls, implement financial and non-financial controls, and prepare an organization for ABMS certification audits.",
+    "courseOutcomes": "Upon completion, participants will be able to lead anti-bribery management system implementation projects, build bribery risk registers, design whistleblowing and investigation procedures, and qualify for the PECB ISO 37001 Lead Implementer certification exam.",
+    "prerequisites": "Basic understanding of compliance or governance principles. ISO 37001 Foundation or equivalent compliance experience is recommended.",
+    "labs": "Implementation simulation: bribery risk assessment, third-party due diligence workflow design, and ABMS control selection for a case study organization.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "12",
+    "instructor": "PECB Certified Trainers",
+    "price": 69999,
+    "language": "English",
+    "difficulty": "Intermediate to Advanced",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "Interpret ISO 37001:2016 requirements and anti-bribery management principles",
+      "Conduct bribery risk assessments across business units and third parties",
+      "Design due diligence procedures for partners, agents, and suppliers",
+      "Implement financial controls: gifts, hospitality, and facilitation payments",
+      "Design whistleblowing, investigation, and disciplinary procedures",
+      "Prepare an organization for ABMS certification audits",
+      "Establish anti-bribery compliance function roles and independence",
+      "Monitor, audit, and continually improve the anti-bribery management system"
+    ],
+    "requirements": [
+      "Basic understanding of compliance or governance principles",
+      "ISO 37001 Foundation or 2+ years of compliance experience recommended",
+      "Familiarity with organizational risk management is beneficial"
+    ],
+    "targetAudience": [
+      "Compliance officers and legal counsel implementing anti-bribery programs",
+      "Procurement and vendor management teams handling third-party risk",
+      "Internal audit teams supporting ABMS rollout",
+      "Consultants advising on enterprise anti-corruption compliance"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: ISO 37001:2016 Fundamentals & Implementation Approach",
+        "content": [
+          "ISO 37001:2016 structure and relationship to broader compliance frameworks",
+          "Bribery risk concepts: active, passive, direct, and indirect bribery",
+          "Anti-bribery policy and top management commitment",
+          "Compliance function: independence, authority, and reporting lines",
+          "Workshop: Draft an ABMS implementation roadmap for a case study organization"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Bribery Risk Assessment",
+        "content": [
+          "Risk assessment methodology: geography, sector, and transaction type factors",
+          "Identifying high-risk third parties, transactions, and projects",
+          "Risk register development and prioritization",
+          "Documenting and reviewing bribery risk assessment outcomes",
+          "Workshop: Conduct a bribery risk assessment for a business unit"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Due Diligence & Third-Party Controls",
+        "content": [
+          "Due diligence procedures for agents, suppliers, and joint venture partners",
+          "Contractual anti-bribery clauses and ongoing monitoring",
+          "Mergers & acquisitions bribery risk considerations",
+          "Ongoing monitoring and re-screening of high-risk third parties",
+          "Workshop: Design a risk-based due diligence workflow"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Financial & Non-Financial Controls",
+        "content": [
+          "Gifts, hospitality, and facilitation payment controls",
+          "Financial controls: expense approval and segregation of duties",
+          "Training and communication programs for employees and partners",
+          "Political and charitable contributions, sponsorships, and donations",
+          "Workshop: Draft a gifts and hospitality control procedure"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Whistleblowing, Investigation & Monitoring",
+        "content": [
+          "Whistleblowing channel design and non-retaliation protections",
+          "Investigation procedures and disciplinary action frameworks",
+          "Monitoring, internal audit, and management review of the ABMS",
+          "Record keeping and evidence retention for investigations",
+          "Workshop: Design a whistleblowing and investigation procedure"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Certification Readiness & Exam Preparation",
+        "content": [
+          "ABMS certification audit process and readiness assessment",
+          "Common implementation pitfalls and how to avoid them",
+          "PECB exam preparation: ISO 37001 Lead Implementer exam format and sample questions",
+          "Integrating ABMS with wider compliance and governance frameworks",
+          "Workshop: Full-length mock exam and ABMS implementation checklist review"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 69999,
+      "usd": 899,
+      "aed": 3299,
+      "gbp": 719,
+      "eur": 829
+    }
+  },
+  {
+    "id": "PECB115",
+    "courseSlug": "iso-42001-lead-implementer",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "ISO/IEC 42001 Lead Implementer",
+    "category": "PECB",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "categoryGroup": "Cybersecurity",
+    "overview": "This 5-day PECB-accredited course prepares you to implement an Artificial Intelligence Management System (AIMS) based on ISO/IEC 42001:2023, the first international standard for responsible AI governance. You will learn to assess AI system risks, implement lifecycle controls for AI development and deployment, and align AI governance with ethics, transparency, and regulatory expectations \u2014 qualifying you to lead AIMS implementation projects.",
+    "courseObjective": "Participants will interpret ISO/IEC 42001:2023 requirements, conduct AI system risk and impact assessments, implement controls across the AI lifecycle, design governance structures for responsible AI use, and prepare an organization for AIMS certification audits.",
+    "courseOutcomes": "Upon completion, participants will be able to lead AI management system implementation projects, build AI risk and impact assessment processes, establish AI governance roles and oversight structures, and qualify for the PECB ISO/IEC 42001 Lead Implementer certification exam.",
+    "prerequisites": "Basic understanding of AI/ML concepts and IT governance. ISO/IEC 27001 Foundation or equivalent AI/technology governance experience is recommended.",
+    "labs": "Implementation simulation: AI system inventory, AI risk and impact assessment, lifecycle control mapping, and AI governance structure design for a case study organization.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "12",
+    "instructor": "PECB Certified Trainers",
+    "price": 89999,
+    "language": "English",
+    "difficulty": "Intermediate to Advanced",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "Interpret ISO/IEC 42001:2023 requirements and AI management system principles",
+      "Conduct AI system risk and impact assessments across the AI lifecycle",
+      "Implement controls for AI data quality, bias, and transparency",
+      "Design AI governance roles, oversight, and accountability structures",
+      "Align AI management practices with ethics and regulatory expectations",
+      "Prepare an organization for AIMS certification audits",
+      "Define AI system classification and intended-use documentation",
+      "Manage supplier and third-party AI component obligations"
+    ],
+    "requirements": [
+      "Basic understanding of AI/ML concepts and IT governance",
+      "ISO/IEC 27001 Foundation or 2+ years of technology governance experience recommended",
+      "Familiarity with data protection and risk management is beneficial"
+    ],
+    "targetAudience": [
+      "AI governance leads and responsible AI program managers",
+      "Information security and risk managers extending scope to AI systems",
+      "Data science and ML engineering leads implementing AI controls",
+      "Consultants advising organizations on AI regulatory compliance"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: ISO/IEC 42001:2023 Fundamentals & AIMS Scope",
+        "content": [
+          "ISO/IEC 42001:2023 structure and relationship to ISO/IEC 27001 and 23894",
+          "AI system lifecycle: design, development, deployment, and retirement",
+          "AI policy, roles, and top management commitment",
+          "Determining AI roles: provider, developer, user, and partner",
+          "Workshop: Define AIMS scope and inventory AI systems for a case study organization"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: AI Risk & Impact Assessment",
+        "content": [
+          "AI-specific risk categories: bias, explainability, robustness, and safety",
+          "AI impact assessment methodology for individuals and society",
+          "Risk treatment planning for high-risk AI use cases",
+          "Documenting intended use, misuse scenarios, and out-of-scope uses",
+          "Workshop: Conduct an AI risk and impact assessment for a sample AI system"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Data Governance & AI Lifecycle Controls",
+        "content": [
+          "Data quality, provenance, and training data governance",
+          "Controls across the AI lifecycle: design, development, and validation",
+          "Third-party and foundation model dependency management",
+          "Testing, validation, and release criteria for AI models",
+          "Workshop: Map AIMS controls to an AI system development pipeline"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Transparency, Explainability & Human Oversight",
+        "content": [
+          "Transparency and explainability requirements for AI decisions",
+          "Human oversight mechanisms and escalation procedures",
+          "Communicating AI system limitations to users and stakeholders",
+          "Documentation for affected parties and redress mechanisms",
+          "Workshop: Draft a transparency and human oversight procedure"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Monitoring, Incident Management & Continual Improvement",
+        "content": [
+          "AI performance monitoring and model drift management",
+          "AI incident detection, response, and reporting procedures",
+          "Internal audit and management review of the AIMS",
+          "Change management for model updates and retraining cycles",
+          "Workshop: Design an AI incident response and monitoring plan"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Certification Readiness & Exam Preparation",
+        "content": [
+          "AIMS certification audit process and readiness assessment",
+          "Aligning AIMS with emerging AI regulations",
+          "PECB exam preparation: ISO/IEC 42001 Lead Implementer exam format and sample questions",
+          "Integrating AIMS with existing ISMS and privacy management systems",
+          "Workshop: Full-length mock exam and AIMS implementation checklist review"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 89999,
+      "usd": 1149,
+      "aed": 4219,
+      "gbp": 909,
+      "eur": 1049
+    }
+  },
+  {
+    "id": "PECB116",
+    "courseSlug": "iso-50001-lead-auditor",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "ISO 50001 Lead Auditor",
+    "category": "PECB",
+    "catdesc": "Master Agile, Scrum, and project management frameworks used by leading organizations worldwide. Earn globally recognized certifications and lead high-performing teams with confidence.",
+    "catcls": "cat-fifteen",
+    "categoryGroup": "Management",
+    "overview": "This 5-day PECB-accredited course prepares you to plan and lead Energy Management System (EnMS) audits in accordance with ISO 50001:2018 and ISO 19011 audit guidelines. You will learn to audit energy review processes, energy performance indicators, and legal compliance obligations \u2014 qualifying you to conduct first-, second-, and third-party ISO 50001 audits as a lead auditor.",
+    "courseObjective": "Participants will plan and conduct ISO 50001:2018 EnMS audits, assess energy review and energy baseline processes, audit energy performance indicators and action plans, verify legal compliance obligations, and produce comprehensive audit reports \u2014 preparing them for the PECB ISO 50001 Lead Auditor certification exam.",
+    "courseOutcomes": "Upon completion, participants will be able to independently lead ISO 50001 EnMS audits across manufacturing, facilities, and utility environments, write evidence-based nonconformities, manage audit teams, and produce audit reports \u2014 qualifying for certification body auditor and energy compliance audit roles.",
+    "prerequisites": "Basic understanding of energy management or sustainability principles. ISO 50001 Foundation or 2+ years of EnMS experience is recommended.",
+    "labs": "Audit simulation: energy review verification, energy baseline and EnPI audit, significant energy use trace, and nonconformity writing exercises.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "12",
+    "instructor": "PECB Certified Trainers",
+    "price": 69999,
+    "language": "English",
+    "difficulty": "Intermediate to Advanced",
+    "rating": "N/A",
+    "whatWillYouLearn": [
+      "Understand ISO 50001:2018 requirements and energy management principles",
+      "Apply ISO 19011 audit principles to Energy Management System audits",
+      "Audit energy review, energy baseline, and performance indicator processes",
+      "Verify legal and regulatory compliance obligations within the EnMS",
+      "Audit significant energy uses and energy action plans",
+      "Write evidence-based nonconformities with ISO 50001 clause references",
+      "Assess management review and continual improvement of the EnMS",
+      "Manage audit teams and conduct opening and closing meetings"
+    ],
+    "requirements": [
+      "Basic understanding of energy management or sustainability practices",
+      "ISO 50001 Foundation or 2+ years of EnMS or energy compliance experience",
+      "Familiarity with audit methodology is beneficial"
+    ],
+    "targetAudience": [
+      "Energy managers and facilities professionals seeking lead auditor qualification",
+      "Certification body auditors specializing in energy management",
+      "Sustainability consultants conducting EnMS gap assessments",
+      "Corporate energy teams responsible for site and supplier energy audits"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: ISO 50001:2018 Requirements Overview",
+        "content": [
+          "ISO 50001:2018 structure: Annex SL alignment and energy-specific clauses",
+          "Key concepts: energy review, energy baseline, and energy performance indicators",
+          "Energy policy: commitment to continual energy performance improvement",
+          "Energy data collection: metering, measurement plan, and data quality",
+          "Workshop: Identify significant energy uses for a case study manufacturing site"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: EnMS Audit Planning",
+        "content": [
+          "EnMS audit programme: risk-based prioritisation and annual audit schedule",
+          "EnMS audit plan: site requirements, metering, and regulatory context",
+          "Audit checklists for ISO 50001 clause-by-clause and EnPI-based coverage",
+          "Audit team competence: technical energy expertise requirements",
+          "Workshop: Develop an EnMS audit plan for an industrial facility"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Auditing Energy Review & Performance Indicators",
+        "content": [
+          "Auditing energy review methodology: data collection and analysis",
+          "Energy baseline and EnPI audit trail: normalization and validation",
+          "Significant energy use audit: identification and control verification",
+          "Normalisation factors and relevant variable validation",
+          "Workshop: Trace an EnPI from data collection to performance reporting"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Legal Compliance & Energy Action Plan Auditing",
+        "content": [
+          "Legal register audit: completeness, update triggers, and compliance evaluation",
+          "Energy action plan audit: targets, objectives, and implementation tracking",
+          "Procurement and design consideration audits for energy performance",
+          "Design and procurement controls for energy performance",
+          "Workshop: Audit an energy action plan and verify evidence of target achievement"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: EnMS Performance Evaluation & Internal Audit Auditing",
+        "content": [
+          "EnMS performance monitoring: energy KPIs, targets, and trend analysis",
+          "Internal audit audit trail: competency, objectivity, finding quality, and follow-up",
+          "Management review inputs and outputs: completeness and action tracking",
+          "Competence, awareness, and operational control auditing",
+          "Workshop: Review EnMS KPI data and assess whether energy objectives are being met"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Nonconformity Writing, Reporting & Exam Prep",
+        "content": [
+          "Energy nonconformity writing: regulatory breaches vs. system nonconformities",
+          "Immediate escalation: metering failures and significant performance deviations",
+          "Audit report for EnMS: structure, findings, and recommendations",
+          "PECB exam preparation: ISO 50001 Lead Auditor exam format and sample questions",
+          "Workshop: Write 5 EnMS nonconformities from case study evidence and produce a complete audit report"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 69999,
+      "usd": 899,
+      "aed": 3299,
+      "gbp": 719,
+      "eur": 829
     }
   }
 ]

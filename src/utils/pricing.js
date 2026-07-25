@@ -78,7 +78,13 @@ priceCatalog.default = {
 export function getBasePriceMinor(courseId, currency) {
   const id = String(courseId);
   const curr = String(currency).toLowerCase();
-  const val = priceCatalog[id]?.[curr] ?? priceCatalog.default?.[curr] ?? null;
+  // An unrecognised courseId must not resolve to the default price: that turns a
+  // stale catalog (frontend courses.json not yet synced) into a silently
+  // undercharged payment rather than a visible error. A *known* course still
+  // falls back per-currency — no course carries sar/qar/omr/bhd/kwd prices, so
+  // the Gulf currencies are served entirely by the default block.
+  if (id === 'default' || !priceCatalog[id]) return null;
+  const val = priceCatalog[id][curr] ?? priceCatalog.default?.[curr] ?? null;
   return typeof val === 'number' ? val : null;
 }
 
