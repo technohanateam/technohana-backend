@@ -17,6 +17,7 @@ const proposalSchema = new Schema({
     courseTitle:           { type: String },
     seats:                 { type: Number, required: true, min: 1 },
     currency:              { type: String, required: true },
+    couponCode:            { type: String, trim: true },
     manualDiscountPercent: { type: Number, default: 0, min: 0, max: 25 },
     quote:                 { type: Object },
   }],
@@ -24,6 +25,11 @@ const proposalSchema = new Schema({
     grandTotalMinor:    { type: Number },
     originalTotalMinor: { type: Number },
     currency:           { type: String },
+  },
+  type: {
+    type: String,
+    enum: ['quote', 'proposal'],
+    default: 'proposal',
   },
   status: {
     type: String,

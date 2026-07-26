@@ -24,20 +24,20 @@ async function validateCourseExists(courseId) {
   if (!course) throw new Error(`Course not found: ${courseId}`);
 }
 
-function computeLine({ courseId, seats, currency, manualDiscountPercent }) {
+function computeLine({ courseId, seats, currency, couponCode, manualDiscountPercent }) {
   const participants = Math.max(1, Number(seats) || 1);
   const enrollmentType = participants >= 2 ? 'group' : 'individual';
-  const baseQuote = computeQuote({ courseId, enrollmentType, participants, currency });
+  const baseQuote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode });
   return applyManualDiscount(baseQuote, manualDiscountPercent || 0);
 }
 
 export const quoteProposalLine = async (req, res) => {
   try {
-    const { courseId, seats, currency, manualDiscountPercent } = req.body;
+    const { courseId, seats, currency, couponCode, manualDiscountPercent } = req.body;
     if (!courseId || !currency) {
       return res.status(400).json({ success: false, message: 'courseId and currency are required' });
     }
-    const quote = computeLine({ courseId, seats, currency, manualDiscountPercent });
+    const quote = computeLine({ courseId, seats, currency, couponCode, manualDiscountPercent });
     return res.json({ success: true, data: quote });
   } catch (err) {
     console.error('quoteProposalLine error:', err);
@@ -47,7 +47,7 @@ export const quoteProposalLine = async (req, res) => {
 
 export const createProposal = async (req, res) => {
   try {
-    const { client, validUntil, notes, status, courses, refNum: providedRef } = req.body;
+    const { client, validUntil, notes, status, courses, refNum: providedRef, type } = req.body;
 
     if (!courses || !Array.isArray(courses) || courses.length === 0) {
       return res.status(400).json({ success: false, message: 'At least one course is required' });
@@ -69,6 +69,7 @@ export const createProposal = async (req, res) => {
         courseTitle: c.courseTitle || '',
         seats: Math.max(1, Number(c.seats) || 1),
         currency: c.currency,
+        couponCode: c.couponCode || undefined,
         manualDiscountPercent: quote.manualDiscountPercent || 0,
         quote,
       };
@@ -85,6 +86,7 @@ export const createProposal = async (req, res) => {
 
     const proposal = new Proposal({
       refNum,
+      type: type === 'quote' ? 'quote' : 'proposal',
       client: client || {},
       validUntil: validUntil ? new Date(validUntil) : null,
       notes: notes || '',
@@ -129,6 +131,7 @@ export const updateProposal = async (req, res) => {
           courseTitle: c.courseTitle || '',
           seats: Math.max(1, Number(c.seats) || 1),
           currency: c.currency,
+          couponCode: c.couponCode || undefined,
           manualDiscountPercent: quote.manualDiscountPercent || 0,
           quote,
         };
@@ -163,12 +166,16 @@ export const updateProposal = async (req, res) => {
 
 export const getProposals = async (req, res) => {
   try {
-    const { search, status, page = 1, limit = 20 } = req.query;
+    const { search, status, type, page = 1, limit = 20 } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    const filter = {};
+    // Proposals saved before the `type` field existed have no `type` key stored at
+    // all (Mongoose defaults don't backfill existing documents), so an exact-match
+    // filter would silently hide them. Excluding only explicit quotes keeps both
+    // legacy untyped proposals and new type:'proposal' docs visible by default.
+    const filter = { type: type || { $ne: 'quote' } };
     if (search) {
       const regex = buildRegexQuery(search);
       if (regex) {

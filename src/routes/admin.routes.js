@@ -1929,9 +1929,9 @@ router.patch("/training-requirements/:id/applications/:appId", authenticateAdmin
 });
 
 // ─── Proposals ───────────────────────────────────────────────────────────────
-router.post("/proposals/quote",  authenticateAdmin, requirePage("proposals", "proposal-builder"), quoteProposalLine);
-router.get("/proposals",         authenticateAdmin, requirePage("proposals", "proposal-builder"), getProposals);
-router.post("/proposals",        authenticateAdmin, requirePage("proposals", "proposal-builder"), createProposal);
+router.post("/proposals/quote",  authenticateAdmin, requirePage("proposals", "proposal-builder", "quote-generator"), quoteProposalLine);
+router.get("/proposals",         authenticateAdmin, requirePage("proposals", "proposal-builder", "quote-generator"), getProposals);
+router.post("/proposals",        authenticateAdmin, requirePage("proposals", "proposal-builder", "quote-generator"), createProposal);
 router.get("/proposals/:id",     authenticateAdmin, requirePage("proposals", "proposal-builder"), getProposal);
 router.put("/proposals/:id",     authenticateAdmin, requirePage("proposals", "proposal-builder"), updateProposal);
 router.delete("/proposals/:id",  authenticateAdmin, requirePage("proposals", "proposal-builder"), requireAdmin, deleteProposal);
