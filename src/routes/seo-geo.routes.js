@@ -45,7 +45,7 @@ router.get("/geo-analytics", authenticateAdmin, requirePage("geo-analysis"), asy
       return Object.keys(f).length ? { [field]: f } : {};
     };
 
-    const [enrollmentsByCurrency, revenuesByCurrency, enquiriesByCurrency] =
+    const [enrollmentsByCurrency, revenuesByCurrency, enquiriesByCurrency, pageViewsByCountry] =
       await Promise.all([
         User.aggregate([
           {
@@ -86,6 +86,13 @@ router.get("/geo-analytics", authenticateAdmin, requirePage("geo-analysis"), asy
             },
           },
           { $sort: { count: -1 } },
+        ]),
+
+        CourseView.aggregate([
+          { $match: { country: { $ne: null }, ...makeDateFilter("viewedAt") } },
+          { $group: { _id: "$country", views: { $sum: 1 } } },
+          { $sort: { views: -1 } },
+          { $limit: 10 },
         ]),
       ]);
 
@@ -131,11 +138,16 @@ router.get("/geo-analytics", authenticateAdmin, requirePage("geo-analysis"), asy
       totalEnrollments: rows.reduce((s, r) => s + r.enrollments, 0),
       totalOrders: rows.reduce((s, r) => s + r.orders, 0),
       totalEnquiries: rows.reduce((s, r) => s + r.enquiries, 0),
+      totalRevenueMinor: rows.reduce((s, r) => s + r.revenueMinor, 0),
       topCountry: rows[0]?.label || "—",
       topCountryFlag: rows[0]?.flag || "🌍",
     };
 
-    res.json({ rows, summary });
+    res.json({
+      rows,
+      summary,
+      pageViewsByCountry: pageViewsByCountry.map((r) => ({ country: r._id, views: r.views })),
+    });
   } catch (err) {
     console.error("geo-analytics error:", err);
     res.status(500).json({ error: "Failed to load geo analytics" });

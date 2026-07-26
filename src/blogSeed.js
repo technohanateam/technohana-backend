@@ -1,20 +1,8 @@
 import { Blogs } from "./models/blogs.model.js";
 import dotenv from "dotenv";
-import mongoose from "mongoose";
+import connectDb from "./config/db.js";
 
-dotenv.config({
-    path: "../.env"
-})
-
-const connectDb = async () =>{
-    try {
-        const connection = await mongoose.connect(`${process.env.MONGO_DB}`);
-        console.log("Database Connected Successfully");
-    } catch (error) {
-        console.log("connection failed:",error);
-        process.exit(1);
-    }
-}
+dotenv.config();
 
 
 const blogData = [
