@@ -49,7 +49,9 @@ export const validCoupons = {
 };
 
 const _priceCatalogPath = resolve(dirname(fileURLToPath(import.meta.url)), '../data/courses.json');
-const _rawCourses = JSON.parse(fs.readFileSync(_priceCatalogPath, 'utf-8'));
+const _playbookCatalogPath = resolve(dirname(fileURLToPath(import.meta.url)), '../data/playbook-courses.json');
+const _rawCourses = JSON.parse(fs.readFileSync(_priceCatalogPath, 'utf-8'))
+  .concat(JSON.parse(fs.readFileSync(_playbookCatalogPath, 'utf-8')));
 const priceCatalog = {};
 for (const c of _rawCourses) {
   if (c.id && c.prices) {
