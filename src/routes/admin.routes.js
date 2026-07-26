@@ -1351,8 +1351,9 @@ router.post("/courses/seed", authenticateAdmin, requirePage("courses", "quote-ge
   try {
     const { force } = req.body || {};
     const dataPath = path.join(__dirname, "../data/courses.json");
-    const raw = fs.readFileSync(dataPath, "utf-8");
-    const courses = JSON.parse(raw);
+    const playbookDataPath = path.join(__dirname, "../data/playbook-courses.json");
+    const courses = JSON.parse(fs.readFileSync(dataPath, "utf-8"))
+      .concat(JSON.parse(fs.readFileSync(playbookDataPath, "utf-8")));
 
     if (force) {
       const ops = courses

@@ -6,7 +6,9 @@ const router = express.Router();
 // GET /courses — public, returns all courses
 router.get("/courses", async (req, res) => {
   try {
-    const data = await Course.find().sort({ category: 1, id: 1 }).lean();
+    const data = await Course.find({ id: { $not: /^playbook-/i } })
+      .sort({ category: 1, id: 1 })
+      .lean();
     return res.json(data);
   } catch (err) {
     console.error("Public courses error:", err);
@@ -17,6 +19,9 @@ router.get("/courses", async (req, res) => {
 // GET /courses/:id — public, returns single course by `id` field
 router.get("/courses/:id", async (req, res) => {
   try {
+    if (/^playbook-/i.test(req.params.id)) {
+      return res.status(404).json({ message: "Course not found." });
+    }
     const course = await Course.findOne({ id: req.params.id }).lean();
     if (!course) return res.status(404).json({ message: "Course not found." });
     return res.json(course);
