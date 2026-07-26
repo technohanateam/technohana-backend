@@ -1374,6 +1374,15 @@ setInterval(async () => {
   }
 }, DAILY_MS);
 
+// ─── Global Error Handler ──────────────────────────────────────────────────────
+// Safety net for any route/middleware that throws without its own try/catch —
+// never leak stack traces to the client.
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ success: false, message: 'Server error' });
+});
+
 // ─── Server Startup ────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
