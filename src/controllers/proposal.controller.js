@@ -70,6 +70,7 @@ export const createProposal = async (req, res) => {
         seats: Math.max(1, Number(c.seats) || 1),
         currency: c.currency,
         manualDiscountPercent: quote.manualDiscountPercent || 0,
+        syllabus: c.syllabus || '',
         quote,
       };
     });
@@ -130,6 +131,7 @@ export const updateProposal = async (req, res) => {
           seats: Math.max(1, Number(c.seats) || 1),
           currency: c.currency,
           manualDiscountPercent: quote.manualDiscountPercent || 0,
+          syllabus: c.syllabus || '',
           quote,
         };
       });

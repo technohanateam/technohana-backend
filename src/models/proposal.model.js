@@ -18,6 +18,7 @@ const proposalSchema = new Schema({
     seats:                 { type: Number, required: true, min: 1 },
     currency:              { type: String, required: true },
     manualDiscountPercent: { type: Number, default: 0, min: 0, max: 25 },
+    syllabus:              { type: String, trim: true, default: '' },
     quote:                 { type: Object },
   }],
   totals: {
