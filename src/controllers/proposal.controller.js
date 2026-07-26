@@ -71,6 +71,7 @@ export const createProposal = async (req, res) => {
         currency: c.currency,
         couponCode: c.couponCode || undefined,
         manualDiscountPercent: quote.manualDiscountPercent || 0,
+        syllabus: c.syllabus || '',
         quote,
       };
     });
@@ -133,6 +134,7 @@ export const updateProposal = async (req, res) => {
           currency: c.currency,
           couponCode: c.couponCode || undefined,
           manualDiscountPercent: quote.manualDiscountPercent || 0,
+          syllabus: c.syllabus || '',
           quote,
         };
       });
