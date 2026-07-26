@@ -14,6 +14,7 @@ npm run start              # node src/index.js (production)
 npm run sync-prices        # copy courses.json from frontend, update price catalog
 node seed-coupons.js       # seed festival coupons to MongoDB
 node seed-courses.js       # seed course catalog
+npm run seed                # seed blog posts (Blogs collection) - required for SEO Analysis admin page to show data
 ```
 
 ## Architecture Rules

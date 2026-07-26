@@ -8,6 +8,27 @@ import { authenticateAdmin, requirePage } from "../middleware/authenticateAdmin.
 
 const router = express.Router();
 
+const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
+
+const parseDateRange = (req, res) => {
+  const { from, to } = req.query;
+  if (from && !isValidDate(from)) {
+    res.status(400).json({ message: "Invalid 'from' date. Use YYYY-MM-DD." });
+    return null;
+  }
+  if (to && !isValidDate(to)) {
+    res.status(400).json({ message: "Invalid 'to' date. Use YYYY-MM-DD." });
+    return null;
+  }
+  const makeDateFilter = (field) => {
+    const f = {};
+    if (from) f.$gte = new Date(from);
+    if (to) f.$lte = new Date(to + "T23:59:59.999Z");
+    return Object.keys(f).length ? { [field]: f } : {};
+  };
+  return { from, to, makeDateFilter };
+};
+
 const CURRENCY_TO_REGION = {
   INR: { label: "India", flag: "🇮🇳", region: "South Asia" },
   USD: { label: "United States", flag: "🇺🇸", region: "North America" },
@@ -33,19 +54,11 @@ const CURRENCY_TO_REGION = {
 // ── GET /admin/geo-analytics ──────────────────────────────────────────────────
 router.get("/geo-analytics", authenticateAdmin, requirePage("geo-analysis"), async (req, res) => {
   try {
-    const { from, to } = req.query;
-    const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
-    if (from && !isValidDate(from)) return res.status(400).json({ message: "Invalid 'from' date. Use YYYY-MM-DD." });
-    if (to && !isValidDate(to)) return res.status(400).json({ message: "Invalid 'to' date. Use YYYY-MM-DD." });
+    const range = parseDateRange(req, res);
+    if (!range) return;
+    const { makeDateFilter } = range;
 
-    const makeDateFilter = (field) => {
-      const f = {};
-      if (from) f.$gte = new Date(from);
-      if (to) f.$lte = new Date(to + "T23:59:59.999Z");
-      return Object.keys(f).length ? { [field]: f } : {};
-    };
-
-    const [enrollmentsByCurrency, revenuesByCurrency, enquiriesByCurrency] =
+    const [enrollmentsByCurrency, revenuesByCurrency, enquiriesByCurrency, pageViewsByCountry] =
       await Promise.all([
         User.aggregate([
           {
@@ -86,6 +99,13 @@ router.get("/geo-analytics", authenticateAdmin, requirePage("geo-analysis"), asy
             },
           },
           { $sort: { count: -1 } },
+        ]),
+
+        CourseView.aggregate([
+          { $match: { country: { $ne: null }, ...makeDateFilter("viewedAt") } },
+          { $group: { _id: "$country", views: { $sum: 1 } } },
+          { $sort: { views: -1 } },
+          { $limit: 10 },
         ]),
       ]);
 
@@ -131,11 +151,16 @@ router.get("/geo-analytics", authenticateAdmin, requirePage("geo-analysis"), asy
       totalEnrollments: rows.reduce((s, r) => s + r.enrollments, 0),
       totalOrders: rows.reduce((s, r) => s + r.orders, 0),
       totalEnquiries: rows.reduce((s, r) => s + r.enquiries, 0),
+      totalRevenueMinor: rows.reduce((s, r) => s + r.revenueMinor, 0),
       topCountry: rows[0]?.label || "—",
       topCountryFlag: rows[0]?.flag || "🌍",
     };
 
-    res.json({ rows, summary });
+    res.json({
+      rows,
+      summary,
+      pageViewsByCountry: pageViewsByCountry.map((r) => ({ country: r._id, views: r.views })),
+    });
   } catch (err) {
     console.error("geo-analytics error:", err);
     res.status(500).json({ error: "Failed to load geo analytics" });
@@ -145,6 +170,10 @@ router.get("/geo-analytics", authenticateAdmin, requirePage("geo-analysis"), asy
 // ── GET /admin/seo-analytics ──────────────────────────────────────────────────
 router.get("/seo-analytics", authenticateAdmin, requirePage("seo-analysis"), async (req, res) => {
   try {
+    const range = parseDateRange(req, res);
+    if (!range) return;
+    const { makeDateFilter } = range;
+
     const blogs = await Blogs.find(
       {},
       {
@@ -159,6 +188,7 @@ router.get("/seo-analytics", authenticateAdmin, requirePage("seo-analysis"), asy
         date: 1,
         readTimeMin: 1,
         category: 1,
+        content: 1,
       }
     ).lean();
 
@@ -200,6 +230,7 @@ router.get("/seo-analytics", authenticateAdmin, requirePage("seo-analysis"), asy
         focusKeyword: blog.focusKeyword,
         published: blog.published,
         category: blog.category,
+        content: blog.content,
         readTimeMin: blog.readTimeMin,
         titleLength,
         descLength,
@@ -212,22 +243,26 @@ router.get("/seo-analytics", authenticateAdmin, requirePage("seo-analysis"), asy
 
     blogAudit.sort((a, b) => a.score - b.score);
 
+    const enquiryDateFilter = makeDateFilter("createdAt");
+
     const [organic, paid, social, total] = await Promise.all([
-      Enquiry.countDocuments({ "utm.medium": "organic" }),
+      Enquiry.countDocuments({ "utm.medium": "organic", ...enquiryDateFilter }),
       Enquiry.countDocuments({
         "utm.medium": { $in: ["cpc", "paid", "ppc", "paidsearch"] },
+        ...enquiryDateFilter,
       }),
       Enquiry.countDocuments({
         "utm.medium": { $in: ["social", "social-media", "referral"] },
+        ...enquiryDateFilter,
       }),
-      Enquiry.countDocuments({}),
+      Enquiry.countDocuments({ ...enquiryDateFilter }),
     ]);
 
     const other = Math.max(0, total - organic - paid - social);
     const trafficSplit = { organic, paid, social, other, total };
 
     const organicSources = await Enquiry.aggregate([
-      { $match: { "utm.medium": "organic" } },
+      { $match: { "utm.medium": "organic", ...enquiryDateFilter } },
       {
         $group: {
           _id: { $ifNull: ["$utm.source", "(unknown)"] },
@@ -239,22 +274,30 @@ router.get("/seo-analytics", authenticateAdmin, requirePage("seo-analysis"), asy
     ]);
 
     const topPages = await CourseView.aggregate([
+      { $match: makeDateFilter("viewedAt") },
       {
         $group: {
           _id: "$courseId",
+          courseTitle: { $last: "$courseTitle" },
           views: { $sum: 1 },
-          uniqueViewers: { $addToSet: "$visitorId" },
-        },
-      },
-      {
-        $project: {
-          courseId: "$_id",
-          views: 1,
-          uniqueViewers: { $size: "$uniqueViewers" },
+          uniqueEmails: {
+            $addToSet: {
+              $cond: [{ $ifNull: ["$userEmail", false] }, "$userEmail", "$$REMOVE"],
+            },
+          },
         },
       },
       { $sort: { views: -1 } },
       { $limit: 10 },
+      {
+        $project: {
+          courseId: "$_id",
+          courseTitle: 1,
+          views: 1,
+          uniqueViewers: { $size: "$uniqueEmails" },
+          _id: 0,
+        },
+      },
     ]);
 
     const summary = {
