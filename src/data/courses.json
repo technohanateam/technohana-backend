@@ -1925,10 +1925,10 @@
     "courseModules": "08 Modules",
     "price": 15999,
     "rating": "4.3",
-    "overview": "This course provides a foundational understanding of machine learning using Python, covering essential topics such as Python basics, data structures, control flow, NumPy, pandas, data visualization, and key machine learning concepts. It includes hands-on labs and a mini project to apply the concepts learned.",
-    "courseObjective": "Participants will gain a solid understanding of Python for machine learning, learn to manipulate data with NumPy and pandas, visualize data, and grasp core machine learning concepts. The course prepares participants for more advanced AI courses with practical hands-on experience.",
-    "prerequisites": "Basic understanding of Python programming is required. No prior machine learning experience is necessary.",
-    "labs": "DC for lab performance will be provided. Additional resources include recommended books, official documentation, and Python libraries for machine learning.",
+    "overview": "Machine Learning Fundamentals in a Day is a fast-paced, single-day primer that gives working professionals and career changers a genuine, hands-on entry point into machine learning without the multi-week commitment of a full bootcamp. Organizations now expect analysts, engineers, and even non-technical stakeholders to understand how machine learning models are built, what they can and cannot do, and how they create business value — from demand forecasting and churn prediction to fraud detection and recommendation engines. This course closes that gap in a single working day, built around a real Python workflow rather than a slide-driven tour of buzzwords: setting up an environment, manipulating data with NumPy and pandas, visualizing patterns with Matplotlib and Seaborn, and training a first model with Scikit-Learn. Every concept is reinforced with a short hands-on exercise, culminating in a guided capstone mini-project where participants build, evaluate, and interpret a predictive model end to end.\n\nThe course is intentionally scoped for beginners — no prior data science background is assumed, only basic familiarity with Python syntax. It suits professionals who need working fluency in machine learning to collaborate effectively with data teams — product managers, business analysts, QA engineers, and IT staff — as well as anyone deciding whether a deeper data science career path is right for them. Because it maps onto the opening modules of Technohana's longer Data Science and Machine Learning track, it also works as a low-risk preview before committing to a multi-week program.\n\nThis is a foundation-builder rather than a standalone job credential: it prepares participants to speak the language of machine learning in cross-functional meetings, read and reason about model outputs, and make an informed choice about which specialization — classical ML, deep learning, or MLOps — to pursue next. Participants leave with a portfolio-ready mini-project, a working Python/ML environment, and a clear roadmap toward roles such as Junior Data Analyst or ML-literate Business Analyst, common entry points into the 2026 data job market where AI and automation now touch nearly every analytics function.",
+    "courseObjective": "By the end of this one-day course, participants will be able to set up a Python machine learning environment, manipulate and visualize data with NumPy, pandas, Matplotlib, and Seaborn, and build, train, and evaluate a first predictive model using Scikit-Learn — gaining the working vocabulary and hands-on confidence to engage with data science teams or pursue a deeper machine learning specialization.",
+    "prerequisites": "Required: basic familiarity with Python syntax (variables, loops, functions). Recommended: comfort working in a Jupyter or Google Colab notebook. Optional: prior exposure to spreadsheets, SQL, or basic statistics is helpful but not necessary — no prior machine learning experience is required.",
+    "labs": "Six guided labs: Python/Colab environment setup, NumPy array operations, pandas DataFrame manipulation, Matplotlib/Seaborn charting, a baseline Scikit-Learn model build, and a capstone mini-project training and evaluating a classification model on a real dataset.",
     "toc": "DSML101-Machine Learning Fundamentals in a Day.pdf",
     "logo": "course_thumb07.jpg",
     "noStudents": "30",
@@ -1936,21 +1936,28 @@
     "language": "English",
     "difficulty": "beginner",
     "whatWillYouLearn": [
-      "Introduction to Python for machine learning",
-      "Python data structures and control flow",
-      "Basics of NumPy and array operations",
-      "Data manipulation with pandas",
-      "Data visualization with Matplotlib and Seaborn",
-      "Fundamentals of machine learning concepts",
-      "Hands-on mini project to apply machine learning techniques"
+      "Set up and navigate a Python machine learning environment using Google Colab or Jupyter Notebook",
+      "Manipulate arrays and perform numerical computations using NumPy",
+      "Load, clean, and transform tabular data into pandas DataFrames",
+      "Build exploratory visualizations — bar charts, histograms, and scatter plots — using Matplotlib and Seaborn",
+      "Explain the difference between supervised and unsupervised machine learning and when to apply each",
+      "Train a baseline classification model using Scikit-Learn",
+      "Evaluate model performance using accuracy and basic evaluation metrics",
+      "Identify overfitting and underfitting in a trained model",
+      "Complete a guided mini-project applying the full ML workflow to a real dataset",
+      "Map a personalized learning path toward advanced machine learning, deep learning, or MLOps specializations"
     ],
     "requirements": [
-      "Basic understanding of Python programming"
+      "Required: basic familiarity with Python syntax (variables, loops, functions)",
+      "Recommended: prior experience using Jupyter Notebook or Google Colab",
+      "Optional: familiarity with spreadsheets, SQL, or basic statistics"
     ],
     "targetAudience": [
-      "Beginners in machine learning",
-      "Individuals preparing for advanced AI courses",
-      "Anyone interested in learning machine learning fundamentals"
+      "Aspiring Data Analysts and Data Scientists exploring the field",
+      "Business Analysts and Product Managers who collaborate with data teams",
+      "Software Engineers evaluating a move into machine learning",
+      "IT and QA professionals who need ML literacy for cross-functional projects",
+      "Career changers deciding whether to pursue a full Data Science and Machine Learning track"
     ],
     "modules": [
       {
@@ -2007,12 +2014,13 @@
         ]
       },
       {
-        "moduleTitle": "Module 08: Mini Project",
+        "moduleTitle": "Module 08: Capstone Mini-Project — Predicting Outcomes with Scikit-Learn",
         "content": [
-          "Choose a simple machine learning problem",
-          "Provide a dataset",
-          "Demonstrate and share the solution",
-          "Guide students for building a ML model"
+          "Capstone Project — Predicting Customer Outcomes: problem statement — predict a binary outcome (e.g. customer purchase or churn) from a provided real-world dataset",
+          "Dataset: a curated, ready-to-use CSV dataset provided in Google Colab",
+          "Guided workflow: load and explore the data, engineer basic features, train a Scikit-Learn classification model, and evaluate it with accuracy and a confusion matrix",
+          "Deliverables: a working Colab notebook and a short written summary of model performance and key insights",
+          "Skills demonstrated: end-to-end ML workflow — data loading, preprocessing, model training, evaluation, and communicating results"
         ]
       }
     ],
@@ -2037,10 +2045,10 @@
     "courseModules": "08 Modules",
     "price": 47999,
     "rating": "4.5",
-    "overview": "This course provides a foundational understanding of essential mathematical and statistical concepts necessary for machine learning. It covers algebra, calculus, linear algebra, probability, descriptive statistics, data visualization, and inferential statistics to equip participants with the skills required for data analysis and model optimization.",
-    "courseObjective": "To provide participants with a robust understanding of the mathematical and statistical principles underpinning machine learning. This knowledge will enable them to effectively analyze data, optimize models, and make informed decisions using statistical methods.",
-    "prerequisites": "Basic understanding of data analysis and statistics. No advanced math or statistics background required.",
-    "labs": "Hands-on labs are included for practical application of mathematical and statistical concepts using Python.",
+    "overview": "Essential Maths & Statistics for Machine Learning gives working analysts and aspiring data scientists the quantitative foundation that most machine learning courses assume but rarely teach — algebra, calculus, linear algebra, probability, and inferential statistics, explained through the lens of how they power ML algorithms. Every machine learning model, from linear regression to a deep neural network, rests on these primitives: gradient descent relies on calculus, dimensionality reduction relies on linear algebra, and model evaluation relies on statistical inference. Without this grounding, practitioners can call library functions but struggle to debug models, tune hyperparameters intelligently, or explain results to stakeholders with confidence.\n\nThis three-day course is deliberately applied rather than purely theoretical: every concept connects to a machine learning use case and is reinforced with a hands-on Python lab. Participants differentiate functions to understand gradient descent, use linear algebra to reason about matrix transformations, calculate probability distributions underpinning classification models, and run hypothesis tests to validate whether a model's results are statistically meaningful or due to chance.\n\nThe course targets professionals with some data exposure who want to move from using machine learning libraries to genuinely understanding what happens inside them — a distinction that increasingly separates junior and senior practitioners in the 2026 hiring market, where AI-assisted coding tools handle boilerplate but human judgement on model behavior, statistical significance, and bias detection remains a core differentiator. It is not a substitute for a full statistics degree, but it delivers the specific mathematical core that explains most of what happens inside common ML algorithms.\n\nBy the end, participants will read and reason about model diagnostics, discuss statistical significance and confidence intervals with stakeholders, and approach more advanced machine learning and deep learning courses with the vocabulary to understand — not just apply — the underlying algorithms. It pairs well as a prerequisite to Technohana's Python for Data Analytics and Machine Learning and Machine Learning Specialty programs, and strengthens Data Analyst, Data Scientist, and Machine Learning Engineer career tracks.",
+    "courseObjective": "Participants will build a working, applied understanding of the mathematics and statistics underpinning machine learning — using algebra and calculus to reason about model optimization and gradient descent, linear algebra to interpret matrix transformations, and probability and inferential statistics to validate model results and communicate confidence in findings.",
+    "prerequisites": "Required: basic understanding of data analysis and comfort working with numbers. Recommended: familiarity with Python and a spreadsheet or BI tool. Optional: prior exposure to high-school-level algebra and statistics — no advanced math background is required, as all concepts are taught from first principles.",
+    "labs": "Hands-on Python labs covering derivative and gradient calculations, matrix operations and eigenvalue decomposition, probability distribution simulations, descriptive statistics on real datasets, and hypothesis testing — plus a capstone lab applying inferential statistics to validate a machine learning model's results.",
     "toc": "DSML104-Essential Maths & Statistics for Machine Learning.pdf",
     "logo": "course_thumb02.jpg",
     "noStudents": "10",
@@ -2048,19 +2056,28 @@
     "language": "English",
     "difficulty": "intermediate",
     "whatWillYouLearn": [
-      "Fundamental mathematical concepts for machine learning",
-      "Statistical methods for data analysis",
-      "Application of algebra and calculus in model optimization",
-      "Probability and descriptive statistics for data insights",
-      "Inferential statistics for decision-making"
+      "Apply algebraic and calculus concepts, including differentiation and gradient descent, to understand how machine learning models optimize",
+      "Perform matrix operations — inverse, determinant, transpose, eigenvalues, and eigenvectors — used in linear-algebra-driven ML algorithms",
+      "Explain and calculate conditional probability and random variables for classification models",
+      "Compute and interpret descriptive statistics: mean, median, mode, variance, standard deviation, and percentiles",
+      "Build and interpret statistical visualizations including boxplots, histograms, and scatter plots",
+      "Distinguish population from sample data and explain sampling bias",
+      "Calculate correlation and distinguish correlation from causation",
+      "Apply the Central Limit Theorem and construct confidence intervals",
+      "Formulate and test null vs. alternative hypotheses using real datasets",
+      "Interpret p-values and statistical significance in the context of model evaluation",
+      "Connect mathematical foundations directly to model behavior in gradient descent, PCA, and evaluation metrics"
     ],
     "requirements": [
-      "Basic understanding of data analysis and statistics"
+      "Required: basic understanding of data analysis and comfort working with numbers",
+      "Recommended: familiarity with Python and a spreadsheet or BI tool",
+      "Optional: prior high-school-level algebra and statistics"
     ],
     "targetAudience": [
-      "Data Analysts",
-      "Business Analysts",
-      "Data Scientists"
+      "Data Analysts and Business Analysts moving into machine learning roles",
+      "Aspiring Data Scientists building foundational quantitative skills",
+      "Software Engineers transitioning into ML engineering",
+      "Professionals preparing for advanced Data Science and Machine Learning courses"
     ],
     "modules": [
       {
@@ -2151,7 +2168,8 @@
           "Confidence Intervals",
           "Concept of Hypothesis & Null Vs Alternate Hypothesis",
           "Concept of Statistical Significance",
-          "Hypothesis Testing Examples"
+          "Hypothesis Testing Examples",
+          "Capstone Lab — Statistical Validation of a Machine Learning Model: problem statement — determine whether a model's accuracy improvement is statistically significant; dataset — a provided train/test prediction log; deliverables — a hypothesis test with stated confidence interval and a written interpretation; skills demonstrated — hypothesis formulation, p-value interpretation, and statistically grounded model evaluation"
         ]
       }
     ],
@@ -2176,10 +2194,10 @@
     "courseModules": "08 Modules",
     "price": 79999,
     "rating": "4.5",
-    "overview": "This comprehensive course covers Python basics, data analysis, data cleaning, exploratory data analysis, and various machine learning techniques. Participants will gain hands-on experience through demos and labs in each module.",
-    "courseObjective": "To provide a robust understanding of Python for data analytics and machine learning, including practical skills in data handling, visualization, and implementing machine learning algorithms.",
-    "prerequisites": "Basic understanding of programming concepts. No prior experience in Python or data analytics is required.",
-    "labs": "Hands-on labs are included in each module to reinforce learning through practical experience.",
+    "overview": "Python for Data Analytics and Machine Learning is Technohana's flagship intermediate program for building end-to-end data fluency in Python — from first principles through a complete supervised and unsupervised machine learning workflow. Employers in 2026 rarely hire for data analysis or machine learning in isolation; most analyst and junior data scientist roles now expect both: the ability to clean and explore a messy dataset, visualize it convincingly, and then apply the right modeling technique to answer a business question. This five-day, hands-on course is built around that expectation.\n\nParticipants start with core Python and move quickly into the real data workflow used across industry: loading and exploring data with NumPy and Pandas, treating null values and outliers, encoding categorical variables, and normalizing features. From there, the course builds structured visual storytelling skills using Matplotlib, Seaborn, and Plotly before progressing into the machine learning lifecycle — regression, classification, clustering, dimensionality reduction, recommendation systems, and an introduction to NLP. Every module pairs a concept with a hands-on demo or lab, and the course closes with a capstone project mirroring a real analytics engagement from raw data to a working model.\n\nThe course is designed for professionals with basic programming exposure who want a genuinely practical, portfolio-building path into data analytics and machine learning roles rather than a theory-only survey. It suits Data Analysts adding predictive modeling to their toolkit, Business Analysts moving into more technical roles, and career changers building their first substantial ML portfolio piece. Because the curriculum spans the full analytics-to-ML pipeline, graduates are well positioned for roles such as Data Analyst, Junior Data Scientist, Machine Learning Associate, and Business Intelligence Developer with predictive analytics responsibilities.\n\nBy course end, participants will have a complete, reusable Python workflow for data analytics and machine learning, a capstone project demonstrating classification, clustering, and recommendation techniques on real data, and the practical grounding needed to progress into Technohana's more specialized Machine Learning Specialty, Deep Learning, or MLOps programs.",
+    "courseObjective": "Participants will build a complete Python data analytics and machine learning workflow — from data cleaning and exploratory analysis through regression, classification, clustering, and recommendation systems — and apply it end to end in a capstone project using real-world data.",
+    "prerequisites": "Required: basic understanding of programming concepts. Recommended: familiarity with fundamental statistics (mean, median, distributions). Optional: prior exposure to SQL or spreadsheet-based data analysis — no prior Python or machine learning experience is required.",
+    "labs": "Hands-on labs in every module: Google Colab setup, NumPy/Pandas data analysis, data cleaning and preprocessing, multi-library data visualization (Matplotlib, Seaborn, Plotly), regression and classification model building, and unsupervised learning — clustering, PCA, and a recommendation system — culminating in a capstone project.",
     "toc": "DSML103-Python for Data Analytics and Machine Learning.pdf",
     "logo": "course_thumb01.jpg",
     "noStudents": "10",
@@ -2187,22 +2205,30 @@
     "language": "English",
     "difficulty": "intermediate",
     "whatWillYouLearn": [
-      "Python basics and data structures",
-      "Data analysis with NumPy and Pandas",
-      "Data cleaning and preprocessing techniques",
-      "Exploratory data analysis and visualization",
-      "Machine learning fundamentals and lifecycle",
-      "Regression and classification algorithms",
-      "Clustering and recommendation systems"
+      "Write Python programs using core data structures and control flow for data analysis tasks",
+      "Analyze and manipulate datasets using NumPy and Pandas",
+      "Clean and preprocess real-world data: handle nulls, outliers, encoding, and normalization",
+      "Build exploratory visualizations using Matplotlib, Seaborn, and Plotly, including geospatial choropleth maps",
+      "Explain the machine learning lifecycle and distinguish supervised from unsupervised learning",
+      "Build and evaluate linear, polynomial, Lasso, and Ridge regression models",
+      "Diagnose multicollinearity and apply recursive feature elimination",
+      "Build and evaluate classification models: logistic regression, KNN, decision trees, ensembles, SVM, and Naive Bayes",
+      "Handle imbalanced datasets and tune hyperparameters for classification models",
+      "Apply K-Means and hierarchical clustering, and reduce dimensionality with PCA",
+      "Build a basic content-based and collaborative-filtering recommendation system",
+      "Apply foundational NLP techniques to text data"
     ],
     "requirements": [
-      "Basic understanding of programming concepts",
-      "No prior experience in Python or data analytics required"
+      "Required: basic understanding of programming concepts",
+      "Recommended: familiarity with fundamental statistics",
+      "Optional: prior exposure to SQL or spreadsheet-based analysis"
     ],
     "targetAudience": [
-      "Data Analysts",
-      "Business Analysts",
-      "Data Scientists"
+      "Data Analysts adding predictive modeling to their skill set",
+      "Business Analysts transitioning into technical analytics roles",
+      "Aspiring Data Scientists building a first ML portfolio",
+      "Software Engineers moving into data-focused roles",
+      "Career changers seeking a practical, project-based entry into data science"
     ],
     "modules": [
       {
@@ -2296,7 +2322,8 @@
           "Principal Component Analysis",
           "Recommendation Systems \u2013 Content based filtering & Collaborative filtering",
           "Natural Language Processing",
-          "Demo/Lab: Implementing Clustering, PCA, Creating a Recommender System, Implementing Natural Language Processing"
+          "Demo/Lab: Implementing Clustering, PCA, Creating a Recommender System, Implementing Natural Language Processing",
+          "Capstone Project — Retail Customer Segmentation & Recommendation Engine: problem statement — segment customers and recommend products from a retail transactions dataset; dataset — a provided e-commerce transactions CSV; deliverables — a cleaned dataset, EDA visualizations, a clustering model with customer segments, and a working recommendation function; skills demonstrated — the complete analytics-to-ML pipeline: cleaning, EDA, unsupervised learning, and recommendation logic"
         ]
       }
     ],
@@ -2321,10 +2348,10 @@
     "courseModules": "10 Modules",
     "price": 79999,
     "rating": "4.2",
-    "overview": "This course provides a comprehensive introduction to Python for machine learning, focusing on fundamentals, data manipulation, data pre-processing, exploratory data analysis (EDA), and data visualization. Participants will gain hands-on experience with Python and its libraries to handle data effectively and perform analysis.",
-    "courseObjective": "Participants will master Python fundamentals, gain proficiency in data pre-processing and cleaning techniques, perform exploratory data analysis using Pandas and NumPy, and develop skills in data visualization with Matplotlib. The course will equip them to handle various data-related tasks and prepare them for advanced machine learning applications.",
-    "prerequisites": "Basic understanding of programming concepts. Familiarity with data analysis is recommended but not required.",
-    "labs": "Hands-on labs will be conducted using Python libraries including NumPy, pandas, and Matplotlib. Koenig DC will be provided for lab performance.",
+    "overview": "Python for Machine Learning is a five-day, project-driven course that takes participants from Python fundamentals through a complete data preprocessing and exploratory analysis workflow — the essential groundwork every machine learning practitioner needs before touching a model. While many introductory courses jump straight into algorithms, this course deliberately spends its first half building the programming and data-handling fluency that most real-world ML work actually requires: file handling, object-oriented programming, regular expressions for text processing, and the NumPy, Pandas, and Matplotlib stack used across virtually every Python-based analytics team.\n\nThe second half focuses on the data preparation skills that separate reliable models from fragile ones — handling missing data, encoding categorical variables, and structured exploratory data analysis using univariate, bivariate, and multivariate techniques. Participants close the course with a guided project mirroring a real analytics assignment: collecting data, preprocessing it, performing EDA, and visualizing findings for a business audience.\n\nThis course suits professionals with basic programming exposure who want a thorough, structured foundation in Python for data work before advancing into predictive modeling. It fits Data Analysts formalizing their Python skills, Business Analysts moving into more technical roles, and Data Scientists refreshing preprocessing best practices. Because strong data preparation is consistently the most time-consuming and highest-leverage part of any machine learning project, mastering it here pays dividends across every subsequent analytics or ML role.\n\nGraduates leave with a portfolio-ready data preprocessing and EDA project, fluency in the core Python data stack, and the readiness to progress directly into Technohana's Machine Learning Specialty or Deep Learning Specialty courses, where these preprocessing skills are assumed baseline knowledge.",
+    "courseObjective": "Participants will master Python fundamentals — including OOP, file handling, and regular expressions — and apply NumPy, Pandas, and Matplotlib to preprocess, clean, and explore real-world datasets, culminating in a project that takes a dataset from raw collection through exploratory analysis and visualization.",
+    "prerequisites": "Required: basic understanding of programming concepts. Recommended: familiarity with data analysis workflows. Optional: prior exposure to statistics — no prior machine learning experience is required.",
+    "labs": "Hands-on labs using NumPy, Pandas, and Matplotlib for array operations, DataFrame manipulation, and visualization, plus dedicated labs for data cleaning, missing-value handling, and categorical encoding — culminating in a capstone data preprocessing and EDA project.",
     "toc": "DSML102-Python for Machine Learning.pdf",
     "logo": "course_thumb_python_ml.jpg",
     "noStudents": "20",
@@ -2332,24 +2359,29 @@
     "language": "English",
     "difficulty": "intermediate",
     "whatWillYouLearn": [
-      "Python basics and setup",
-      "Data types and control flows",
-      "File handling and strings",
-      "Iterators, generators, and regular expressions",
-      "Object-Oriented Programming concepts",
-      "Introduction to NumPy, pandas, and Matplotlib",
-      "Data preprocessing and cleaning techniques",
-      "Exploratory Data Analysis (EDA)",
-      "Advanced pandas and data visualization",
-      "Project work involving data collection, preprocessing, and visualization"
+      "Set up a Python environment and work across Jupyter Notebook, Spyder, and Google Colab",
+      "Apply core data types, control flow, and operators to data-handling scripts",
+      "Read, write, and process files, and manipulate strings and dictionaries",
+      "Use iterators, generators, and regular expressions for text and data processing",
+      "Apply object-oriented programming concepts to structure reusable data code",
+      "Perform array and numerical operations using NumPy",
+      "Manipulate, filter, and transform datasets using Pandas",
+      "Build exploratory visualizations using Matplotlib",
+      "Clean data and handle missing or categorical values systematically",
+      "Conduct univariate, bivariate, and multivariate exploratory data analysis",
+      "Calculate variance, standard deviation, median, and IQR to summarize data distributions",
+      "Deliver an end-to-end data preprocessing and EDA project from raw data to visualized findings"
     ],
     "requirements": [
-      "Basic understanding of programming concepts"
+      "Required: basic understanding of programming concepts",
+      "Recommended: familiarity with data analysis workflows",
+      "Optional: prior exposure to statistics"
     ],
     "targetAudience": [
-      "Data Analysts",
-      "Business Analysts",
-      "Data Scientists"
+      "Data Analysts formalizing their Python data-handling skills",
+      "Business Analysts transitioning into technical analytics roles",
+      "Data Scientists refreshing preprocessing and EDA fundamentals",
+      "Software Engineers moving into data-focused roles"
     ],
     "modules": [
       {
@@ -2445,7 +2477,8 @@
         "content": [
           "Problem Statement, Data Collection, Data Pre-processing (Exploratory Data Analysis)",
           "Feature Engineering (optional), Data Visualizations (Pandas, NumPy & Matplotlib)",
-          "Project Final Outcome & Findings"
+          "Project Final Outcome & Findings",
+          "Capstone Project — HR Analytics Data Preparation & EDA: problem statement — prepare and explore a messy HR dataset to surface attrition drivers; dataset — a provided employee records CSV with missing values and mixed data types; deliverables — a cleaned dataset, engineered features, and a visualized EDA report; skills demonstrated — data cleaning, feature engineering, and exploratory analysis storytelling"
         ]
       }
     ],
@@ -2470,10 +2503,10 @@
     "courseModules": "12 Modules",
     "price": 79999,
     "rating": "4.5",
-    "overview": "This comprehensive course covers essential topics in data science using Python. Participants will gain hands-on experience in data analytics, statistical analysis, and machine learning, along with practical skills in data manipulation, visualization, and web scraping. The course also includes advanced topics like natural language processing and integration with big data solutions.",
-    "courseObjective": "To provide participants with a thorough understanding of data science principles and practices using Python. The course aims to equip learners with the skills necessary for data analytics, statistical analysis, machine learning, and data visualization, along with practical experience in web scraping and big data integration.",
-    "prerequisites": "Basic understanding of programming and Python. Familiarity with data analysis concepts is helpful but not required.",
-    "labs": "Hands-on labs and demos are included for practical application of concepts using Python libraries like NumPy, SciPy, Pandas, Scikit-Learn, and Matplotlib.",
+    "overview": "Data Science with Python is Technohana's most comprehensive foundational data science program — a five-day course spanning the complete toolkit a working data scientist uses day to day: statistical analysis, exploratory data analysis, Python's scientific computing stack (NumPy, SciPy, Pandas), machine learning with Scikit-Learn, natural language processing, data visualization, web scraping, and integration with big data platforms like Hadoop and Spark. Where narrower courses focus on a single slice of the data science role, this course mirrors the breadth that data science job descriptions actually demand in 2026 — moving fluidly between statistical reasoning, model building, unstructured data collection, and large-scale data integration.\n\nThe course follows the natural arc of a data science project: understanding the business problem and data landscape, applying statistical analysis to frame the question correctly, using NumPy and SciPy for numerical and scientific computing, manipulating structured data with Pandas, building supervised and unsupervised machine learning models with Scikit-Learn, applying basic NLP techniques to unstructured text, visualizing results with Matplotlib, and — for more advanced use cases — scraping web data with BeautifulSoup and integrating Python with Hadoop and Spark for big data workflows. Each module includes hands-on demos and knowledge checks to reinforce retention.\n\nThis course suits professionals with basic Python exposure who want broad, job-ready data science fluency rather than a narrow specialization. It is well suited to Data Analysts advancing into full Data Scientist roles, Business Analysts seeking a technical pivot, and Software Engineers moving into data-focused positions. Because the course explicitly covers big data integration alongside classical data science, it also gives participants a realistic picture of how data science work intersects with data engineering in modern organizations.\n\nGraduates leave with a broad, practical data science skill set spanning statistics, machine learning, NLP, visualization, and big data integration — positioning them for roles such as Data Scientist, Data Analyst, and Machine Learning Engineer, and providing a strong foundation for specialized follow-on courses in deep learning, MLOps, or advanced NLP.",
+    "courseObjective": "Participants will apply statistical analysis, Python's scientific computing stack, and Scikit-Learn to build a complete data science workflow — covering exploratory data analysis, machine learning, natural language processing, data visualization, web scraping, and big data integration with Hadoop and Spark.",
+    "prerequisites": "Required: basic understanding of programming and Python. Recommended: familiarity with fundamental statistics. Optional: exposure to SQL or big data concepts — no prior data science experience is required.",
+    "labs": "Hands-on labs and demos throughout using NumPy, SciPy, Pandas, Scikit-Learn, and Matplotlib, plus dedicated labs for web scraping with BeautifulSoup and Python integration with Hadoop MapReduce and PySpark.",
     "toc": "DSML105-Data Science with Python.pdf",
     "logo": "course_thumb03.jpg",
     "noStudents": "10",
@@ -2481,25 +2514,29 @@
     "language": "English",
     "difficulty": "intermediate",
     "whatWillYouLearn": [
-      "Fundamental concepts of data science and its applications",
-      "Data analytics process and techniques for exploratory data analysis",
-      "Statistical analysis and business applications",
-      "Python programming essentials and environment setup",
-      "Mathematical and scientific computing with Python using NumPy and SciPy",
-      "Data manipulation with Pandas",
-      "Machine learning techniques using Scikit-Learn",
-      "Natural language processing with Python",
-      "Data visualization using Matplotlib",
-      "Web scraping with BeautifulSoup",
-      "Integration of Python with Hadoop MapReduce and Spark"
+      "Frame a business problem into a structured data science and analytics approach",
+      "Apply exploratory data analysis techniques — quantitative and graphical — to real datasets",
+      "Apply statistical analysis methods including distribution, dispersion, correlation, and inferential statistics to business problems",
+      "Set up and use a Python data science environment with Anaconda",
+      "Perform scientific and numerical computing with NumPy and SciPy, including eigenvalue and eigenvector calculations",
+      "Manipulate, query, and clean data using Pandas, including SQL-style operations",
+      "Build and evaluate supervised machine learning models — linear and logistic regression — using Scikit-Learn",
+      "Apply unsupervised learning models and evaluate them with Scikit-Learn pipelines",
+      "Apply foundational NLP techniques including text extraction and model training with Scikit-Learn",
+      "Build data visualizations in Matplotlib, including multi-plot and subplot layouts",
+      "Scrape and parse web data using BeautifulSoup",
+      "Integrate Python with Hadoop (HDFS, MapReduce) and Spark (PySpark) for big data workflows"
     ],
     "requirements": [
-      "Basic understanding of programming and Python"
+      "Required: basic understanding of programming and Python",
+      "Recommended: familiarity with fundamental statistics",
+      "Optional: exposure to SQL or big data concepts"
     ],
     "targetAudience": [
-      "Data Analysts",
-      "Business Analysts",
-      "Data Scientists"
+      "Data Analysts advancing into full Data Scientist roles",
+      "Business Analysts seeking a technical career pivot",
+      "Software Engineers moving into data-focused roles",
+      "Data Engineers wanting broader data science fluency"
     ],
     "modules": [
       {
@@ -2658,7 +2695,8 @@
           "Python Integration with HDFS using Hadoop Streaming",
           "Demos",
           "Knowledge Check",
-          "Python Integration with Spark using PySpark"
+          "Python Integration with Spark using PySpark",
+          "Capstone Project — End-to-End Customer Analytics Pipeline: problem statement — analyze customer behavior data at scale and surface actionable business insights; dataset — a provided large customer transactions dataset processed via PySpark; deliverables — a Spark-based analysis pipeline, statistical summary, visualizations, and a business insights report; skills demonstrated — statistics, EDA, Pandas/Spark data processing, and big-data-scale analytics"
         ]
       }
     ],
@@ -2683,10 +2721,10 @@
     "courseModules": "09 Modules",
     "price": 79999,
     "rating": "4.5",
-    "overview": "This advanced course delves into essential and advanced topics in machine learning. It covers data science fundamentals, data analysis and preprocessing, supervised and unsupervised machine learning techniques, feature selection, dimensionality reduction, and deep learning concepts. Participants will gain hands-on experience with Python libraries and real-world problem-solving techniques.",
-    "courseObjective": "To equip participants with advanced knowledge and practical skills in machine learning. The course aims to provide a comprehensive understanding of data science and machine learning principles, including data preprocessing, model training, evaluation, and deep learning concepts. Hands-on exercises and practical applications will reinforce learning.",
-    "prerequisites": "Basic understanding of Python and data science concepts. Familiarity with machine learning fundamentals is helpful but not required.",
-    "labs": "Hands-on labs are included for practical application of concepts using Python libraries such as NumPy, Pandas, scikit-learn, TensorFlow, Keras, and PyTorch.",
+    "overview": "Machine Learning Specialty is Technohana's advanced, five-day deep-dive into the machine learning techniques that separate a working practitioner from a specialist — moving well beyond introductory regression and classification into feature selection, dimensionality reduction, rigorous model validation, and an introduction to deep learning. It is built for participants who already have foundational Python and data science exposure and want to close the gap between calling a Scikit-Learn function and being able to design, validate, and defend a production-grade model.\n\nThe course is structured around the practical decisions a machine learning specialist makes on the job: which features matter and how to select them (univariate selection, RFE, PCA), how to validate a model honestly using cross-validation rather than a single train/test split, how to systematically tune hyperparameters with grid and randomized search, and how to move from tabular regression and classification into unsupervised learning, NLP, and the fundamentals of neural networks. Every technique is taught with worked hands-on problems using real datasets — participants build, validate, and interpret models across regression, classification, clustering, and an introduction to deep learning with TensorFlow and Keras.\n\nThis course targets professionals who already have foundational Python and machine learning exposure and are ready to specialize — Data Scientists deepening their modeling rigor, Machine Learning Engineers preparing for production-facing responsibilities, and Data Analysts making the leap into a more technical ML role. Because it directly addresses model validation and feature engineering — two of the most common weak points in junior data science interviews and code reviews — it is particularly valuable for professionals actively interviewing for or recently promoted into Data Scientist and ML Engineer positions amid 2026's increasingly rigorous hiring bar.\n\nGraduates leave with the practical, defensible modeling skills expected of a specialist-level practitioner, a portfolio project spanning the full advanced ML workflow, and direct readiness for Technohana's Deep Learning Specialty and MLOps courses.",
+    "courseObjective": "Participants will apply advanced feature selection and dimensionality reduction techniques, validate models rigorously using cross-validation and hyperparameter tuning, and build supervised, unsupervised, and introductory deep learning models — developing the specialist-level modeling rigor expected of production-facing data science and ML engineering roles.",
+    "prerequisites": "Required: basic understanding of Python and data science concepts. Recommended: prior exposure to regression and classification fundamentals (e.g. Technohana's Python for Data Analytics and Machine Learning course). Optional: familiarity with TensorFlow or Keras.",
+    "labs": "Hands-on problems in every module covering regression and classification model building, feature selection (univariate, RFE, PCA), cross-validation and hyperparameter tuning (GridSearchCV), NLP with TF-IDF, K-Means clustering, and an introductory deep learning lab with TensorFlow/Keras.",
     "toc": "DSML106-Machine Learning Specialty.pdf",
     "logo": "course_thumb05.jpg",
     "noStudents": "10",
@@ -2694,21 +2732,28 @@
     "language": "English",
     "difficulty": "advanced",
     "whatWillYouLearn": [
-      "Fundamentals of data science and machine learning",
-      "Python libraries for data analysis and preprocessing",
-      "Supervised machine learning techniques for regression and classification",
-      "Unsupervised machine learning for clustering and natural language processing",
-      "Feature selection and dimensionality reduction techniques",
-      "Cross-validation and hyperparameter tuning",
-      "Introduction to deep learning concepts and frameworks"
+      "Explain the data science lifecycle and the skills required across a Data Scientist role",
+      "Preprocess data using Python libraries — NumPy, Pandas, Matplotlib, Seaborn, and Scikit-Learn",
+      "Build and evaluate simple and multiple linear regression models, diagnosing multicollinearity and autocorrelation",
+      "Build and evaluate classification models: logistic regression, SVM, decision trees, and random forests",
+      "Apply evaluation metrics — accuracy, precision, recall, F1, and AUC-ROC — to select the right model for the problem",
+      "Apply feature selection techniques including univariate selection, RFE, and PCA",
+      "Validate models rigorously using cross-validation and tune hyperparameters with grid and randomized search",
+      "Apply NLP fundamentals including tokenization, stemming, lemmatization, and TF-IDF vectorization",
+      "Apply K-Means clustering and interpret cluster quality with the elbow method",
+      "Explain the fundamentals of artificial neural networks, including activation functions, loss functions, and optimization",
+      "Build a first neural network using TensorFlow and Keras"
     ],
     "requirements": [
-      "Basic understanding of Python and data science concepts"
+      "Required: basic understanding of Python and data science concepts",
+      "Recommended: prior exposure to regression and classification fundamentals",
+      "Optional: familiarity with TensorFlow or Keras"
     ],
     "targetAudience": [
-      "Data Analysts",
-      "Business Analysts",
-      "Data Scientists"
+      "Data Scientists deepening their model validation and feature engineering rigor",
+      "Machine Learning Engineers preparing for production-facing responsibilities",
+      "Data Analysts advancing into more technical ML roles",
+      "Professionals preparing for Data Scientist or ML Engineer interviews"
     ],
     "modules": [
       {
@@ -2853,7 +2898,8 @@
           "Activation Function",
           "Loss Functions",
           "Optimization Techniques",
-          "Evaluation metrics for Deep Learning"
+          "Evaluation metrics for Deep Learning",
+          "Capstone Project — Model Comparison Study: problem statement — solve a classification problem using at least three different techniques (e.g. logistic regression, random forest, and a neural network) and justify the best choice; dataset — a provided real-world tabular dataset; deliverables — a comparative model report with cross-validated metrics, feature importance analysis, and a recommendation memo; skills demonstrated — feature selection, rigorous validation, hyperparameter tuning, and model comparison"
         ]
       }
     ],
@@ -2878,10 +2924,10 @@
     "courseModules": "07 Modules",
     "price": 111999,
     "rating": "4.5",
-    "overview": "This 7-day course provides a comprehensive introduction to text analysis using Python. Participants will explore natural language basics, Python essentials, text processing techniques, text classification, summarization, similarity, clustering, and sentiment analysis. The course includes practical hands-on exercises and projects to apply NLP concepts effectively.",
-    "courseObjective": "To equip participants with fundamental and advanced skills in text analysis using Python, covering text processing, classification, summarization, similarity, clustering, and sentiment analysis. By the end of the course, participants will be able to perform various NLP tasks and apply these techniques to real-world problems.",
-    "prerequisites": "Basic knowledge of Python and programming concepts.",
-    "labs": "Hands-on labs will cover text tokenization, normalization, classification, summarization, similarity analysis, and sentiment analysis using Python. Participants will work on practical projects to analyze and process text data.",
+    "overview": "Text Analysis with Python (NLP) is a seven-day, in-depth program covering the full natural language processing pipeline — from linguistic fundamentals through text classification, summarization, similarity analysis, clustering, and sentiment analysis. Unstructured text — reviews, support tickets, social media, contracts, transcripts — makes up the majority of data most organizations generate, yet it is the data most analytics teams are least equipped to process. This course closes that gap with a structured, hands-on curriculum built around applied NLP techniques used in production systems.\n\nParticipants start with the linguistic and Python foundations needed for text work, then move through the core NLP pipeline: tokenization and normalization, feature extraction, and text classification using classical machine learning algorithms. The course continues into more specialized applications — automated document summarization, term and document similarity analysis, document clustering, named entity recognition, and sentiment analysis — giving participants the breadth to tackle a wide range of real-world text analytics problems, from customer feedback analysis to content recommendation.\n\nWhile large language models have transformed how many NLP tasks are approached, the classical techniques covered here — TF-IDF, feature engineering for text, similarity metrics, and evaluation methodology — remain the foundation practitioners need to understand model behavior, debug pipelines, and make informed build-vs-buy decisions when evaluating LLM-based tools against traditional approaches. This makes the course equally relevant to teams building classical NLP pipelines and those evaluating how to combine them with modern AI-assisted text analytics.\n\nThis course is designed for Data Scientists, Data Analysts, and Machine Learning Engineers who need to work with unstructured text data as part of their role. Graduates leave with a portfolio project applying the full NLP pipeline to a real text dataset, and the foundation to progress into more advanced generative AI and LLM-focused courses.",
+    "courseObjective": "Participants will apply the complete NLP pipeline in Python — text tokenization and normalization, classification, automated summarization, similarity and clustering analysis, and sentiment and semantic analysis — to extract structured insight from unstructured text data.",
+    "prerequisites": "Required: basic knowledge of Python and programming concepts. Recommended: familiarity with fundamental machine learning concepts (classification, evaluation metrics). Optional: prior exposure to linguistics or text data — no prior NLP experience is required.",
+    "labs": "Hands-on labs covering text tokenization and normalization, feature extraction and classification, automated document summarization, term and document similarity analysis, document clustering, named entity recognition, and sentiment analysis — using real text datasets throughout.",
     "toc": "DSML107-Text Analysis with Python.pdf",
     "logo": "course_thumb09.jpg",
     "noStudents": "10",
@@ -2889,21 +2935,27 @@
     "language": "English",
     "difficulty": "Intermediate",
     "whatWillYouLearn": [
-      "Basics of natural language and linguistics",
-      "Python syntax and data structures for NLP",
-      "Text tokenization and normalization",
-      "Text classification techniques and algorithms",
-      "Text summarization methods and automated extraction",
-      "Text similarity and document clustering",
-      "Semantic analysis and sentiment analysis"
+      "Explain core linguistic concepts and how they inform NLP system design",
+      "Apply Python data structures, functional programming, and regular expressions to text-processing tasks",
+      "Tokenize and normalize raw text for downstream NLP tasks",
+      "Extract features from text and build a text classification pipeline",
+      "Evaluate text classification models using appropriate metrics",
+      "Build automated document summarization using keyphrase extraction and topic modelling",
+      "Calculate term and document similarity and build a document clustering pipeline",
+      "Apply semantic analysis techniques including WordNet exploration and word sense disambiguation",
+      "Perform named entity recognition on unstructured text",
+      "Apply sentiment analysis to classify text polarity for business use cases"
     ],
     "requirements": [
-      "Basic knowledge of Python and programming concepts"
+      "Required: basic knowledge of Python and programming concepts",
+      "Recommended: familiarity with fundamental machine learning concepts",
+      "Optional: prior exposure to linguistics or text data"
     ],
     "targetAudience": [
-      "Data Scientists",
-      "Data Analysts",
-      "Machine Learning Engineers"
+      "Data Scientists working with unstructured or text-heavy data",
+      "Data Analysts expanding into text and sentiment analytics",
+      "Machine Learning Engineers building NLP pipelines",
+      "Professionals evaluating classical NLP vs. LLM-based approaches"
     ],
     "modules": [
       {
@@ -2977,7 +3029,8 @@
           "Word Sense Disambiguation",
           "Named Entity Recognition",
           "Analyzing Semantic Representation",
-          "Sentiment Analysis"
+          "Sentiment Analysis",
+          "Capstone Project — Customer Review Sentiment & Topic Analysis: problem statement — classify sentiment and surface key themes from a large body of customer reviews; dataset — a provided product or service review dataset; deliverables — a classification model, extracted topics/keyphrases, and a sentiment summary dashboard; skills demonstrated — the full NLP pipeline from preprocessing through classification, summarization, and sentiment analysis"
         ]
       }
     ],
@@ -3002,10 +3055,10 @@
     "courseModules": "16 Modules",
     "price": 79999,
     "rating": "4.5",
-    "overview": "This intensive 5-day course on Deep Learning provides participants with a deep understanding of deep learning architectures and their applications. It covers the fundamentals of neural networks, including CNNs, RNNs, and transformers, with hands-on experience using TensorFlow. Participants will learn to apply these techniques to tasks such as image recognition, object detection, and natural language processing.",
-    "courseObjective": "To provide participants with a thorough understanding of deep learning concepts and architectures, enable them to build and train neural networks using TensorFlow, and apply deep learning models to various tasks such as image and text processing.",
-    "prerequisites": "Basic understanding of machine learning concepts and proficiency in Python programming.",
-    "labs": "Hands-on labs will involve building and training neural networks using TensorFlow, implementing CNNs and RNNs, and applying advanced deep learning techniques to real-world problems.",
+    "overview": "Deep Learning Specialty is Technohana's intensive five-day program covering the full modern deep learning stack — from neural network fundamentals through convolutional networks, recurrent networks, attention mechanisms, and transformer architectures, the backbone of virtually every state-of-the-art AI system in 2026, from computer vision to large language models. This course is built for participants who already have machine learning fundamentals and want to understand and build the neural architectures powering modern AI products.\n\nThe course follows a deliberately layered progression: starting with the mechanics of a single neuron and forward/backward propagation, building up through shallow and deep neural networks, and covering the practical craft of training networks that actually converge — weight initialization, regularization, optimization algorithms, hyperparameter tuning, and batch normalization, all implemented in TensorFlow. From there, participants move into computer vision with convolutional neural networks (including transfer learning, object detection, and face recognition), then into sequence modeling with recurrent neural networks, word embeddings, attention mechanisms, and finally transformer networks — the architecture underlying modern generative AI and large language models.\n\nThis is an advanced course: it assumes participants already understand core machine learning concepts and are comfortable with Python. It suits Data Scientists and Machine Learning Engineers specializing in deep learning, and AI Practitioners who need to understand transformer architecture to work effectively with or build on top of modern generative AI systems. Because transformers now underpin the LLMs powering the generative AI boom, this course also functions as essential preparation for teams moving into applied generative AI and LLM engineering work.\n\nGraduates leave with hands-on experience building and training CNNs and RNNs and a working understanding of transformer architecture, plus a capstone project applying deep learning to a real computer vision or sequence modeling problem — positioning them for roles such as Deep Learning Engineer, Computer Vision Engineer, and AI/ML Engineer, and providing direct groundwork for Technohana's Computer Vision and Generative AI course tracks.",
+    "courseObjective": "Participants will build, train, and evaluate deep neural networks in TensorFlow — including convolutional neural networks for computer vision, recurrent neural networks and attention mechanisms for sequence modeling, and transformer architectures — while mastering the practical craft of initialization, regularization, optimization, and hyperparameter tuning needed to train networks that converge reliably.",
+    "prerequisites": "Required: basic understanding of machine learning concepts and proficiency in Python programming. Recommended: familiarity with NumPy and Scikit-Learn (e.g. from Technohana's Machine Learning Specialty course). Optional: prior exposure to linear algebra and calculus.",
+    "labs": "Hands-on labs building and training neural networks in TensorFlow, including a shallow network from scratch, deep CNNs for image classification, transfer learning with pretrained models, object detection, face recognition, RNN-based sequence models, and a transformer architecture walkthrough.",
     "toc": "DSML108-Deep Learning Specialty.pdf",
     "logo": "course_thumb07.jpg",
     "noStudents": "10",
@@ -3013,21 +3066,28 @@
     "language": "English",
     "difficulty": "advanced",
     "whatWillYouLearn": [
-      "Deep learning concepts and architectures",
-      "Proficiency in TensorFlow for building and training deep neural networks",
-      "Application of convolutional neural networks (CNNs) for tasks like detection and recognition",
-      "Building and training recurrent neural networks (RNNs) for NLP tasks",
-      "Utilizing transformer models for NER and question answering",
-      "Practical aspects of deep learning, including optimization, regularization, and hyperparameter tuning"
+      "Explain deep learning trends, architectures, and real-world applications",
+      "Implement forward and backward propagation for a neural network from first principles",
+      "Build and train shallow and deep neural networks using TensorFlow",
+      "Apply weight initialization and regularization techniques to prevent overfitting",
+      "Apply advanced optimization algorithms, mini-batching, and learning rate decay to improve training",
+      "Tune hyperparameters and apply batch normalization for stable, efficient training",
+      "Design and train convolutional neural networks (CNNs) for image classification",
+      "Apply transfer learning with pretrained CNN models",
+      "Build object detection and face recognition systems using CNNs",
+      "Build recurrent neural networks (RNNs) and apply attention mechanisms for sequence and NLP tasks",
+      "Explain the architecture and function of transformer networks underlying modern generative AI"
     ],
     "requirements": [
-      "Basic understanding of machine learning concepts",
-      "Proficiency in Python programming"
+      "Required: basic understanding of machine learning concepts",
+      "Required: proficiency in Python programming",
+      "Recommended: familiarity with NumPy and Scikit-Learn"
     ],
     "targetAudience": [
-      "Data Analysts",
-      "Business Analysts",
-      "Data Scientists"
+      "Data Scientists and ML Engineers specializing in deep learning",
+      "Computer Vision Engineers building CNN-based systems",
+      "AI Practitioners needing to understand transformer architecture",
+      "Engineers preparing for applied generative AI or LLM engineering roles"
     ],
     "modules": [
       {
@@ -3137,7 +3197,8 @@
       {
         "moduleTitle": "Module 16 - Transformer Network",
         "content": [
-          "Understanding the functioning of transformer networks"
+          "Understanding the functioning of transformer networks",
+          "Capstone Project — Image or Sequence Classifier: problem statement — build and evaluate a deep learning model for a chosen computer vision or sequence classification task; dataset — a provided image dataset (e.g. product defects) or text/sequence dataset; deliverables — a trained TensorFlow/Keras model, training curves, evaluation metrics, and a short architecture write-up; skills demonstrated — network design, regularization, optimization, and applied use of CNN/RNN architectures"
         ]
       }
     ],
@@ -3162,10 +3223,10 @@
     "courseModules": "14 Modules",
     "price": 47999,
     "rating": "4.5",
-    "overview": "This 3-day course provides a comprehensive introduction to computer vision using OpenCV. Participants will gain practical skills in image and video processing, object detection, and face recognition. Through hands-on demos, they will learn how to manipulate images, perform segmentation, and apply various techniques for object tracking and detection.",
-    "courseObjective": "To equip participants with fundamental skills in computer vision using OpenCV, including image processing, segmentation, object detection, and video analysis. Participants will be able to apply these techniques to real-world problems and projects.",
-    "prerequisites": "Basic knowledge of Python.",
-    "labs": "Hands-on labs will cover reading, writing, and displaying images, as well as various image processing and object detection tasks. Participants will work on real-world problems involving image and video analysis.",
+    "overview": "Computer Vision with OpenCV is a three-day, intensive hands-on course covering the practical computer vision techniques used in production applications today — image processing, segmentation, object detection, face and eye detection, and object tracking, all built using OpenCV, the industry-standard open-source computer vision library. Computer vision now underpins a wide range of 2026 enterprise use cases: quality inspection in manufacturing, retail shelf and footfall analytics, security and surveillance, document processing, and augmented reality — making practical OpenCV skills a valuable and differentiated addition to a data professional's toolkit.\n\nThe course is structured as a day-by-day progression from fundamentals to applied techniques: Day 1 covers image basics, color spaces, and the essential differences between NumPy-based and OpenCV-based image handling; Day 2 covers geometric transformations, arithmetic and bitwise operations, and image segmentation with contour detection; Day 3 covers video processing, feature-based object detection, HAAR cascade face and eye detection, and object tracking using background subtraction and mean-shift algorithms. Every topic is reinforced with a hands-on demo, and participants finish with a project applying multiple techniques to a real image or video problem.\n\nThis course targets participants with basic Python knowledge who want practical, applied computer vision skills rather than deep learning theory — it is a strong complement to (not a replacement for) Technohana's Deep Learning Specialty course for those who also want to build CNN-based vision models. It suits Data Analysts and Data Scientists expanding into vision-based analytics, as well as engineers building automation, quality-inspection, or surveillance systems.\n\nGraduates leave with practical experience across the full classical computer vision pipeline and a project demonstrating object or face detection on real images or video — a strong addition to a data science portfolio and a foundation for further specialization in deep-learning-based computer vision.",
+    "courseObjective": "Participants will apply OpenCV to build a complete classical computer vision pipeline — image processing and transformation, segmentation and contour detection, video capture and analysis, and object, face, and motion tracking — culminating in a hands-on project.",
+    "prerequisites": "Required: basic knowledge of Python. Recommended: familiarity with NumPy for array operations. Optional: prior exposure to machine learning or deep learning concepts.",
+    "labs": "Hands-on demos across every module: reading/writing/displaying images, color space conversion, geometric transformations, contour and shape detection, video capture, corner and feature detection, HAAR cascade face/eye detection, and background-subtraction-based object tracking.",
     "toc": "DSML109-Computer Vision with OpenCV.pdf",
     "logo": "course_thumb07.jpg",
     "noStudents": "10",
@@ -3173,20 +3234,27 @@
     "language": "English",
     "difficulty": "intermediate",
     "whatWillYouLearn": [
-      "Introduction to OpenCV and its applications",
-      "Basic image processing techniques",
-      "Image segmentation and object detection",
-      "Video capture and analysis",
-      "Face detection and recognition",
-      "Object tracking and gesture recognition"
+      "Read, write, and manipulate images using OpenCV and NumPy",
+      "Convert and work across color spaces including RGB and HSV",
+      "Apply geometric transformations: translation, rotation, scaling, resizing, and cropping",
+      "Apply arithmetic and bitwise image operations, blurring, and sharpening",
+      "Perform image segmentation using contour detection and shape matching",
+      "Detect lines, circles, and blobs within an image",
+      "Capture and process video streams with OpenCV",
+      "Apply feature detection algorithms (SIFT, SURF, FAST, BRIEF, ORB) for object detection",
+      "Build face and eye detection systems using HAAR cascade classifiers",
+      "Track objects using color filtering, background subtraction, and the MeanShift algorithm"
     ],
     "requirements": [
-      "Basic knowledge of Python"
+      "Required: basic knowledge of Python",
+      "Recommended: familiarity with NumPy",
+      "Optional: prior exposure to machine learning or deep learning concepts"
     ],
     "targetAudience": [
-      "Data Analysts",
-      "Business Analysts",
-      "Data Scientists"
+      "Data Analysts and Data Scientists expanding into vision-based analytics",
+      "Machine Learning Engineers building computer vision applications",
+      "Automation and QA engineers building inspection or surveillance systems",
+      "Software Engineers adding computer vision to their skill set"
     ],
     "modules": [
       {
@@ -3266,7 +3334,8 @@
           "Filtering by Colour",
           "Background Subtraction and Foreground Subtraction",
           "Using MeanShift",
-          "DEMO - Background Subtraction"
+          "DEMO - Background Subtraction",
+          "Capstone Project — Retail Shelf Monitoring System: problem statement — detect and track products or people in a retail video feed; dataset — a provided sample retail surveillance video clip; deliverables — an OpenCV pipeline performing detection and tracking, with annotated output frames; skills demonstrated — feature detection, HAAR cascade detection, and motion-based object tracking applied to a realistic business scenario"
         ]
       }
     ],
@@ -3291,10 +3360,10 @@
     "courseModules": "15 Modules",
     "price": 47999,
     "rating": "4.5",
-    "overview": "This 3-day course provides an in-depth exploration of MLOps, focusing on best practices and tools for managing machine learning operations. Participants will learn about MLOps fundamentals, tools for end-to-end ML project management, model and data versioning, containerized workflows, API deployment, and automated services. The course includes practical labs and a comprehensive project to consolidate learning.",
-    "courseObjective": "To provide participants with a thorough understanding of MLOps concepts and practices. Participants will gain hands-on experience with MLOps tools, model and data versioning, automation, deployment, and monitoring, enabling them to effectively manage ML operations in real-world scenarios.",
-    "prerequisites": "Basic understanding of machine learning and Python.",
-    "labs": "Labs will cover practical implementation of MLOps tools, model versioning, containerization, API deployment, and continuous integration/continuous deployment (CI/CD). Participants will work on real-world projects involving end-to-end ML operations.",
+    "overview": "Mastering MLOps is a three-day, tools-intensive course that teaches the operational discipline separating machine learning models that stay in a notebook from models that run reliably in production. As organizations mature their AI investments, MLOps has become one of the fastest-growing specializations in the 2026 data job market — the skill set that bridges data science and software engineering, ensuring models are versioned, tested, deployed, monitored, and retrained systematically rather than manually and inconsistently.\n\nThe course covers the full MLOps toolchain used by modern data teams: model versioning and experiment tracking with MLflow, data versioning with DVC, collaborative ML repositories with DagsHub, Auto-ML and low-code workflows with PyCaret, model explainability with SHAP, containerization with Docker, API-based model deployment with FastAPI and Flask, automated ML services with BentoML, CI/CD pipelines with GitHub Actions and CML, and production monitoring for data and model drift with Evidently AI and Deepchecks. Rather than treating these as isolated tools, the course integrates them into a single coherent workflow that participants apply end to end in a capstone project — developing, versioning, containerizing, deploying, and monitoring a model exactly as it would be done on a real MLOps team.\n\nThis is an advanced course for participants who already understand machine learning and Python and want to specialize in the operational side of ML delivery. It is particularly valuable for Data Scientists moving into MLOps-focused roles, Machine Learning Engineers responsible for production model reliability, DevOps Engineers extending their practice into ML systems, and Data Engineers supporting ML pipelines.\n\nGraduates leave with direct, hands-on experience across the modern MLOps toolchain and a complete capstone project demonstrating the full model lifecycle — positioning them for roles such as MLOps Engineer, ML Platform Engineer, and Machine Learning Engineer, among the most in-demand specializations in applied AI.",
+    "courseObjective": "Participants will build a complete, production-grade MLOps workflow — versioning models and data with MLflow and DVC, containerizing with Docker, deploying via APIs and automated services (FastAPI, BentoML), automating CI/CD with GitHub Actions, and monitoring deployed models for drift with Evidently AI and Deepchecks.",
+    "prerequisites": "Required: basic understanding of machine learning and Python. Recommended: familiarity with Git and command-line tools. Optional: prior exposure to Docker or cloud deployment concepts.",
+    "labs": "Hands-on labs across the full MLOps toolchain: model versioning with MLflow, data versioning with DVC, collaborative repositories with DagsHub, Auto-ML with PyCaret, model explainability with SHAP, Docker containerization, FastAPI/Flask model deployment, BentoML automated services, GitHub Actions CI/CD, and drift monitoring with Evidently AI and Deepchecks — culminating in a capstone MLOps project.",
     "toc": "DSML110-Mastering MLOps.pdf",
     "logo": "course_thumb08.jpg",
     "noStudents": "10",
@@ -3435,7 +3504,8 @@
           "Sharing repository with DagsHub and MLFlow",
           "Building an API with BentoML",
           "Creating a Streamlit app",
-          "Implementing CI/CD with GitHub Actions"
+          "Implementing CI/CD with GitHub Actions",
+          "Capstone Project — Production-Ready MLOps Pipeline: problem statement — take a model from development to a monitored, deployed service; dataset — a provided tabular dataset of your choice; deliverables — a versioned model and dataset, a containerized BentoML service, a CI/CD pipeline, and a live Streamlit app; skills demonstrated — the complete MLOps toolchain from experiment tracking through deployment and CI/CD automation"
         ]
       }
     ],
@@ -3460,10 +3530,10 @@
     "courseModules": "08 Modules",
     "price": 79999,
     "rating": "4.5",
-    "overview": "This course provides a comprehensive introduction to R programming with a focus on data science and machine learning applications. Participants will learn to handle various data formats, perform data manipulation and visualization, and apply machine learning algorithms using R. The course is designed to develop practical skills for solving real-world data science problems using R.",
-    "courseObjective": "To equip participants with a thorough understanding of R programming and its applications in data analysis, manipulation, and machine learning. The course aims to build proficiency in handling data, performing data analysis and visualization, and implementing machine learning algorithms in R.",
-    "prerequisites": "Basic understanding of programming concepts is helpful but not required. Familiarity with data science concepts will be an advantage.",
-    "labs": "Hands-on labs will be provided to practice R programming, data manipulation, visualization, and machine learning applications. Practical exercises will involve working with real-world datasets and solving data science problems using R.",
+    "overview": "R Programming for Data Science & Machine Learning is a five-day course building complete data science fluency in R — the statistical programming language still favored by many analytics, research, and enterprise teams alongside Python. While Python dominates general-purpose data science tooling, R remains the language of choice in academia, pharmaceutical and clinical research, actuarial science, and many established enterprise analytics teams, particularly for its statistical modeling depth and the tidyverse's expressive data manipulation and visualization grammar (dplyr, tidyr, ggplot2).\n\nThe course takes participants from R fundamentals — vectors, matrices, data frames, and lists — through practical data engineering tasks like reading CSV, Excel, and SQL sources and web scraping, into the tidyverse for data manipulation (dplyr, the pipe operator, tidyr) and publication-quality visualization with ggplot2 and Plotly. From there, participants apply supervised machine learning (linear and multiple regression, KNN, decision trees, random forests, SVM) and unsupervised techniques (K-Means clustering, NLP, and an introduction to neural networks) — a complete, applied data science toolkit entirely within the R ecosystem.\n\nThis course suits Data Analysts and Data Scientists working in R-first organizations or bilingual Python/R teams, Business Analysts in research-heavy industries, and professionals in academia, healthcare, or finance where R remains the standard analytics language. It also works as a second-language addition for practitioners already proficient in Python who want R fluency for cross-team collaboration or R-specific statistical packages.\n\nGraduates leave with a full R-based data science workflow — from data ingestion through machine learning — and a capstone project applying these techniques to a real dataset, positioning them for Data Analyst, Data Scientist, and Research Analyst roles in R-centric organizations.",
+    "courseObjective": "Participants will build a complete R-based data science workflow — data ingestion from CSV, Excel, SQL, and web sources, tidyverse-based data manipulation and visualization, and supervised and unsupervised machine learning — applying these skills to a capstone project.",
+    "prerequisites": "Required: none — this course is designed for R beginners. Recommended: basic understanding of programming concepts or prior exposure to another language (e.g. Python or SQL). Optional: familiarity with data science or statistics concepts.",
+    "labs": "Hands-on labs across every module: R basics and vector operations, matrix and data frame manipulation, data ingestion from CSV/Excel/SQL and web scraping, tidyverse data manipulation and ggplot2/Plotly visualization, supervised ML model building, and unsupervised clustering and NLP in R — culminating in a capstone project.",
     "toc": "DSML111-R Programming for Data Science & Machine Learning.pdf",
     "logo": "course_thumb06.jpg",
     "noStudents": "10",
@@ -3471,20 +3541,27 @@
     "language": "English",
     "difficulty": "intermediate",
     "whatWillYouLearn": [
-      "Basics of R programming language",
-      "Data manipulation and visualization using R",
-      "Handling various file formats including CSV, Excel, and SQL",
-      "Web scraping techniques with R",
-      "Implementation of supervised and unsupervised machine learning algorithms in R",
-      "Introduction to deep learning concepts using R"
+      "Write R programs using vectors, matrices, data frames, and lists",
+      "Ingest data from CSV, Excel, and SQL sources, and scrape data from the web using R",
+      "Apply control flow, functions, and R's built-in and apply-family functions",
+      "Manipulate data using the tidyverse: dplyr, the pipe operator, and tidyr",
+      "Build publication-quality visualizations with ggplot2, including faceting and theming",
+      "Build interactive visualizations using Plotly in R",
+      "Build and evaluate simple and multiple linear regression models in R, checking key assumptions",
+      "Apply classification algorithms in R: KNN, decision trees, random forests, and SVM",
+      "Apply K-Means clustering and foundational NLP techniques in R",
+      "Explain the fundamentals of neural networks and their implementation in R"
     ],
     "requirements": [
-      "Basic understanding of programming concepts"
+      "Required: none — this course is designed for R beginners",
+      "Recommended: basic understanding of programming concepts",
+      "Optional: prior exposure to data science or statistics concepts"
     ],
     "targetAudience": [
-      "Data Analysts",
-      "Business Analysts",
-      "Data Scientists"
+      "Data Analysts and Data Scientists in R-first or bilingual Python/R teams",
+      "Business Analysts in research-heavy industries such as healthcare and finance",
+      "Research Analysts using R for statistical modeling",
+      "Python-proficient practitioners adding R fluency for cross-team collaboration"
     ],
     "modules": [
       {
@@ -3550,7 +3627,8 @@
         "content": [
           "K-Means Clustering",
           "Natural Language Processing",
-          "Deep Learning Concepts using Neural Networks in R"
+          "Deep Learning Concepts using Neural Networks in R",
+          "Capstone Project — Market Segmentation Analysis in R: problem statement — segment customers or products using clustering and summarize findings for business stakeholders; dataset — a provided sales or customer dataset; deliverables — an R Markdown report with ggplot2 visualizations, cluster profiles, and business recommendations; skills demonstrated — the full R data science workflow from ingestion through unsupervised modeling and communication"
         ]
       }
     ],
@@ -3574,10 +3652,10 @@
     "courseTime": "40 Hours",
     "courseware": "Unofficial PDF",
     "courseModules": "28 Modules",
-    "overview": "This comprehensive 5-day course provides an in-depth understanding of machine learning, from model development to deployment. Participants will cover essential concepts, techniques, and algorithms in machine learning, including data cleaning, preprocessing, predictive analysis, and advanced algorithms. The course also includes practical experience with model evaluation, dimensionality reduction, NLP, and model deployment.",
-    "courseObjective": "To equip participants with a solid foundation in machine learning, covering key concepts, techniques, and algorithms, and providing hands-on experience in model development, evaluation, and deployment in production environments.",
-    "prerequisites": "Basic understanding of programming and statistics.",
-    "labs": "The course includes hands-on labs that can be performed using open-source tools. Participants are encouraged to use available open-source resources for practical exercises.",
+    "overview": "Machine Learning: From Model Development to Model Deployment is Technohana's most comprehensive machine learning survey course — a five-day, 28-module program spanning the entire ML lifecycle from data cleaning through advanced algorithms, rigorous evaluation, and production deployment. It is designed for participants who want a single, thorough course covering the breadth of classical machine learning rather than assembling knowledge from multiple narrower courses — making it well suited both as a standalone credential and as an intensive refresher for experienced practitioners preparing for interviews or certification.\n\nThe course follows the real lifecycle of a machine learning project: data cleaning and exploratory data analysis, feature selection and feature engineering, predictive modeling across regression (simple, multiple, ridge, lasso, elastic net) and classification (logistic regression, KNN, decision trees, Naive Bayes, SVM, and ensemble methods including bagging, boosting, and XGBoost), model evaluation and selection using cross-validation and standard metrics, dimensionality reduction with PCA, clustering, time series forecasting with ARIMA, statistical testing (A/B testing and hypothesis testing), foundational NLP and sentiment analysis, and — critically — model deployment using Streamlit and Azure Cloud, plus an introduction to reinforcement learning.\n\nThis breadth makes the course particularly valuable for participants who need to understand the full machine learning pipeline end to end, including the deployment step that many academic-style courses omit entirely. It suits Data Scientists and Machine Learning Engineers who want a comprehensive review across the full algorithm landscape, AI Practitioners preparing for technical interviews, and Data Analysts making a serious transition into a full-time machine learning role.\n\nGraduates leave with practical experience across the full spectrum of classical machine learning algorithms and a working understanding of how to take a trained model into production — positioning them for roles such as Machine Learning Engineer, Data Scientist, and AI Practitioner, and providing a strong, broad foundation before specializing further in deep learning or MLOps.",
+    "courseObjective": "Participants will execute the complete machine learning lifecycle — data cleaning, feature selection and engineering, building and evaluating regression, classification, clustering, and time series models, applying statistical testing, and deploying a trained model to production using Streamlit and Azure Cloud.",
+    "prerequisites": "Required: basic understanding of programming and statistics. Recommended: prior exposure to Python and a machine learning library such as Scikit-Learn. Optional: familiarity with cloud platforms (Azure).",
+    "labs": "Hands-on, open-source-tool-based labs across the full course: data cleaning and EDA, feature selection and engineering, regression and classification model building, ensemble methods, PCA, clustering, time series forecasting, A/B and hypothesis testing, NLP/sentiment analysis, and model deployment with Streamlit and Azure Cloud.",
     "toc": "DSML112-Machine-Learning-Courseware.pdf",
     "logo": "course_thumb12.jpg",
     "noStudents": "25+",
@@ -3585,21 +3663,30 @@
     "language": "English",
     "difficulty": "Advanced",
     "whatWillYouLearn": [
-      "Core machine learning concepts and techniques",
-      "Data cleaning, preprocessing, and feature engineering",
-      "Predictive analytics and regression models",
-      "Advanced algorithms including decision trees and SVM",
-      "Model evaluation, cross-validation, and dimensionality reduction",
-      "Basics of NLP and sentiment analysis",
-      "Deployment of machine learning models in production environments"
+      "Clean and preprocess data, handling missing values and outliers systematically",
+      "Perform exploratory data analysis to detect patterns, anomalies, and correlations",
+      "Apply feature selection (filter, wrapper, embedded) and feature engineering techniques",
+      "Build and evaluate regression models including Ridge, Lasso, and ElasticNet",
+      "Build and evaluate classification models including logistic regression, KNN, decision trees, and Naive Bayes",
+      "Apply ensemble methods — bagging, random forests, and boosting (AdaBoost, Gradient Boosting, XGBoost)",
+      "Select and validate models using cross-validation and standard evaluation metrics",
+      "Reduce dimensionality using Principal Component Analysis",
+      "Apply K-Means and hierarchical clustering for market segmentation",
+      "Build time series forecasts using ARIMA and analyze trend, seasonality, and noise",
+      "Design and interpret A/B tests and hypothesis tests for business decisions",
+      "Apply foundational NLP and sentiment analysis techniques",
+      "Deploy a trained machine learning model to production using Streamlit and Azure Cloud, and monitor it post-deployment"
     ],
     "requirements": [
-      "Basic understanding of programming and statistics"
+      "Required: basic understanding of programming and statistics",
+      "Recommended: prior exposure to Python and a machine learning library such as Scikit-Learn",
+      "Optional: familiarity with cloud platforms (Azure)"
     ],
     "targetAudience": [
-      "Data Scientists",
-      "Machine Learning Engineers",
-      "AI Practitioners"
+      "Data Scientists seeking a comprehensive review across the ML algorithm landscape",
+      "Machine Learning Engineers responsible for the full model lifecycle",
+      "AI Practitioners preparing for technical interviews",
+      "Data Analysts transitioning into full-time machine learning roles"
     ],
     "modules": [
       {
@@ -3814,7 +3901,8 @@
           "Introduction to Model Deployment",
           "Deployment and Consuming model using Streamlit",
           "Deploying and Consuming model on Azure Cloud",
-          "Monitoring Deployed Models"
+          "Monitoring Deployed Models",
+          "Capstone Project — End-to-End Predictive Model in Production: problem statement — take a business prediction problem (e.g. loan default or customer churn) from raw data to a live, deployed application; dataset — a provided real-world tabular dataset; deliverables — a trained and validated model, a Streamlit application, an Azure-deployed endpoint, and a monitoring plan; skills demonstrated — the complete ML lifecycle from data cleaning and feature engineering through model selection, deployment, and monitoring"
         ]
       }
     ],
@@ -15361,7 +15449,7 @@
     "category": "Data Visualization",
     "catdesc": "Turn data into decisions with industry-leading visualization tools. Build stunning dashboards, craft compelling stories with data, and drive business insights using Power BI and Tableau.",
     "catcls": "cat-seventeen",
-    "overview": "Building on foundational Power BI skills, this advanced course dives deep into DAX (Data Analysis Expressions), complex data modelling, and enterprise-grade report design. Participants will master calculated columns, measures, time intelligence functions, and row-level security to deliver publication-quality analytics.",
+    "overview": "Power BI Advanced Analytics & DAX is a three-day, advanced-level course for professionals who already build basic Power BI reports and are ready to move into the analytics engineering skills that separate self-service reporting from enterprise-grade business intelligence. Power BI remains one of the most in-demand BI platforms in the 2026 job market, and the skills this course targets — DAX, star-schema data modelling, row-level security, and Power BI Service deployment — are consistently the differentiators between an entry-level report builder and a BI Developer or Analytics Engineer capable of owning production dashboards used across an organization.\n\nThe course goes deep on DAX (Data Analysis Expressions), the formula language at the heart of every non-trivial Power BI report: participants master row context vs. filter context, the CALCULATE function family, iterator functions, and the time intelligence patterns (YTD, MTD, period-over-period, rolling averages) that appear in almost every business dashboard. Alongside DAX, the course covers star-schema data modelling for performance, Power Query (M language) for advanced transformation, row-level and object-level security for multi-tenant and sensitive reporting, and the enterprise deployment workflow — publishing, scheduled refresh, gateways, and app distribution through the Power BI Service.\n\nThis course is built for Business Analysts and Data Analysts who already have basic Power BI experience (importing data, building simple visuals and measures) and want to move into advanced analytics and BI development. It is especially valuable for professionals preparing for the Microsoft PL-300 Power BI Data Analyst certification, and for BI Developers responsible for designing and deploying enterprise reporting solutions rather than one-off reports.\n\nGraduates leave with a portfolio-ready enterprise dashboard demonstrating advanced DAX, row-level security, and a governed deployment pipeline — directly applicable to BI Developer, Data Analyst, and Analytics Engineer roles, and strong preparation for the PL-300 certification exam.",
     "courseObjective": "Participants will write advanced DAX formulas, build star-schema data models, implement time intelligence calculations, design RLS-protected reports, and publish enterprise dashboards to the Power BI Service.",
     "courseOutcomes": "Upon completion, participants will be able to build complex Power BI solutions including advanced DAX measures, optimized data models, row-level security, and automated refresh pipelines via Power BI Service.",
     "prerequisites": "Basic Power BI experience (creating reports, importing data, simple measures). Familiarity with Excel is beneficial.",
@@ -15445,7 +15533,8 @@
           "Scheduled refresh, dataflows, and gateway configuration",
           "Power BI apps: packaging and distributing reports to business users",
           "Power BI Embedded and sharing reports externally",
-          "Lab: Publish a sales analytics app to the Power BI Service with scheduled refresh and RLS"
+          "Lab: Publish a sales analytics app to the Power BI Service with scheduled refresh and RLS",
+          "Capstone Project — Enterprise Sales Performance Dashboard: problem statement — deliver a multi-region sales performance dashboard for executive and regional stakeholders with role-appropriate access; dataset — a provided multi-year sales, HR, and financial dataset; deliverables — a star-schema data model, an advanced DAX measure library, an RLS-protected report, and a published Power BI Service app with scheduled refresh; skills demonstrated — data modelling, advanced DAX, security, and enterprise deployment"
         ]
       }
     ],
@@ -15466,7 +15555,7 @@
     "category": "Data Visualization",
     "catdesc": "Turn data into decisions with industry-leading visualization tools. Build stunning dashboards, craft compelling stories with data, and drive business insights using Power BI and Tableau.",
     "catcls": "cat-seventeen",
-    "overview": "Tableau is the world's leading data visualization platform, trusted by analysts and executives at thousands of organizations. This course takes participants from Tableau basics to building interactive dashboards, using calculated fields, LOD expressions, and publishing polished workbooks to Tableau Server and Tableau Cloud.",
+    "overview": "Tableau Desktop Specialist is a three-day, hands-on course that takes participants from Tableau fundamentals to building and publishing production-quality interactive dashboards — the practical skill set behind one of the two dominant enterprise data visualization platforms alongside Power BI. Tableau remains the tool of choice at many analytics-mature organizations for its visual flexibility and its Level of Detail (LOD) expression engine, which lets analysts control aggregation granularity independently of the visualization — a capability that regularly separates intermediate Tableau users from advanced ones.\n\nThe course follows a practical build path: connecting to diverse data sources (Excel, CSV, SQL databases, cloud sources), building the full range of standard and advanced chart types including geographic maps and dual-axis combinations, writing calculated fields, table calculations, and LOD expressions, and assembling interactive dashboards using filter actions, highlight actions, and Tableau Stories for narrative presentation. The final module focuses on publishing workbooks to Tableau Server and Tableau Cloud, optimizing performance with extracts, and direct preparation for the Tableau Desktop Specialist certification exam, including a full timed mock assessment.\n\nThis course is designed for professionals with no prior Tableau experience who are comfortable with basic data and spreadsheet concepts. It suits Business Analysts building self-service dashboards, Data Analysts transitioning from other BI tools, and marketing, sales, and finance professionals who need to work with data visually. Because the course is explicitly structured around the certification syllabus, it is also a direct and efficient path for anyone targeting the Tableau Desktop Specialist credential.\n\nGraduates leave with a portfolio-ready interactive dashboard, hands-on fluency across Tableau's core and advanced features, and direct exam readiness for the Tableau Desktop Specialist certification — a strong credential for Business Analyst, Data Analyst, and BI Developer roles in Tableau-using organizations.",
     "courseObjective": "Participants will connect to diverse data sources, build a wide variety of chart types, write calculated fields and LOD expressions, design interactive dashboards with actions, and publish to Tableau Server or Tableau Cloud.",
     "courseOutcomes": "Upon completion, participants will be able to build production-quality Tableau dashboards, write advanced calculations including LOD expressions, and prepare for the Tableau Desktop Specialist certification exam.",
     "prerequisites": "No prior Tableau experience required. Familiarity with spreadsheets or basic data concepts is beneficial.",
@@ -15550,7 +15639,8 @@
           "Data extracts vs. live connections: when to use each",
           "Workbook performance optimization: minimizing queries and marks",
           "Tableau Desktop Specialist exam format and key topic review",
-          "Mock assessment: 30-question timed Tableau Specialist practice exam"
+          "Mock assessment: 30-question timed Tableau Specialist practice exam",
+          "Capstone Project — Interactive Retail Analytics Dashboard: problem statement — build a published, interactive dashboard analyzing sales and customer trends for a retail dataset; dataset — a provided multi-year retail sales dataset; deliverables — a Tableau workbook with LOD-based calculations, an interactive dashboard with filter/highlight actions, and a Tableau Story presenting key findings; skills demonstrated — data connection, advanced calculations, dashboard design, and publishing"
         ]
       }
     ],
@@ -15915,7 +16005,7 @@
     "category": "Python for Automation",
     "catdesc": "Learn Python to automate repetitive tasks, manage IT infrastructure, and build powerful scripts. No prior programming experience required \u2014 just a desire to work smarter.",
     "catcls": "cat-eighteen",
-    "overview": "Python is the most popular scripting language for IT professionals worldwide. This hands-on course teaches sysadmins, network engineers, and IT teams how to use Python to automate routine tasks \u2014 from file management and log parsing to network device configuration and cloud API interaction.",
+    "overview": "Python for IT Automation & Scripting is a three-day, hands-on course that teaches IT professionals to replace manual, repetitive operational work with reliable Python automation \u2014 one of the highest-leverage skills an IT professional can add in 2026, as automation and Infrastructure-as-Code increasingly define operational maturity across sysadmin, network, and DevOps-adjacent roles. Python remains the most widely adopted scripting language for IT automation because of its readability and its enormous ecosystem of libraries for exactly this kind of work.\n\nThe course is built around real operational tasks rather than abstract programming exercises: participants learn Python fundamentals just deep enough to be productive, then move directly into file system and log automation (parsing logs, archiving, extracting error patterns with regex), network automation (SSH-based device management with Paramiko and Netmiko across Cisco, Juniper, and Arista gear, plus SNMP monitoring), REST API and cloud automation (calling APIs, authenticating, and using AWS Boto3 and the Azure SDK), and finally scheduling and alerting \u2014 building scripts that run unattended via cron or Task Scheduler and notify teams via email, Slack, or Teams when something needs attention.\n\nThis course is designed for sysadmins, network engineers, help desk professionals, and IT managers who want their teams to move from manual, ticket-by-ticket operational work to reliable, version-controlled automation \u2014 no prior programming experience is required. It is equally useful for IT professionals early in their automation journey and for teams standardizing on Python as their operational scripting language.\n\nGraduates leave with a capstone automated server health monitoring script and a working automation toolkit spanning files, networks, APIs, and scheduling \u2014 directly applicable to IT Operations, Network Automation, and early-career DevOps roles, and a natural stepping stone toward infrastructure-as-code and cloud engineering specializations.",
     "courseObjective": "Participants will write Python scripts to automate IT tasks including file operations, system administration, network device interaction, REST API calls, and scheduled job execution.",
     "courseOutcomes": "Upon completion, participants will be able to write Python scripts that automate real IT workflows, interact with network devices and cloud APIs, and schedule automated jobs on Linux and Windows systems.",
     "prerequisites": "No prior programming experience required. Basic comfort with command-line interfaces (Linux or Windows).",
@@ -15999,7 +16089,7 @@
           "Task Scheduler on Windows: automating Python execution",
           "Sending alerts: SMTP email, Slack webhooks, and Teams notifications",
           "Error handling and logging: try/except, logging module, and log rotation",
-          "Capstone: Automated server health monitoring script with email and Slack alerts"
+          "Capstone Project — Automated Server Health Monitoring System: problem statement — build a script that continuously checks server health and proactively alerts the team; dataset — live or simulated system metrics (CPU, memory, disk, process status) across a set of servers; deliverables — a scheduled Python monitoring script with structured logging and email/Slack alerting; skills demonstrated — file/log automation, error handling, scheduling, and real-time alerting"
         ]
       }
     ],
@@ -16020,7 +16110,7 @@
     "category": "Python for Automation",
     "catdesc": "Learn Python to automate repetitive tasks, manage IT infrastructure, and build powerful scripts. No prior programming experience required \u2014 just a desire to work smarter.",
     "catcls": "cat-eighteen",
-    "overview": "This hands-on course teaches analysts, business professionals, and non-programmers how to use Python's data stack \u2014 Pandas, NumPy, Matplotlib, and Seaborn \u2014 to analyze data, automate Excel-style workflows, and build charts that tell compelling data stories. No prior Python experience required.",
+    "overview": "Python for Data Analytics is a three-day course that teaches analysts, business professionals, and non-programmers to replace manual, error-prone Excel workflows with a reproducible Python data stack \u2014 Pandas, NumPy, Matplotlib, and Seaborn. As organizations push for faster, more reliable, and more scalable reporting, the ability to automate a monthly report or dashboard rather than rebuild it by hand every cycle has become a genuine differentiator for analysts in the 2026 job market, where basic spreadsheet fluency is table stakes and Python-based analysis is increasingly the expectation for anyone with 'analyst' in their title.\n\nThe course follows the real workflow of a data analytics task: setting up a Python and Jupyter environment, loading and exploring data from CSV, Excel, JSON, and SQL sources with Pandas, profiling and cleaning messy real-world data (missing values, duplicates, inconsistent types), transforming and aggregating data with groupby, pivot tables, and joins, building statistical visualizations with Matplotlib and Seaborn, and finally automating the entire pipeline \u2014 from raw CSV to a formatted, presentation-ready Excel report \u2014 using openpyxl and task scheduling.\n\nThis course requires no prior Python experience and is designed specifically for professionals coming from an Excel-centric analytics background. It suits Business Analysts and finance or marketing professionals looking to eliminate manual reporting, as well as any data professional who wants to add Python to an existing analytics toolkit and build a portfolio of reproducible, version-controlled analysis.\n\nGraduates leave with a capstone project automating a complete monthly sales reporting pipeline and the practical Python data skills to eliminate repetitive manual analysis \u2014 a strong addition for Business Analyst, Data Analyst, and Reporting Analyst roles, and a natural on-ramp to Technohana's more advanced Python for Data Analytics and Machine Learning course.",
     "courseObjective": "Participants will use Pandas for data manipulation, NumPy for numerical analysis, and Matplotlib/Seaborn for visualization \u2014 replacing manual Excel workflows with reproducible Python scripts.",
     "courseOutcomes": "Upon completion, participants will be able to load, clean, transform, and visualize datasets using Python, automate repetitive data workflows, and produce publication-quality charts and reports.",
     "prerequisites": "No prior Python experience required. Familiarity with Excel or basic data concepts is helpful.",
@@ -16104,7 +16194,7 @@
           "Scheduling Python data pipelines with cron and Task Scheduler",
           "Exporting charts as high-resolution images for presentations",
           "Best practices: reproducible analysis, version control, and clean code",
-          "Capstone: Build a complete automated monthly sales report pipeline from raw CSV to formatted Excel report"
+          "Capstone Project — Automated Monthly Sales Reporting Pipeline: problem statement — replace a manual monthly reporting process with a reproducible pipeline; dataset — a provided raw multi-month sales transactions CSV; deliverables — a Python pipeline that cleans, aggregates, visualizes, and exports a formatted Excel report; skills demonstrated — data cleaning, transformation, visualization, and workflow automation"
         ]
       }
     ],
@@ -16125,7 +16215,7 @@
     "category": "Python for Automation",
     "catdesc": "Learn Python to automate repetitive tasks, manage IT infrastructure, and build powerful scripts. No prior programming experience required \u2014 just a desire to work smarter.",
     "catcls": "cat-eighteen",
-    "overview": "This practical 2-day course teaches participants to extract data from websites using BeautifulSoup and Selenium, consume public REST APIs, and build their own simple APIs using FastAPI. Ideal for analysts, researchers, and developers who need to collect data from the web at scale.",
+    "overview": "Python for Web Scraping & APIs is a focused two-day course that teaches participants to collect data from the web at scale — through both scraping and REST API consumption — and to package that data behind their own simple API. Public web and API data remains one of the richest and most underused data sources for competitive intelligence, market research, and pricing analysis, and the ability to reliably and ethically collect it is a distinct, valuable skill separate from analyzing data that has already been handed to you in a clean file.\n\nThe course covers both major data collection paths: static web scraping with requests and BeautifulSoup (parsing HTML, handling headers, cookies, and sessions), and dynamic web scraping with Selenium and Playwright for JavaScript-rendered content, pagination, and infinite scroll. It then covers REST API consumption — authentication (API keys, Bearer tokens, OAuth 2.0), pagination strategies, and rate-limit handling — before closing with a module on building a simple API of your own with FastAPI, including automatic documentation via Swagger UI and database integration with SQLAlchemy and SQLite.\n\nThis course assumes basic Python knowledge (loops, functions, dictionaries) and is designed for analysts, researchers, marketing professionals, and developers who need to build data collection pipelines from web sources. It also explicitly covers responsible and ethical handling of anti-scraping measures, an increasingly important consideration as data collection practices face more scrutiny in 2026.\n\nGraduates leave with a capstone project — a daily web scraper exposed through a FastAPI endpoint — and the practical skills to build reliable, ethical data collection pipelines, directly applicable to Data Analyst, Research Analyst, and Data Engineering roles that depend on external data sources.",
     "courseObjective": "Participants will scrape static and dynamic websites, interact with public REST APIs, handle pagination and authentication, and build a simple data collection pipeline that stores results in a database or CSV.",
     "courseOutcomes": "Upon completion, participants will be able to scrape data from websites using requests/BeautifulSoup and Selenium, consume REST APIs, manage rate limits and authentication, and build basic FastAPI endpoints.",
     "prerequisites": "Basic Python knowledge (PYAUTO101 or equivalent). Familiarity with HTML is helpful.",
@@ -16199,7 +16289,7 @@
           "Path parameters, query parameters, and request bodies",
           "Connecting FastAPI to a SQLite database with SQLAlchemy",
           "Automatic API documentation with Swagger UI",
-          "Capstone: Build a web scraper that collects data daily and exposes it via a FastAPI endpoint"
+          "Capstone Project — Daily Data Collection API: problem statement — collect data from a website or public API on a schedule and expose it through a self-built API; dataset — a provided legally scrapable website or public data source; deliverables — a scheduled scraper/collector, a SQLite-backed FastAPI endpoint, and Swagger documentation; skills demonstrated — web scraping or API consumption, data storage, and API development"
         ]
       }
     ],
@@ -20320,6 +20410,7 @@
     "labs": "All tools used will be free or freemium (Framer, Canva, ChatGPT, Midjourney, Beehiiv, Shopify trial, etc.)",
     "toc": "AI100STARTUP-Syllabus.pdf",
     "category": "Startup & AI",
+    "categoryGroup": "AI & Generative AI",
     "catdesc": "Learn how to build a business using AI tools \u2014 from ideation to product launch.",
     "catcls": "cat-two",
     "courseDays": "05 Days",
@@ -28273,7 +28364,7 @@
     "courseSlug": "snowflake-data-cloud-fundamentals-training",
     "logo": "course_thumb02.jpg",
     "courseTitle": "Snowflake Data Cloud Fundamentals",
-    "overview": "Master the Snowflake Data Cloud from architecture to administration. This hands-on course covers virtual warehouses, micro-partitioning, data loading, Snowpipe streaming ingestion, secure data sharing, role-based access control, performance tuning, and cost optimization \u2014 preparing participants for real projects and the SnowPro Core certification.",
+    "overview": "Snowflake Data Cloud Fundamentals is a three-day, hands-on course covering the full Snowflake platform \u2014 from core architecture through data loading, development, security, data sharing, and performance and cost optimization. Snowflake has become one of the standard cloud data platforms in the modern data stack, and Snowflake-specific skills are now explicitly requested in a large share of Data Engineer, Analytics Engineer, and BI Developer job postings in the 2026 market, alongside Databricks and Microsoft Fabric as the three leading cloud analytics platforms.\n\nThe course follows the natural arc of standing up and operating a Snowflake environment: understanding the three-layer architecture (storage, compute, and cloud services) and micro-partitioning that make Snowflake's separation of storage and compute possible, configuring virtual warehouses for cost-effective scaling, loading data in bulk and via continuous streaming ingestion with Snowpipe, developing with Snowflake SQL \u2014 including tasks, streams, dynamic tables, time travel, and zero-copy cloning \u2014 and an introduction to Snowpark for Python-based development. The course then covers the operational disciplines that matter most in production: role-based access control and data governance, dynamic data masking, secure data sharing through the Snowflake Marketplace, and query performance tuning and credit cost optimization, one of the most commercially important skills for any organization running Snowflake at scale.\n\nThis course is designed for participants with working SQL knowledge and basic data warehousing familiarity \u2014 no prior Snowflake experience is required. It is well suited to Data Engineers and Analytics Engineers adopting Snowflake, BI Developers and Data Analysts who need to query and model data effectively within it, and Database Administrators and Architects evaluating or migrating to cloud data platforms.\n\nThe course is explicitly aligned with the SnowPro Core certification syllabus, giving participants a direct path to a recognized, in-demand credential. Graduates leave with hands-on experience across ten labs spanning warehouse configuration, data loading, development, security, sharing, and performance tuning, plus the SnowPro Core certification roadmap \u2014 positioning them for Data Engineer, Analytics Engineer, and Snowflake Administrator roles, and building directly toward Technohana's other modern data stack courses in Databricks, dbt, and Microsoft Fabric.",
     "courseObjective": "Build practical Snowflake skills covering architecture, data loading, SQL development, security, sharing, and cost management for analytics workloads.",
     "courseOutcomes": "Upon completion, participants will design Snowflake databases and warehouses, load and transform batch and streaming data, implement RBAC and data governance, share data securely, and optimize performance and credits.",
     "prerequisites": "Working knowledge of SQL. Basic understanding of databases and data warehousing concepts.",
@@ -28295,10 +28386,12 @@
       "Snowflake architecture \u2014 storage, compute, and cloud services layers",
       "Virtual warehouses, scaling, and multi-cluster strategies",
       "Data loading \u2014 COPY, Snowpipe, and streaming ingestion",
+      "Develop with Snowflake SQL \u2014 tasks, streams, dynamic tables, and an introduction to Snowpark for Python",
       "Time travel, zero-copy cloning, and data recovery",
       "RBAC, masking policies, and data governance",
       "Secure data sharing and the Snowflake Marketplace",
-      "Performance tuning and credit cost optimization"
+      "Performance tuning and credit cost optimization",
+      "Prepare for the SnowPro Core certification exam"
     ],
     "requirements": [
       "Working knowledge of SQL",
@@ -28369,7 +28462,8 @@
           "Result, metadata, and warehouse caching",
           "Resource monitors and credit optimization",
           "SnowPro Core certification roadmap",
-          "Lab 9 & 10: Tuning slow queries and right-sizing warehouses"
+          "Lab 9 & 10: Tuning slow queries and right-sizing warehouses",
+          "Capstone Project — Governed Analytics Warehouse on Snowflake: problem statement — design and build a secure, cost-optimized Snowflake environment for a business analytics use case; dataset — a provided multi-table retail or SaaS dataset; deliverables — a warehouse and RBAC design, a loading pipeline, masking policies for sensitive columns, and a query performance tuning report; skills demonstrated — architecture design, data loading, governance, and cost optimization"
         ]
       }
     ],
@@ -28388,7 +28482,7 @@
     "courseSlug": "databricks-lakehouse-platform-training",
     "logo": "course_thumb02.jpg",
     "courseTitle": "Databricks Lakehouse Platform",
-    "overview": "Go deep on the Databricks Lakehouse \u2014 Delta Lake, Unity Catalog, Spark-based ETL, Delta Live Tables, workflows, and machine learning integration. This course takes data professionals from lakehouse concepts to building governed, production-grade pipelines and analytics on Databricks across AWS, Azure, and GCP.",
+    "overview": "Databricks Lakehouse Platform is a four-day, advanced course covering the platform that unifies data engineering, analytics, and machine learning on a single lakehouse architecture \u2014 Delta Lake, Unity Catalog, Databricks SQL, and MLflow. Databricks is one of the dominant platforms in modern data engineering and is now a standard requirement in Data Engineer, Analytics Engineer, and ML Engineer job postings across cloud-native organizations in 2026, prized for combining warehouse-grade governance and SQL analytics with the flexibility of a data lake and native machine learning support.\n\nThe course takes participants from lakehouse foundations \u2014 understanding how Delta Lake brings ACID transactions to object storage, and working in the Databricks workspace with clusters and notebooks \u2014 through a deep dive into Delta Lake internals (transaction logs, time travel, MERGE, OPTIMIZE, Z-ORDER, and schema evolution), building medallion-architecture ETL pipelines with PySpark and Auto Loader for incremental ingestion, and declarative pipeline development with Delta Live Tables, including data quality enforcement through expectations. Governance is covered in depth through Unity Catalog \u2014 metastores, the three-level namespace, grants, row filters, and column masks \u2014 before moving into analytics and ML on the lakehouse with Databricks SQL dashboards, BI tool connectivity, and MLflow for experiment tracking and the model registry. The course closes with CI/CD for Databricks using asset bundles and a guided architecture design review.\n\nThis course is designed for participants with working SQL and Python knowledge and basic big data or data warehousing familiarity. It suits Data Engineers building production pipelines, Analytics Engineers and BI Developers working with lakehouse data, ML Engineers who need governed, reliable data feeding their models, and Data Architects evaluating or standardizing on the lakehouse pattern across AWS, Azure, and GCP.\n\nGraduates leave with hands-on experience across ten labs spanning Delta Lake, medallion pipelines, Delta Live Tables, Unity Catalog governance, Databricks SQL, and MLflow, plus a guided lakehouse architecture design review and the Databricks certification roadmap \u2014 positioning them for Data Engineer, Analytics Engineer, and Databricks-focused Platform Engineer roles.",
     "courseObjective": "Enable participants to build and govern production data pipelines on the Databricks Lakehouse using Delta Lake, Unity Catalog, and Delta Live Tables.",
     "courseOutcomes": "Upon completion, participants will engineer medallion-architecture pipelines with Delta Lake, orchestrate jobs and Delta Live Tables, govern data with Unity Catalog, run SQL analytics on Databricks SQL, and integrate ML workflows with MLflow.",
     "prerequisites": "Working knowledge of SQL and Python. Familiarity with data warehousing or big data concepts.",
@@ -28412,8 +28506,9 @@
       "Delta Live Tables for declarative ETL",
       "Unity Catalog \u2014 governance, lineage, and access control",
       "Databricks SQL and BI integration",
-      "Workflows orchestration and CI/CD for pipelines",
-      "MLflow and ML lifecycle on the lakehouse"
+      "Workflows orchestration and CI/CD for pipelines using asset bundles",
+      "MLflow and ML lifecycle on the lakehouse",
+      "Prepare for Databricks certification"
     ],
     "requirements": [
       "Working knowledge of SQL and Python",
@@ -28491,7 +28586,8 @@
           "CI/CD for Databricks with asset bundles",
           "Cost management and cluster policies",
           "Databricks certification roadmap",
-          "Breakout: Lakehouse architecture design review"
+          "Breakout: Lakehouse architecture design review",
+          "Capstone Project — Governed Medallion Pipeline with ML Integration: problem statement — build a production-style bronze/silver/gold pipeline that feeds both BI dashboards and a machine learning workflow; dataset — a provided semi-structured e-commerce or IoT dataset; deliverables — a Delta Live Tables pipeline with quality checks, a Unity Catalog governance setup, a Databricks SQL dashboard, and an MLflow-tracked model; skills demonstrated — medallion architecture, governance, orchestration, and ML lifecycle integration"
         ]
       }
     ],
@@ -28510,7 +28606,7 @@
     "courseSlug": "analytics-engineering-with-dbt-training",
     "logo": "course_thumb02.jpg",
     "courseTitle": "Analytics Engineering with dbt",
-    "overview": "Learn analytics engineering with dbt \u2014 the standard for transforming data in the warehouse. This course covers dbt models, tests, documentation, Jinja and macros, incremental models, snapshots, deployment with dbt Cloud and CI/CD, and the layered project structures used by high-performing data teams on Snowflake, BigQuery, and Databricks.",
+    "overview": "Analytics Engineering with dbt is a focused two-day course covering dbt (data build tool) \u2014 the tool that created and now defines the analytics engineering discipline sitting between data engineering and analytics. dbt has become the de facto standard for transforming data inside the warehouse using SQL and software engineering practices, and 'analytics engineer' is now one of the fastest-growing job titles in the 2026 data job market precisely because of the workflow this course teaches: version-controlled, tested, documented SQL transformations rather than untracked, undocumented warehouse scripts.\n\nThe course covers the complete dbt workflow: models, sources, the ref() function, and the DAG that dbt builds from your project; the layered project structure (staging, intermediate, and mart layers) and naming conventions used by high-performing data teams; testing and documentation as code, including generic and singular tests, dbt-utils, and auto-generated documentation sites; Jinja templating and macros for writing reusable, DRY SQL; incremental models and snapshots for efficiently handling large or slowly changing data; and deployment \u2014 environments, dbt Cloud versus dbt Core, and CI/CD with slim CI and state comparison, plus an overview of orchestrating dbt with Airflow and Dagster.\n\nThis course requires solid SQL skills and basic Git knowledge, and assumes access to a cloud data warehouse (Snowflake, BigQuery, Databricks, or similar \u2014 trial accounts work for labs). It is designed for Data Analysts moving into a more engineering-focused role, Analytics Engineers formalizing their dbt practice, Data Engineers standardizing transformation logic across a team, and BI Developers who want their semantic layer built on tested, documented models rather than ad hoc SQL.\n\nGraduates leave with a properly layered, tested, and documented dbt project and hands-on experience deploying it through CI/CD \u2014 directly applicable to Analytics Engineer, Data Engineer, and Senior Data Analyst roles, and a strong complement to Technohana's Snowflake, Databricks, and Microsoft Fabric courses for teams building a complete modern data stack.",
     "courseObjective": "Teach participants to build tested, documented, version-controlled data transformation pipelines with dbt following analytics engineering best practices.",
     "courseOutcomes": "Upon completion, participants will structure dbt projects with staging/intermediate/mart layers, write tests and documentation, build incremental models and snapshots, use Jinja and macros for DRY SQL, and deploy dbt with CI/CD.",
     "prerequisites": "Solid SQL skills. Basic Git knowledge. Access to a cloud data warehouse (trial accounts work).",
@@ -28534,7 +28630,9 @@
       "Data testing and documentation as code",
       "Jinja templating and reusable macros",
       "Incremental models and snapshots for slowly changing dimensions",
-      "Deployment, environments, and CI/CD for dbt"
+      "Deployment, environments, and CI/CD for dbt",
+      "Orchestrate dbt runs using Airflow or Dagster within a broader data platform",
+      "Apply analytics engineering best practices for team collaboration and code review"
     ],
     "requirements": [
       "Solid SQL skills",
@@ -28594,7 +28692,8 @@
           "dbt Cloud vs dbt Core deployment",
           "CI/CD \u2014 slim CI, state comparison, PR checks",
           "Orchestration with Airflow and Dagster overview",
-          "Lab 8 & 9: CI/CD pipeline for a dbt project"
+          "Lab 8 & 9: CI/CD pipeline for a dbt project",
+          "Capstone Project — Layered Analytics Mart with Full Test Coverage: problem statement — transform a raw multi-table dataset into a tested, documented, production-ready mart; dataset — a provided raw sales or SaaS dataset loaded into a trial warehouse; deliverables — a layered dbt project (staging/intermediate/marts), a full test suite, generated documentation, and a CI pipeline; skills demonstrated — dbt modeling, testing, documentation, and CI/CD deployment"
         ]
       }
     ],
@@ -28613,7 +28712,7 @@
     "courseSlug": "realtime-data-pipelines-kafka-spark-training",
     "logo": "course_thumb02.jpg",
     "courseTitle": "Real-Time Data Pipelines with Kafka & Spark",
-    "overview": "Build streaming data platforms with Apache Kafka and Apache Spark Structured Streaming. This advanced course covers Kafka architecture, producers and consumers, Kafka Connect, schema management, exactly-once semantics, Spark streaming jobs, stateful processing, windowing, and deploying fault-tolerant real-time pipelines feeding lakehouses and analytics systems.",
+    "overview": "Real-Time Data Pipelines with Kafka & Spark is a four-day, advanced course covering the technology stack behind real-time and event-driven data platforms — Apache Kafka for event streaming and Apache Spark Structured Streaming for processing that data at scale. As more organizations move from batch-only analytics toward real-time dashboards, fraud detection, personalization, and operational alerting, streaming data engineering has become one of the most technically demanding and highest-paid specializations within data engineering in the 2026 job market — and one where genuine hands-on experience, not just conceptual familiarity, is what separates candidates.\n\nThe course covers Kafka in depth — cluster architecture (brokers, partitions, replication, and KRaft mode), producer and consumer design with delivery guarantees, and Kafka Connect and Schema Registry for integrating Kafka with databases (via Debezium CDC) and enforcing schema compatibility with Avro and Protobuf. It then moves into Spark Structured Streaming: the micro-batch processing model, triggers and checkpointing, reading from Kafka into Delta or warehouse sinks, and the harder engineering problems of stateful stream processing — windowing (tumbling, sliding, session), watermarks and late-data handling, and stream-stream and stream-static joins. The course closes with production operations: monitoring consumer lag and throughput, scaling strategies, and architecting for exactly-once semantics end to end, culminating in a capstone building a complete real-time pipeline.\n\nThis is an advanced course requiring strong Python or Java/Scala programming and working SQL knowledge; familiarity with distributed systems concepts is helpful but not mandatory. It is designed for Data Engineers and Backend Engineers building event-driven systems, Platform Engineers operating streaming infrastructure, and Architects designing real-time data platforms.\n\nGraduates leave with hands-on experience across ten labs and a capstone end-to-end real-time pipeline — directly applicable to Streaming Data Engineer, Platform Engineer, and Senior Data Engineer roles, among the most technically differentiated and in-demand specializations in modern data engineering.",
     "courseObjective": "Enable engineers to design and operate production streaming pipelines with Kafka and Spark Structured Streaming, including delivery guarantees and stateful processing.",
     "courseOutcomes": "Upon completion, participants will architect Kafka clusters and topics, build producers/consumers and Connect pipelines, manage schemas with Schema Registry, develop stateful Spark streaming jobs with windowing and watermarks, and operate pipelines with monitoring and exactly-once guarantees.",
     "prerequisites": "Strong Python or Java/Scala. Working SQL knowledge. Familiarity with distributed systems concepts is advantageous.",
@@ -28638,7 +28737,9 @@
       "Spark Structured Streaming \u2014 triggers, sinks, and checkpointing",
       "Stateful processing, windowing, watermarks, and joins",
       "Exactly-once semantics end to end",
-      "Monitoring, scaling, and operating streaming platforms"
+      "Monitoring, scaling, and operating streaming platforms",
+      "Implement change data capture (CDC) pipelines with Kafka Connect and Debezium",
+      "Evaluate trade-offs between streaming and batch architectures for a given use case"
     ],
     "requirements": [
       "Strong Python or Java/Scala programming",
@@ -28710,7 +28811,8 @@
           "Scaling and capacity planning",
           "Exactly-once end-to-end architecture review",
           "Lab 10: Capstone \u2014 end-to-end real-time pipeline",
-          "Breakout: Streaming platform design review"
+          "Breakout: Streaming platform design review",
+          "Capstone Project \u2014 Real-Time Fraud/Anomaly Detection Pipeline: problem statement \u2014 detect anomalous events in a live transaction stream within seconds of occurrence; dataset \u2014 a provided simulated transaction event stream; deliverables \u2014 a Kafka ingestion layer, a Spark Structured Streaming job with windowed aggregation and alerting logic, and an architecture write-up; skills demonstrated \u2014 event streaming design, stateful processing, and exactly-once pipeline architecture"
         ]
       }
     ],
@@ -28729,7 +28831,7 @@
     "courseSlug": "vector-databases-for-ai-applications",
     "logo": "course_thumb02.jpg",
     "courseTitle": "Vector Databases for AI Applications",
-    "overview": "Vector search powers RAG, semantic search, and recommendation systems. This course covers embedding models, vector indexing algorithms (HNSW, IVF), and hands-on work with Pinecone, Weaviate, Qdrant, pgvector, and MongoDB Atlas Vector Search \u2014 including hybrid search, metadata filtering, evaluation, and scaling vector workloads in production AI applications.",
+    "overview": "Vector Databases for AI Applications is a focused two-day course covering the infrastructure layer behind retrieval-augmented generation (RAG), semantic search, and recommendation systems \u2014 one of the fastest-growing specializations in applied AI engineering as organizations move generative AI proofs-of-concept into production. Vector search has become foundational infrastructure for grounding LLMs in an organization's own data, and the ability to select, design, and operate a vector database is now a distinct, in-demand skill separate from prompt engineering or general LLM application development.\n\nThe course covers the full vector search stack: how embedding models represent meaning and which models and chunking strategies to choose for a given domain, the internals of approximate nearest neighbour search \u2014 HNSW and IVF index structures, product quantization, and the recall-versus-memory trade-offs involved \u2014 and hands-on work across the leading vector store options: Pinecone, Weaviate, Qdrant, pgvector, and MongoDB Atlas Vector Search, including how to choose between them for a given workload. Participants then implement hybrid search, combining dense vector and sparse (BM25) retrieval with cross-encoder reranking for higher-quality results, wire vector search into a complete RAG pipeline, and learn the production disciplines of evaluation (recall@k, latency, and cost benchmarking), index updates and re-embedding, and scaling and high availability.\n\nThis intermediate course assumes intermediate Python skills, familiarity with LLM and RAG concepts, and basic database knowledge. It is designed for AI/ML Engineers building RAG systems, Backend Engineers adding semantic search to existing applications, Data Engineers supporting AI workloads, and Solutions Architects evaluating vector database options for their organization.\n\nGraduates leave with hands-on experience across eight labs spanning embeddings, index tuning, multiple vector stores, hybrid search, and production readiness \u2014 directly applicable to AI Engineer, ML Engineer, and RAG-focused Backend Engineer roles, and a strong complement to Technohana's Generative AI and LLM-focused course tracks.",
     "courseObjective": "Teach participants to select, design, and operate vector database solutions for semantic search and RAG workloads in production.",
     "courseOutcomes": "Upon completion, participants will choose embedding models and chunking strategies, design vector schemas with metadata filtering, implement hybrid (dense + sparse) search with reranking, benchmark recall/latency trade-offs, and operate vector stores in production AI applications.",
     "prerequisites": "Intermediate Python. Familiarity with LLM/RAG concepts. Basic database knowledge.",
@@ -28754,7 +28856,9 @@
       "Hybrid search \u2014 dense + sparse with reranking",
       "Metadata filtering and multi-tenancy design",
       "Evaluation \u2014 recall, latency, and cost benchmarking",
-      "Scaling vector search in production RAG systems"
+      "Scaling vector search in production RAG systems",
+      "Wire vector search into a complete retrieval-augmented generation (RAG) pipeline",
+      "Choose the right vector store and index strategy for a given workload and budget"
     ],
     "requirements": [
       "Intermediate Python programming",
@@ -28814,7 +28918,8 @@
           "Evaluation harnesses \u2014 recall@k, latency, cost",
           "Index updates, re-embedding, and versioning",
           "Scaling, sharding, and high availability",
-          "Lab 7 & 8: Benchmarking and production readiness review"
+          "Lab 7 & 8: Benchmarking and production readiness review",
+          "Capstone Project — Production RAG Search System: problem statement — build a semantic search / RAG system over a corpus of documents with production-quality retrieval; dataset — a provided document collection (e.g. support articles or product manuals); deliverables — an embedding and chunking pipeline, a hybrid-search-enabled vector store, a reranking layer, and a recall/latency evaluation report; skills demonstrated — embedding selection, index tuning, hybrid retrieval, and RAG evaluation"
         ]
       }
     ],
@@ -28833,7 +28938,7 @@
     "courseSlug": "microsoft-fabric-end-to-end-analytics",
     "logo": "course_thumb02.jpg",
     "courseTitle": "Microsoft Fabric End-to-End Analytics",
-    "overview": "Microsoft Fabric unifies data engineering, warehousing, real-time analytics, and Power BI in one SaaS platform on OneLake. This course covers Fabric lakehouses and warehouses, Data Factory pipelines, Spark notebooks, Real-Time Intelligence, semantic models, and Direct Lake mode \u2014 building complete analytics solutions and preparing for the DP-600 Fabric Analytics Engineer certification.",
+    "overview": "Microsoft Fabric End-to-End Analytics is a three-day course covering Microsoft Fabric, the SaaS platform that unifies data engineering, data warehousing, real-time analytics, and Power BI on a single OneLake foundation. Since its general availability, Fabric has rapidly become a strategic platform for organizations already invested in the Microsoft ecosystem, consolidating what previously required separate Azure Data Factory, Synapse, and Power BI deployments into one governed, capacity-based platform \u2014 making Fabric skills increasingly sought after alongside Databricks and Snowflake in 2026 data engineering and BI job postings.\n\nThe course follows the full Fabric platform: OneLake architecture, capacities, and workspaces, and the decision framework for choosing a lakehouse versus a warehouse item; data ingestion using Data Factory pipelines and Dataflows Gen2 for self-service ETL, plus shortcuts and mirroring into OneLake; data engineering with Spark notebooks and Delta tables, implementing medallion architecture and querying through the SQL analytics endpoint; warehouse development with T-SQL and semantic modelling using Direct Lake mode, the performance approach that lets Power BI query lakehouse data without a separate import or DirectQuery step; Real-Time Intelligence with Eventstreams, Eventhouses, and KQL for streaming analytics dashboards and Activator-based alerting; and governance \u2014 workspace roles, item permissions, sensitivity labels, and deployment pipelines for CI/CD across environments.\n\nThis course requires working SQL knowledge and Power BI fundamentals; Python familiarity is helpful for the Spark notebook modules. It is designed for Data Engineers and Analytics Engineers standardizing on Fabric, Power BI Developers extending into the full analytics platform, BI and Analytics Professionals in Microsoft-centric organizations, and Architects planning a Fabric adoption or migration.\n\nThe course is explicitly aligned with the DP-600 Fabric Analytics Engineer Associate certification. Graduates leave with hands-on experience across nine labs spanning ingestion, engineering, warehousing, real-time analytics, and governance, plus direct DP-600 exam preparation \u2014 positioning them for Fabric Analytics Engineer, Data Engineer, and Power BI Developer roles within Microsoft-stack organizations.",
     "courseObjective": "Enable participants to deliver end-to-end analytics solutions on Microsoft Fabric \u2014 from ingestion through lakehouse modeling to Power BI reporting.",
     "courseOutcomes": "Upon completion, participants will design OneLake lakehouses and warehouses, build Data Factory and Spark-based pipelines, model data for Direct Lake semantic models, implement Real-Time Intelligence streams, and govern Fabric workspaces \u2014 aligned to DP-600 certification objectives.",
     "prerequisites": "Working SQL knowledge. Familiarity with Power BI basics. Python helpful for Spark notebooks.",
@@ -28858,7 +28963,9 @@
       "Spark notebooks and medallion architecture in Fabric",
       "Semantic models with Direct Lake mode",
       "Real-Time Intelligence and KQL",
-      "Governance, security, and DP-600 exam preparation"
+      "Governance, security, and DP-600 exam preparation",
+      "Choose between lakehouse and warehouse items based on workload requirements",
+      "Prepare for the DP-600 Fabric Analytics Engineer Associate certification"
     ],
     "requirements": [
       "Working SQL knowledge",
@@ -28926,7 +29033,8 @@
           "Security \u2014 workspace roles, item permissions, sensitivity labels",
           "Deployment pipelines and CI/CD",
           "DP-600 exam preparation and practice review",
-          "Lab 9: Deployment pipeline across environments"
+          "Lab 9: Deployment pipeline across environments",
+          "Capstone Project — End-to-End Fabric Analytics Solution: problem statement — deliver a complete analytics solution from raw data ingestion to a published Power BI report; dataset — a provided multi-source retail or finance dataset; deliverables — a OneLake lakehouse with a medallion pipeline, a Fabric warehouse with a semantic model in Direct Lake mode, a Power BI report, and a deployment pipeline across dev/test/prod workspaces; skills demonstrated — ingestion, Spark-based engineering, semantic modelling, and governed deployment"
         ]
       }
     ],
