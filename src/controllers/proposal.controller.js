@@ -171,7 +171,11 @@ export const getProposals = async (req, res) => {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    const filter = { type: type || 'proposal' };
+    // Proposals saved before the `type` field existed have no `type` key stored at
+    // all (Mongoose defaults don't backfill existing documents), so an exact-match
+    // filter would silently hide them. Excluding only explicit quotes keeps both
+    // legacy untyped proposals and new type:'proposal' docs visible by default.
+    const filter = { type: type || { $ne: 'quote' } };
     if (search) {
       const regex = buildRegexQuery(search);
       if (regex) {
