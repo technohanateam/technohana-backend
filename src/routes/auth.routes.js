@@ -27,17 +27,22 @@ router.get(
   // Tell passport not to create a session here either
   passport.authenticate("google", { session: false, failureRedirect: "/login-failed" }),
   (req, res) => {
-    // Passport has successfully authenticated the user and attached it to req.user
-    // Now, we generate our own JWT
-    const token = generateToken(req.user);
-
-    // Redirect back to the frontend with our token
     const frontendUrl = process.env.FRONTEND_URL ||
       (process.env.WHITELISTED_URLS ? process.env.WHITELISTED_URLS.split(',')[0].trim() : '');
 
-    res.redirect(
-      `${frontendUrl}/auth/callback?token=${token}`
-    );
+    try {
+      // Passport has successfully authenticated the user and attached it to req.user
+      // Now, we generate our own JWT
+      const token = generateToken(req.user);
+
+      // Redirect back to the frontend with our token
+      res.redirect(
+        `${frontendUrl}/auth/callback?token=${token}`
+      );
+    } catch (err) {
+      console.error("Google callback token generation failed:", err);
+      res.redirect(`${frontendUrl}/auth/callback`);
+    }
   }
 );
 
