@@ -33,7 +33,7 @@ passport.use(
             },
             ...(picture ? { $set: { picture } } : {}),
           },
-          { upsert: true, new: true }
+          { upsert: true, new: true, runValidators: true }
         );
 
         return done(null, user);

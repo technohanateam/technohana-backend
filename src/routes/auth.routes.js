@@ -22,29 +22,32 @@ router.get(
   passport.authenticate("google", { scope: ["profile", "email"], session: false }) // Tell passport not to create a session
 );
 
-router.get(
-  "/api/auth/google/callback",
-  // Tell passport not to create a session here either
-  passport.authenticate("google", { session: false, failureRedirect: "/login-failed" }),
-  (req, res) => {
-    const frontendUrl = process.env.FRONTEND_URL ||
-      (process.env.WHITELISTED_URLS ? process.env.WHITELISTED_URLS.split(',')[0].trim() : '');
+router.get("/api/auth/google/callback", (req, res, next) => {
+  const frontendUrl = process.env.FRONTEND_URL ||
+    (process.env.WHITELISTED_URLS ? process.env.WHITELISTED_URLS.split(',')[0].trim() : '');
+
+  // Custom callback (rather than the failureRedirect option) so both an auth error
+  // (done(err)) and a denied-consent (done(null, false)) result redirect to the
+  // frontend instead of one of them falling through to the global JSON error handler.
+  passport.authenticate("google", { session: false }, (err, user) => {
+    if (err || !user) {
+      if (err) console.error("Google authentication failed:", err);
+      return res.redirect(`${frontendUrl}/auth/callback`);
+    }
 
     try {
-      // Passport has successfully authenticated the user and attached it to req.user
+      // Passport has successfully authenticated the user
       // Now, we generate our own JWT
-      const token = generateToken(req.user);
+      const token = generateToken(user);
 
       // Redirect back to the frontend with our token
-      res.redirect(
-        `${frontendUrl}/auth/callback?token=${token}`
-      );
-    } catch (err) {
-      console.error("Google callback token generation failed:", err);
+      res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+    } catch (tokenErr) {
+      console.error("Google callback token generation failed:", tokenErr);
       res.redirect(`${frontendUrl}/auth/callback`);
     }
-  }
-);
+  })(req, res, next);
+});
 
 // Get current authenticated user (by JWT)
 router.get("/auth/me", async (req, res) => {
