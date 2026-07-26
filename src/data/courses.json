@@ -12376,7 +12376,7 @@
     "category": "Atlassian",
     "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
     "catcls": "cat-twelve",
-    "overview": "This course introduces participants to Jira Software \u2014 the world's most popular project tracking tool. Participants will learn to create and manage projects, configure boards, track issues, and run Agile ceremonies using Jira's Scrum and Kanban frameworks. Aligned with the ACP-100 certification objectives.",
+    "overview": "This course introduces participants to Jira Software — the world's most popular project tracking tool. Participants will learn to create and manage projects, configure boards, track issues, and run Agile ceremonies using Jira's Scrum and Kanban frameworks. Aligned with the ACP-620 (Managing Jira Projects for Cloud) certification objectives.",
     "courseObjective": "Participants will gain hands-on proficiency in navigating Jira Software, creating and configuring projects, managing backlogs, running sprints, and using Jira's reporting tools to track team progress.",
     "courseOutcomes": "Upon completion, participants will be able to independently manage Jira projects, configure Scrum and Kanban boards, create epics, stories and sub-tasks, use filters and dashboards, and generate sprint and velocity reports.",
     "prerequisites": "No prior Jira experience required. Basic familiarity with software development or project management concepts is beneficial.",
@@ -12480,7 +12480,15 @@
       "gbp": 559,
       "eur": 659
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-620"
+    ],
+    "recommendedNextCourse": {
+      "id": "ATLS131",
+      "title": "Advanced JQL Masterclass"
+    }
   },
   {
     "id": "ATLS102",
@@ -12605,7 +12613,16 @@
       "gbp": 739,
       "eur": 879
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-120"
+    ],
+    "capstoneProject": "Configure a complete multi-project Jira Cloud environment (schemes, workflows, notifications, and automation) for a simulated 200-user organization and present an admin runbook.",
+    "recommendedNextCourse": {
+      "id": "ATLS904",
+      "title": "Jira Advanced Administration"
+    }
   },
   {
     "id": "ATLS103",
@@ -12720,7 +12737,14 @@
       "gbp": 559,
       "eur": 659
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "capstoneProject": "Build an end-to-end DevOps traceability pipeline connecting a Git repository, CI pipeline, and Jira issues, and present DORA metrics for the simulated team.",
+    "recommendedNextCourse": {
+      "id": "ATLS134",
+      "title": "Jira REST API & Integrations Development"
+    }
   },
   {
     "id": "ATLS201",
@@ -12730,7 +12754,7 @@
     "category": "Atlassian",
     "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
     "catcls": "cat-twelve",
-    "overview": "This course introduces Jira Service Management (JSM) \u2014 Atlassian's ITSM platform. Participants will learn to set up service projects, configure customer portals, manage queues and SLAs, handle incidents and change requests, and integrate JSM with Confluence for a self-service knowledge base.",
+    "overview": "This course introduces Jira Service Management (JSM) — Atlassian's ITSM platform. Participants will learn to set up service projects, configure customer portals, manage queues and SLAs, handle incidents and change requests, and integrate JSM with Confluence for a self-service knowledge base.",
     "courseObjective": "Participants will gain practical experience setting up and using Jira Service Management for IT support, incident management, and service request handling aligned with ITIL best practices.",
     "courseOutcomes": "Upon completion, participants will be able to configure a JSM service project, manage agent queues, set up SLA policies, handle incidents and change requests, and build a self-service portal with Confluence integration.",
     "prerequisites": "No prior JSM experience required. Familiarity with basic IT support concepts or ITIL awareness is helpful.",
@@ -12824,7 +12848,15 @@
       "gbp": 369,
       "eur": 439
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-420"
+    ],
+    "recommendedNextCourse": {
+      "id": "ATLS213",
+      "title": "Service Catalog & Request Management Design"
+    }
   },
   {
     "id": "ATLS202",
@@ -12834,9 +12866,9 @@
     "category": "Atlassian",
     "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
     "catcls": "cat-twelve",
-    "overview": "This advanced course prepares participants to administer Jira Service Management at scale. Covering asset management, advanced workflows, customer permissions, multi-team configurations, and the ACP-620 exam, it equips IT operations professionals to run enterprise ITSM on Atlassian Cloud.",
+    "overview": "This advanced course prepares participants to administer Jira Service Management at scale. Covering asset management, advanced workflows, customer permissions, multi-team configurations, and the ACP-420 (Managing Jira Service Projects for Cloud) exam, it equips IT operations professionals to run enterprise ITSM on Atlassian Cloud.",
     "courseObjective": "Participants will master JSM administration including asset and configuration management, complex SLA strategies, advanced automation, Insight (Assets) configuration, and enterprise-grade service delivery.",
-    "courseOutcomes": "Upon completion, participants will be able to administer JSM at enterprise scale, configure Assets and CMDB, design multi-tier support workflows, and pass the Atlassian ACP-620 certification exam.",
+    "courseOutcomes": "Upon completion, participants will be able to administer JSM at enterprise scale, configure Assets and CMDB, design multi-tier support workflows, and pass the Atlassian ACP-420 certification exam.",
     "prerequisites": "Completion of Jira Service Management Fundamentals (ATLS201) or equivalent hands-on JSM experience. Jira Software knowledge is beneficial.",
     "labs": "Hands-on labs covering Assets configuration, advanced automation, customer permission schemes, escalation workflows, SLA breach management, and capacity planning.",
     "toc": "",
@@ -12857,7 +12889,7 @@
       "Build advanced automation for incident escalation and change approvals",
       "Configure change management: approvals, CAB, and risk assessment",
       "Integrate JSM with monitoring tools: PagerDuty, Opsgenie, and Statuspage",
-      "Prepare for and pass the Atlassian ACP-620 certification exam"
+      "Prepare for and pass the Atlassian ACP-420 certification exam"
     ],
     "requirements": [
       "Hands-on experience with Jira Service Management",
@@ -12868,7 +12900,7 @@
       "JSM administrators and platform owners",
       "IT operations managers and ITSM process architects",
       "Enterprise architects deploying Atlassian ITSM",
-      "Professionals preparing for ACP-620 certification"
+      "Professionals preparing for ACP-420 certification"
     ],
     "modules": [
       {
@@ -12932,9 +12964,9 @@
         ]
       },
       {
-        "moduleTitle": "Module 7: ACP-620 Exam Preparation",
+        "moduleTitle": "Module 7: ACP-420 Exam Preparation",
         "content": [
-          "ACP-620 exam objectives and domain breakdown",
+          "ACP-420 exam objectives and domain breakdown",
           "Common exam scenarios and tricky configurations",
           "Practice questions covering JSM administration topics",
           "Gap analysis and study plan",
@@ -12949,7 +12981,16 @@
       "gbp": 739,
       "eur": 879
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-420"
+    ],
+    "capstoneProject": "Design and deploy a complete Assets/CMDB-backed ITSM environment with multi-tier SLAs, a CAB-approved change workflow, and Opsgenie alerting for a simulated enterprise support organization.",
+    "recommendedNextCourse": {
+      "id": "ATLS211",
+      "title": "JSM Advanced Assets (CMDB) for Enterprise ITSM"
+    }
   },
   {
     "id": "ATLS301",
@@ -12959,7 +13000,7 @@
     "category": "Atlassian",
     "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
     "catcls": "cat-twelve",
-    "overview": "This course introduces Confluence \u2014 Atlassian's team wiki and knowledge management platform. Participants will learn to create and organise content using spaces and pages, use templates, collaborate in real time, and integrate Confluence with Jira to create a connected knowledge and project ecosystem. Aligned with ACP-300 objectives.",
+    "overview": "This course introduces Confluence — Atlassian's team wiki and knowledge management platform. Participants will learn to create and organise content using spaces and pages, use templates, collaborate in real time, and integrate Confluence with Jira to create a connected knowledge and project ecosystem. Confluence currently has no dedicated Atlassian certification exam; this course builds practical skills recognised across Atlassian implementation and knowledge-management roles.",
     "courseObjective": "Participants will gain hands-on experience creating spaces, structuring pages, using Confluence macros, collaborating with teams, and setting up a knowledge base for their organisation.",
     "courseOutcomes": "Upon completion, participants will be able to independently create and manage Confluence spaces, publish and organise team documentation, use macros and templates effectively, and integrate Confluence with Jira.",
     "prerequisites": "No prior Confluence experience required. Familiarity with any documentation or wiki tool is helpful.",
@@ -13053,7 +13094,13 @@
       "gbp": 369,
       "eur": 439
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS311",
+      "title": "Confluence for Enterprise Knowledge Management"
+    }
   },
   {
     "id": "ATLS302",
@@ -13141,7 +13188,7 @@
         ]
       },
       {
-        "moduleTitle": "Module 5: Advanced Features \u2014 Whiteboards and Databases",
+        "moduleTitle": "Module 5: Advanced Features — Whiteboards and Databases",
         "content": [
           "Confluence Whiteboards: diagramming, sticky notes, and team ideation",
           "Confluence Databases: structured data management in pages",
@@ -13168,7 +13215,14 @@
       "gbp": 559,
       "eur": 659
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "capstoneProject": "Audit and remediate governance, permissions, and content-lifecycle policies for a 50-space Confluence Cloud instance, delivering a health report and remediation plan.",
+    "recommendedNextCourse": {
+      "id": "ATLS313",
+      "title": "Confluence Cloud Migration & Content Governance"
+    }
   },
   {
     "id": "ATLS401",
@@ -13178,9 +13232,9 @@
     "category": "Atlassian",
     "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
     "catcls": "cat-twelve",
-    "overview": "This course teaches Agile project management using the full Atlassian toolchain. Participants will learn to plan and track Scrum and Kanban projects in Jira, run ceremonies using Confluence, manage roadmaps, measure team performance with Jira analytics, and align multiple teams using Jira's cross-team planning features. Aligned with ACP-420 objectives.",
-    "courseObjective": "Participants will develop the skills to manage Agile projects end-to-end using Jira and Confluence \u2014 from inception through retrospective \u2014 while applying best practices from Scrum, Kanban, and SAFe frameworks.",
-    "courseOutcomes": "Upon completion, participants will be able to lead Agile projects using Atlassian tools, configure multi-team programmes, facilitate ceremonies with Confluence, measure delivery metrics, and prepare for the ACP-420 exam.",
+    "overview": "This course teaches Agile project management using the full Atlassian toolchain. Participants will learn to plan and track Scrum and Kanban projects in Jira, run ceremonies using Confluence, manage roadmaps, measure team performance with Jira analytics, and align multiple teams using Jira's cross-team planning features. Aligned with ACP-620 (Managing Jira Projects for Cloud) objectives.",
+    "courseObjective": "Participants will develop the skills to manage Agile projects end-to-end using Jira and Confluence — from inception through retrospective — while applying best practices from Scrum, Kanban, and SAFe frameworks.",
+    "courseOutcomes": "Upon completion, participants will be able to lead Agile projects using Atlassian tools, configure multi-team programmes, facilitate ceremonies with Confluence, measure delivery metrics, and prepare for the ACP-620 exam.",
     "prerequisites": "Familiarity with Jira Software (ATLS101) and basic Agile concepts. Confluence experience (ATLS301) is helpful.",
     "labs": "Hands-on labs simulating a full Agile project lifecycle including planning, sprint execution, retrospective, cross-team coordination, and stakeholder reporting.",
     "toc": "",
@@ -13201,7 +13255,7 @@
       "Use Confluence for project charters, decisions logs, and retrospectives",
       "Measure delivery performance with Jira reports and dashboards",
       "Scale Agile across teams using Jira's cross-team planning features",
-      "Prepare for the Atlassian ACP-420 certification exam"
+      "Prepare for the Atlassian ACP-620 certification exam"
     ],
     "requirements": [
       "Basic Jira usage experience",
@@ -13266,12 +13320,12 @@
         ]
       },
       {
-        "moduleTitle": "Module 6: Scaling Agile and ACP-420 Exam Prep",
+        "moduleTitle": "Module 6: Scaling Agile and ACP-620 Exam Prep",
         "content": [
           "Scaling Agile with SAFe and LeSS: how Jira supports each",
           "Jira advanced roadmaps overview for programme-level planning",
           "Agile governance: managing policies and team agreements",
-          "ACP-420 exam objectives and sample questions",
+          "ACP-620 exam objectives and sample questions",
           "Lab: Mock exam simulation covering Agile project management scenarios"
         ]
       }
@@ -13283,7 +13337,15 @@
       "gbp": 559,
       "eur": 659
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-620"
+    ],
+    "recommendedNextCourse": {
+      "id": "ATLS501",
+      "title": "Jira Align Essentials"
+    }
   },
   {
     "id": "ATLS501",
@@ -13293,9 +13355,9 @@
     "category": "Atlassian",
     "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
     "catcls": "cat-twelve",
-    "overview": "This course introduces Jira Align \u2014 Atlassian's enterprise Agile planning platform. Participants will learn to connect team-level Jira with Jira Align's portfolio, programme, and team layers, configure the SAFe hierarchy, run PI Planning ceremonies, and track OKRs and business outcomes at the enterprise level. Aligned with ACP-520 objectives.",
+    "overview": "This course introduces Jira Align — Atlassian's enterprise Agile planning platform. Participants will learn to connect team-level Jira with Jira Align's portfolio, programme, and team layers, configure the SAFe hierarchy, run PI Planning ceremonies, and track OKRs and business outcomes at the enterprise level. Jira Align has no dedicated Atlassian certification exam; this course complements Scaled Agile Inc.'s SAFe Program Consultant (SPC) certification, which is external to Atlassian.",
     "courseObjective": "Participants will understand the Jira Align platform, configure its SAFe hierarchy, synchronise Jira projects with Jira Align, run PI Planning in a digital environment, and measure portfolio-level delivery metrics.",
-    "courseOutcomes": "Upon completion, participants will be able to set up and use Jira Align for enterprise Agile planning, facilitate PI Planning, manage portfolios and programmes, and prepare for the ACP-520 exam.",
+    "courseOutcomes": "Upon completion, participants will be able to set up and use Jira Align for enterprise Agile planning, facilitate PI Planning, manage portfolios and programmes, and translate SAFe practice into a working Jira Align configuration.",
     "prerequisites": "Strong Jira Software experience required. Familiarity with SAFe (Scaled Agile Framework) is essential. ATLS401 recommended.",
     "labs": "Hands-on labs covering Jira Align hierarchy setup, Jira synchronisation, PI Planning simulation, OKR tracking, and portfolio dashboards.",
     "toc": "",
@@ -13315,8 +13377,7 @@
       "Facilitate PI Planning ceremonies using Jira Align's digital PI board",
       "Track OKRs, themes, and strategic objectives in Jira Align",
       "Monitor portfolio-level delivery using Jira Align dashboards",
-      "Manage releases and solution trains in Jira Align",
-      "Prepare for the Atlassian ACP-520 certification exam"
+      "Manage releases and solution trains in Jira Align"
     ],
     "requirements": [
       "Proficient Jira Software experience",
@@ -13327,7 +13388,7 @@
       "Release Train Engineers (RTEs) and SAFe Programme Consultants",
       "Portfolio and programme managers adopting SAFe",
       "Agile Coaches scaling Agile across the enterprise",
-      "Professionals preparing for ACP-520 certification"
+      "Enterprise architects standardising on the Atlassian enterprise stack"
     ],
     "modules": [
       {
@@ -13381,13 +13442,13 @@
         ]
       },
       {
-        "moduleTitle": "Module 6: ACP-520 Exam Preparation",
+        "moduleTitle": "Module 6: Enterprise Rollout and Mastery Review",
         "content": [
-          "ACP-520 exam structure and key objectives",
-          "Common exam scenarios: hierarchy configuration, PI planning, OKRs",
-          "Practice questions and knowledge gap analysis",
-          "Jira Align admin tips for the exam",
-          "Lab: Full mock exam with reviewed answers and explanations"
+          "Rolling out Jira Align across additional ARTs and portfolios",
+          "Common configuration pitfalls and how to avoid them",
+          "Scenario-based review covering hierarchy, sync, and PI Planning",
+          "Change-management tips for driving SAFe/Jira Align adoption",
+          "Lab: Full scenario review with reviewed answers and explanations"
         ]
       }
     ],
@@ -13398,7 +13459,13 @@
       "gbp": 559,
       "eur": 659
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS411",
+      "title": "Advanced Agile Delivery with Jira"
+    }
   },
   {
     "id": "ATLS601",
@@ -13503,7 +13570,14 @@
       "gbp": 369,
       "eur": 439
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "capstoneProject": "Produce a complete migration runbook (assessment, app-compatibility matrix, cutover plan, and rollback strategy) for a simulated 500-user Data Center-to-Cloud migration.",
+    "recommendedNextCourse": {
+      "id": "ATLS901",
+      "title": "Atlassian Cloud Organization Administration"
+    }
   },
   {
     "id": "ATLS701",
@@ -13513,7 +13587,7 @@
     "category": "Atlassian",
     "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
     "catcls": "cat-twelve",
-    "overview": "This course covers Bitbucket Cloud \u2014 Atlassian's Git repository hosting platform \u2014 and its role in the Atlassian DevOps toolchain. Participants will learn Git fundamentals, Bitbucket repository management, pull request workflows, Bitbucket Pipelines for CI/CD, and integration with Jira and Jira Service Management.",
+    "overview": "This course covers Bitbucket Cloud — Atlassian's Git repository hosting platform — and its role in the Atlassian DevOps toolchain. Participants will learn Git fundamentals, Bitbucket repository management, pull request workflows, Bitbucket Pipelines for CI/CD, and integration with Jira and Jira Service Management.",
     "courseObjective": "Participants will gain practical skills in using Bitbucket for source control, collaborating via pull requests, building CI/CD pipelines with Bitbucket Pipelines, and integrating Bitbucket with Jira for full development lifecycle traceability.",
     "courseOutcomes": "Upon completion, participants will be able to manage Git repositories in Bitbucket, enforce code review policies, build and configure Bitbucket Pipelines, and create a connected DevOps workflow with Jira and JSM.",
     "prerequisites": "Basic Git knowledge (clone, commit, push, pull) required. Familiarity with Jira Software is helpful.",
@@ -13571,7 +13645,7 @@
         ]
       },
       {
-        "moduleTitle": "Module 3: Bitbucket Pipelines \u2014 CI Fundamentals",
+        "moduleTitle": "Module 3: Bitbucket Pipelines — CI Fundamentals",
         "content": [
           "Bitbucket Pipelines architecture: steps, stages, and services",
           "Writing bitbucket-pipelines.yml: triggers, scripts, and caches",
@@ -13581,7 +13655,7 @@
         ]
       },
       {
-        "moduleTitle": "Module 4: Bitbucket Pipelines \u2014 CD and Deployments",
+        "moduleTitle": "Module 4: Bitbucket Pipelines — CD and Deployments",
         "content": [
           "Environment management: test, staging, and production",
           "Deployment gates and manual approval steps",
@@ -13618,7 +13692,13 @@
       "gbp": 559,
       "eur": 659
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS711",
+      "title": "Bitbucket Pipelines & CI/CD for Atlassian DevOps"
+    }
   },
   {
     "id": "ATLS801",
@@ -13628,7 +13708,7 @@
     "category": "Atlassian",
     "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
     "catcls": "cat-twelve",
-    "overview": "This capstone course focuses on integrating the full Atlassian suite \u2014 Jira Software, Jira Service Management, Confluence, and Bitbucket \u2014 into a unified, connected workspace. Participants will design and implement cross-tool workflows that span development, operations, documentation, and service delivery for enterprise teams.",
+    "overview": "This capstone course focuses on integrating the full Atlassian suite — Jira Software, Jira Service Management, Confluence, and Bitbucket — into a unified, connected workspace. Participants will design and implement cross-tool workflows that span development, operations, documentation, and service delivery for enterprise teams.",
     "courseObjective": "Participants will design end-to-end connected workflows that link Jira, Confluence, JSM, and Bitbucket, enabling seamless information flow from customer request to code deployment to documentation.",
     "courseOutcomes": "Upon completion, participants will be able to architect and implement a fully integrated Atlassian workspace, automate cross-tool processes, and deliver a connected digital workspace for enterprise teams.",
     "prerequisites": "Experience with at least two Atlassian tools (Jira + Confluence or Jira + JSM). Prior completion of ATLS101, ATLS201, and ATLS301 is recommended.",
@@ -13723,7 +13803,2708 @@
       "gbp": 369,
       "eur": 439
     },
-    "categoryGroup": "Enterprise Platforms"
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "capstoneProject": "Design and present a fully integrated Atlassian workspace (Jira, JSM, Confluence, Bitbucket) with cross-tool automation for a fictional enterprise, as described in the course capstone lab.",
+    "recommendedNextCourse": {
+      "id": "ATLS902",
+      "title": "Atlassian Access & Security Administration"
+    }
+  },
+  {
+    "id": "ATLS901",
+    "courseSlug": "atlassian-cloud-organization-administration",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Atlassian Cloud Organization Administration",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course covers administration at the Atlassian Organization (Admin Hub) level — the layer above individual Jira and Confluence sites. Participants will learn to manage multiple Cloud sites, domains, users, and products from a single Admin Hub, enforce organization-wide policies, and prepare for the ACP-520 certification.",
+    "courseObjective": "Participants will learn to administer users, groups, and products across multiple Atlassian Cloud sites and organizations using the Admin Hub, and to enforce security and data-residency policies centrally.",
+    "courseOutcomes": "Upon completion, participants will be able to manage multi-site Atlassian Organizations, verify domains, enforce organization policies, administer billing and product access, and prepare for the ACP-520 certification exam.",
+    "prerequisites": "Experience as a Jira or Confluence site administrator. No prior Admin Hub experience required.",
+    "labs": "Hands-on labs covering domain verification, organization policy creation, managed accounts, and cross-site user administration in the Atlassian Admin Hub.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Navigate the Atlassian Admin Hub and distinguish org, site, and product admin roles",
+      "Verify domains and claim managed accounts for organization-wide control",
+      "Create and enforce organization policies (password, session, data residency)",
+      "Administer billing, product access, and site provisioning centrally",
+      "Audit user activity and product usage across the organization",
+      "Prepare for the Atlassian ACP-520 certification exam"
+    ],
+    "requirements": [
+      "Atlassian organization administrator access",
+      "Experience with at least one Atlassian Cloud product"
+    ],
+    "targetAudience": [
+      "Atlassian organization administrators",
+      "IT operations leads managing multiple Cloud sites",
+      "Professionals preparing for ACP-520 certification"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Admin Hub Fundamentals",
+        "content": [
+          "Organization vs site vs product administration roles",
+          "Admin Hub navigation: directory, security, billing, and products",
+          "Claiming and verifying domains for managed accounts",
+          "Lab: Verify a domain and claim managed accounts in a sandbox organization"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Organization Policies",
+        "content": [
+          "Password policy, session duration, and mobile device management",
+          "Data residency and product data location controls",
+          "Approved apps and API token policies",
+          "Lab: Configure a full organization security policy set"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Billing, Products, and Provisioning",
+        "content": [
+          "Managing product access and site provisioning across the org",
+          "Consolidated billing and subscription management",
+          "Merging and separating Cloud sites",
+          "Lab: Provision a new site under an existing organization"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Auditing and ACP-520 Exam Prep",
+        "content": [
+          "Organization audit log and activity insights",
+          "Cross-site user and group administration",
+          "ACP-520 exam objectives and practice scenarios",
+          "Lab: Full mock exam simulation with reviewed answers"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-520"
+    ],
+    "recommendedNextCourse": {
+      "id": "ATLS902",
+      "title": "Atlassian Access & Security Administration"
+    }
+  },
+  {
+    "id": "ATLS902",
+    "courseSlug": "atlassian-access-security-administration",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Atlassian Access & Security Administration",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course covers Atlassian Access, Atlassian's enterprise identity and security add-on. Participants will learn to configure SAML SSO, SCIM user provisioning, identity provider integration, and security policies that apply across every product in the Atlassian Cloud organization.",
+    "courseObjective": "Participants will implement centralized identity and security controls for an Atlassian Cloud organization, including SSO, automated user provisioning/deprovisioning, and enforcement policies.",
+    "courseOutcomes": "Upon completion, participants will be able to configure SAML SSO with a major identity provider, automate user lifecycle management with SCIM, enforce mandatory security policies, and support security audits and compliance reviews.",
+    "prerequisites": "Completion of Atlassian Cloud Organization Administration (ATLS901) or equivalent Admin Hub experience. Basic identity/IdP concepts helpful.",
+    "labs": "Hands-on labs covering SAML SSO configuration, SCIM provisioning setup, mandatory 2FA enforcement, and security event monitoring.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.6",
+    "whatWillYouLearn": [
+      "Configure SAML single sign-on with Okta, Azure AD/Entra ID, or Google Workspace",
+      "Automate user provisioning and deprovisioning with SCIM",
+      "Enforce mandatory two-step verification and IP allowlisting",
+      "Design least-privilege group and permission structures at scale",
+      "Monitor security events and respond to suspicious activity",
+      "Support compliance and security audit requests for Atlassian Cloud"
+    ],
+    "requirements": [
+      "Atlassian organization administrator access",
+      "Familiarity with identity provider concepts (SSO/SCIM)"
+    ],
+    "targetAudience": [
+      "Security and identity administrators",
+      "IT/InfoSec teams governing SaaS access",
+      "Enterprise architects responsible for Atlassian security posture"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Atlassian Access Fundamentals",
+        "content": [
+          "What Atlassian Access covers and licensing model",
+          "Identity provider concepts: SAML, SCIM, and federation",
+          "Enabling Atlassian Access for an organization",
+          "Lab: Enable Atlassian Access and review available security controls"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: SAML Single Sign-On",
+        "content": [
+          "Configuring SAML SSO with Okta, Azure AD/Entra ID, and Google Workspace",
+          "Enforced SSO vs optional SSO and login policies",
+          "Troubleshooting SSO login failures",
+          "Lab: Configure and test SAML SSO end-to-end"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: SCIM Provisioning and Lifecycle",
+        "content": [
+          "Automating user creation, updates, and deactivation via SCIM",
+          "Group provisioning and mapping to Jira/Confluence permissions",
+          "Handling offboarding and access revocation at scale",
+          "Lab: Configure SCIM provisioning and verify automated deprovisioning"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Security Policy and Monitoring",
+        "content": [
+          "Mandatory two-step verification and IP allowlisting",
+          "Security event log review and anomaly detection",
+          "Supporting SOC 2/ISO audits with Atlassian Access reporting",
+          "Capstone Lab: Design and implement a full identity/security policy set for a regulated enterprise"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-520"
+    ],
+    "capstoneProject": "Design and implement a complete identity and security policy set (SSO, SCIM, 2FA enforcement, IP allowlisting) for a simulated regulated enterprise, and produce an audit-readiness summary.",
+    "recommendedNextCourse": {
+      "id": "ATLS901",
+      "title": "Atlassian Cloud Organization Administration"
+    }
+  },
+  {
+    "id": "ATLS903",
+    "courseSlug": "jira-workflow-engineering-automation",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Jira Workflow Engineering & Automation",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course goes deep on workflow architecture — the discipline of designing Jira workflow schemes, statuses, and transitions that scale across dozens of projects without becoming unmanageable. Participants will learn workflow engineering patterns, shared workflow governance, and how to combine schemes with Jira Automation for a fully automated issue lifecycle.",
+    "courseObjective": "Participants will design maintainable, reusable workflow architectures for multi-team Jira instances and pair them with automation rules that remove manual issue handling.",
+    "courseOutcomes": "Upon completion, participants will be able to design shared workflow schemes that scale across an organization, avoid common workflow sprawl mistakes, and build automation rules that keep issues moving without manual intervention.",
+    "prerequisites": "Completion of Jira Administration for Cloud (ATLS102, ACP-120) or equivalent workflow-configuration experience.",
+    "labs": "Hands-on labs covering shared workflow design, status/transition governance, validators and post-functions, and automation rules layered on top of workflows.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "05 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Design shared, reusable workflow schemes that scale across many projects",
+      "Standardize statuses and transitions to avoid workflow sprawl",
+      "Apply conditions, validators, and post-functions for governed transitions",
+      "Combine workflow schemes with Jira Automation for a hands-off issue lifecycle",
+      "Migrate issues safely between workflow versions with minimal disruption",
+      "Audit and refactor an unmanageable legacy workflow set"
+    ],
+    "requirements": [
+      "Experience configuring Jira workflows and schemes",
+      "Jira site or project administrator access"
+    ],
+    "targetAudience": [
+      "Jira administrators responsible for workflow governance",
+      "Platform/tooling teams standardizing Jira for the enterprise",
+      "Consultants auditing legacy Jira instances"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Workflow Engineering Principles",
+        "content": [
+          "Symptoms of workflow sprawl: duplicate statuses, dead transitions",
+          "Designing a status taxonomy shared across teams",
+          "Shared workflows vs per-project workflows: trade-offs",
+          "Lab: Audit a legacy instance and list workflow-sprawl issues"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Advanced Transition Logic",
+        "content": [
+          "Conditions: restricting who can transition an issue",
+          "Validators: enforcing required fields before transition",
+          "Post-functions: field updates, notifications, and webhooks on transition",
+          "Lab: Build a governed transition with condition, validator, and post-function"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Scheme Consolidation and Governance",
+        "content": [
+          "Consolidating multiple workflows into a shared scheme",
+          "Versioning workflows and managing scheme migrations safely",
+          "Change-control process for workflow edits in a live instance",
+          "Lab: Consolidate three overlapping project workflows into one shared scheme"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Automation-Driven Workflows",
+        "content": [
+          "Layering Jira Automation rules on top of workflow transitions",
+          "Auto-transitioning issues based on linked-issue or subtask status",
+          "Smart values and branching for cross-project automation",
+          "Lab: Automate an issue lifecycle so most transitions require no manual click"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Migration and Refactoring at Scale",
+        "content": [
+          "Safely migrating hundreds of issues to a new workflow",
+          "Rollback planning for workflow changes",
+          "Communicating workflow changes to end users",
+          "Lab: Migrate a live-data project to a refactored workflow scheme with zero data loss"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-120"
+    ],
+    "recommendedNextCourse": {
+      "id": "ATLS904",
+      "title": "Jira Advanced Administration"
+    }
+  },
+  {
+    "id": "ATLS904",
+    "courseSlug": "jira-advanced-administration",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Jira Advanced Administration",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course is the capstone for Jira Cloud administrators, going beyond ACP-120 fundamentals into performance, marketplace app governance, large-scale project provisioning, and troubleshooting. Participants will learn to run Jira as a platform team supporting hundreds of projects and thousands of users.",
+    "courseObjective": "Participants will develop platform-owner-level skills: app governance, provisioning automation, performance troubleshooting, and enterprise support processes for Jira Cloud.",
+    "courseOutcomes": "Upon completion, participants will be able to govern marketplace apps, automate project provisioning, diagnose performance and permission issues at scale, and run Jira administration as a service for the wider organization.",
+    "prerequisites": "Completion of Jira Administration for Cloud (ATLS102, ACP-120). Jira Workflow Engineering & Automation (ATLS903) recommended.",
+    "labs": "Hands-on labs covering marketplace app vetting, project template provisioning, permission auditing at scale, and incident troubleshooting scenarios.",
+    "toc": "",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "10",
+    "instructor": "Atlassian Certified Experts",
+    "price": 63999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.6",
+    "whatWillYouLearn": [
+      "Govern marketplace app installation, review, and lifecycle at enterprise scale",
+      "Automate project provisioning with templates and blueprints",
+      "Audit permissions and schemes across hundreds of projects",
+      "Diagnose and resolve Jira performance and indexing issues",
+      "Run Jira administration as an internal platform service with SLAs",
+      "Plan capacity, licensing, and app cost governance for enterprise Jira"
+    ],
+    "requirements": [
+      "ACP-120 or equivalent Jira Cloud admin experience",
+      "Site administrator access to a Jira Cloud instance"
+    ],
+    "targetAudience": [
+      "Senior Jira/Atlassian platform administrators",
+      "Toolchain/platform engineering teams",
+      "IT leaders responsible for Jira as an internal platform"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Jira as an Internal Platform",
+        "content": [
+          "Operating Jira administration as a platform team with SLAs",
+          "Intake process for new projects, apps, and configuration requests",
+          "Governance model: who can change what, and how changes are reviewed",
+          "Lab: Draft a Jira platform governance charter and intake workflow"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Marketplace App Governance",
+        "content": [
+          "Vetting new apps for security, performance, and licensing",
+          "Managing app lifecycle: trials, renewals, and decommissioning",
+          "Cost governance for per-user marketplace app pricing",
+          "Lab: Build an app request/approval workflow using Jira and Assets"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Provisioning at Scale",
+        "content": [
+          "Project templates and blueprints for consistent new-project setup",
+          "Bulk project and user provisioning via the Jira Cloud REST API",
+          "Standardizing schemes across newly created projects",
+          "Lab: Provision ten standardized projects from a single template"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Permission and Scheme Auditing",
+        "content": [
+          "Auditing permission schemes across a large instance",
+          "Detecting and fixing overly permissive project roles",
+          "Reconciling duplicate/conflicting schemes",
+          "Lab: Run a permission audit across 20 projects and remediate findings"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Performance and Troubleshooting",
+        "content": [
+          "Diagnosing slow searches, boards, and dashboards",
+          "Common root causes: JQL complexity, custom field sprawl, app conflicts",
+          "Working with Atlassian Support on Cloud-side performance issues",
+          "Lab: Diagnose and resolve a simulated performance incident"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Capacity, Licensing, and Continuity",
+        "content": [
+          "License tier planning and user-count forecasting",
+          "Business continuity: backups, exports, and disaster recovery for Cloud",
+          "Change management and communication for platform-wide changes",
+          "Capstone Lab: Present a platform operations runbook for a 5,000-user Jira Cloud instance"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-120"
+    ],
+    "capstoneProject": "Produce a platform operations runbook (governance, app policy, provisioning, and incident response) for a simulated 5,000-user enterprise Jira Cloud instance.",
+    "recommendedNextCourse": {
+      "id": "ATLS901",
+      "title": "Atlassian Cloud Organization Administration"
+    }
+  },
+  {
+    "id": "ATLS905",
+    "courseSlug": "jira-data-center-administration",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Jira Data Center Administration (Enterprise & Legacy)",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "For organizations still running Jira Data Center — often for data-residency, air-gapped, or scale requirements Cloud cannot yet meet — this course covers Data Center-specific administration: clustering, node management, shared home configuration, upgrades, and planning an eventual Cloud migration.",
+    "courseObjective": "Participants will learn to administer a clustered Jira Data Center deployment, manage node health and shared storage, plan zero-downtime upgrades, and evaluate readiness for a future Cloud migration.",
+    "courseOutcomes": "Upon completion, participants will be able to operate a Jira Data Center cluster, troubleshoot node and index issues, execute rolling upgrades, and produce a Cloud-migration readiness assessment.",
+    "prerequisites": "Experience administering Jira Server or Data Center. Linux systems administration familiarity is beneficial.",
+    "labs": "Hands-on labs covering cluster node configuration, shared home and database setup, rolling upgrades, and load-balancer/health-check configuration.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "05 Modules",
+    "noStudents": "10",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.3",
+    "whatWillYouLearn": [
+      "Architect and administer a Jira Data Center cluster",
+      "Configure shared home, database, and search-index replication across nodes",
+      "Plan and execute rolling, zero-downtime upgrades",
+      "Monitor node health, load balancing, and failover behaviour",
+      "Manage Data Center-specific apps and licensing",
+      "Produce a readiness assessment for a future move to Atlassian Cloud"
+    ],
+    "requirements": [
+      "Jira Server/Data Center administration experience",
+      "Basic Linux and networking knowledge"
+    ],
+    "targetAudience": [
+      "Data Center administrators in regulated or air-gapped environments",
+      "Infrastructure/platform teams supporting on-premises Atlassian tools",
+      "Architects evaluating Data Center vs Cloud strategy"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Data Center Architecture",
+        "content": [
+          "Cluster architecture: nodes, shared home, and load balancer",
+          "Database and search-index considerations for clustering",
+          "Sizing a cluster for expected load and failover requirements",
+          "Lab: Review a reference Data Center architecture diagram and identify gaps"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Cluster Configuration and Operations",
+        "content": [
+          "Configuring shared home and node-specific settings",
+          "Adding and removing nodes safely",
+          "Health checks, load-balancer configuration, and session affinity",
+          "Lab: Configure a two-node cluster in a lab environment"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Upgrades and Maintenance",
+        "content": [
+          "Rolling upgrade strategy for zero/minimal downtime",
+          "Pre-upgrade checks: app compatibility and database backups",
+          "Handling failed upgrades and rollback procedures",
+          "Lab: Perform a simulated rolling upgrade across a cluster"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Troubleshooting and Monitoring",
+        "content": [
+          "Diagnosing node-specific vs cluster-wide issues",
+          "Search index corruption and re-indexing at scale",
+          "Log analysis and support-zip generation for Atlassian Support",
+          "Lab: Diagnose a simulated node failure and restore cluster health"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Planning the Path to Cloud",
+        "content": [
+          "Comparing Data Center and Cloud feature parity",
+          "Data-residency and compliance drivers for staying on Data Center",
+          "Building a Cloud-migration readiness assessment",
+          "Capstone Lab: Produce a Data-Center-vs-Cloud decision brief for leadership"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "capstoneProject": "Produce a Data Center operations runbook and a Cloud-migration readiness assessment for a simulated regulated enterprise still running Jira Data Center.",
+    "recommendedNextCourse": {
+      "id": "ATLS601",
+      "title": "Atlassian Cloud Migration"
+    }
+  },
+  {
+    "id": "ATLS131",
+    "courseSlug": "advanced-jql-masterclass",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Advanced JQL Masterclass",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This masterclass takes participants from basic Jira searching to expert-level JQL (Jira Query Language). Participants will learn advanced functions, subqueries, date/time logic, and how to build the precise filters that power dashboards, automation rules, and boards.",
+    "courseObjective": "Participants will master JQL syntax and functions well enough to build any filter needed for reporting, automation, or board configuration without relying on the basic search UI.",
+    "courseOutcomes": "Upon completion, participants will be able to write complex JQL queries using functions, operators, and subqueries, and reuse them across filters, dashboards, boards, and automation rules.",
+    "prerequisites": "Completion of Jira Software Fundamentals (ATLS101) or equivalent Jira usage experience.",
+    "labs": "Hands-on labs building progressively complex JQL queries for reporting, board filters, and automation rule triggers.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.7",
+    "whatWillYouLearn": [
+      "Write JQL queries using all major operators and keywords",
+      "Use JQL functions: currentUser(), now(), startOfWeek(), issueHistory(), and more",
+      "Query across linked issues, sprints, and custom fields",
+      "Build reusable saved filters for boards, dashboards, and automation",
+      "Debug and optimize slow or incorrect JQL queries",
+      "Apply JQL in Jira Automation rule conditions"
+    ],
+    "requirements": [
+      "Basic Jira search experience",
+      "Access to a Jira Cloud project with sample data"
+    ],
+    "targetAudience": [
+      "Power users building custom reports and boards",
+      "Jira administrators supporting ad-hoc reporting requests",
+      "Analysts and PMOs needing precise cross-project queries"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: JQL Foundations",
+        "content": [
+          "JQL syntax: fields, operators, and keywords",
+          "Combining conditions with AND, OR, NOT, and parentheses",
+          "Common beginner mistakes and how to avoid them",
+          "Lab: Rebuild five basic-search filters as equivalent JQL queries"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Functions and Dynamic Queries",
+        "content": [
+          "Date/time functions: now(), startOfDay(), endOfWeek(), and offsets",
+          "User and membership functions: currentUser(), membersOf()",
+          "History functions: issueHistory(), changed(), was()",
+          "Lab: Build a rolling 'my overdue issues this sprint' query"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Advanced Patterns",
+        "content": [
+          "Querying linked issues, subtasks, and epics",
+          "Filtering by sprint, board, and custom field values",
+          "Subqueries using issueFunction (where available) and workarounds",
+          "Lab: Build a cross-project query for stale, unassigned high-priority issues"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: JQL in Practice",
+        "content": [
+          "Using JQL to drive board filters and swimlanes",
+          "Using JQL in dashboard gadgets and automation rule conditions",
+          "Performance considerations for JQL on large instances",
+          "Lab: Wire a saved JQL filter into a dashboard gadget and an automation rule"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-620"
+    ],
+    "recommendedNextCourse": {
+      "id": "ATLS132",
+      "title": "Jira Dashboards & Reporting for Executives"
+    }
+  },
+  {
+    "id": "ATLS132",
+    "courseSlug": "jira-dashboards-reporting-for-executives",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Jira Dashboards & Reporting for Executives",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course focuses on turning raw Jira data into decision-ready reporting. Participants will learn to design executive dashboards, choose the right gadgets and charts for each audience, and combine Jira reporting with Confluence for polished stakeholder communication.",
+    "courseObjective": "Participants will design and build Jira dashboards and reports that communicate delivery status, risk, and trends clearly to executive and stakeholder audiences.",
+    "courseOutcomes": "Upon completion, participants will be able to build multi-project executive dashboards, select appropriate charts for different metrics, and automate recurring status reporting.",
+    "prerequisites": "Basic Jira usage experience. Advanced JQL Masterclass (ATLS131) recommended but not required.",
+    "labs": "Hands-on labs building executive dashboards, burnup/burndown and velocity charts, and automated status reports.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Design dashboards tailored to executive, PMO, and team audiences",
+      "Select the right gadget or chart for status, risk, and trend reporting",
+      "Build multi-project rollup views using filters and JQL",
+      "Configure sprint, velocity, burndown, and cumulative flow reports",
+      "Share and schedule dashboards and reports for recurring stakeholder updates",
+      "Combine Jira gadgets with Confluence for polished executive reports"
+    ],
+    "requirements": [
+      "Basic Jira usage experience",
+      "Access to a Jira Cloud site with sample project data"
+    ],
+    "targetAudience": [
+      "PMOs and delivery managers reporting to leadership",
+      "Team leads producing recurring status updates",
+      "Executives who want to self-serve their own dashboards"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Reporting Fundamentals",
+        "content": [
+          "Choosing metrics that matter to different audiences",
+          "Jira's built-in reports: sprint, velocity, burndown, cumulative flow",
+          "Reading and avoiding misleading charts",
+          "Lab: Select the right report for three different stakeholder questions"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Dashboards and Gadgets",
+        "content": [
+          "Dashboard design principles for at-a-glance status",
+          "Configuring filter results, two-dimensional, and pie-chart gadgets",
+          "Multi-project rollups using saved JQL filters",
+          "Lab: Build an executive dashboard spanning three projects"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Advanced Visualizations",
+        "content": [
+          "Roadmap and timeline views for portfolio-level status",
+          "Control charts and cycle-time analysis for flow-based teams",
+          "Highlighting risk: overdue, blocked, and at-risk issues",
+          "Lab: Build a risk-focused dashboard highlighting blockers and slippage"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Automated and Recurring Reporting",
+        "content": [
+          "Scheduling dashboard email digests",
+          "Embedding Jira reports into Confluence status pages",
+          "Automation rules that post weekly summaries to Slack/Teams",
+          "Lab: Automate a weekly executive summary delivered to a Confluence page"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS133",
+      "title": "Jira Automation Masterclass"
+    }
+  },
+  {
+    "id": "ATLS133",
+    "courseSlug": "jira-automation-masterclass",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Jira Automation Masterclass",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This masterclass covers Jira's no-code Automation engine in depth — triggers, conditions, branches, and smart values — enabling participants to eliminate repetitive manual work across single and multiple projects.",
+    "courseObjective": "Participants will design and build sophisticated Jira Automation rules spanning triggers, conditions, branching, and smart values, and apply governance to keep automation maintainable.",
+    "courseOutcomes": "Upon completion, participants will be able to build multi-step, multi-project automation rules, debug failing rules using audit logs, and establish automation governance for a team or organization.",
+    "prerequisites": "Completion of Jira Software Fundamentals (ATLS101) or equivalent. Advanced JQL Masterclass (ATLS131) recommended.",
+    "labs": "Hands-on labs building automation rules with branching, smart values, scheduled triggers, and cross-project actions.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "05 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.6",
+    "whatWillYouLearn": [
+      "Build automation rules using triggers, conditions, and actions",
+      "Use branching to act on linked issues, subtasks, and epics",
+      "Apply smart values and Jira expressions for dynamic logic",
+      "Build scheduled and cross-project automation rules",
+      "Debug failing rules using the automation audit log",
+      "Establish automation governance to prevent rule sprawl and conflicts"
+    ],
+    "requirements": [
+      "Basic Jira usage experience",
+      "Project or site administrator access to create automation rules"
+    ],
+    "targetAudience": [
+      "Jira administrators and power users automating repetitive work",
+      "Scrum Masters and team leads reducing manual admin",
+      "Platform teams governing automation at scale"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Automation Fundamentals",
+        "content": [
+          "Automation rule anatomy: trigger, conditions, actions",
+          "Global, project, and multi-project automation scopes",
+          "Common quick-start templates and when to use them",
+          "Lab: Build a rule that auto-assigns and labels new issues"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Branching and Related Issues",
+        "content": [
+          "Branching on subtasks, linked issues, and epics",
+          "Related-issue conditions and bulk actions",
+          "Re-fetching issues and looping considerations",
+          "Lab: Auto-close a parent issue when all subtasks are done"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Smart Values and Advanced Logic",
+        "content": [
+          "Smart value syntax for fields, users, and dates",
+          "Jira expressions for advanced calculated conditions",
+          "Formatting output for comments, emails, and webhooks",
+          "Lab: Build a rule that posts a dynamically formatted Slack notification"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Scheduled and Cross-Project Automation",
+        "content": [
+          "Scheduled triggers for recurring housekeeping tasks",
+          "Cross-project rules for shared processes",
+          "Calling external systems via webhooks and REST actions",
+          "Lab: Build a scheduled rule that flags stale issues across five projects"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Governance and Troubleshooting",
+        "content": [
+          "Reading the automation audit log to debug failures",
+          "Rule execution limits and performance considerations",
+          "Governance: naming conventions, ownership, and rule reviews",
+          "Capstone Lab: Design an automation governance policy and refactor a messy rule set"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-620"
+    ],
+    "recommendedNextCourse": {
+      "id": "ATLS134",
+      "title": "Jira REST API & Integrations Development"
+    }
+  },
+  {
+    "id": "ATLS134",
+    "courseSlug": "jira-rest-api-integrations-development",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Jira REST API & Integrations Development",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This developer-focused course covers the Jira Cloud REST API in depth — authentication, core resources, webhooks, and building resilient integrations. Participants will build scripts and services that read and write Jira data programmatically.",
+    "courseObjective": "Participants will learn to authenticate against the Jira Cloud REST API, perform CRUD operations on issues and projects, consume webhooks, and design resilient, rate-limit-aware integrations.",
+    "courseOutcomes": "Upon completion, participants will be able to build and secure custom integrations against the Jira Cloud REST API, handle authentication and pagination correctly, and design webhook-driven automations outside of Jira.",
+    "prerequisites": "Programming experience in at least one language (JavaScript, Python, or similar). Familiarity with REST APIs and JSON.",
+    "labs": "Hands-on labs using Postman and a scripting language to call the Jira REST API, handle authentication, and consume webhooks.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "05 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Authenticate against the Jira Cloud REST API using API tokens and OAuth 2.0",
+      "Perform CRUD operations on issues, projects, and users via the API",
+      "Handle pagination, rate limiting, and error responses correctly",
+      "Consume Jira webhooks to trigger external workflows",
+      "Design idempotent, resilient integrations against Jira",
+      "Secure API credentials and follow Atlassian API best practices"
+    ],
+    "requirements": [
+      "Programming experience in JavaScript, Python, or similar",
+      "Familiarity with REST APIs, JSON, and HTTP"
+    ],
+    "targetAudience": [
+      "Developers building custom Jira integrations",
+      "Platform engineers connecting Jira to internal systems",
+      "Consultants building bespoke Atlassian solutions"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Jira REST API Fundamentals",
+        "content": [
+          "API architecture: resources, versions, and Atlassian Cloud endpoints",
+          "Authentication: API tokens, basic auth, and OAuth 2.0 (3LO)",
+          "Exploring the API with Postman and the API browser",
+          "Lab: Authenticate and fetch a project's issues via the REST API"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: CRUD Operations",
+        "content": [
+          "Creating, reading, updating, and transitioning issues via the API",
+          "Working with custom fields and field schemas",
+          "Bulk operations and batching strategies",
+          "Lab: Build a script that bulk-creates issues from a CSV file"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Pagination, Rate Limits, and Errors",
+        "content": [
+          "Handling paginated responses correctly",
+          "Respecting rate limits and implementing backoff strategies",
+          "Interpreting and handling common error responses",
+          "Lab: Build a resilient client that retries on rate-limit responses"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Webhooks and Event-Driven Integrations",
+        "content": [
+          "Registering and securing Jira webhooks",
+          "Designing an event-driven integration architecture",
+          "Verifying webhook payloads and handling duplicate events",
+          "Lab: Build a webhook receiver that syncs issue updates to an external system"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Production-Grade Integrations",
+        "content": [
+          "Idempotency and safe retries for write operations",
+          "Credential management and least-privilege API tokens",
+          "Monitoring and alerting for integration health",
+          "Capstone Lab: Build an end-to-end integration syncing Jira issues with an external ticketing system"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS135",
+      "title": "Jira App Development with Forge"
+    }
+  },
+  {
+    "id": "ATLS135",
+    "courseSlug": "jira-app-development-with-forge",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Jira App Development with Forge",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course introduces Forge, Atlassian's cloud-native app development platform, for building custom Jira and Confluence apps without managing infrastructure. Participants will build, test, and deploy a Forge app using UI Kit and the Forge platform APIs.",
+    "courseObjective": "Participants will learn Forge's architecture, development workflow, and platform APIs to build secure, scalable custom apps for Jira Cloud without hosting their own infrastructure.",
+    "courseOutcomes": "Upon completion, participants will be able to scaffold, build, test, and deploy a Forge app, use Forge storage and triggers, and understand Forge's security and permissions model.",
+    "prerequisites": "JavaScript/TypeScript development experience. Familiarity with Jira REST API & Integrations Development (ATLS134) recommended.",
+    "labs": "Hands-on labs scaffolding a Forge app, building custom Jira panels and modules with UI Kit, using Forge storage, and deploying to a development environment.",
+    "toc": "",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "05 Modules",
+    "noStudents": "10",
+    "instructor": "Atlassian Certified Experts",
+    "price": 63999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.4",
+    "whatWillYouLearn": [
+      "Understand Forge's architecture and how it differs from Connect apps",
+      "Scaffold and structure a Forge app using the Forge CLI",
+      "Build custom Jira UI panels and modules using UI Kit",
+      "Use Forge storage, triggers, and scheduled functions",
+      "Call Jira and Confluence platform APIs securely from a Forge app",
+      "Deploy, version, and distribute a Forge app on the Atlassian Marketplace"
+    ],
+    "requirements": [
+      "JavaScript or TypeScript development experience",
+      "Node.js development environment",
+      "A Jira Cloud developer site for testing"
+    ],
+    "targetAudience": [
+      "Developers building custom Atlassian apps",
+      "ISVs and consultancies building Marketplace apps",
+      "Platform engineering teams extending Jira beyond configuration"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Forge Platform Overview",
+        "content": [
+          "Forge vs Connect vs REST API: when to use each",
+          "Forge architecture: functions, triggers, and the runtime sandbox",
+          "Setting up the Forge CLI and a developer site",
+          "Lab: Scaffold and deploy a starter Forge app to a development site"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Building UI with UI Kit",
+        "content": [
+          "UI Kit components and layout patterns",
+          "Building custom Jira issue panels and global pages",
+          "Handling user input and form submission",
+          "Lab: Build a custom issue panel showing related data"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Data, Storage, and Triggers",
+        "content": [
+          "Forge storage API: reading and writing app data",
+          "Event triggers: reacting to issue and project events",
+          "Scheduled triggers for background processing",
+          "Lab: Build a scheduled function that aggregates data into Forge storage"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Calling Platform APIs Securely",
+        "content": [
+          "Forge's permission model and scopes",
+          "Calling Jira and Confluence REST APIs from a Forge function",
+          "Handling secrets and external API calls from Forge",
+          "Lab: Extend the app to call the Jira REST API from within a Forge function"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Testing, Deployment, and Distribution",
+        "content": [
+          "Testing Forge apps locally and in a staging environment",
+          "Versioning, environments, and promoting to production",
+          "Preparing an app for Atlassian Marketplace listing",
+          "Capstone Lab: Ship a complete Forge app addressing a real workflow gap"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "capstoneProject": "Design, build, and deploy a working Forge app that addresses a real workflow gap (e.g., a custom reporting panel or approval flow), including a Marketplace-readiness checklist.",
+    "recommendedNextCourse": {
+      "id": "ATLS902",
+      "title": "Atlassian Access & Security Administration"
+    }
+  },
+  {
+    "id": "ATLS211",
+    "courseSlug": "jsm-advanced-assets-cmdb",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "JSM Advanced Assets (CMDB) for Enterprise ITSM",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course goes deep on Atlassian Assets (formerly Insight), JSM's built-in configuration management database. Participants will design object schemas, automate discovery and imports, and link assets to incidents and changes for full context-aware ITSM.",
+    "courseObjective": "Participants will design and operate a production-grade CMDB in Atlassian Assets, covering schema design, data import/sync, and integration with JSM requests, incidents, and changes.",
+    "courseOutcomes": "Upon completion, participants will be able to design object schemas that model real infrastructure and services, keep asset data current via imports and automation, and use Assets to accelerate incident and change resolution.",
+    "prerequisites": "Completion of Jira Service Management Administration (ATLS202) or equivalent JSM admin experience.",
+    "labs": "Hands-on labs designing object schemas, importing assets via CSV, building automation to keep data fresh, and linking assets to live JSM tickets.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Design Assets object schemas modeling servers, applications, and services",
+      "Import and synchronize asset data from CSV and external sources",
+      "Model relationships and dependencies between configuration items",
+      "Link assets to JSM requests, incidents, and changes for context",
+      "Automate asset lifecycle events (e.g., decommission workflows)",
+      "Report on asset ownership, age, and compliance status"
+    ],
+    "requirements": [
+      "JSM administrator experience",
+      "Understanding of basic ITSM/CMDB concepts"
+    ],
+    "targetAudience": [
+      "JSM/ITSM administrators building a CMDB",
+      "IT asset and configuration managers",
+      "Enterprise architects modeling service dependencies"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Assets Fundamentals and Schema Design",
+        "content": [
+          "Assets architecture: object schemas, types, and attributes",
+          "Designing a schema that mirrors real infrastructure and services",
+          "Reference attributes for modeling relationships and dependencies",
+          "Lab: Design an object schema for servers, applications, and owners"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Data Import and Synchronization",
+        "content": [
+          "Importing assets via CSV and mapping to object types",
+          "Scheduled imports and keeping asset data current",
+          "Data quality: deduplication and validation rules",
+          "Lab: Import a sample infrastructure dataset and validate the schema"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Linking Assets to ITSM Processes",
+        "content": [
+          "Attaching assets to JSM requests, incidents, and changes",
+          "Using asset context to speed up incident triage",
+          "Change risk assessment informed by dependency mapping",
+          "Lab: Link a simulated incident to affected assets and dependent services"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Automation and Reporting",
+        "content": [
+          "Automating lifecycle events (e.g., asset retirement workflows)",
+          "Reporting on ownership, age, warranty, and compliance",
+          "Governance: who can create, edit, and delete asset data",
+          "Capstone Lab: Build a working CMDB slice covering one business service end-to-end"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-420"
+    ],
+    "capstoneProject": "Build a working CMDB slice for one business service (assets, dependencies, and linked incidents) and demonstrate how it accelerates a simulated incident investigation.",
+    "recommendedNextCourse": {
+      "id": "ATLS212",
+      "title": "ITSM Best Practices: Incident, Problem & Change Management"
+    }
+  },
+  {
+    "id": "ATLS212",
+    "courseSlug": "itsm-best-practices-incident-problem-change",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "ITSM Best Practices: Incident, Problem & Change Management",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course teaches ITIL-aligned incident, problem, and change management practice using Jira Service Management as the delivery platform. Participants will learn process design principles alongside the specific JSM configuration that supports each practice.",
+    "courseObjective": "Participants will learn ITIL-aligned incident, problem, and change management practices, and how to configure JSM to support each — from major incident response to CAB-approved change workflows.",
+    "courseOutcomes": "Upon completion, participants will be able to run structured incident response, conduct root-cause problem management, and operate a governed change process, all backed by JSM configuration.",
+    "prerequisites": "Completion of Jira Service Management Fundamentals (ATLS201) or equivalent ITSM experience.",
+    "labs": "Hands-on labs simulating a major incident response, a root-cause problem investigation, and a full change approval workflow in JSM.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.6",
+    "whatWillYouLearn": [
+      "Apply ITIL-aligned incident management practice, from detection to resolution",
+      "Run structured problem management with root-cause analysis",
+      "Design a change management process with risk-based approvals",
+      "Configure JSM issue types and workflows to support each ITSM practice",
+      "Link incidents, problems, and changes for full traceability",
+      "Measure ITSM process health with SLA and trend reporting"
+    ],
+    "requirements": [
+      "Basic JSM usage experience",
+      "Familiarity with IT support processes"
+    ],
+    "targetAudience": [
+      "ITSM process owners and service desk managers",
+      "Incident and problem managers",
+      "IT operations teams formalizing ITSM practice"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Incident Management",
+        "content": [
+          "Incident lifecycle: detection, triage, escalation, resolution",
+          "Major incident management and communication practices",
+          "Configuring JSM incident workflows and priority matrices",
+          "Lab: Run a simulated major incident from detection to post-incident review"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Problem Management",
+        "content": [
+          "Distinguishing incidents from problems",
+          "Root-cause analysis techniques (5 Whys, fishbone)",
+          "Tracking known errors and workarounds in JSM",
+          "Lab: Conduct a root-cause investigation for a recurring simulated incident"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Change Management",
+        "content": [
+          "Standard, normal, and emergency change types",
+          "Risk assessment and Change Advisory Board (CAB) approval flows",
+          "Linking changes to releases and deployments",
+          "Lab: Configure and run a CAB-approved change workflow"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Integrated ITSM Governance",
+        "content": [
+          "Linking incidents, problems, and changes for traceability",
+          "SLA and trend reporting across all three practices",
+          "Continual improvement: post-incident reviews feeding problem management",
+          "Capstone Lab: Design an integrated incident-problem-change governance model"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-420"
+    ],
+    "recommendedNextCourse": {
+      "id": "ATLS202",
+      "title": "Jira Service Management Administration"
+    }
+  },
+  {
+    "id": "ATLS213",
+    "courseSlug": "service-catalog-request-management-design",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Service Catalog & Request Management Design",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course focuses on designing a service catalog and request experience that customers actually want to use — clear categories, well-designed forms, and self-service that reduces ticket volume.",
+    "courseObjective": "Participants will design a service catalog structure, request forms, and self-service deflection strategy that improves customer experience and reduces agent workload.",
+    "courseOutcomes": "Upon completion, participants will be able to design and build a customer-friendly service catalog, optimize request forms for completeness and clarity, and measure self-service deflection.",
+    "prerequisites": "Completion of Jira Service Management Fundamentals (ATLS201) or equivalent JSM experience.",
+    "labs": "Hands-on labs designing portal groups and request types, building smart forms with conditional fields, and configuring a knowledge-base deflection strategy.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.4",
+    "whatWillYouLearn": [
+      "Design a service catalog structure organized by customer need, not internal team",
+      "Build request types and forms with conditional and dynamic fields",
+      "Reduce incomplete requests through form validation and guidance",
+      "Design a knowledge-base deflection strategy to reduce ticket volume",
+      "Measure request volume, completion rate, and deflection metrics",
+      "Apply portal branding and multi-team portal group design"
+    ],
+    "requirements": [
+      "Basic JSM usage experience",
+      "Access to a JSM Cloud project"
+    ],
+    "targetAudience": [
+      "Service desk managers designing the customer portal experience",
+      "Business analysts documenting service offerings",
+      "Multi-department teams (IT, HR, Facilities) sharing one portal"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Service Catalog Design Principles",
+        "content": [
+          "Organizing the catalog by customer need vs internal team structure",
+          "Naming, grouping, and prioritizing request types",
+          "Multi-department portals: IT, HR, Facilities, Legal",
+          "Lab: Redesign a confusing service catalog into customer-friendly groups"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Request Form Design",
+        "content": [
+          "Field types, conditional logic, and form validation",
+          "Reducing incomplete or ambiguous requests through better prompts",
+          "Approvals embedded directly in request forms",
+          "Lab: Build a smart request form with conditional fields and validation"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Self-Service and Deflection",
+        "content": [
+          "Designing a knowledge base that answers before a ticket is raised",
+          "Article recommendations and portal search optimization",
+          "Measuring deflection rate and identifying gaps",
+          "Lab: Build a deflection-focused knowledge base for a top-5 request type"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Measuring and Iterating",
+        "content": [
+          "Request volume, completion time, and satisfaction metrics",
+          "A/B testing form and catalog changes",
+          "Continual catalog review process",
+          "Capstone Lab: Present a before/after redesign of a service catalog with measured impact"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [
+      "ACP-420"
+    ],
+    "capstoneProject": "Redesign a service catalog and its top request form for a simulated multi-department organization, and present a before/after impact analysis on completion rate and deflection.",
+    "recommendedNextCourse": {
+      "id": "ATLS211",
+      "title": "JSM Advanced Assets (CMDB) for Enterprise ITSM"
+    }
+  },
+  {
+    "id": "ATLS311",
+    "courseSlug": "confluence-enterprise-knowledge-management",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Confluence for Enterprise Knowledge Management",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course treats Confluence as a knowledge management system, not just a wiki. Participants will learn information architecture, content ownership models, and findability practices that keep a large Confluence instance useful as it grows.",
+    "courseObjective": "Participants will design an information architecture and content ownership model for Confluence that keeps knowledge findable, current, and trusted at enterprise scale.",
+    "courseOutcomes": "Upon completion, participants will be able to design a space and labeling taxonomy, assign content ownership, improve search findability, and measure knowledge base health.",
+    "prerequisites": "Completion of Confluence Essentials (ATLS301) or equivalent Confluence experience.",
+    "labs": "Hands-on labs designing an information architecture, building a labeling taxonomy, and running a findability audit on a sample space.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Design an information architecture that scales beyond a single team",
+      "Build a consistent labeling and taxonomy strategy",
+      "Assign clear content ownership and review cycles",
+      "Improve search findability and reduce duplicate content",
+      "Design onboarding-friendly knowledge hubs for new employees",
+      "Measure knowledge base health with adoption and staleness metrics"
+    ],
+    "requirements": [
+      "Confluence usage experience",
+      "Access to a Confluence Cloud space with existing content"
+    ],
+    "targetAudience": [
+      "Knowledge management leads and documentation managers",
+      "Internal communications and enablement teams",
+      "Confluence space admins managing growing content volume"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Information Architecture",
+        "content": [
+          "Space vs page-tree strategy for different knowledge domains",
+          "Designing navigation that matches how people actually search",
+          "Avoiding duplicate spaces and content sprawl",
+          "Lab: Redesign a messy space's page tree into a clear hierarchy"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Taxonomy and Findability",
+        "content": [
+          "Building a consistent labeling taxonomy",
+          "Using CQL and search operators to improve discoverability",
+          "Reducing duplicate content through better structure",
+          "Lab: Apply a labeling taxonomy across an existing space"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Content Ownership and Governance",
+        "content": [
+          "Assigning owners and review cycles to key pages",
+          "Flagging and retiring outdated content",
+          "Onboarding hubs: designing a new-employee knowledge path",
+          "Lab: Build a content ownership register with review dates"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Measuring Knowledge Health",
+        "content": [
+          "Adoption, search-success, and staleness metrics",
+          "Running a periodic knowledge base health review",
+          "Reporting knowledge health to leadership",
+          "Capstone Lab: Produce a knowledge base health report and remediation plan"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS302",
+      "title": "Advanced Confluence Administration"
+    }
+  },
+  {
+    "id": "ATLS312",
+    "courseSlug": "confluence-ai-modern-collaboration",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Confluence AI & Modern Collaboration",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course covers Confluence's AI-assisted authoring and modern collaboration features — AI page summaries, content generation assistance, Whiteboards, and Databases — and how to use them without sacrificing content quality or governance.",
+    "courseObjective": "Participants will learn to use Confluence's AI features and modern collaboration tools (Whiteboards, Databases) to speed up authoring and collaboration while maintaining quality and governance.",
+    "courseOutcomes": "Upon completion, participants will be able to use AI-assisted page summaries and drafting responsibly, run collaborative Whiteboard sessions, and model structured data with Confluence Databases.",
+    "prerequisites": "Completion of Confluence Essentials (ATLS301) or equivalent Confluence experience.",
+    "labs": "Hands-on labs using AI page summaries and drafting assistance, running a Whiteboard ideation session, and building a Confluence Database.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.4",
+    "whatWillYouLearn": [
+      "Use Atlassian Intelligence page summaries and Q&A features in Confluence",
+      "Draft and refine content with AI writing assistance responsibly",
+      "Facilitate collaborative sessions using Confluence Whiteboards",
+      "Model structured data with Confluence Databases",
+      "Apply governance guardrails to AI-assisted content",
+      "Combine AI summaries with search to speed up knowledge discovery"
+    ],
+    "requirements": [
+      "Confluence usage experience",
+      "Access to a Confluence Cloud site with Atlassian Intelligence enabled"
+    ],
+    "targetAudience": [
+      "Content creators and technical writers",
+      "Team leads running workshops and retrospectives",
+      "Confluence admins evaluating AI feature rollout"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Atlassian Intelligence in Confluence",
+        "content": [
+          "AI page summaries and Q&A over space content",
+          "AI-assisted drafting, tone adjustment, and rewriting",
+          "Where AI helps vs where human review is still required",
+          "Lab: Use AI summaries to speed up onboarding to an unfamiliar space"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Governance for AI-Assisted Content",
+        "content": [
+          "Guardrails: fact-checking AI output before publishing",
+          "Labeling AI-assisted content for transparency",
+          "Data and privacy considerations for AI features",
+          "Lab: Draft a governance one-pager for AI-assisted authoring"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Whiteboards for Collaboration",
+        "content": [
+          "Running ideation and retrospective sessions on Whiteboards",
+          "Converting Whiteboard outputs into structured pages",
+          "Templates for common workshop formats",
+          "Lab: Facilitate a mock retrospective using a Confluence Whiteboard"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Confluence Databases",
+        "content": [
+          "Modeling structured data (trackers, registries) in Databases",
+          "Linking Database records to pages and Jira issues",
+          "Views, filtering, and sorting for structured data",
+          "Capstone Lab: Build a project tracker using a Confluence Database linked to Jira"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS911",
+      "title": "Atlassian Intelligence Fundamentals"
+    }
+  },
+  {
+    "id": "ATLS313",
+    "courseSlug": "confluence-cloud-migration-content-governance",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Confluence Cloud Migration & Content Governance",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course covers migrating Confluence content from Server/Data Center to Cloud and establishing the content governance practices needed to keep the migrated instance clean rather than re-accumulating clutter.",
+    "courseObjective": "Participants will plan and execute a Confluence Cloud migration and establish ongoing content governance so the migrated instance stays healthy.",
+    "courseOutcomes": "Upon completion, participants will be able to assess and migrate Confluence spaces to Cloud, resolve macro/app compatibility issues, and implement a post-migration governance model.",
+    "prerequisites": "Completion of Advanced Confluence Administration (ATLS302) or equivalent Confluence admin experience. Atlassian Cloud Migration (ATLS601) helpful.",
+    "labs": "Hands-on labs running a test space migration, resolving macro compatibility issues, and implementing a content governance policy post-migration.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.4",
+    "whatWillYouLearn": [
+      "Assess a Confluence Server/Data Center instance for Cloud migration",
+      "Identify and resolve macro and app compatibility issues",
+      "Run test migrations and validate content fidelity",
+      "Plan cutover and communicate changes to content owners",
+      "Implement post-migration content governance to prevent re-accumulated clutter",
+      "Measure migrated-content health over the first quarter post-migration"
+    ],
+    "requirements": [
+      "Confluence Server/Data Center administration experience",
+      "Confluence Cloud administrator access for the target instance"
+    ],
+    "targetAudience": [
+      "Confluence administrators planning a Cloud migration",
+      "IT architects modernizing the Atlassian stack",
+      "Knowledge management leads inheriting a legacy instance"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Migration Assessment",
+        "content": [
+          "Instance assessment: spaces, macros, apps, and attachments size",
+          "Identifying Cloud-incompatible macros and apps",
+          "Prioritizing which spaces to migrate first",
+          "Lab: Produce a migration readiness report for a sample instance"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Migration Execution",
+        "content": [
+          "Using the Confluence Cloud Migration Assistant",
+          "Running and validating test space migrations",
+          "Handling large attachments and page history",
+          "Lab: Perform a test migration of a sample space"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Compatibility and Cutover",
+        "content": [
+          "Remediating broken macros and re-linking content",
+          "Cutover planning and communicating to content owners",
+          "Post-migration validation checklist",
+          "Lab: Fix simulated macro compatibility issues after a test migration"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Post-Migration Governance",
+        "content": [
+          "Preventing re-accumulated clutter after migration",
+          "Content ownership and review cadence for the new instance",
+          "Quarterly health review process",
+          "Capstone Lab: Draft a 90-day post-migration content governance plan"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS312",
+      "title": "Confluence AI & Modern Collaboration"
+    }
+  },
+  {
+    "id": "ATLS411",
+    "courseSlug": "advanced-agile-delivery-with-jira",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Advanced Agile Delivery with Jira",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course moves beyond single-team Scrum/Kanban into advanced delivery practice: flow metrics, forecasting, dependency management across teams, and continuous improvement using Jira's advanced reporting.",
+    "courseObjective": "Participants will apply advanced Agile delivery techniques — flow metrics, probabilistic forecasting, and dependency management — using Jira as the delivery platform.",
+    "courseOutcomes": "Upon completion, participants will be able to forecast delivery using flow metrics, manage cross-team dependencies, and run data-driven continuous improvement using Jira's control charts and cumulative flow diagrams.",
+    "prerequisites": "Completion of Atlassian Agile Project Management (ATLS401) or equivalent Agile delivery experience.",
+    "labs": "Hands-on labs building control charts, running Monte Carlo-style forecasts from historical Jira data, and managing a simulated multi-team dependency map.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Apply flow metrics: cycle time, throughput, and work-in-progress",
+      "Forecast delivery dates probabilistically from historical Jira data",
+      "Manage cross-team dependencies and identify critical-path risk",
+      "Use control charts and cumulative flow diagrams for continuous improvement",
+      "Facilitate data-driven retrospectives grounded in flow data",
+      "Coach teams on WIP limits and flow-based ways of working"
+    ],
+    "requirements": [
+      "Experience with Scrum or Kanban in Jira",
+      "Access to a Jira project with historical issue data"
+    ],
+    "targetAudience": [
+      "Scrum Masters and Agile Coaches advancing beyond fundamentals",
+      "Delivery managers responsible for cross-team forecasting",
+      "Product Owners needing realistic delivery forecasts"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Flow Metrics Deep Dive",
+        "content": [
+          "Cycle time, lead time, and throughput fundamentals",
+          "Reading control charts and identifying flow problems",
+          "Cumulative flow diagrams: bottleneck detection",
+          "Lab: Build a control chart from historical Jira issue data"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Probabilistic Forecasting",
+        "content": [
+          "Why single-point estimates mislead stakeholders",
+          "Monte Carlo-style forecasting from historical throughput",
+          "Communicating forecasts as ranges and confidence levels",
+          "Lab: Forecast a release date range from a team's throughput history"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Cross-Team Dependency Management",
+        "content": [
+          "Mapping dependencies across multiple Jira projects",
+          "Identifying critical-path risk in a multi-team delivery",
+          "Escalation and resolution patterns for blocked dependencies",
+          "Lab: Build a dependency map for a three-team simulated programme"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Data-Driven Continuous Improvement",
+        "content": [
+          "Running retrospectives grounded in flow data rather than anecdotes",
+          "Coaching teams toward WIP limits and flow discipline",
+          "Tracking improvement experiments over time in Jira",
+          "Capstone Lab: Present a flow-based improvement plan backed by real metrics"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS412",
+      "title": "SAFe Program & Portfolio Management using Jira Align"
+    }
+  },
+  {
+    "id": "ATLS412",
+    "courseSlug": "safe-program-portfolio-management-jira-align",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "SAFe Program & Portfolio Management using Jira Align",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course builds on Jira Align Essentials to focus specifically on SAFe program and portfolio-level practice: PI Planning facilitation at scale, Lean Portfolio Management, and connecting strategy to execution across multiple Agile Release Trains.",
+    "courseObjective": "Participants will apply SAFe program- and portfolio-level practices inside Jira Align, including multi-ART PI Planning, Lean Portfolio Management, and strategic investment tracking.",
+    "courseOutcomes": "Upon completion, participants will be able to facilitate multi-ART PI Planning, operate Lean Portfolio Management in Jira Align, and connect strategic themes to delivered work.",
+    "prerequisites": "Completion of Jira Align Essentials (ATLS501). Working knowledge of the SAFe framework is required.",
+    "labs": "Hands-on labs facilitating a simulated multi-ART PI Planning event and configuring Lean Portfolio Management views in Jira Align.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.4",
+    "whatWillYouLearn": [
+      "Facilitate PI Planning across multiple Agile Release Trains in Jira Align",
+      "Operate Lean Portfolio Management: epics, investment themes, and funding",
+      "Track strategic themes down to delivered features and stories",
+      "Manage solution trains and cross-ART dependencies",
+      "Report portfolio predictability and value delivery to executives",
+      "Apply SAFe program-level metrics inside Jira Align dashboards"
+    ],
+    "requirements": [
+      "Completion of Jira Align Essentials (ATLS501) or equivalent",
+      "Working knowledge of the SAFe framework"
+    ],
+    "targetAudience": [
+      "Release Train Engineers and SAFe Program Consultants",
+      "Portfolio managers operating Lean Portfolio Management",
+      "Enterprise Agile Coaches scaling multiple ARTs"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Multi-ART PI Planning",
+        "content": [
+          "Coordinating PI Planning across multiple Agile Release Trains",
+          "Managing shared dependencies and risks between ARTs",
+          "Digital PI board facilitation techniques at scale",
+          "Lab: Facilitate a simulated multi-ART PI Planning event"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Lean Portfolio Management",
+        "content": [
+          "Portfolio kanban: funnel, analysis, and implementation states",
+          "Investment themes and guardrails for funding decisions",
+          "Epic hypothesis statements and lean business cases",
+          "Lab: Configure a Lean Portfolio Management view for a sample portfolio"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Solution Trains and Dependencies",
+        "content": [
+          "Managing solution trains spanning multiple ARTs",
+          "Cross-ART dependency boards and risk heatmaps",
+          "Escalation paths for unresolved cross-train risks",
+          "Lab: Build a cross-ART dependency board for a simulated solution train"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Strategy-to-Execution Reporting",
+        "content": [
+          "Connecting strategic themes to features and delivered stories",
+          "Portfolio predictability and value-delivery metrics",
+          "Executive reporting from Jira Align portfolio dashboards",
+          "Capstone Lab: Present a strategy-to-execution report for a simulated portfolio"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS413",
+      "title": "OKRs & Strategic Portfolio Management with Atlassian"
+    }
+  },
+  {
+    "id": "ATLS413",
+    "courseSlug": "okrs-strategic-portfolio-management-atlassian",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "OKRs & Strategic Portfolio Management with Atlassian",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course teaches how to run Objectives and Key Results (OKRs) using the Atlassian stack — Jira, Jira Align, and Confluence — connecting company strategy to team-level work and measuring outcomes rather than output.",
+    "courseObjective": "Participants will design, track, and report OKRs using Atlassian tools, linking strategic objectives to the epics and stories teams actually deliver.",
+    "courseOutcomes": "Upon completion, participants will be able to write outcome-based OKRs, link them to Jira epics and initiatives, and report progress using dashboards that separate output from outcome.",
+    "prerequisites": "Familiarity with Jira Software. Atlassian Agile Project Management (ATLS401) helpful.",
+    "labs": "Hands-on labs writing outcome-based OKRs, linking them to a Jira epic hierarchy, and building an OKR-tracking dashboard.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.4",
+    "whatWillYouLearn": [
+      "Write outcome-based Objectives and Key Results, not disguised task lists",
+      "Cascade company OKRs to team-level OKRs without losing coherence",
+      "Link OKRs to Jira epics, initiatives, and Jira Align strategic themes",
+      "Track OKR progress separately from delivery/output metrics",
+      "Run quarterly OKR review ceremonies using Confluence",
+      "Avoid common OKR anti-patterns: sandbagging, vanity metrics, over-scoping"
+    ],
+    "requirements": [
+      "Familiarity with Jira Software",
+      "Basic understanding of strategic planning concepts"
+    ],
+    "targetAudience": [
+      "Product leaders and portfolio managers driving strategic alignment",
+      "Agile Coaches introducing OKRs to teams",
+      "Executives wanting outcome-based reporting from Atlassian tools"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Writing Outcome-Based OKRs",
+        "content": [
+          "Objectives vs Key Results vs tasks: telling them apart",
+          "Common anti-patterns: sandbagging, vanity metrics, task lists disguised as KRs",
+          "Cascading company OKRs to team level without losing coherence",
+          "Lab: Rewrite a task-list disguised as an OKR into a true outcome-based OKR"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Linking OKRs to Delivery",
+        "content": [
+          "Connecting OKRs to Jira epics and initiatives",
+          "Using Jira Align strategic themes for portfolio-level OKRs",
+          "Avoiding the trap of OKRs disconnected from actual delivery",
+          "Lab: Link a sample OKR to a chain of epics and stories in Jira"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Tracking and Dashboards",
+        "content": [
+          "Separating output metrics (velocity) from outcome metrics (OKR progress)",
+          "Building an OKR tracking dashboard in Jira and Confluence",
+          "Confidence scoring and mid-quarter check-ins",
+          "Lab: Build an OKR dashboard combining Jira data and manual confidence scores"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Review Ceremonies and Continuous Improvement",
+        "content": [
+          "Running quarterly OKR review and retrospective ceremonies",
+          "Documenting learnings in Confluence for the next cycle",
+          "Scaling OKR practice across multiple teams without bureaucracy",
+          "Capstone Lab: Facilitate a mock quarterly OKR review for a simulated portfolio"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS412",
+      "title": "SAFe Program & Portfolio Management using Jira Align"
+    }
+  },
+  {
+    "id": "ATLS711",
+    "courseSlug": "bitbucket-pipelines-cicd-atlassian-devops",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Bitbucket Pipelines & CI/CD for Atlassian DevOps",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course dives deep into Bitbucket Pipelines as a CI/CD engine, covering pipeline architecture, deployment strategies, and how Pipelines fits into a broader Atlassian DevOps toolchain alongside Jira and JSM.",
+    "courseObjective": "Participants will design and build production-grade CI/CD pipelines in Bitbucket, including multi-stage deployments, caching strategies, and deployment tracking back to Jira.",
+    "courseOutcomes": "Upon completion, participants will be able to build multi-stage Bitbucket Pipelines with proper caching and secrets handling, implement deployment gates, and track deployments end-to-end in Jira.",
+    "prerequisites": "Completion of Bitbucket and DevOps with Atlassian (ATLS701) or equivalent Bitbucket experience.",
+    "labs": "Hands-on labs building multi-stage pipelines, configuring deployment environments and gates, and tracing a deployment from Bitbucket back to a Jira issue.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Design multi-stage bitbucket-pipelines.yml configurations",
+      "Use caching and artifacts to speed up pipeline runs",
+      "Configure deployment environments, gates, and manual approvals",
+      "Manage secrets and variables securely across pipelines",
+      "Deploy to AWS, Azure, or GCP from Bitbucket Pipelines",
+      "Trace deployments end-to-end back to Jira issues and releases"
+    ],
+    "requirements": [
+      "Bitbucket usage experience",
+      "Basic YAML and scripting familiarity"
+    ],
+    "targetAudience": [
+      "DevOps engineers building CI/CD on Bitbucket",
+      "Release engineers standardizing deployment pipelines",
+      "Platform teams supporting Atlassian-based DevOps toolchains"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Pipeline Architecture",
+        "content": [
+          "Steps, stages, parallelism, and services in Bitbucket Pipelines",
+          "Choosing and customizing Docker build images",
+          "Structuring pipelines for monorepos vs single-service repos",
+          "Lab: Build a multi-stage pipeline with parallel test steps"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Caching, Artifacts, and Secrets",
+        "content": [
+          "Dependency caching strategies for faster builds",
+          "Passing artifacts between pipeline steps",
+          "Secure variables and secrets management",
+          "Lab: Optimize a slow pipeline using caching and artifacts"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Deployment Strategies",
+        "content": [
+          "Environment definitions: test, staging, production",
+          "Manual approval gates and deployment permissions",
+          "Deploying to AWS, Azure, and GCP targets",
+          "Lab: Build a gated deployment pipeline to a staging environment"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Traceability and DevOps Integration",
+        "content": [
+          "Tracking deployments in the Jira Development panel",
+          "Linking deployments to JSM change requests",
+          "DORA metrics: deployment frequency and change failure rate",
+          "Capstone Lab: Build an end-to-end traceable pipeline from commit to production deployment"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS712",
+      "title": "DevSecOps with Atlassian"
+    }
+  },
+  {
+    "id": "ATLS712",
+    "courseSlug": "devsecops-with-atlassian",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "DevSecOps with Atlassian",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course integrates security practice directly into the Atlassian DevOps toolchain — security scanning in Bitbucket Pipelines, secrets management, dependency vulnerability tracking in Jira, and security-gated change management in JSM.",
+    "courseObjective": "Participants will embed security scanning and governance into CI/CD pipelines and connect security findings to Jira for tracked remediation, implementing a practical DevSecOps workflow on Atlassian tools.",
+    "courseOutcomes": "Upon completion, participants will be able to add security scanning gates to Bitbucket Pipelines, route vulnerability findings into Jira for tracked remediation, and enforce security-gated change approvals in JSM.",
+    "prerequisites": "Completion of Bitbucket Pipelines & CI/CD for Atlassian DevOps (ATLS711) or equivalent CI/CD experience.",
+    "labs": "Hands-on labs adding a security scanning step to a pipeline, routing findings into Jira, and configuring a security-gated change workflow in JSM.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.4",
+    "whatWillYouLearn": [
+      "Add SAST/dependency scanning steps to Bitbucket Pipelines using Code Insights",
+      "Route vulnerability findings automatically into Jira for tracked remediation",
+      "Enforce secrets management and least-privilege pipeline permissions",
+      "Design security-gated change approvals in JSM",
+      "Prioritize and triage vulnerabilities using Jira severity fields and SLAs",
+      "Report security posture and remediation trends across the DevOps toolchain"
+    ],
+    "requirements": [
+      "CI/CD experience with Bitbucket Pipelines",
+      "Basic application security concepts"
+    ],
+    "targetAudience": [
+      "DevSecOps and platform security engineers",
+      "Security champions embedded in delivery teams",
+      "Engineering managers implementing shift-left security"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Security Scanning in CI/CD",
+        "content": [
+          "Integrating SAST and dependency scanners into Bitbucket Pipelines",
+          "Using Bitbucket Code Insights to surface findings in pull requests",
+          "Failing builds on critical findings vs advisory-only gates",
+          "Lab: Add a dependency vulnerability scan to an existing pipeline"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Vulnerability Tracking in Jira",
+        "content": [
+          "Auto-creating Jira issues from scan findings via webhooks/automation",
+          "Severity fields, SLAs, and remediation workflows for vulnerabilities",
+          "Avoiding alert fatigue: triage and deduplication strategies",
+          "Lab: Automate creation of Jira issues from a simulated scan report"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Security-Gated Change Management",
+        "content": [
+          "Requiring security sign-off in JSM change workflows",
+          "Linking vulnerability status to change risk scoring",
+          "Emergency change paths for critical security patches",
+          "Lab: Configure a security-gated change approval workflow in JSM"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Reporting and Continuous Improvement",
+        "content": [
+          "Security posture dashboards across the DevOps toolchain",
+          "Tracking mean-time-to-remediate by severity",
+          "Continuous improvement: feeding incidents back into scanning rules",
+          "Capstone Lab: Build a DevSecOps dashboard showing scan-to-remediation flow end-to-end"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "capstoneProject": "Build an end-to-end DevSecOps workflow — pipeline scan, auto-created Jira vulnerability issue, and a security-gated JSM change — and present a remediation-time report.",
+    "recommendedNextCourse": {
+      "id": "ATLS902",
+      "title": "Atlassian Access & Security Administration"
+    }
+  },
+  {
+    "id": "ATLS713",
+    "courseSlug": "git-workflows-version-control-fundamentals",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Git Workflows & Version Control Fundamentals",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This foundational course covers Git and branching workflows for teams working in Bitbucket. Participants will learn core Git commands, branching strategies, and how to resolve the merge conflicts and history issues that trip up new teams.",
+    "courseObjective": "Participants will build solid Git fundamentals and adopt a team branching strategy that supports safe, frequent integration in a Bitbucket-based workflow.",
+    "courseOutcomes": "Upon completion, participants will be able to use core Git commands confidently, choose and apply an appropriate branching strategy, and resolve common merge conflicts and history problems.",
+    "prerequisites": "No prior Git experience required. Comfort with using a command line is helpful.",
+    "labs": "Hands-on labs practicing clone/commit/branch/merge workflows, resolving simulated merge conflicts, and adopting a Gitflow or trunk-based strategy in Bitbucket.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "4.6",
+    "whatWillYouLearn": [
+      "Use core Git commands: clone, commit, branch, merge, rebase",
+      "Understand the difference between merge and rebase and when to use each",
+      "Choose and apply a branching strategy: Gitflow, feature branching, trunk-based",
+      "Resolve merge conflicts confidently and safely",
+      "Write clear commit messages and maintain a clean project history",
+      "Collaborate on shared repositories using pull requests in Bitbucket"
+    ],
+    "requirements": [
+      "Comfort using a command line",
+      "A Bitbucket Cloud account"
+    ],
+    "targetAudience": [
+      "Developers new to Git or version control",
+      "QA engineers and technical writers who commit to shared repos",
+      "Teams standardizing on a single branching strategy"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Git Fundamentals",
+        "content": [
+          "Git concepts: repository, commit, branch, remote",
+          "Core commands: clone, add, commit, push, pull",
+          "Viewing and understanding project history",
+          "Lab: Clone a repository and make your first tracked commits"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Branching and Merging",
+        "content": [
+          "Creating and switching branches",
+          "Merge vs rebase: mechanics and trade-offs",
+          "Fast-forward vs three-way merges",
+          "Lab: Create a feature branch and merge it back with a clean history"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Resolving Conflicts and Fixing Mistakes",
+        "content": [
+          "Understanding and resolving merge conflicts",
+          "Undoing changes: reset, revert, and checkout",
+          "Recovering from common mistakes (force-push accidents, lost commits)",
+          "Lab: Resolve a simulated merge conflict across two branches"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Team Branching Strategies",
+        "content": [
+          "Gitflow, feature branching, and trunk-based development compared",
+          "Choosing a strategy based on team size and release cadence",
+          "Pull request etiquette and review practices in Bitbucket",
+          "Capstone Lab: Adopt a branching strategy for a simulated small team and document it"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS701",
+      "title": "Bitbucket and DevOps with Atlassian"
+    }
+  },
+  {
+    "id": "ATLS751",
+    "courseSlug": "scriptrunner-for-jira-advanced-scripting-automation",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "ScriptRunner for Jira: Advanced Scripting & Automation",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course covers ScriptRunner, the most widely deployed Jira marketplace app for enterprise automation, going beyond native Jira Automation into Groovy scripting, custom scripted fields, and REST endpoints.",
+    "courseObjective": "Participants will use ScriptRunner's scripted fields, listeners, behaviours, and REST endpoints to solve automation and customization needs that native Jira Automation cannot handle.",
+    "courseOutcomes": "Upon completion, participants will be able to write Groovy scripts for scripted fields and listeners, build custom scripted REST endpoints, and know when to reach for ScriptRunner versus native automation.",
+    "prerequisites": "Completion of Jira Automation Masterclass (ATLS133) or equivalent. Basic programming experience (any language) required.",
+    "labs": "Hands-on labs writing scripted fields, behaviours, listeners, and a custom REST endpoint using ScriptRunner in a sandbox Jira instance.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "10",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.6",
+    "whatWillYouLearn": [
+      "Decide when ScriptRunner is needed over native Jira Automation",
+      "Write scripted fields and behaviours using Groovy",
+      "Build event listeners for advanced cross-project logic",
+      "Create custom scripted REST endpoints for external integrations",
+      "Use built-in script library functions for common Jira operations",
+      "Apply performance and maintainability best practices for production scripts"
+    ],
+    "requirements": [
+      "Basic programming experience in any language",
+      "ScriptRunner installed on a sandbox Jira instance"
+    ],
+    "targetAudience": [
+      "Jira administrators hitting the limits of native automation",
+      "Developers supporting Jira customization requests",
+      "Consultants implementing complex Jira solutions"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: ScriptRunner Fundamentals",
+        "content": [
+          "When to use ScriptRunner vs native Jira Automation",
+          "ScriptRunner architecture: console, script fields, listeners, REST endpoints",
+          "Groovy basics for Jira administrators",
+          "Lab: Write and run a first script in the ScriptRunner console"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Scripted Fields and Behaviours",
+        "content": [
+          "Building calculated scripted fields",
+          "Dynamic form behaviour: showing/hiding and validating fields",
+          "Common built-in script library functions",
+          "Lab: Build a scripted field that calculates SLA risk from issue data"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Listeners and Cross-Project Logic",
+        "content": [
+          "Event listeners for issue created/updated/transitioned events",
+          "Cross-project logic that native automation struggles to express",
+          "Error handling and logging in listener scripts",
+          "Lab: Build a listener that enforces a cross-project business rule"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: REST Endpoints and Production Practices",
+        "content": [
+          "Building custom scripted REST endpoints",
+          "Authentication and security considerations for custom endpoints",
+          "Performance and maintainability best practices for production scripts",
+          "Capstone Lab: Build a custom REST endpoint that powers an external integration"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "capstoneProject": "Build a custom ScriptRunner REST endpoint and a supporting scripted field/listener that together solve a realistic automation gap native Jira Automation cannot cover.",
+    "recommendedNextCourse": {
+      "id": "ATLS134",
+      "title": "Jira REST API & Integrations Development"
+    }
+  },
+  {
+    "id": "ATLS752",
+    "courseSlug": "enterprise-planning-apps-tempo-structure-bigpicture",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Enterprise Planning Apps: Tempo Timesheets, Tempo Planner, Structure & BigPicture",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course covers the leading Jira marketplace apps for resource planning and portfolio visualization: Tempo Timesheets for time tracking, Tempo Planner for capacity planning, and Structure/BigPicture for hierarchical portfolio views that native Jira doesn't provide.",
+    "courseObjective": "Participants will configure Tempo Timesheets and Tempo Planner for time tracking and capacity planning, and use Structure or BigPicture to build cross-project portfolio hierarchies and Gantt-style views.",
+    "courseOutcomes": "Upon completion, participants will be able to set up time tracking and approval workflows in Tempo, plan team capacity ahead of sprints, and build custom hierarchical portfolio views spanning multiple Jira projects.",
+    "prerequisites": "Jira Software usage experience. Familiarity with Atlassian Agile Project Management (ATLS401) is helpful.",
+    "labs": "Hands-on labs configuring Tempo Timesheets logging and approval, building a Tempo Planner capacity plan, and constructing a Structure/BigPicture portfolio view across multiple projects.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.3",
+    "whatWillYouLearn": [
+      "Configure Tempo Timesheets for time logging, approval, and billing workflows",
+      "Plan team capacity and allocations across projects with Tempo Planner",
+      "Build custom hierarchical portfolio structures with Structure",
+      "Create Gantt-style, cross-project roadmaps with BigPicture",
+      "Combine time-tracking data with capacity plans for realistic forecasting",
+      "Choose the right planning app for a given portfolio-visibility need"
+    ],
+    "requirements": [
+      "Jira Software usage experience",
+      "Access to a Jira Cloud instance with Tempo/Structure or BigPicture installed"
+    ],
+    "targetAudience": [
+      "Resource and capacity planners",
+      "PMOs needing cross-project portfolio views",
+      "Finance/operations teams tracking billable time in Jira"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Tempo Timesheets",
+        "content": [
+          "Configuring time-tracking categories and work attributes",
+          "Approval workflows for logged time",
+          "Billing and invoicing use cases with Tempo data",
+          "Lab: Configure a time-logging and approval workflow in Tempo Timesheets"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Tempo Planner",
+        "content": [
+          "Team capacity planning and allocation views",
+          "Balancing planned work against available capacity",
+          "Combining Planner allocations with sprint planning",
+          "Lab: Build a capacity plan for a team across two concurrent projects"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Structure for Portfolio Hierarchies",
+        "content": [
+          "Building custom issue hierarchies spanning multiple projects",
+          "Structure formulas for roll-up metrics (story points, time, status)",
+          "Exporting Structure views for stakeholder reporting",
+          "Lab: Build a cross-project Structure view rolling up story points"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: BigPicture for Roadmapping",
+        "content": [
+          "Gantt-style cross-project roadmaps in BigPicture",
+          "Resource and box (program/portfolio) views",
+          "Comparing Structure and BigPicture for different use cases",
+          "Capstone Lab: Build a portfolio roadmap combining capacity data and cross-project timelines"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS413",
+      "title": "OKRs & Strategic Portfolio Management with Atlassian"
+    }
+  },
+  {
+    "id": "ATLS753",
+    "courseSlug": "enterprise-testing-qa-in-jira-xray-zephyr-scale",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Enterprise Testing & QA in Jira: Xray and Zephyr Scale",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course covers the two leading test-management apps for Jira — Xray and Zephyr Scale — enabling QA teams to manage test cases, execution, and traceability to requirements and defects directly inside Jira.",
+    "courseObjective": "Participants will design a test-management structure in Xray or Zephyr Scale, link test cases to requirements and defects, and report test coverage and quality trends.",
+    "courseOutcomes": "Upon completion, participants will be able to manage test cases and executions in Xray or Zephyr Scale, trace tests to requirements and defects, and integrate test automation results into Jira-based reporting.",
+    "prerequisites": "Jira Software usage experience. QA/testing background helpful but not required.",
+    "labs": "Hands-on labs designing a test repository, running a test execution cycle, linking automated test results via API, and building coverage/traceability reports.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "12",
+    "instructor": "Atlassian Certified Experts",
+    "price": 47999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.4",
+    "whatWillYouLearn": [
+      "Design a test repository structure in Xray or Zephyr Scale",
+      "Create and organize test cases, test sets, and test plans",
+      "Trace tests to requirements and defects for full coverage visibility",
+      "Run manual and automated test execution cycles inside Jira",
+      "Import automated test results via API/CI integration",
+      "Report test coverage, pass/fail trends, and release readiness"
+    ],
+    "requirements": [
+      "Jira Software usage experience",
+      "Access to a Jira Cloud instance with Xray or Zephyr Scale installed"
+    ],
+    "targetAudience": [
+      "QA engineers and test managers",
+      "Release managers assessing release readiness",
+      "DevOps engineers integrating automated test results into Jira"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Test Management Fundamentals",
+        "content": [
+          "Xray vs Zephyr Scale: architecture and positioning",
+          "Test case, test set, and test plan structures",
+          "Organizing a test repository for a growing product",
+          "Lab: Design a test repository structure for a sample application"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Requirements and Defect Traceability",
+        "content": [
+          "Linking test cases to requirements/stories",
+          "Linking failed executions to defects automatically",
+          "Coverage reports: which requirements lack test coverage",
+          "Lab: Build a traceability matrix linking tests, requirements, and defects"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Test Execution",
+        "content": [
+          "Running manual test execution cycles",
+          "Test plans for release-based execution tracking",
+          "Assigning and tracking execution across a QA team",
+          "Lab: Execute a manual test cycle and record results"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Automation Integration and Reporting",
+        "content": [
+          "Importing automated test results via API/CI pipeline integration",
+          "Combining manual and automated results in one report",
+          "Release-readiness dashboards: pass rate, coverage, and open defects",
+          "Capstone Lab: Import a simulated automated test run and produce a release-readiness report"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS711",
+      "title": "Bitbucket Pipelines & CI/CD for Atlassian DevOps"
+    }
+  },
+  {
+    "id": "ATLS911",
+    "courseSlug": "atlassian-intelligence-fundamentals",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "Atlassian Intelligence Fundamentals",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course introduces Atlassian Intelligence, the AI layer built into Jira and Confluence Cloud — issue summaries, natural-language JQL generation, content Q&A, and virtual service agents — and how to enable and use it responsibly.",
+    "courseObjective": "Participants will learn what Atlassian Intelligence can and cannot do across Jira and Confluence, how to enable it safely, and how to use its core features to save time on everyday tasks.",
+    "courseOutcomes": "Upon completion, participants will be able to enable Atlassian Intelligence features, use natural-language JQL generation and issue/page summaries, and evaluate AI outputs critically before relying on them.",
+    "prerequisites": "Basic familiarity with Jira and/or Confluence. No AI/ML background required.",
+    "labs": "Hands-on labs enabling Atlassian Intelligence, generating JQL from natural language, summarizing issues and pages, and evaluating AI output accuracy.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Understand what Atlassian Intelligence covers across Jira and Confluence",
+      "Enable and configure Atlassian Intelligence features for an organization",
+      "Generate JQL queries from natural-language descriptions",
+      "Summarize long issues, comment threads, and Confluence pages with AI",
+      "Evaluate AI-generated output for accuracy before acting on it",
+      "Understand data-handling and privacy considerations for AI features"
+    ],
+    "requirements": [
+      "Basic Jira and/or Confluence usage experience",
+      "Admin access to enable AI features (for admin-facing labs)"
+    ],
+    "targetAudience": [
+      "Jira and Confluence end users and admins",
+      "Teams evaluating whether to enable AI features",
+      "IT leaders assessing AI governance needs"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: What Atlassian Intelligence Covers",
+        "content": [
+          "AI features across Jira: summaries, JQL generation, virtual agents",
+          "AI features across Confluence: page summaries, Q&A, drafting help",
+          "Licensing and availability by product tier",
+          "Lab: Tour the available Atlassian Intelligence features in a sandbox site"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Enabling and Governing AI Features",
+        "content": [
+          "Enabling Atlassian Intelligence at the organization level",
+          "Data-handling, privacy, and opt-out considerations",
+          "Setting expectations with users about AI limitations",
+          "Lab: Enable Atlassian Intelligence and review its data-handling settings"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Natural-Language JQL and Summaries",
+        "content": [
+          "Generating JQL from plain-language descriptions",
+          "Summarizing long issues and comment threads",
+          "Summarizing Confluence pages and spaces",
+          "Lab: Use natural-language JQL to build three different saved filters"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Using AI Output Responsibly",
+        "content": [
+          "Spotting inaccurate or hallucinated AI summaries",
+          "When to trust AI output vs verify manually",
+          "Building team norms for responsible AI usage",
+          "Capstone Lab: Evaluate a set of AI-generated summaries against source content and flag inaccuracies"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS912",
+      "title": "AI-Powered Project Management & Automation in Jira"
+    }
+  },
+  {
+    "id": "ATLS912",
+    "courseSlug": "ai-powered-project-management-automation-jira",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "AI-Powered Project Management & Automation in Jira",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course shows project managers and Scrum Masters how to apply Atlassian Intelligence and AI-assisted automation to real project management tasks — risk flagging, standup summaries, backlog triage, and AI-assisted sprint reporting.",
+    "courseObjective": "Participants will apply AI features to practical project management workflows: risk detection, backlog triage assistance, and AI-assisted status reporting, while combining them with Jira Automation.",
+    "courseOutcomes": "Upon completion, participants will be able to use AI to flag at-risk issues, triage and summarize a backlog, generate AI-assisted status reports, and combine AI features with Jira Automation for hands-off routine reporting.",
+    "prerequisites": "Completion of Atlassian Intelligence Fundamentals (ATLS911) or equivalent familiarity with Jira AI features.",
+    "labs": "Hands-on labs building an AI-assisted risk-flagging view, generating an AI sprint summary, and combining AI summaries with a scheduled automation rule.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.4",
+    "whatWillYouLearn": [
+      "Use AI to flag at-risk or stalled issues before they become blockers",
+      "Summarize backlogs and epics to speed up refinement sessions",
+      "Generate AI-assisted sprint and release status reports",
+      "Combine AI summaries with scheduled Jira Automation rules",
+      "Coach teams on interpreting AI-flagged risk without over-relying on it",
+      "Measure whether AI-assisted reporting is actually saving PM time"
+    ],
+    "requirements": [
+      "Familiarity with Jira AI features (Atlassian Intelligence Fundamentals recommended)",
+      "Experience running Agile ceremonies"
+    ],
+    "targetAudience": [
+      "Project managers and Scrum Masters",
+      "Delivery leads producing frequent status updates",
+      "PMOs exploring AI-assisted reporting"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: AI-Assisted Risk Detection",
+        "content": [
+          "Using AI to flag stalled, overdue, or high-risk issues",
+          "Combining AI flags with JQL filters for a risk dashboard",
+          "Avoiding false confidence in AI risk scoring",
+          "Lab: Build a risk-flagging view combining AI summaries and JQL"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Backlog Triage and Refinement",
+        "content": [
+          "Using AI to summarize large or stale backlogs",
+          "Speeding up refinement sessions with AI-generated context",
+          "Identifying duplicate or unclear issues with AI assistance",
+          "Lab: Run an AI-assisted backlog triage on a sample project"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: AI-Assisted Status Reporting",
+        "content": [
+          "Generating sprint and release summaries with AI",
+          "Tailoring AI summaries for different stakeholder audiences",
+          "Fact-checking AI-generated reports before distribution",
+          "Lab: Generate and fact-check an AI sprint summary for a live sprint"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Combining AI with Automation",
+        "content": [
+          "Scheduling AI-assisted summaries via Jira Automation",
+          "Delivering AI reports to Slack/Teams/Confluence on a cadence",
+          "Measuring time saved and reporting quality over a full quarter",
+          "Capstone Lab: Build a scheduled rule that delivers an AI-generated weekly status update"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS913",
+      "title": "AI for Confluence: Content Generation & Knowledge Discovery"
+    }
+  },
+  {
+    "id": "ATLS913",
+    "courseSlug": "ai-for-confluence-content-generation-knowledge-discovery",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "AI for Confluence: Content Generation & Knowledge Discovery",
+    "category": "Atlassian",
+    "catdesc": "Master Atlassian tools including Jira, Confluence, Bitbucket, and Jira Service Management to streamline project management, IT service delivery, and DevOps workflows for teams of all sizes.",
+    "catcls": "cat-twelve",
+    "overview": "This course focuses on using Atlassian Intelligence inside Confluence for content generation, page summarization, and cross-space knowledge discovery — helping teams write faster and find answers without hunting through dozens of pages.",
+    "courseObjective": "Participants will use AI-assisted drafting, summarization, and Q&A in Confluence to speed up documentation and knowledge discovery while maintaining accuracy and governance.",
+    "courseOutcomes": "Upon completion, participants will be able to draft and refine pages with AI assistance, summarize long pages and spaces, answer questions across a knowledge base with AI Q&A, and apply governance to AI-generated content.",
+    "prerequisites": "Completion of Atlassian Intelligence Fundamentals (ATLS911) or equivalent familiarity with Confluence AI features.",
+    "labs": "Hands-on labs drafting a page with AI assistance, summarizing a large space, running cross-space AI Q&A, and applying a content-governance checklist to AI output.",
+    "toc": "",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "04 Modules",
+    "noStudents": "15",
+    "instructor": "Atlassian Certified Experts",
+    "price": 31999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.3",
+    "whatWillYouLearn": [
+      "Draft and refine Confluence pages with AI writing assistance",
+      "Summarize long pages, threads, and entire spaces",
+      "Use AI Q&A to find answers across a large knowledge base quickly",
+      "Apply a content-governance checklist to AI-assisted pages",
+      "Identify knowledge gaps that AI Q&A repeatedly fails to answer",
+      "Combine AI discovery features with Confluence analytics to prioritize new content"
+    ],
+    "requirements": [
+      "Familiarity with Confluence AI features (Atlassian Intelligence Fundamentals recommended)",
+      "Content authoring experience in Confluence"
+    ],
+    "targetAudience": [
+      "Technical writers and content creators",
+      "Knowledge management leads improving findability",
+      "Support and enablement teams answering repeat questions"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: AI-Assisted Drafting",
+        "content": [
+          "Drafting new pages with AI writing assistance",
+          "Refining tone, length, and structure with AI edits",
+          "Where AI drafting speeds things up vs where it introduces risk",
+          "Lab: Draft a runbook page using AI assistance and refine it for accuracy"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Summarization at Scale",
+        "content": [
+          "Summarizing long pages and comment threads",
+          "Summarizing entire spaces for faster onboarding",
+          "Using summaries to identify outdated or redundant content",
+          "Lab: Summarize a large space and flag candidates for archival"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Cross-Space Knowledge Discovery",
+        "content": [
+          "Using AI Q&A to answer questions across multiple spaces",
+          "Identifying recurring questions AI cannot answer well (knowledge gaps)",
+          "Feeding discovered gaps back into the content backlog",
+          "Lab: Run AI Q&A against a knowledge base and log unanswered questions"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Governance and Measurement",
+        "content": [
+          "A governance checklist for publishing AI-assisted content",
+          "Combining AI discovery data with Confluence Analytics",
+          "Prioritizing new content based on discovered gaps",
+          "Capstone Lab: Produce a content backlog prioritized by AI-discovered knowledge gaps"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 31999,
+      "usd": 419,
+      "aed": 1779,
+      "gbp": 369,
+      "eur": 439
+    },
+    "categoryGroup": "Enterprise Platforms",
+    "deliveryMode": "Instructor-Led (Live Online / Classroom) + Hands-on Labs",
+    "certificationAlignment": [],
+    "recommendedNextCourse": {
+      "id": "ATLS311",
+      "title": "Confluence for Enterprise Knowledge Management"
+    }
   },
   {
     "id": "SN101",
