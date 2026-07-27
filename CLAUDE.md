@@ -58,7 +58,7 @@ src/
 - Never skip `authenticateAdmin` on any admin route
 
 ### MongoDB
-- Connection: `src/config/db.js` via MONGO_URI env var
+- Connection: `src/config/db.js` via MONGO_DB env var
 - User model is dual-purpose: auth users AND enrollment records
 - Sparse indexes on optional unique fields — do not remove `sparse: true` from googleId, referralCode, enrollmentToken, orderId
 
@@ -108,7 +108,7 @@ Never leak stack traces or internal error details in production responses.
 
 ## Environment Variables (never commit)
 ```
-MONGO_URI=
+MONGO_DB=
 JWT_SECRET=
 ADMIN_JWT_SECRET=
 ENROLLMENT_TOKEN_KEY=
