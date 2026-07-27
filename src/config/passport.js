@@ -27,28 +27,17 @@ passport.use(
 
         if (!user) {
           // No Google-linked account yet — check for an existing account with
-          // this email (e.g. created via the enrollment form or password
-          // signup) and link it instead of creating a disjoint duplicate.
-          // Prefer a password-based auth account (a real login identity)
-          // over an enrollment-only doc, so we never split someone's actual
-          // account away from an unrelated enrollment submission. Each step
-          // is a single atomic findOneAndUpdate to avoid a race under
-          // concurrent logins.
+          // this email (e.g. created via the enrollment form) and link it
+          // instead of creating a disjoint duplicate. A user may have
+          // multiple enrollment-only docs for the same email
+          // (re-enrollments); prefer one that's already KYC-verified,
+          // falling back to the most recent. A single atomic
+          // findOneAndUpdate avoids a race under concurrent logins.
           user = await User.findOneAndUpdate(
-            { email, googleId: { $exists: false }, password: { $exists: true } },
+            { email, googleId: { $exists: false } },
             { $set: { googleId: profile.id, ...(picture ? { picture } : {}) } },
-            { sort: { createdAt: -1 }, new: true }
+            { sort: { isKyc: -1, createdAt: -1 }, new: true }
           );
-
-          if (!user) {
-            // Among enrollment-only docs for this email, prefer one that's
-            // already KYC-verified, falling back to the most recent.
-            user = await User.findOneAndUpdate(
-              { email, googleId: { $exists: false } },
-              { $set: { googleId: profile.id, ...(picture ? { picture } : {}) } },
-              { sort: { isKyc: -1, createdAt: -1 }, new: true }
-            );
-          }
 
           if (!user) {
             user = await User.create({
