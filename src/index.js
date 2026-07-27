@@ -75,7 +75,14 @@ const allowedOrigins = process.env.WHITELISTED_URLS
 // Routes hit by the Hana Agent (Python service) via server-to-server POSTs,
 // which never carry a browser Origin header — exempt them from the
 // Origin-required-in-production check below (same reasoning as /health).
-const noOriginRequiredPaths = ['/enquiry', '/skills-gap/email-plan'];
+// The Google OAuth routes are hit via top-level browser navigation/redirect
+// (not fetch/XHR), so they never carry an Origin header either.
+const noOriginRequiredPaths = [
+  '/enquiry',
+  '/skills-gap/email-plan',
+  '/api/auth/google',
+  '/api/auth/google/callback',
+];
 
 const corsOptionsDelegate = function (req, callback) {
   const exemptFromOriginRequirement = !req.headers.origin && noOriginRequiredPaths.includes(req.path);

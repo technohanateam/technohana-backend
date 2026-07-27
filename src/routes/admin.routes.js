@@ -1,5 +1,5 @@
 import express from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import mongoose from "mongoose";
 import axios from "axios";
 import fs from "fs";
@@ -59,7 +59,7 @@ const adminDataLimiter = rateLimit({
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.admin?.uid || req.ip,
+  keyGenerator: (req) => req.admin?.uid || ipKeyGenerator(req.ip),
   message: 'Too many requests. Please slow down.',
 });
 
@@ -69,7 +69,7 @@ const adminAiLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.admin?.uid || req.ip,
+  keyGenerator: (req) => req.admin?.uid || ipKeyGenerator(req.ip),
   message: 'AI generation rate limit reached. Try again later.',
 });
 
@@ -79,7 +79,7 @@ const adminUploadLimiter = rateLimit({
   max: 50,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.admin?.uid || req.ip,
+  keyGenerator: (req) => req.admin?.uid || ipKeyGenerator(req.ip),
   message: 'Upload rate limit reached. Try again later.',
 });
 
