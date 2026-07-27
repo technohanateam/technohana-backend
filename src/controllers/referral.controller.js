@@ -142,14 +142,14 @@ export const getReferralStats = async (req, res) => {
     // Get count of users who have used this user's referral code
     const referralsUsed = await User.countDocuments({ referredBy: email })
 
-    // Calculate total discount given (if applicable)
-    const totalDiscountGiven = referralsUsed * 10 // 10% discount per referral
+    // Sum of discount percentage points given across all referrals (not a currency amount)
+    const totalDiscountPct = referralsUsed * (user.referralDiscountPct || 10)
 
     res.status(200).json({
       referralCode: user.referralCode || null,
       referralCount: user.referralCount || 0,
       referralsUsed,
-      totalDiscountGiven,
+      totalDiscountPct,
       discountPct: user.referralDiscountPct || 10,
       message: "Referral stats retrieved successfully"
     })

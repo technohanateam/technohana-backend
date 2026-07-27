@@ -63,18 +63,18 @@ export const getAssessmentResults = async (req, res) => {
 
 export const getMyAssessmentResults = async (req, res) => {
   try {
-    const { email } = req.query;
-    if (!email?.trim()) return res.status(400).json({ error: "email query param is required." });
+    const email = req.user?.email;
+    if (!email) return res.status(401).json({ success: false, message: "User not authenticated" });
 
-    const results = await AssessmentResult.find({ email: email.trim().toLowerCase() })
+    const results = await AssessmentResult.find({ email: email.toLowerCase() })
       .sort({ completedAt: -1 })
       .select("-questions -answers")
       .lean();
 
-    return res.json({ results });
+    return res.json({ success: true, data: results, message: "Assessment results retrieved successfully" });
   } catch (err) {
     console.error("getMyAssessmentResults error:", err.message);
-    return res.status(500).json({ error: "Failed to fetch results." });
+    return res.status(500).json({ success: false, message: "Failed to fetch results." });
   }
 };
 
