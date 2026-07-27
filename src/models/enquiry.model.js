@@ -2,7 +2,9 @@ import mongoose from "mongoose";
 
 const enquirySchema = new mongoose.Schema({
   name: { type: String, required: true },
-  email: { type: String, required: true },
+  // Optional: some enquiry types (e.g. "Request a Callback") intentionally
+  // collect a phone number instead of an email.
+  email: { type: String },
   phone: { type: String },
   company :{type : String},
   callBackDateTime : {

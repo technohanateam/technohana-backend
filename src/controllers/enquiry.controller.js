@@ -1,7 +1,7 @@
 import Enquiry from "../models/enquiry.model.js";
 import AiRiskReport from "../models/aiRiskReport.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
-import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContactUsEmail, generateAiRiskReportEmail } from "../utils/emailTemplate.js";
+import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContactUsEmail, generateAiRiskReportEmail, generateMasterclassConfirmationEmail } from "../utils/emailTemplate.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 
 export const createEnquiry = async (req, res) => {
@@ -13,7 +13,7 @@ export const createEnquiry = async (req, res) => {
     if (body.courseInterest && !body.courseTitle) body.courseTitle = body.courseInterest;
     delete body.message; delete body.type; delete body.organization; delete body.courseInterest;
 
-    const { name, email, courseTitle, enquiryType, selectedPackage, timeline } = body;
+    const { name, email, courseTitle, enquiryType, selectedPackage, timeline, nextDate, agenda } = body;
 
     const enquiry = new Enquiry(body);
     await enquiry.save();
@@ -35,6 +35,12 @@ export const createEnquiry = async (req, res) => {
       case "Skills Gap":
         subject = `New Skills Gap Lead${body.description ? ` — ${body.description}` : ""}`;
         break;
+      case "Masterclass Registration":
+        subject = `New Masterclass Registration${courseTitle ? ` — ${courseTitle}` : ""}`;
+        break;
+      case "Request a Callback":
+        subject = `New Callback Request${name ? ` — ${name}` : ""}`;
+        break;
       case "General Enquiry":
       default:
         subject = `New General Enquiry for: ${courseTitle}`;
@@ -51,12 +57,19 @@ export const createEnquiry = async (req, res) => {
 
     // Skills Gap leads get a dedicated, tailored plan email (POST /skills-gap/email-plan)
     // instead of this generic confirmation — sending both would double-email the user.
-    if (enquiryType !== "Skills Gap") {
+    // Callback requests don't collect an email at all, so there's nothing to send to.
+    if (enquiryType !== "Skills Gap" && email) {
+      const confirmationHtml = enquiryType === "Masterclass Registration"
+        ? generateMasterclassConfirmationEmail({ name, nextDate, agenda })
+        : generateEnquiryConfirmationEmail({ name, enquiryType, courseTitle, selectedPackage, timeline });
+
       sendEmail({
         from: fromAddresses.sales,
         to: email,
-        subject: `We received your request — Technohana will be in touch within 24 hours`,
-        html: generateEnquiryConfirmationEmail({ name, enquiryType, courseTitle, selectedPackage, timeline }),
+        subject: enquiryType === "Masterclass Registration"
+          ? "You're registered for the PECB Masterclass!"
+          : "We received your request — Technohana will be in touch within 24 hours",
+        html: confirmationHtml,
       }).catch((err) => console.error("Enquiry confirmation email failed (lead already saved):", err));
     }
 

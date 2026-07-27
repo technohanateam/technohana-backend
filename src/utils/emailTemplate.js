@@ -668,7 +668,7 @@ export function generateDay7Email({ name, courseTitle }) {
 
 // ─── PERSONA LEAD — Lead Magnet Delivery (user) ───────────────────────────────
 
-export function generateLeadMagnetEmail({ name, persona, downloadUrl }) {
+export function generateLeadMagnetEmail({ name, persona, downloadUrl, masterclassNote }) {
   const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
   const fullDownloadUrl = downloadUrl ? `${frontendUrl}${downloadUrl}` : null;
   const body = `
@@ -682,6 +682,11 @@ export function generateLeadMagnetEmail({ name, persona, downloadUrl }) {
         Download your free guide →
       </a>
     </div>` : ''}
+    ${masterclassNote ? `
+    <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#27A8F5;text-transform:uppercase;letter-spacing:1px;">Free Masterclass</p>
+      <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.6;">${masterclassNote}</p>
+    </div>` : ''}
     <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
       <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#FF6B35;text-transform:uppercase;letter-spacing:1px;">While you're here</p>
       <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.6;">
@@ -689,6 +694,9 @@ export function generateLeadMagnetEmail({ name, persona, downloadUrl }) {
       </p>
     </div>
     ${ctaButton('Explore AI Courses →', `${frontendUrl}/courses`)}
+    <div style="text-align:center;margin-top:12px;">
+      <a href="https://wa.me/919821967863" style="display:inline-block;color:#25D366;font-size:13px;font-weight:600;text-decoration:none;">Chat with us on WhatsApp →</a>
+    </div>
     <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">
       Questions? Reply to this email or reach us at <a href="mailto:connect@technohana.in" style="color:#FF6B35;text-decoration:none;">connect@technohana.in</a>
     </p>`;
@@ -698,7 +706,7 @@ export function generateLeadMagnetEmail({ name, persona, downloadUrl }) {
 
 // ─── PERSONA LEAD — Admin Notification ───────────────────────────────────────
 
-export function generateLeadAdminEmail({ name, email, persona }) {
+export function generateLeadAdminEmail({ name, email, persona, phone, jobTitle }) {
   const body = `
     <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">New Persona Lead</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#64748b;">A visitor claimed a free resource from the persona landing page.</p>
@@ -706,10 +714,37 @@ export function generateLeadAdminEmail({ name, email, persona }) {
       ${dataRow('Name', name, false)}
       ${dataRow('Email', email, true)}
       ${dataRow('Persona', persona, false)}
+      ${phone ? dataRow('Phone', phone, true) : ''}
+      ${jobTitle ? dataRow('Job Title', jobTitle, !!phone) : ''}
       ${dataRow('Source', 'Persona Landing Page', true)}
     </table>`;
 
   return emailShell({ label: 'Persona Lead · Admin', body });
+}
+
+// ─── PECB MASTERCLASS REGISTRATION (user) ────────────────────────────────────
+
+export function generateMasterclassConfirmationEmail({ name, nextDate, agenda = [] }) {
+  const agendaRows = agenda.map((item) => `<li style="margin-bottom:6px;">${escapeHtml(item)}</li>`).join('');
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">You're registered${name ? `, ${name}` : ''}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
+      Thanks for reserving your seat at the free PECB Masterclass. We'll email your joining link shortly before the session.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+      ${dataRow('Session', nextDate, false)}
+    </table>
+    ${agendaRows ? `
+    <div style="margin-top:20px;">
+      <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1e293b;">Agenda</p>
+      <ul style="margin:0;padding-left:18px;font-size:14px;color:#475569;line-height:1.6;">${agendaRows}</ul>
+    </div>` : ''}
+    <div style="text-align:center;margin-top:20px;">
+      <a href="https://wa.me/919821967863" style="display:inline-block;color:#25D366;font-size:13px;font-weight:600;text-decoration:none;">Chat with us on WhatsApp →</a>
+    </div>`;
+
+  return emailShell({ label: 'Masterclass Registration Confirmed', body });
 }
 
 // ─── INSTRUCTOR PORTAL — SET PASSWORD (onboarding) ───────────────────────────

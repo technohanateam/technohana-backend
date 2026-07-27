@@ -3,14 +3,14 @@ import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateLeadMagnetEmail, generateLeadAdminEmail } from "../utils/emailTemplate.js";
 
 export const capturePersonaLead = async (req, res) => {
-  const { name, email, persona, downloadUrl, utm = {} } = req.body;
+  const { name, email, persona, phone, jobTitle, downloadUrl, utm = {} } = req.body;
 
   if (!name || !email || !persona) {
     return res.status(400).json({ success: false, message: "Name, email, and persona are required." });
   }
 
   try {
-    const lead = new Lead({ name, email, persona, utm });
+    const lead = new Lead({ name, email, persona, phone, jobTitle, utm });
     await lead.save();
 
     Promise.all([
@@ -18,13 +18,20 @@ export const capturePersonaLead = async (req, res) => {
         from: fromAddresses.connect,
         to: process.env.MAIL_TO,
         subject: `New Persona Lead — ${persona}`,
-        html: generateLeadAdminEmail({ name, email, persona }),
+        html: generateLeadAdminEmail({ name, email, persona, phone, jobTitle }),
       }),
       sendEmail({
         from: fromAddresses.connect,
         to: email,
         subject: `Your free resource from Technohana is here, ${name}`,
-        html: generateLeadMagnetEmail({ name, persona, downloadUrl }),
+        html: generateLeadMagnetEmail({
+          name,
+          persona,
+          downloadUrl,
+          masterclassNote: persona === "pecb-career-guide"
+            ? "We've also reserved you a spot at our next free PECB Masterclass — keep an eye out for the invite."
+            : undefined,
+        }),
       }),
     ]).catch((err) => console.error("Lead emails failed (lead already saved):", err));
 
