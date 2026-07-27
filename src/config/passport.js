@@ -23,18 +23,34 @@ passport.use(
           return done(new Error("Google account did not return an email address"), false);
         }
 
-        const user = await User.findOneAndUpdate(
-          { googleId: profile.id },
-          {
-            $setOnInsert: {
+        let user = await User.findOne({ googleId: profile.id });
+
+        if (!user) {
+          // No Google-linked account yet — check for an existing account with
+          // this email (e.g. created via the enrollment form) and link it
+          // instead of creating a disjoint duplicate. A user may have
+          // multiple enrollment-only docs for the same email
+          // (re-enrollments); prefer one that's already KYC-verified,
+          // falling back to the most recent. A single atomic
+          // findOneAndUpdate avoids a race under concurrent logins.
+          user = await User.findOneAndUpdate(
+            { email, googleId: { $exists: false } },
+            { $set: { googleId: profile.id, ...(picture ? { picture } : {}) } },
+            { sort: { isKyc: -1, createdAt: -1 }, new: true }
+          );
+
+          if (!user) {
+            user = await User.create({
               googleId: profile.id,
               name: profile.displayName,
               email,
-            },
-            ...(picture ? { $set: { picture } } : {}),
-          },
-          { upsert: true, new: true, runValidators: true }
-        );
+              ...(picture ? { picture } : {}),
+            });
+          }
+        } else if (picture) {
+          user.picture = picture;
+          await user.save();
+        }
 
         return done(null, user);
       } catch (error) {
