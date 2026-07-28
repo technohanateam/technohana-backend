@@ -339,7 +339,7 @@ router.get("/ga4-key-events", authenticateAdmin, requirePage("seo-analysis"), as
     res.json({ success: true, data: (keyEvents || []).map(shapeKeyEvent) });
   } catch (err) {
     console.error("ga4-key-events list error:", err.message);
-    if (err.message.includes("not configured")) {
+    if (err.code === "GA4_NOT_CONFIGURED") {
       return res.status(501).json({ success: false, message: GA4_NOT_CONFIGURED_MESSAGE });
     }
     res.status(500).json({ success: false, message: "Failed to load GA4 key events." });
@@ -360,7 +360,7 @@ router.post("/ga4-key-events", authenticateAdmin, requirePage("seo-analysis"), a
     res.status(201).json({ success: true, data: shapeKeyEvent(keyEvent) });
   } catch (err) {
     console.error("ga4-key-events create error:", err.message);
-    if (err.message.includes("not configured")) {
+    if (err.code === "GA4_NOT_CONFIGURED") {
       return res.status(501).json({ success: false, message: GA4_NOT_CONFIGURED_MESSAGE });
     }
     res.status(500).json({ success: false, message: "Failed to create GA4 key event." });
@@ -374,7 +374,7 @@ router.delete("/ga4-key-events/:keyEventId", authenticateAdmin, requirePage("seo
     res.json({ success: true, message: "Key event removed." });
   } catch (err) {
     console.error("ga4-key-events delete error:", err.message);
-    if (err.message.includes("not configured")) {
+    if (err.code === "GA4_NOT_CONFIGURED") {
       return res.status(501).json({ success: false, message: GA4_NOT_CONFIGURED_MESSAGE });
     }
     res.status(500).json({ success: false, message: "Failed to delete GA4 key event." });
