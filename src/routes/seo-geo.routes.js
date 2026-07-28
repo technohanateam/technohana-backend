@@ -5,8 +5,20 @@ import Enquiry from "../models/enquiry.model.js";
 import { Blogs } from "../models/blogs.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin, requirePage } from "../middleware/authenticateAdmin.js";
+import { getGA4AdminClient, getGA4PropertyPath } from "../config/googleAnalytics.js";
 
 const router = express.Router();
+
+const GA4_NOT_CONFIGURED_MESSAGE =
+  "GA4 isn't connected yet. Add GOOGLE_SERVICE_ACCOUNT_KEY and GA4_PROPERTY_ID — see GA4_KEY_EVENTS_SETUP.md.";
+
+const shapeKeyEvent = (keyEvent) => ({
+  id: keyEvent.name?.split("/").pop(),
+  eventName: keyEvent.eventName,
+  countingMethod: keyEvent.countingMethod,
+  custom: keyEvent.custom,
+  createTime: keyEvent.createTime,
+});
 
 const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
 
@@ -315,6 +327,57 @@ router.get("/seo-analytics", authenticateAdmin, requirePage("seo-analysis"), asy
   } catch (err) {
     console.error("seo-analytics error:", err);
     res.status(500).json({ error: "Failed to load SEO analytics" });
+  }
+});
+
+// ── GA4 Key Events ────────────────────────────────────────────────────────────
+
+router.get("/ga4-key-events", authenticateAdmin, requirePage("seo-analysis"), async (req, res) => {
+  try {
+    const client = getGA4AdminClient();
+    const [keyEvents] = await client.listKeyEvents({ parent: getGA4PropertyPath() });
+    res.json({ success: true, data: (keyEvents || []).map(shapeKeyEvent) });
+  } catch (err) {
+    console.error("ga4-key-events list error:", err.message);
+    if (err.message.includes("not configured")) {
+      return res.status(501).json({ success: false, message: GA4_NOT_CONFIGURED_MESSAGE });
+    }
+    res.status(500).json({ success: false, message: "Failed to load GA4 key events." });
+  }
+});
+
+router.post("/ga4-key-events", authenticateAdmin, requirePage("seo-analysis"), async (req, res) => {
+  const { eventName, countingMethod = "ONCE_PER_EVENT" } = req.body;
+  if (!eventName) {
+    return res.status(400).json({ success: false, message: "eventName is required." });
+  }
+  try {
+    const client = getGA4AdminClient();
+    const [keyEvent] = await client.createKeyEvent({
+      parent: getGA4PropertyPath(),
+      keyEvent: { eventName, countingMethod },
+    });
+    res.status(201).json({ success: true, data: shapeKeyEvent(keyEvent) });
+  } catch (err) {
+    console.error("ga4-key-events create error:", err.message);
+    if (err.message.includes("not configured")) {
+      return res.status(501).json({ success: false, message: GA4_NOT_CONFIGURED_MESSAGE });
+    }
+    res.status(500).json({ success: false, message: "Failed to create GA4 key event." });
+  }
+});
+
+router.delete("/ga4-key-events/:keyEventId", authenticateAdmin, requirePage("seo-analysis"), async (req, res) => {
+  try {
+    const client = getGA4AdminClient();
+    await client.deleteKeyEvent({ name: `${getGA4PropertyPath()}/keyEvents/${req.params.keyEventId}` });
+    res.json({ success: true, message: "Key event removed." });
+  } catch (err) {
+    console.error("ga4-key-events delete error:", err.message);
+    if (err.message.includes("not configured")) {
+      return res.status(501).json({ success: false, message: GA4_NOT_CONFIGURED_MESSAGE });
+    }
+    res.status(500).json({ success: false, message: "Failed to delete GA4 key event." });
   }
 });
 
