@@ -126,10 +126,13 @@ CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 REDIS_URL=
+GA4_PROPERTY_ID=
+GOOGLE_SERVICE_ACCOUNT_KEY=
 ```
 
 ## Reference Docs
 - `AI_AGENTS_ROADMAP.md` — AI agent roadmap + implemented agents (lead scoring, recovery emails)
+- `GA4_KEY_EVENTS_SETUP.md` — Google Cloud service account setup for the GA4 Key Events admin panel
 - `COUPON_CODES_REFERENCE.md` — festival coupon calendar + discount logic
 - `CAMPAIGN_E2E_TESTING.md` — end-to-end test scenarios
 - `CAMPAIGN_DEPLOYMENT_CHECKLIST.md` — pre-deploy checklist
