@@ -17,6 +17,7 @@ const shapeKeyEvent = (keyEvent) => ({
   eventName: keyEvent.eventName,
   countingMethod: keyEvent.countingMethod,
   custom: keyEvent.custom,
+  deletable: keyEvent.deletable,
   createTime: keyEvent.createTime,
 });
 
