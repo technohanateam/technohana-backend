@@ -1,6 +1,15 @@
 import SeoMonitoring from "../models/seoMonitoring.model.js";
 import { buildMultiFieldRegexQuery } from "../utils/escapeRegex.js";
 
+// Empty strings from HTML date inputs fail Mongoose's Date cast — treat them as "not set".
+const sanitizeDates = (body, dateFields) => {
+  const clean = { ...body };
+  for (const field of dateFields) {
+    if (clean[field] === "") clean[field] = undefined;
+  }
+  return clean;
+};
+
 export const getMonitoring = async (req, res) => {
   try {
     const { search, linkStatus, page = 1, limit = 20 } = req.query;
@@ -29,7 +38,7 @@ export const getPublishedLinks = async (req, res) => {
 
 export const createMonitoringRecord = async (req, res) => {
   try {
-    const record = await SeoMonitoring.create(req.body);
+    const record = await SeoMonitoring.create(sanitizeDates(req.body, ["publishedDate", "lastChecked"]));
     return res.status(201).json({ success: true, message: "Record created", data: record });
   } catch (error) {
     console.error("Error creating SEO monitoring record:", error);
@@ -55,8 +64,9 @@ export const updateMonitoringRecord = async (req, res) => {
   try {
     const record = await SeoMonitoring.findById(req.params.id);
     if (!record) return res.status(404).json({ success: false, message: "Record not found" });
+    const body = sanitizeDates(req.body, ["publishedDate", "lastChecked"]);
     for (const field of MONITORING_EDITABLE_FIELDS) {
-      if (req.body[field] !== undefined) record[field] = req.body[field];
+      if (body[field] !== undefined) record[field] = body[field];
     }
     await record.save();
     return res.json({ success: true, message: "Record updated", data: record });

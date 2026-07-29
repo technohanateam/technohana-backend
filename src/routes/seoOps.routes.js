@@ -43,11 +43,14 @@ router.use(authenticateAdmin);
 router.get("/dashboard", requirePage("seo-ops-dashboard"), getSeoDashboard);
 
 // ── Opportunities ────────────────────────────────────────────────────────
+// NOTE: "/bulk" and "/import" must be registered before "/:id" — otherwise
+// Express matches the wildcard route first (id="bulk"/"import") and the
+// specific routes below become unreachable.
 router.get("/opportunities", requirePage("seo-ops-opportunities"), getAllOpportunities);
-router.get("/opportunities/:id", requirePage("seo-ops-opportunities"), getOpportunity);
-router.patch("/opportunities/:id", requirePage("seo-ops-opportunities"), requireMarketing, updateOpportunity);
 router.patch("/opportunities/bulk", requirePage("seo-ops-opportunities"), requireMarketing, bulkUpdateOpportunities);
 router.post("/opportunities/import", requirePage("seo-ops-opportunities"), requireMarketing, importOpportunities);
+router.get("/opportunities/:id", requirePage("seo-ops-opportunities"), getOpportunity);
+router.patch("/opportunities/:id", requirePage("seo-ops-opportunities"), requireMarketing, updateOpportunity);
 
 // ── Competitors (filtered opportunities view) ───────────────────────────
 router.get("/competitors", requirePage("seo-ops-competitors"), getCompetitorGap);

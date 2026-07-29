@@ -9,6 +9,15 @@ const paginate = (query) => {
   return { pageNum, limitNum, skip: (pageNum - 1) * limitNum };
 };
 
+// Empty strings from HTML date inputs fail Mongoose's Date cast — treat them as "not set".
+const sanitizeDates = (body, dateFields) => {
+  const clean = { ...body };
+  for (const field of dateFields) {
+    if (clean[field] === "") clean[field] = undefined;
+  }
+  return clean;
+};
+
 // ---- Contacts ----
 export const getContacts = async (req, res) => {
   try {
@@ -30,7 +39,8 @@ export const getContacts = async (req, res) => {
 
 export const createContact = async (req, res) => {
   try {
-    const contact = await SeoContact.create({ ...req.body, status: req.body.status || "new" });
+    const body = sanitizeDates(req.body, ["lastContact", "nextFollowUp"]);
+    const contact = await SeoContact.create({ ...body, status: body.status || "new" });
     return res.status(201).json({ success: true, message: "Contact created", data: contact });
   } catch (error) {
     console.error("Error creating SEO contact:", error);
@@ -56,8 +66,9 @@ export const updateContact = async (req, res) => {
   try {
     const contact = await SeoContact.findById(req.params.id);
     if (!contact) return res.status(404).json({ success: false, message: "Contact not found" });
+    const body = sanitizeDates(req.body, ["lastContact", "nextFollowUp"]);
     for (const field of CONTACT_EDITABLE_FIELDS) {
-      if (req.body[field] !== undefined) contact[field] = req.body[field];
+      if (body[field] !== undefined) contact[field] = body[field];
     }
     await contact.save();
     return res.json({ success: true, message: "Contact updated", data: contact });
@@ -87,7 +98,7 @@ export const addFollowUp = async (req, res) => {
     if (!contact) return res.status(404).json({ success: false, message: "Contact not found" });
     contact.followUps.push({
       followUpNumber: contact.followUps.length + 1,
-      scheduledDate: req.body.scheduledDate,
+      scheduledDate: req.body.scheduledDate || undefined,
       completed: req.body.completed || false,
       notes: req.body.notes,
     });
@@ -138,7 +149,7 @@ export const getCampaigns = async (req, res) => {
 
 export const createCampaign = async (req, res) => {
   try {
-    const campaign = await SeoCampaign.create(req.body);
+    const campaign = await SeoCampaign.create(sanitizeDates(req.body, ["startDate", "endDate"]));
     return res.status(201).json({ success: true, message: "Campaign created", data: campaign });
   } catch (error) {
     console.error("Error creating SEO campaign:", error);
@@ -152,8 +163,9 @@ export const updateCampaign = async (req, res) => {
   try {
     const campaign = await SeoCampaign.findById(req.params.id);
     if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
+    const body = sanitizeDates(req.body, ["startDate", "endDate"]);
     for (const field of CAMPAIGN_EDITABLE_FIELDS) {
-      if (req.body[field] !== undefined) campaign[field] = req.body[field];
+      if (body[field] !== undefined) campaign[field] = body[field];
     }
     await campaign.save();
     return res.json({ success: true, message: "Campaign updated", data: campaign });

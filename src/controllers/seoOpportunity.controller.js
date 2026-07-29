@@ -32,11 +32,29 @@ const listOpportunities = (recordTypeFilter) => async (req, res) => {
 
     const filter = buildFilter(req.query, recordTypeFilter);
     const total = await SeoOpportunity.countDocuments(filter);
-    const data = await SeoOpportunity.find(filter)
-      .sort({ priority: 1, overallScore: -1, createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum)
-      .lean();
+    // Sorting by the "priority" string directly is alphabetical (High, Low,
+    // Medium) rather than by severity — compute a rank field to sort correctly.
+    const data = await SeoOpportunity.aggregate([
+      { $match: filter },
+      {
+        $addFields: {
+          priorityRank: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$priority", "High"] }, then: 0 },
+                { case: { $eq: ["$priority", "Medium"] }, then: 1 },
+                { case: { $eq: ["$priority", "Low"] }, then: 2 },
+              ],
+              default: 3,
+            },
+          },
+        },
+      },
+      { $sort: { priorityRank: 1, overallScore: -1, createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limitNum },
+      { $project: { priorityRank: 0 } },
+    ]);
 
     return res.json({
       success: true,
