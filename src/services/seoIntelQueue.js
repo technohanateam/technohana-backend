@@ -25,12 +25,15 @@ async function getSettings() {
 
 gscSyncQueue.process(async () => {
   const connections = await SeoConnection.find({ provider: "gsc", isActive: true });
+  const failedPropertyIds = [];
+
   for (const connection of connections) {
     try {
       const client = await getAuthedClientForConnection(connection);
       await syncGscProperty({ propertyId: connection.propertyId, authedClient: client });
-      await generateRecommendationsFromGsc(connection.propertyId);
-      await checkGscAlerts(connection.propertyId);
+      // Record success as soon as the actual sync commits — recommendation
+      // generation and alerting below are unrelated post-processing and
+      // must not be able to overwrite a genuinely successful sync's status.
       connection.lastSyncedAt = new Date();
       connection.lastSyncStatus = "success";
       connection.lastSyncError = undefined;
@@ -40,18 +43,34 @@ gscSyncQueue.process(async () => {
       connection.lastSyncStatus = "error";
       connection.lastSyncError = err.message;
       await connection.save();
+      failedPropertyIds.push(connection.propertyId);
+      continue;
     }
+
+    try {
+      await generateRecommendationsFromGsc(connection.propertyId);
+      await checkGscAlerts(connection.propertyId);
+    } catch (err) {
+      console.error(`[GSC Sync] post-processing failed for ${connection.propertyId} (sync itself succeeded):`, err.message);
+    }
+  }
+
+  // Loop continues past individual failures so one bad connection doesn't
+  // block the rest, but the job still needs to surface as failed to Bull
+  // (for retry/backoff and the "failed" event) when anything went wrong.
+  if (failedPropertyIds.length) {
+    throw new Error(`GSC sync failed for: ${failedPropertyIds.join(", ")}`);
   }
 });
 
 ga4SyncQueue.process(async () => {
   const connections = await SeoConnection.find({ provider: "ga4", isActive: true });
+  const failedPropertyIds = [];
+
   for (const connection of connections) {
     try {
       const client = await getAuthedClientForConnection(connection);
       await syncGa4Property({ propertyId: connection.propertyId, authedClient: client });
-      await generateRecommendationsFromGa4(connection.propertyId);
-      await checkGa4Alerts(connection.propertyId);
       connection.lastSyncedAt = new Date();
       connection.lastSyncStatus = "success";
       connection.lastSyncError = undefined;
@@ -61,7 +80,20 @@ ga4SyncQueue.process(async () => {
       connection.lastSyncStatus = "error";
       connection.lastSyncError = err.message;
       await connection.save();
+      failedPropertyIds.push(connection.propertyId);
+      continue;
     }
+
+    try {
+      await generateRecommendationsFromGa4(connection.propertyId);
+      await checkGa4Alerts(connection.propertyId);
+    } catch (err) {
+      console.error(`[GA4 Sync] post-processing failed for ${connection.propertyId} (sync itself succeeded):`, err.message);
+    }
+  }
+
+  if (failedPropertyIds.length) {
+    throw new Error(`GA4 sync failed for: ${failedPropertyIds.join(", ")}`);
   }
 });
 
@@ -110,9 +142,11 @@ for (const [name, queue] of Object.entries({ gscSyncQueue, ga4SyncQueue, crawlQu
 
 // Bull dedupes repeatables by cron+data automatically, so calling this on
 // every boot is safe and keeps the schedule declared in one place.
+export const SYNC_RETRY_CONFIG = { attempts: 3, backoff: { type: "exponential", delay: 60000 } };
+
 export async function scheduleSeoIntelRepeatables() {
-  await gscSyncQueue.add({}, { repeat: { cron: "0 3 * * *" } });
-  await ga4SyncQueue.add({}, { repeat: { cron: "0 3 * * *" } });
+  await gscSyncQueue.add({}, { repeat: { cron: "0 3 * * *" }, ...SYNC_RETRY_CONFIG });
+  await ga4SyncQueue.add({}, { repeat: { cron: "0 3 * * *" }, ...SYNC_RETRY_CONFIG });
   await crawlQueue.add({ triggeredBy: "cron" }, { repeat: { cron: "0 4 * * 1" } });
   await execReportQueue.add({}, { repeat: { cron: "0 8 * * 1" } });
   await scoreRecalcQueue.add({}, { repeat: { cron: "0 5 1 * *" } });

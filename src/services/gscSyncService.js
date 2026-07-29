@@ -10,6 +10,8 @@ const DIMENSION_SETS = [
   { dimensionType: "date", apiDimension: "date" },
 ];
 
+const PAGE_SIZE = 5000;
+
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
 }
@@ -24,64 +26,91 @@ export async function syncGscProperty({ propertyId, authedClient, startDate, end
   let totalRows = 0;
 
   for (const { dimensionType, apiDimension } of DIMENSION_SETS) {
-    const { data } = await searchconsole.searchanalytics.query({
-      siteUrl: propertyId,
-      requestBody: {
-        startDate: start,
-        endDate: end,
-        dimensions: [apiDimension],
-        rowLimit: 5000,
-      },
-    });
+    let startRow = 0;
+    let pageRowCount = 0;
 
-    const rows = data.rows || [];
-    for (const row of rows) {
-      const dimensionValue = row.keys?.[0] ?? "";
-      const rowDate = dimensionType === "date" ? new Date(dimensionValue) : new Date(end);
-
-      await SeoGscMetric.findOneAndUpdate(
-        { propertyId, date: rowDate, dimensionType, dimensionValue },
-        {
-          $set: {
-            clicks: row.clicks || 0,
-            impressions: row.impressions || 0,
-            ctr: row.ctr || 0,
-            position: row.position || 0,
-            syncedAt: new Date(),
-          },
+    do {
+      const { data } = await searchconsole.searchanalytics.query({
+        siteUrl: propertyId,
+        requestBody: {
+          startDate: start,
+          endDate: end,
+          dimensions: [apiDimension],
+          rowLimit: PAGE_SIZE,
+          startRow,
         },
-        { upsert: true }
-      );
-      totalRows += 1;
-    }
+      });
+
+      const rows = data.rows || [];
+      pageRowCount = rows.length;
+
+      for (const row of rows) {
+        const dimensionValue = row.keys?.[0] ?? "";
+        // Non-"date" dimensions are a rolling window snapshot, not a per-day
+        // history — key the upsert without `date` so each sync updates the
+        // one current row for this dimension value instead of inserting a
+        // new duplicate every day (see partial indexes on the model).
+        const isDateDim = dimensionType === "date";
+        const rowDate = isDateDim ? new Date(dimensionValue) : new Date(end);
+        const filter = isDateDim
+          ? { propertyId, dimensionType, dimensionValue, date: rowDate }
+          : { propertyId, dimensionType, dimensionValue };
+
+        await SeoGscMetric.findOneAndUpdate(
+          filter,
+          {
+            $set: {
+              date: rowDate,
+              clicks: row.clicks || 0,
+              impressions: row.impressions || 0,
+              ctr: row.ctr || 0,
+              position: row.position || 0,
+              syncedAt: new Date(),
+            },
+          },
+          { upsert: true }
+        );
+        totalRows += 1;
+      }
+
+      startRow += PAGE_SIZE;
+    } while (pageRowCount === PAGE_SIZE);
   }
 
   // Sitemaps reflect current state only (GSC gives no history for these).
-  const { data: sitemapData } = await searchconsole.sitemaps.list({ siteUrl: propertyId });
-  for (const sitemap of sitemapData.sitemap || []) {
-    await SeoGscSitemap.findOneAndUpdate(
-      { propertyId, path: sitemap.path },
-      {
-        $set: {
-          lastSubmitted: sitemap.lastSubmitted ? new Date(sitemap.lastSubmitted) : undefined,
-          lastDownloaded: sitemap.lastDownloaded ? new Date(sitemap.lastDownloaded) : undefined,
-          isPending: sitemap.isPending,
-          isSitemapsIndex: sitemap.isSitemapsIndex,
-          warnings: Number(sitemap.warnings || 0),
-          errors: Number(sitemap.errors || 0),
-          contents: (sitemap.contents || []).map((c) => ({
-            type: c.type,
-            submitted: Number(c.submitted || 0),
-            indexed: Number(c.indexed || 0),
-          })),
-          syncedAt: new Date(),
-        },
-      },
-      { upsert: true }
-    );
+  // Isolated in its own try/catch: a sitemaps.list failure shouldn't mark an
+  // otherwise-successful metrics sync as failed.
+  let sitemapsSynced = 0;
+  try {
+    const { data: sitemapData } = await searchconsole.sitemaps.list({ siteUrl: propertyId });
+    const sitemaps = sitemapData.sitemap || [];
+    for (const sitemap of sitemaps) {
+      const set = {
+        isPending: sitemap.isPending,
+        isSitemapsIndex: sitemap.isSitemapsIndex,
+        warnings: Number(sitemap.warnings || 0),
+        errors: Number(sitemap.errors || 0),
+        contents: (sitemap.contents || []).map((c) => ({
+          type: c.type,
+          submitted: Number(c.submitted || 0),
+          indexed: Number(c.indexed || 0),
+        })),
+        syncedAt: new Date(),
+      };
+      // Omit the key entirely when the source value is missing rather than
+      // explicitly setting undefined, which can overwrite a previously
+      // known-good value with null.
+      if (sitemap.lastSubmitted) set.lastSubmitted = new Date(sitemap.lastSubmitted);
+      if (sitemap.lastDownloaded) set.lastDownloaded = new Date(sitemap.lastDownloaded);
+
+      await SeoGscSitemap.findOneAndUpdate({ propertyId, path: sitemap.path }, { $set: set }, { upsert: true });
+    }
+    sitemapsSynced = sitemaps.length;
+  } catch (err) {
+    console.error(`[GSC Sync] sitemap sync failed for ${propertyId} (metrics sync unaffected):`, err.message);
   }
 
-  return { rowsSynced: totalRows, sitemapsSynced: (sitemapData.sitemap || []).length };
+  return { rowsSynced: totalRows, sitemapsSynced };
 }
 
 export async function inspectUrl({ propertyId, url, authedClient }) {

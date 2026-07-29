@@ -21,6 +21,8 @@ const DIMENSION_SETS = [
   { dimensionType: "country", apiDimension: "country" },
 ];
 
+const PAGE_SIZE = 5000;
+
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
 }
@@ -39,43 +41,64 @@ export async function syncGa4Property({ propertyId, authedClient, startDate, end
   let totalRows = 0;
 
   for (const { dimensionType, apiDimension } of DIMENSION_SETS) {
-    const { data } = await analyticsdata.properties.runReport({
-      property: `properties/${propertyId}`,
-      requestBody: {
-        dateRanges: [{ startDate: start, endDate: end }],
-        dimensions: [{ name: apiDimension }],
-        metrics: METRICS,
-        limit: 5000,
-      },
-    });
+    let offset = 0;
+    let pageRowCount = 0;
 
-    const metricHeaders = data.metricHeaders || [];
-    const rows = data.rows || [];
-
-    for (const row of rows) {
-      const dimensionValue = row.dimensionValues?.[0]?.value ?? "";
-      const metricValues = row.metricValues || [];
-
-      await SeoGa4Metric.findOneAndUpdate(
-        { propertyId, date: new Date(end), dimensionType, dimensionValue },
-        {
-          $set: {
-            sessions: metricValue(metricHeaders, metricValues, "sessions"),
-            users: metricValue(metricHeaders, metricValues, "totalUsers"),
-            newUsers: metricValue(metricHeaders, metricValues, "newUsers"),
-            engagedSessions: metricValue(metricHeaders, metricValues, "engagedSessions"),
-            engagementRate: metricValue(metricHeaders, metricValues, "engagementRate"),
-            avgEngagementTime: metricValue(metricHeaders, metricValues, "averageSessionDuration"),
-            bounceRate: metricValue(metricHeaders, metricValues, "bounceRate"),
-            conversions: metricValue(metricHeaders, metricValues, "conversions"),
-            eventCount: metricValue(metricHeaders, metricValues, "eventCount"),
-            syncedAt: new Date(),
-          },
+    do {
+      const { data } = await analyticsdata.properties.runReport({
+        property: `properties/${propertyId}`,
+        requestBody: {
+          dateRanges: [{ startDate: start, endDate: end }],
+          dimensions: [{ name: apiDimension }],
+          metrics: METRICS,
+          limit: PAGE_SIZE,
+          offset,
         },
-        { upsert: true }
-      );
-      totalRows += 1;
-    }
+      });
+
+      const metricHeaders = data.metricHeaders || [];
+      const rows = data.rows || [];
+      pageRowCount = rows.length;
+
+      for (const row of rows) {
+        const dimensionValue = row.dimensionValues?.[0]?.value ?? "";
+        const metricValues = row.metricValues || [];
+        // Non-"date" dimensions represent a rolling window snapshot, not a
+        // per-day history — key the upsert without `date` so each sync
+        // updates the one current row for this dimension value instead of
+        // inserting a new duplicate every day (see partial indexes on the
+        // model). "date" dimensionType rows (reserved for a future per-day
+        // GA4 trend) keep their real calendar date in the key.
+        const isDateDim = dimensionType === "date";
+        const rowDate = isDateDim ? new Date(dimensionValue) : new Date(end);
+        const filter = isDateDim
+          ? { propertyId, dimensionType, dimensionValue, date: rowDate }
+          : { propertyId, dimensionType, dimensionValue };
+
+        await SeoGa4Metric.findOneAndUpdate(
+          filter,
+          {
+            $set: {
+              date: rowDate,
+              sessions: metricValue(metricHeaders, metricValues, "sessions"),
+              users: metricValue(metricHeaders, metricValues, "totalUsers"),
+              newUsers: metricValue(metricHeaders, metricValues, "newUsers"),
+              engagedSessions: metricValue(metricHeaders, metricValues, "engagedSessions"),
+              engagementRate: metricValue(metricHeaders, metricValues, "engagementRate"),
+              avgEngagementTime: metricValue(metricHeaders, metricValues, "averageSessionDuration"),
+              bounceRate: metricValue(metricHeaders, metricValues, "bounceRate"),
+              conversions: metricValue(metricHeaders, metricValues, "conversions"),
+              eventCount: metricValue(metricHeaders, metricValues, "eventCount"),
+              syncedAt: new Date(),
+            },
+          },
+          { upsert: true }
+        );
+        totalRows += 1;
+      }
+
+      offset += PAGE_SIZE;
+    } while (pageRowCount === PAGE_SIZE);
   }
 
   return { rowsSynced: totalRows };

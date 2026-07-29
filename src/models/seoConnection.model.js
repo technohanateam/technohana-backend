@@ -12,6 +12,13 @@ const seoConnectionSchema = new Schema({
   lastSyncStatus: { type: String, enum: ["success", "error", "never"], default: "never" },
   lastSyncError: String,
   isActive: { type: Boolean, default: true },
+  // GA4 has no "list my properties" call under analytics.readonly scope
+  // alone, so after OAuth consent the admin must enter the numeric property
+  // ID separately. `pendingSelection` marks a stub awaiting that step —
+  // `propertyId` for these stubs is a per-flow-unique placeholder (not the
+  // literal "pending"), so two connect flows in flight at once can't
+  // overwrite each other's stored refresh token.
+  pendingSelection: { type: Boolean, default: false },
 });
 
 seoConnectionSchema.index({ provider: 1, propertyId: 1 }, { unique: true });
