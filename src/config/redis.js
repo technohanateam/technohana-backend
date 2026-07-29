@@ -22,6 +22,13 @@ if (process.env.REDIS_URL) {
     host: parsed.hostname,
     port: Number(parsed.port) || 6379,
     retryStrategy,
+    // Bull opens extra internal connections (a blocking client for
+    // BRPOPLPUSH, a subscriber) that must retry indefinitely rather than
+    // give up after ioredis's default cap of 20 queued-command retries —
+    // otherwise a slow handshake or brief reconnect throws "max retries
+    // per request" and the queue never reaches "ready".
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
   };
   if (parsed.username) redisConfig.username = decodeURIComponent(parsed.username);
   if (parsed.password) redisConfig.password = decodeURIComponent(parsed.password);
@@ -32,6 +39,8 @@ if (process.env.REDIS_URL) {
     host: process.env.REDIS_HOST || "127.0.0.1",
     port: process.env.REDIS_PORT || 6379,
     retryStrategy,
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
   };
   if (process.env.REDIS_PASSWORD) redisConfig.password = process.env.REDIS_PASSWORD;
   console.log(`[redis] using REDIS_HOST/PORT (${redisConfig.host}:${redisConfig.port})`);
