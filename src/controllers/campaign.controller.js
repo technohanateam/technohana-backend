@@ -261,7 +261,7 @@ export const sendCampaignNow = async (req, res) => {
       await Promise.all(
         batch.map(async (user) => {
           try {
-            await resend.emails.send({
+            const response = await resend.emails.send({
               from: `${campaign.fromName} <${campaign.fromEmail}>`,
               to: user.email,
               subject: campaign.subject,
@@ -270,6 +270,7 @@ export const sendCampaignNow = async (req, res) => {
                 "X-Campaign-ID": campaign._id.toString(),
                 "X-User-ID": user._id?.toString() || user.email,
               },
+              tags: [{ name: "campaign_id", value: campaign._id.toString() }],
             });
             campaign.recipientMetrics.push({
               userId: user._id,
@@ -277,6 +278,7 @@ export const sendCampaignNow = async (req, res) => {
               status: "sent",
               sentAt: new Date(),
               variant: "default",
+              resendEmailId: response?.data?.id,
             });
             campaign.metrics.delivered++;
             sentCount++;
