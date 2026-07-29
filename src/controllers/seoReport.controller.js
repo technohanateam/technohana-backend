@@ -25,6 +25,9 @@ export const previewReport = async (req, res) => {
   try {
     const report = await SeoReport.findById(req.params.id);
     if (!report) return res.status(404).json({ success: false, message: "Report not found" });
+    if (report.content) {
+      return res.json({ success: true, data: { title: report.title, content: report.content } });
+    }
     const filePath = resolveReportPath(report);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ success: false, message: "Report file unavailable in this environment" });
@@ -41,6 +44,11 @@ export const downloadReport = async (req, res) => {
   try {
     const report = await SeoReport.findById(req.params.id);
     if (!report) return res.status(404).json({ success: false, message: "Report not found" });
+    if (report.content) {
+      res.setHeader("Content-Disposition", `attachment; filename="${report.file || `${report.title}.md`}"`);
+      res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+      return res.send(report.content);
+    }
     const filePath = resolveReportPath(report);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ success: false, message: "Report file unavailable in this environment" });
