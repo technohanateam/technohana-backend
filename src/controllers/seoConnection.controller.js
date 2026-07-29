@@ -48,16 +48,43 @@ export const getConnectUrl = async (req, res) => {
 
 // Public route (hit via top-level browser redirect from Google) — validates
 // `state` itself instead of relying on authenticateAdmin.
+// Maps internal failure modes to a short, stable code the frontend can use
+// to show a specific, user-friendly message instead of a generic "failed".
+// `provider` is best-effort — early failures (bad/expired state) happen
+// before we can know which flow initiated the request, so it's omitted and
+// the frontend falls back to showing the notice on the Search Console page.
+function redirectWithReason(res, frontendUrl, reason, provider) {
+  const page = provider === "ga4" ? "analytics" : "search-console";
+  const providerParam = provider ? `&provider=${provider}` : "";
+  return res.redirect(`${frontendUrl}/admin/seo-intel/${page}?connected=0&reason=${encodeURIComponent(reason)}${providerParam}`);
+}
+
 export const handleOAuthCallback = async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || "/";
   try {
-    const { code, state } = req.query;
-    if (!code || !state) throw new Error("Missing code/state");
+    const { code, state, error: googleError } = req.query;
+    if (googleError) {
+      // User clicked "Deny" on Google's consent screen, or Google itself
+      // rejected the request — not an error, just a declined connection.
+      return redirectWithReason(res, frontendUrl, "denied");
+    }
+    if (!code || !state) return redirectWithReason(res, frontendUrl, "missing_params");
 
-    const payload = jwt.verify(state, process.env.ADMIN_JWT_SECRET);
+    let payload;
+    try {
+      payload = jwt.verify(state, process.env.ADMIN_JWT_SECRET);
+    } catch (jwtErr) {
+      // Covers both an expired state (flow took >10m) and a tampered/replayed one.
+      return redirectWithReason(res, frontendUrl, jwtErr.name === "TokenExpiredError" ? "state_expired" : "state_invalid");
+    }
+
     const tokens = await exchangeCodeForTokens(code);
     if (!tokens.refresh_token) {
-      throw new Error("Google did not return a refresh token — retry with prompt=consent");
+      // Google only issues a refresh_token on first consent; if the admin
+      // already granted access previously it's withheld unless prompt=consent
+      // forces re-consent — buildConsentUrl() always sets that, so this is
+      // rare, but still needs a friendly message rather than a 500.
+      return redirectWithReason(res, frontendUrl, "no_refresh_token", payload.provider);
     }
 
     // Build a scoped client for this one exchange rather than mutating the
@@ -112,10 +139,11 @@ export const handleOAuthCallback = async (req, res) => {
       );
     }
 
-    return res.redirect(`${frontendUrl}/admin/seo-intel/search-console?connected=1`);
+    const successPage = payload.provider === "ga4" ? "analytics" : "search-console";
+    return res.redirect(`${frontendUrl}/admin/seo-intel/${successPage}?connected=1&provider=${payload.provider}`);
   } catch (error) {
     console.error("Error handling SEO OAuth callback:", error);
-    return res.redirect(`${frontendUrl}/admin/seo-intel/search-console?connected=0`);
+    return redirectWithReason(res, frontendUrl, "unknown");
   }
 };
 

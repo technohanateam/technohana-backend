@@ -4,13 +4,22 @@ import { logSeoAudit } from "../utils/seoAuditLogger.js";
 export const listRecommendations = async (req, res) => {
   try {
     const { status, priority, category } = req.query;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
     const query = {};
     if (status) query.status = status;
     if (priority) query.priority = priority;
     if (category) query.category = category;
 
-    const recommendations = await SeoRecommendation.find(query).sort({ generatedAt: -1 }).limit(500).lean();
-    return res.json({ success: true, data: recommendations });
+    const [recommendations, total] = await Promise.all([
+      SeoRecommendation.find(query)
+        .sort({ generatedAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      SeoRecommendation.countDocuments(query),
+    ]);
+    return res.json({ success: true, data: recommendations, meta: { total, page, pages: Math.max(1, Math.ceil(total / limit)) } });
   } catch (error) {
     console.error("Error listing recommendations:", error);
     return res.status(500).json({ success: false, message: "Error listing recommendations" });
