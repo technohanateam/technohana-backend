@@ -1,17 +1,12 @@
 import SeoGa4Metric from "../models/seoGa4Metric.model.js";
-import { ga4SyncQueue } from "../services/seoIntelQueue.js";
+import { ga4SyncQueue, SYNC_RETRY_CONFIG } from "../services/seoIntelQueue.js";
 import { logSeoAudit } from "../utils/seoAuditLogger.js";
-
-function dateRange(req) {
-  const from = req.query.from ? new Date(req.query.from) : new Date(Date.now() - 27 * 86400000);
-  const to = req.query.to ? new Date(req.query.to) : new Date();
-  return { from, to };
-}
+import { dateRange, isValidPropertyId } from "../utils/seoDateRange.js";
 
 export const getGa4Summary = async (req, res) => {
   try {
     const { propertyId } = req.query;
-    if (!propertyId) return res.status(400).json({ success: false, message: "propertyId is required" });
+    if (!isValidPropertyId(propertyId)) return res.status(400).json({ success: false, message: "propertyId is required" });
     const { from, to } = dateRange(req);
 
     const rows = await SeoGa4Metric.find({ propertyId, dimensionType: "landingPage", date: { $gte: from, $lte: to } }).lean();
@@ -23,7 +18,10 @@ export const getGa4Summary = async (req, res) => {
       }),
       { sessions: 0, users: 0, conversions: 0 }
     );
-    const avgBounceRate = rows.length ? rows.reduce((s, r) => s + r.bounceRate, 0) / rows.length : 0;
+    // Weighted by sessions, matching how avgCtr/avgPosition are weighted in
+    // the GSC controller — an unweighted per-row average lets a low-traffic
+    // page skew the reported bounce rate as much as a high-traffic one.
+    const avgBounceRate = totals.sessions > 0 ? rows.reduce((s, r) => s + r.bounceRate * r.sessions, 0) / totals.sessions : 0;
 
     return res.json({ success: true, data: { totals: { ...totals, bounceRate: avgBounceRate } } });
   } catch (error) {
@@ -35,7 +33,7 @@ export const getGa4Summary = async (req, res) => {
 const dimensionEndpoint = (dimensionType) => async (req, res) => {
   try {
     const { propertyId } = req.query;
-    if (!propertyId) return res.status(400).json({ success: false, message: "propertyId is required" });
+    if (!isValidPropertyId(propertyId)) return res.status(400).json({ success: false, message: "propertyId is required" });
     const { from, to } = dateRange(req);
     const rows = await SeoGa4Metric.find({ propertyId, dimensionType, date: { $gte: from, $lte: to } })
       .sort({ sessions: -1 })
@@ -54,7 +52,7 @@ export const getGa4TrafficSources = dimensionEndpoint("trafficSource");
 
 export const triggerGa4Sync = async (req, res) => {
   try {
-    await ga4SyncQueue.add({});
+    await ga4SyncQueue.add({}, SYNC_RETRY_CONFIG);
     await logSeoAudit(req, "ga4.sync.trigger", "SeoConnection", null, {});
     return res.json({ success: true, message: "GA4 sync queued" });
   } catch (error) {

@@ -10,15 +10,25 @@ function sumMetric(rows, field) {
 }
 
 async function gscTrend() {
-  const hasConnection = await SeoConnection.exists({ provider: "gsc", isActive: true });
-  if (!hasConnection) return { available: false };
+  const activeConnections = await SeoConnection.find({ provider: "gsc", isActive: true }).lean();
+  if (activeConnections.length === 0) return { available: false };
 
+  const syncedConnection = activeConnections.find((c) => c.lastSyncStatus === "success");
+  if (!syncedConnection) {
+    // Connected but never successfully synced — distinct from "no connection
+    // at all" and from "confirmed zero traffic," both of which also present
+    // as available:false/zero downstream without this.
+    const failing = activeConnections.find((c) => c.lastSyncStatus === "error");
+    return { available: false, lastSyncStatus: failing ? "error" : "never", lastSyncError: failing?.lastSyncError };
+  }
+
+  const propertyIds = activeConnections.map((c) => c.propertyId);
   const now = new Date();
   const recentStart = new Date(now - 28 * 86400000);
   const priorStart = new Date(now - 56 * 86400000);
 
-  const recent = await SeoGscMetric.find({ dimensionType: "date", date: { $gte: recentStart } }).lean();
-  const prior = await SeoGscMetric.find({ dimensionType: "date", date: { $gte: priorStart, $lt: recentStart } }).lean();
+  const recent = await SeoGscMetric.find({ propertyId: { $in: propertyIds }, dimensionType: "date", date: { $gte: recentStart } }).lean();
+  const prior = await SeoGscMetric.find({ propertyId: { $in: propertyIds }, dimensionType: "date", date: { $gte: priorStart, $lt: recentStart } }).lean();
 
   const recentClicks = sumMetric(recent, "clicks");
   const priorClicks = sumMetric(prior, "clicks");
@@ -26,6 +36,7 @@ async function gscTrend() {
 
   return {
     available: true,
+    lastSyncStatus: "success",
     clicks: recentClicks,
     impressions: recentImpressions,
     changePercent: priorClicks > 0 ? ((recentClicks - priorClicks) / priorClicks) * 100 : null,
@@ -33,15 +44,22 @@ async function gscTrend() {
 }
 
 async function ga4Trend() {
-  const hasConnection = await SeoConnection.exists({ provider: "ga4", isActive: true });
-  if (!hasConnection) return { available: false };
+  const activeConnections = await SeoConnection.find({ provider: "ga4", isActive: true }).lean();
+  if (activeConnections.length === 0) return { available: false };
 
+  const syncedConnection = activeConnections.find((c) => c.lastSyncStatus === "success");
+  if (!syncedConnection) {
+    const failing = activeConnections.find((c) => c.lastSyncStatus === "error");
+    return { available: false, lastSyncStatus: failing ? "error" : "never", lastSyncError: failing?.lastSyncError };
+  }
+
+  const propertyIds = activeConnections.map((c) => c.propertyId);
   const now = new Date();
   const recentStart = new Date(now - 28 * 86400000);
   const priorStart = new Date(now - 56 * 86400000);
 
-  const recent = await SeoGa4Metric.find({ dimensionType: "landingPage", date: { $gte: recentStart } }).lean();
-  const prior = await SeoGa4Metric.find({ dimensionType: "landingPage", date: { $gte: priorStart, $lt: recentStart } }).lean();
+  const recent = await SeoGa4Metric.find({ propertyId: { $in: propertyIds }, dimensionType: "landingPage", date: { $gte: recentStart } }).lean();
+  const prior = await SeoGa4Metric.find({ propertyId: { $in: propertyIds }, dimensionType: "landingPage", date: { $gte: priorStart, $lt: recentStart } }).lean();
 
   const recentSessions = sumMetric(recent, "sessions");
   const priorSessions = sumMetric(prior, "sessions");
@@ -49,6 +67,7 @@ async function ga4Trend() {
 
   return {
     available: true,
+    lastSyncStatus: "success",
     sessions: recentSessions,
     conversions,
     changePercent: priorSessions > 0 ? ((recentSessions - priorSessions) / priorSessions) * 100 : null,

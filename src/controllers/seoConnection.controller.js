@@ -90,9 +90,13 @@ export const handleOAuthCallback = async (req, res) => {
     // If the requested flow was GA4, the admin still needs to pick/enter a
     // property ID since GA4 has no "list my properties" call available with
     // analytics.readonly scope alone — store a pending connection stub.
+    // Keyed per-flow on the state's nonce (not a shared literal like
+    // "pending") so two GA4 connect flows in flight at once each get their
+    // own stub instead of the second callback overwriting the first flow's
+    // stored refresh token.
     if (payload.provider === "ga4") {
       await SeoConnection.findOneAndUpdate(
-        { provider: "ga4", propertyId: "pending" },
+        { provider: "ga4", propertyId: `pending-${payload.nonce}` },
         {
           $set: {
             propertyLabel: "Pending property selection",
@@ -101,6 +105,7 @@ export const handleOAuthCallback = async (req, res) => {
             connectedByAdminId: payload.adminId,
             connectedAt: new Date(),
             isActive: false,
+            pendingSelection: true,
           },
         },
         { upsert: true }
@@ -136,6 +141,7 @@ export const setGa4PropertyId = async (req, res) => {
     connection.propertyId = propertyId;
     connection.propertyLabel = `properties/${propertyId}`;
     connection.isActive = true;
+    connection.pendingSelection = false;
     await connection.save();
 
     await logSeoAudit(req, "ga4.connect", "SeoConnection", connection._id.toString(), { propertyId });

@@ -3,19 +3,14 @@ import SeoGscMetric from "../models/seoGscMetric.model.js";
 import SeoGscSitemap from "../models/seoGscSitemap.model.js";
 import { getAuthedClientForConnection } from "../config/googleSeoOAuth.js";
 import { syncGscProperty, inspectUrl } from "../services/gscSyncService.js";
-import { gscSyncQueue } from "../services/seoIntelQueue.js";
+import { gscSyncQueue, SYNC_RETRY_CONFIG } from "../services/seoIntelQueue.js";
 import { logSeoAudit } from "../utils/seoAuditLogger.js";
-
-function dateRange(req) {
-  const from = req.query.from ? new Date(req.query.from) : new Date(Date.now() - 27 * 86400000);
-  const to = req.query.to ? new Date(req.query.to) : new Date();
-  return { from, to };
-}
+import { dateRange, isValidPropertyId } from "../utils/seoDateRange.js";
 
 export const getGscSummary = async (req, res) => {
   try {
     const { propertyId } = req.query;
-    if (!propertyId) return res.status(400).json({ success: false, message: "propertyId is required" });
+    if (!isValidPropertyId(propertyId)) return res.status(400).json({ success: false, message: "propertyId is required" });
     const { from, to } = dateRange(req);
 
     const rows = await SeoGscMetric.find({ propertyId, dimensionType: "date", date: { $gte: from, $lte: to } }).sort({ date: 1 }).lean();
@@ -27,7 +22,10 @@ export const getGscSummary = async (req, res) => {
       { clicks: 0, impressions: 0 }
     );
     const avgCtr = totals.impressions > 0 ? totals.clicks / totals.impressions : 0;
-    const avgPosition = rows.length ? rows.reduce((s, r) => s + r.position, 0) / rows.length : 0;
+    // Weighted by impressions, consistent with avgCtr above — an unweighted
+    // per-row average lets a near-zero-impression day skew position as much
+    // as a high-impression one.
+    const avgPosition = totals.impressions > 0 ? rows.reduce((s, r) => s + r.position * r.impressions, 0) / totals.impressions : 0;
 
     return res.json({ success: true, data: { totals: { ...totals, ctr: avgCtr, position: avgPosition }, trend: rows } });
   } catch (error) {
@@ -39,7 +37,7 @@ export const getGscSummary = async (req, res) => {
 const dimensionEndpoint = (dimensionType) => async (req, res) => {
   try {
     const { propertyId } = req.query;
-    if (!propertyId) return res.status(400).json({ success: false, message: "propertyId is required" });
+    if (!isValidPropertyId(propertyId)) return res.status(400).json({ success: false, message: "propertyId is required" });
     const { from, to } = dateRange(req);
     const rows = await SeoGscMetric.find({ propertyId, dimensionType, date: { $gte: from, $lte: to } })
       .sort({ clicks: -1 })
@@ -60,7 +58,7 @@ export const getGscDevices = dimensionEndpoint("device");
 export const getGscSitemaps = async (req, res) => {
   try {
     const { propertyId } = req.query;
-    if (!propertyId) return res.status(400).json({ success: false, message: "propertyId is required" });
+    if (!isValidPropertyId(propertyId)) return res.status(400).json({ success: false, message: "propertyId is required" });
     const sitemaps = await SeoGscSitemap.find({ propertyId }).lean();
     return res.json({ success: true, data: sitemaps });
   } catch (error) {
@@ -72,7 +70,8 @@ export const getGscSitemaps = async (req, res) => {
 export const inspectGscUrl = async (req, res) => {
   try {
     const { propertyId, url } = req.body;
-    if (!propertyId || !url) return res.status(400).json({ success: false, message: "propertyId and url are required" });
+    if (!isValidPropertyId(propertyId) || typeof url !== "string" || !url)
+      return res.status(400).json({ success: false, message: "propertyId and url are required" });
     const connection = await SeoConnection.findOne({ provider: "gsc", propertyId, isActive: true });
     if (!connection) return res.status(404).json({ success: false, message: "GSC connection not found" });
 
@@ -87,7 +86,7 @@ export const inspectGscUrl = async (req, res) => {
 
 export const triggerGscSync = async (req, res) => {
   try {
-    await gscSyncQueue.add({});
+    await gscSyncQueue.add({}, SYNC_RETRY_CONFIG);
     await logSeoAudit(req, "gsc.sync.trigger", "SeoConnection", null, {});
     return res.json({ success: true, message: "GSC sync queued" });
   } catch (error) {

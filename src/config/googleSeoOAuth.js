@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import { encryptToken, decryptToken } from "../utils/tokenCrypto.js";
+import SeoConnection from "../models/seoConnection.model.js";
 
 // Distinguishes "OAuth client not configured yet" from a real Google API
 // failure — callers check `err.code === "SEO_GOOGLE_NOT_CONFIGURED"`.
@@ -81,6 +82,19 @@ export async function getAuthedClientForConnection(connection) {
   const client = createOAuthClient();
   const { refreshToken } = decryptToken(connection.encryptedRefreshToken);
   client.setCredentials({ refresh_token: refreshToken });
+
+  // Google occasionally rotates the refresh token when it issues a new
+  // access token. If we never persist that, the old stored token can be
+  // invalidated server-side and every future sync fails with no recovery
+  // path. Persist a rotated token back onto this connection when supplied.
+  client.on("tokens", (tokens) => {
+    if (!tokens.refresh_token) return;
+    SeoConnection.updateOne(
+      { _id: connection._id },
+      { $set: { encryptedRefreshToken: encryptRefreshToken(tokens.refresh_token) } }
+    ).catch((err) => console.error(`[SeoConnection] failed to persist rotated refresh token for ${connection._id}:`, err.message));
+  });
+
   return client;
 }
 
