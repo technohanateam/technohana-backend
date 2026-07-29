@@ -46,6 +46,7 @@ const seoOpportunitySchema = new Schema({
   evidenceUrl: String,
   evidenceNotes: String,
   contentYear: Number,
+  authorityUnscored: Boolean,
 
   // Admin-managed fields (not sourced from CSV)
   status: {

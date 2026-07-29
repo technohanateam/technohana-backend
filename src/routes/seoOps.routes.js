@@ -91,7 +91,7 @@ router.get("/reports/:id/download", requirePage("seo-ops-reports"), downloadRepo
 router.get("/settings", requirePage("seo-ops-settings"), getSettings);
 router.patch("/settings", requirePage("seo-ops-settings"), requireMarketing, updateSettings);
 
-// ── Script actions (dev/local only — see UNAVAILABLE_MESSAGE in controller) ─
+// ── Script actions (run against MongoDB — see seoOpsScripts.service.js) ────
 router.post("/scripts/validate", requirePage("seo-ops-settings"), requireMarketing, validateCsv);
 router.post("/scripts/duplicates", requirePage("seo-ops-settings"), requireMarketing, checkDuplicates);
 router.post("/scripts/score", requirePage("seo-ops-settings"), requireMarketing, scoreOpportunities);
