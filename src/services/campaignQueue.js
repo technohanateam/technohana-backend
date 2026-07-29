@@ -89,6 +89,9 @@ campaignQueue.process(async (job) => {
             }
 
             // Send via Resend
+            // Custom headers are NOT echoed back on Resend's webhook events, so
+            // campaign/recipient identification for open/click tracking must go
+            // through `tags` (returned in the webhook payload) and the email id.
             const response = await resend.emails.send({
               from: `${campaign.fromName} <${campaign.fromEmail}>`,
               to: user.email,
@@ -98,6 +101,7 @@ campaignQueue.process(async (job) => {
                 "X-Campaign-ID": campaign._id.toString(),
                 "X-User-ID": user._id?.toString() || user.email,
               },
+              tags: [{ name: "campaign_id", value: campaign._id.toString() }],
             });
 
             campaign.recipientMetrics.push({
@@ -106,6 +110,7 @@ campaignQueue.process(async (job) => {
               status: "sent",
               sentAt: new Date(),
               variant: variantName,
+              resendEmailId: response?.data?.id,
             });
 
             campaign.metrics.delivered++;
@@ -174,6 +179,7 @@ eventQueue.process(async (job) => {
         "X-Event-Type": eventType,
         "X-User-Email": userEmail,
       },
+      tags: [{ name: "campaign_id", value: campaign._id.toString() }],
     });
 
     campaign.recipientMetrics.push({
@@ -181,6 +187,7 @@ eventQueue.process(async (job) => {
       status: "sent",
       sentAt: new Date(),
       variant: "event-triggered",
+      resendEmailId: response?.data?.id,
     });
 
     campaign.metrics.totalSent++;

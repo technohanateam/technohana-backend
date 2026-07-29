@@ -36,12 +36,14 @@ export const handleResendWebhook = async (req, res) => {
     // }
 
     const { type, data } = event;
-    const campaignId = data?.headers?.["x-campaign-id"];
-    const userId = data?.headers?.["x-user-id"];
-    const recipientEmail = data?.to;
+    // Custom email headers set at send time are NOT included in Resend's
+    // webhook payloads — only `tags` and `email_id` survive the round trip.
+    const campaignId = data?.tags?.find((t) => t.name === "campaign_id")?.value;
+    const resendEmailId = data?.email_id;
+    const recipientEmail = Array.isArray(data?.to) ? data.to[0] : data?.to;
 
     if (!campaignId) {
-      console.warn("[Webhook] No campaign ID in event headers");
+      console.warn("[Webhook] No campaign_id tag in event");
       return res.json({ success: true }); // Still acknowledge to Resend
     }
 
@@ -55,9 +57,12 @@ export const handleResendWebhook = async (req, res) => {
       `[Webhook] Processing ${type} event for ${recipientEmail} in campaign ${campaign.name}`
     );
 
-    // Find recipient metric
+    // Find recipient metric — prefer the exact Resend email id, fall back to
+    // email address for records sent before resendEmailId was captured.
     const recipient = campaign.recipientMetrics.find(
-      (r) => r.email === recipientEmail
+      (r) =>
+        (resendEmailId && r.resendEmailId === resendEmailId) ||
+        r.email === recipientEmail
     );
 
     if (!recipient) {

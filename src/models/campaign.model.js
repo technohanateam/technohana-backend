@@ -121,6 +121,7 @@ const campaignSchema = new Schema({
       clickUrl: String,
       variant: String, // Which A/B variant was sent
       sentAt: Date,
+      resendEmailId: String, // Resend's returned email id, used to match webhook events
     },
   ],
 
