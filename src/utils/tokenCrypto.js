@@ -6,13 +6,21 @@ const ivLength = 16;
 const saltLength = 16;
 const tagLength = 16;
 
-const ENROLLMENT_TOKEN_KEY = process.env.ENROLLMENT_TOKEN_KEY;
-if (!ENROLLMENT_TOKEN_KEY) {
-  throw new Error('ENROLLMENT_TOKEN_KEY environment variable is required for token encryption');
-}
+let ENROLLMENT_TOKEN_KEY = process.env.ENROLLMENT_TOKEN_KEY;
+
+const getEnrollmentTokenKey = () => {
+  if (!ENROLLMENT_TOKEN_KEY) {
+    ENROLLMENT_TOKEN_KEY = process.env.ENROLLMENT_TOKEN_KEY;
+    if (!ENROLLMENT_TOKEN_KEY) {
+      throw new Error('ENROLLMENT_TOKEN_KEY environment variable is required for token encryption');
+    }
+  }
+  return ENROLLMENT_TOKEN_KEY;
+};
 
 const deriveKey = (salt) => {
-  return crypto.pbkdf2Sync(ENROLLMENT_TOKEN_KEY, salt, 100000, keyLength, 'sha256');
+  const key = getEnrollmentTokenKey();
+  return crypto.pbkdf2Sync(key, salt, 100000, keyLength, 'sha256');
 };
 
 export const encryptToken = (data) => {
