@@ -10,6 +10,7 @@ const seoIntelligenceSettingsSchema = new Schema({
     ctrDropPercent: { type: Number, default: 30 },
   },
   alertEmailRecipients: [String],
+  lastExecReportSentAt: Date,
   updatedAt: { type: Date, default: Date.now },
   updatedBy: String,
 });

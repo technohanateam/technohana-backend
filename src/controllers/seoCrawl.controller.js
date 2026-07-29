@@ -1,6 +1,6 @@
 import SeoCrawlRun from "../models/seoCrawlRun.model.js";
 import SeoCrawlPage from "../models/seoCrawlPage.model.js";
-import { crawlQueue } from "../services/seoIntelQueue.js";
+import { crawlQueue, SINGLE_RUN_RETRY_CONFIG } from "../services/seoIntelQueue.js";
 import { logSeoAudit } from "../utils/seoAuditLogger.js";
 
 export const listCrawlRuns = async (req, res) => {
@@ -47,7 +47,7 @@ export const getCrawlRunPages = async (req, res) => {
 
 export const triggerCrawl = async (req, res) => {
   try {
-    await crawlQueue.add({ triggeredBy: "manual" });
+    await crawlQueue.add({ triggeredBy: "manual" }, SINGLE_RUN_RETRY_CONFIG);
     await logSeoAudit(req, "crawl.trigger", "SeoCrawlRun", null, {});
     return res.json({ success: true, message: "Crawl queued" });
   } catch (error) {

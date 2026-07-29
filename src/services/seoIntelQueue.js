@@ -11,11 +11,17 @@ import { checkGscAlerts, checkGa4Alerts, checkCrawlAlerts } from "./seoAlertServ
 import { sendEmail } from "../config/emailService.js";
 import { redisConfig } from "../config/redis.js";
 
-export const gscSyncQueue = new Bull("seo-gsc-sync", { redis: redisConfig });
-export const ga4SyncQueue = new Bull("seo-ga4-sync", { redis: redisConfig });
-export const crawlQueue = new Bull("seo-crawl", { redis: redisConfig });
-export const execReportQueue = new Bull("seo-exec-report", { redis: redisConfig });
-export const scoreRecalcQueue = new Bull("seo-score-recalc", { redis: redisConfig });
+// Shared settings so stalled jobs (worker died mid-job) get reclaimed and
+// retried instead of sitting locked forever, and completed/failed jobs get
+// trimmed instead of accumulating in Redis indefinitely.
+const QUEUE_SETTINGS = { settings: { maxStalledCount: 2, lockDuration: 5 * 60 * 1000 } };
+export const JOB_CLEANUP = { removeOnComplete: 50, removeOnFail: 200 };
+
+export const gscSyncQueue = new Bull("seo-gsc-sync", { redis: redisConfig, ...QUEUE_SETTINGS });
+export const ga4SyncQueue = new Bull("seo-ga4-sync", { redis: redisConfig, ...QUEUE_SETTINGS });
+export const crawlQueue = new Bull("seo-crawl", { redis: redisConfig, ...QUEUE_SETTINGS });
+export const execReportQueue = new Bull("seo-exec-report", { redis: redisConfig, ...QUEUE_SETTINGS });
+export const scoreRecalcQueue = new Bull("seo-score-recalc", { redis: redisConfig, ...QUEUE_SETTINGS });
 
 async function getSettings() {
   let settings = await SeoIntelligenceSettings.findOne();
@@ -126,6 +132,8 @@ execReportQueue.process(async () => {
     subject: "Weekly SEO Executive Report",
     html: `<p>Latest crawl: ${latestCrawl ? `${latestCrawl.pagesCrawled} pages crawled, ${latestCrawl.pagesErrored} errors.` : "No crawl data yet."}</p>`,
   });
+  settings.lastExecReportSentAt = new Date();
+  await settings.save();
 });
 
 scoreRecalcQueue.process(async () => {
@@ -136,18 +144,24 @@ scoreRecalcQueue.process(async () => {
 });
 
 for (const [name, queue] of Object.entries({ gscSyncQueue, ga4SyncQueue, crawlQueue, execReportQueue, scoreRecalcQueue })) {
+  queue.on("completed", (job) => console.log(`[${name}] job ${job.id} completed`));
   queue.on("failed", (job, err) => console.error(`[${name}] job ${job.id} failed:`, err.message));
+  queue.on("stalled", (job) => console.warn(`[${name}] job ${job.id} stalled, will be reclaimed`));
   queue.on("error", (err) => console.error(`[${name}] connection error:`, err.message));
 }
 
 // Bull dedupes repeatables by cron+data automatically, so calling this on
 // every boot is safe and keeps the schedule declared in one place.
-export const SYNC_RETRY_CONFIG = { attempts: 3, backoff: { type: "exponential", delay: 60000 } };
+export const SYNC_RETRY_CONFIG = { attempts: 3, backoff: { type: "exponential", delay: 60000 }, ...JOB_CLEANUP };
+// Crawl/report/recalc jobs are single heavyweight runs (not per-connection
+// loops), so a retry just re-does the whole thing — still worth one retry
+// in case of a transient DB/network blip, but with a longer backoff.
+export const SINGLE_RUN_RETRY_CONFIG = { attempts: 2, backoff: { type: "exponential", delay: 5 * 60000 }, ...JOB_CLEANUP };
 
 export async function scheduleSeoIntelRepeatables() {
   await gscSyncQueue.add({}, { repeat: { cron: "0 3 * * *" }, ...SYNC_RETRY_CONFIG });
   await ga4SyncQueue.add({}, { repeat: { cron: "0 3 * * *" }, ...SYNC_RETRY_CONFIG });
-  await crawlQueue.add({ triggeredBy: "cron" }, { repeat: { cron: "0 4 * * 1" } });
-  await execReportQueue.add({}, { repeat: { cron: "0 8 * * 1" } });
-  await scoreRecalcQueue.add({}, { repeat: { cron: "0 5 1 * *" } });
+  await crawlQueue.add({ triggeredBy: "cron" }, { repeat: { cron: "0 4 * * 1" }, ...SINGLE_RUN_RETRY_CONFIG });
+  await execReportQueue.add({}, { repeat: { cron: "0 8 * * 1" }, ...SINGLE_RUN_RETRY_CONFIG });
+  await scoreRecalcQueue.add({}, { repeat: { cron: "0 5 1 * *" }, ...SINGLE_RUN_RETRY_CONFIG });
 }
