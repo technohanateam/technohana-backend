@@ -2,17 +2,9 @@ import Bull from "bull";
 import Campaign from "../models/campaign.model.js";
 import { getSegmentedUsers } from "../utils/segmentationEngine.js";
 import { Resend } from "resend";
+import { redisConfig } from "../config/redis.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Build Redis config with optional password support
-const redisConfig = {
-  host: process.env.REDIS_HOST || "127.0.0.1",
-  port: process.env.REDIS_PORT || 6379,
-};
-if (process.env.REDIS_PASSWORD) {
-  redisConfig.password = process.env.REDIS_PASSWORD;
-}
 
 // Create queue instance (connects to Redis)
 const campaignQueue = new Bull("campaigns", {
@@ -215,12 +207,20 @@ campaignQueue.on("failed", (job, err) => {
   console.error(`[Campaign Queue] Job ${job.id} failed:`, err.message);
 });
 
+campaignQueue.on("error", (err) => {
+  console.error("[Campaign Queue] connection error:", err.message);
+});
+
 eventQueue.on("completed", (job) => {
   console.log(`[Event Queue] Job ${job.id} completed:`, job.data);
 });
 
 eventQueue.on("failed", (job, err) => {
   console.error(`[Event Queue] Job ${job.id} failed:`, err.message);
+});
+
+eventQueue.on("error", (err) => {
+  console.error("[Event Queue] connection error:", err.message);
 });
 
 /**
@@ -340,6 +340,10 @@ dripQueue.process(async (job) => {
 
 dripQueue.on("failed", (job, err) => {
   console.error(`[Drip Queue] Job ${job.id} failed:`, err.message);
+});
+
+dripQueue.on("error", (err) => {
+  console.error("[Drip Queue] connection error:", err.message);
 });
 
 export const clearQueues = async () => {

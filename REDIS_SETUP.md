@@ -41,18 +41,22 @@ redis-server
    - Click "+ Add" → Search "Redis"
    - Select Redis → Deploy
 
-2. **Copy Connection Info:**
-   - From Railway Redis service details, copy:
-     - `REDIS_HOST` (e.g., `redis-production.railway.app`)
-     - `REDIS_PORT` (usually 6379)
-     - `REDIS_PASSWORD` (if provided)
+2. **Preferred: use `REDIS_URL`**
+   - Railway's Redis plugin exposes a single connection string, usually `REDIS_URL`, on the plugin's Variables tab.
+   - Set it on the backend service:
+     ```
+     REDIS_URL=redis://default:<password>@<host>:<port>
+     ```
+   - The app (`src/config/redis.js`) checks `REDIS_URL` first and uses it directly if present.
 
-3. **Update Railway Environment Variables:**
-   ```
-   REDIS_HOST=<your-railway-redis-host>
-   REDIS_PORT=6379
-   REDIS_PASSWORD=<your-password>
-   ```
+3. **Alternative: discrete host/port/password**
+   - If `REDIS_URL` isn't set, the app falls back to:
+     ```
+     REDIS_HOST=<your-railway-redis-host>
+     REDIS_PORT=6379
+     REDIS_PASSWORD=<your-password>
+     ```
+   - Only set these if you're not using `REDIS_URL` — mixing both is unnecessary since `REDIS_URL` takes priority.
 
 ## Verify Connection
 

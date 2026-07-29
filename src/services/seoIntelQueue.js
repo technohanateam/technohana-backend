@@ -9,12 +9,7 @@ import { runCrawl } from "./seoCrawler.js";
 import { generateRecommendationsFromCrawl, generateRecommendationsFromGsc, generateRecommendationsFromGa4 } from "./recommendationEngine.js";
 import { checkGscAlerts, checkGa4Alerts, checkCrawlAlerts } from "./seoAlertService.js";
 import { sendEmail } from "../config/emailService.js";
-
-const redisConfig = {
-  host: process.env.REDIS_HOST || "127.0.0.1",
-  port: process.env.REDIS_PORT || 6379,
-};
-if (process.env.REDIS_PASSWORD) redisConfig.password = process.env.REDIS_PASSWORD;
+import { redisConfig } from "../config/redis.js";
 
 export const gscSyncQueue = new Bull("seo-gsc-sync", { redis: redisConfig });
 export const ga4SyncQueue = new Bull("seo-ga4-sync", { redis: redisConfig });
@@ -110,6 +105,7 @@ scoreRecalcQueue.process(async () => {
 
 for (const [name, queue] of Object.entries({ gscSyncQueue, ga4SyncQueue, crawlQueue, execReportQueue, scoreRecalcQueue })) {
   queue.on("failed", (job, err) => console.error(`[${name}] job ${job.id} failed:`, err.message));
+  queue.on("error", (err) => console.error(`[${name}] connection error:`, err.message));
 }
 
 // Bull dedupes repeatables by cron+data automatically, so calling this on
