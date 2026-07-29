@@ -55,10 +55,11 @@ export async function exchangeCodeForTokens(code) {
   return tokens;
 }
 
-// Multiple SeoConnection docs may exist (one per property, possibly across
-// providers), each needing its own credentials set — build a fresh client
-// per connection rather than mutating the shared singleton.
-export async function getAuthedClientForConnection(connection) {
+// Builds a brand-new client rather than reusing/mutating the shared
+// singleton — callers that need to attach credentials (e.g. after an OAuth
+// exchange, or per stored connection) must never call setCredentials() on
+// getSeoOAuthClient()'s return value, since concurrent requests share it.
+export function createOAuthClient() {
   if (
     !process.env.SEO_GOOGLE_CLIENT_ID ||
     !process.env.SEO_GOOGLE_CLIENT_SECRET ||
@@ -66,11 +67,18 @@ export async function getAuthedClientForConnection(connection) {
   ) {
     throw new SeoGoogleNotConfiguredError("SEO Google OAuth client not configured");
   }
-  const client = new google.auth.OAuth2(
+  return new google.auth.OAuth2(
     process.env.SEO_GOOGLE_CLIENT_ID,
     process.env.SEO_GOOGLE_CLIENT_SECRET,
     process.env.SEO_GOOGLE_REDIRECT_URI
   );
+}
+
+// Multiple SeoConnection docs may exist (one per property, possibly across
+// providers), each needing its own credentials set — build a fresh client
+// per connection rather than mutating the shared singleton.
+export async function getAuthedClientForConnection(connection) {
+  const client = createOAuthClient();
   const { refreshToken } = decryptToken(connection.encryptedRefreshToken);
   client.setCredentials({ refresh_token: refreshToken });
   return client;
@@ -78,4 +86,8 @@ export async function getAuthedClientForConnection(connection) {
 
 export function encryptRefreshToken(refreshToken) {
   return encryptToken({ refreshToken });
+}
+
+export function decryptRefreshToken(connection) {
+  return decryptToken(connection.encryptedRefreshToken).refreshToken;
 }

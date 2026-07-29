@@ -107,6 +107,19 @@ async function checkLinkAlive(url, cache) {
   return result;
 }
 
+async function checkImage(url, cache) {
+  if (cache.has(url)) return cache.get(url);
+  const result = await axios
+    .head(url, { timeout: 8000, validateStatus: () => true })
+    .then((res) => ({
+      broken: res.status >= 400,
+      sizeBytes: Number(res.headers["content-length"]) || 0,
+    }))
+    .catch(() => ({ broken: true, sizeBytes: 0 }));
+  cache.set(url, result);
+  return result;
+}
+
 function computeIssues(page) {
   const issues = [];
   if (!page.title) issues.push(ISSUE.MISSING_TITLE);
@@ -200,6 +213,7 @@ export async function runCrawl({ baseUrl, maxPages = 500, concurrency = 5, trigg
   const visited = new Set();
   const queue = [baseUrl];
   const linkCheckCache = new Map();
+  const imageCheckCache = new Map();
   const limiter = createLimiter(concurrency);
   const titleCounts = new Map();
   const descriptionCounts = new Map();
@@ -261,10 +275,19 @@ export async function runCrawl({ baseUrl, maxPages = 500, concurrency = 5, trigg
       );
       pageData.brokenLinks = checks.filter((c) => !c.alive).map((c) => c.link);
 
+      pageData.images = await Promise.all(
+        pageData.images.map(async (img) => {
+          const { broken, sizeBytes } = await checkImage(img.src, imageCheckCache);
+          return { ...img, broken, sizeBytes };
+        })
+      );
+
       pageData.issues = computeIssues(pageData);
 
-      titleCounts.set(pageData.title, (titleCounts.get(pageData.title) || 0) + 1);
-      descriptionCounts.set(pageData.metaDescription, (descriptionCounts.get(pageData.metaDescription) || 0) + 1);
+      if (pageData.title) titleCounts.set(pageData.title, (titleCounts.get(pageData.title) || 0) + 1);
+      if (pageData.metaDescription) {
+        descriptionCounts.set(pageData.metaDescription, (descriptionCounts.get(pageData.metaDescription) || 0) + 1);
+      }
 
       await SeoCrawlPage.findOneAndUpdate(
         { crawlRunId: run._id, url: pageData.url },
@@ -277,7 +300,7 @@ export async function runCrawl({ baseUrl, maxPages = 500, concurrency = 5, trigg
 
   // Duplicate title/description detection needs the full set, done after crawl.
   const duplicateTitles = [...titleCounts.values()].filter((c) => c > 1).length;
-  const duplicateDescriptions = [...descriptionCounts.values()].filter((c) => c > 1 && c).length;
+  const duplicateDescriptions = [...descriptionCounts.values()].filter((c) => c > 1).length;
 
   const pages = await SeoCrawlPage.find({ crawlRunId: run._id }).lean();
   const summary = {

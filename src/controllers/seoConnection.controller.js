@@ -5,7 +5,8 @@ import {
   buildConsentUrl,
   exchangeCodeForTokens,
   encryptRefreshToken,
-  getSeoOAuthClient,
+  decryptRefreshToken,
+  createOAuthClient,
   getAuthedClientForConnection,
   SeoGoogleNotConfiguredError,
 } from "../config/googleSeoOAuth.js";
@@ -15,7 +16,7 @@ import { logSeoAudit } from "../utils/seoAuditLogger.js";
 
 export const listConnections = async (req, res) => {
   try {
-    const connections = await SeoConnection.find().sort({ connectedAt: -1 });
+    const connections = await SeoConnection.find().select("-encryptedRefreshToken").sort({ connectedAt: -1 });
     return res.json({ success: true, data: connections });
   } catch (error) {
     console.error("Error listing SEO connections:", error);
@@ -59,7 +60,11 @@ export const handleOAuthCallback = async (req, res) => {
       throw new Error("Google did not return a refresh token — retry with prompt=consent");
     }
 
-    const client = getSeoOAuthClient();
+    // Build a scoped client for this one exchange rather than mutating the
+    // shared singleton (getSeoOAuthClient()) — that instance is reused by
+    // concurrent connect/callback requests, so setting credentials on it
+    // would leak tokens between requests racing each other.
+    const client = createOAuthClient();
     client.setCredentials(tokens);
 
     const sites = await listVerifiedSites(client);
@@ -148,8 +153,11 @@ export const disconnect = async (req, res) => {
     if (!connection) return res.status(404).json({ success: false, message: "Connection not found" });
 
     try {
-      const client = await getAuthedClientForConnection(connection);
-      await client.revokeCredentials();
+      // revokeCredentials() revokes credentials.access_token, but stored
+      // connections only ever carry a refresh_token — call revokeToken()
+      // directly with it instead (Google's revoke endpoint accepts either).
+      const client = createOAuthClient();
+      await client.revokeToken(decryptRefreshToken(connection));
     } catch (revokeErr) {
       console.warn("[SeoConnection] token revoke failed (continuing):", revokeErr.message);
     }

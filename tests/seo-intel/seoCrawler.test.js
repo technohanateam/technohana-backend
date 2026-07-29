@@ -76,6 +76,29 @@ test("computeIssues flags multiple H1s, broken links, missing alt, slow pages", 
   assert.ok(issues.includes(ISSUE.SLOW_PAGE));
 });
 
+test("computeIssues flags large and broken images once size/broken are populated", () => {
+  const basePage = {
+    title: "OK Title",
+    titleLength: 8,
+    metaDescription: "OK description",
+    metaDescriptionLength: 14,
+    h1Tags: ["Only heading"],
+    canonicalUrl: "https://example.com/page",
+    isNoindex: false,
+    wordCount: 500,
+    loadTimeMs: 500,
+    brokenLinks: [],
+  };
+
+  const large = computeIssues({ ...basePage, images: [{ src: "big.jpg", alt: "ok", sizeBytes: 600 * 1024, broken: false }] });
+  assert.ok(large.includes(ISSUE.LARGE_IMAGE));
+  assert.ok(!large.includes(ISSUE.BROKEN_IMAGE));
+
+  const broken = computeIssues({ ...basePage, images: [{ src: "dead.jpg", alt: "ok", sizeBytes: 0, broken: true }] });
+  assert.ok(broken.includes(ISSUE.BROKEN_IMAGE));
+  assert.ok(!broken.includes(ISSUE.LARGE_IMAGE));
+});
+
 test("computeIssues returns no issues for a clean page", () => {
   const page = {
     title: "Good Title",
