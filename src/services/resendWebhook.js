@@ -6,16 +6,6 @@ import Campaign from "../models/campaign.model.js";
  */
 
 /**
- * Verify Resend webhook signature
- * Using X-Resend-Signature header
- */
-export const verifyResendWebhook = (req, res, buf, encoding) => {
-  // Resend doesn't currently use signature verification
-  // But we can validate source in the future
-  return true;
-};
-
-/**
  * Process Resend email events (opened, clicked, bounced, etc.)
  */
 export const handleResendWebhook = async (req, res) => {
@@ -86,20 +76,24 @@ export const handleResendWebhook = async (req, res) => {
           recipient.clickedAt = new Date();
           campaign.metrics.clicked++;
         }
-        // Capture clicked URL if available
-        if (data?.data?.click?.url) {
-          recipient.clickUrl = data.data.click.url;
+        // Capture clicked URL if available (`data` is already event.data — no nested `.data`)
+        if (data?.click?.url) {
+          recipient.clickUrl = data.click.url;
         }
         break;
 
       case "email.bounced":
-        recipient.status = "bounced";
-        campaign.metrics.bounced++;
+        if (recipient.status !== "bounced") {
+          recipient.status = "bounced";
+          campaign.metrics.bounced++;
+        }
         break;
 
       case "email.complained":
-        recipient.status = "complained";
-        campaign.metrics.complained++;
+        if (recipient.status !== "complained") {
+          recipient.status = "complained";
+          campaign.metrics.complained++;
+        }
         break;
 
       case "email.delivered":
@@ -110,13 +104,17 @@ export const handleResendWebhook = async (req, res) => {
         break;
 
       case "email.failed":
-        recipient.status = "failed";
-        campaign.metrics.bounced++;
+        if (recipient.status !== "failed") {
+          recipient.status = "failed";
+          campaign.metrics.bounced++;
+        }
         break;
 
       case "email.unsubscribed":
-        recipient.status = "unsubscribed";
-        campaign.metrics.unsubscribed++;
+        if (recipient.status !== "unsubscribed") {
+          recipient.status = "unsubscribed";
+          campaign.metrics.unsubscribed++;
+        }
         break;
 
       default:
