@@ -17,6 +17,22 @@ import Razorpay from "razorpay";
 import { sendEmail, fromAddresses } from "./config/emailService.js";
 import { generateEnrollmentDetailsForSales, generatePaymentSuccessEmail, generateAbandonedCartEmail, generateDay3Email, generateDay7Email } from "./utils/emailTemplate.js";
 import { encryptToken } from "./utils/tokenCrypto.js";
+import { createLogger } from "./utils/logger.js";
+const logger = createLogger("index");
+
+// ─── Startup Config Validation ──────────────────────────────────────────────
+// Fail fast on missing required secrets instead of surfacing confusing errors
+// from deep inside a dependency (e.g. Stripe's "Neither apiKey nor
+// config.authenticator provided", jwt.sign(undefined), or a raw Mongo timeout).
+// Must run before Stripe/Razorpay are constructed below, since those throw
+// synchronously on a missing key.
+const REQUIRED_ENV_VARS = ['MONGO_DB', 'JWT_SECRET', 'ADMIN_JWT_SECRET', 'STRIPE_SECRET'];
+const missingEnvVars = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
+if (missingEnvVars.length > 0) {
+  logger.error(`Missing required environment variable(s): ${missingEnvVars.join(', ')}`);
+  process.exit(1);
+}
+
 const stripe = new Stripe(process.env.STRIPE_SECRET);
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -1399,7 +1415,7 @@ setInterval(async () => {
 // Safety net for any route/middleware that throws without its own try/catch —
 // never leak stack traces to the client.
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
+  logger.error('Unhandled error:', err);
   if (res.headersSent) return next(err);
   res.status(500).json({ success: false, message: 'Server error' });
 });
@@ -1408,5 +1424,5 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  logger.info(`Server is running on port ${PORT}`);
 });
