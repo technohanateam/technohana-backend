@@ -44,6 +44,7 @@ import assessmentResultRoutes from "./routes/assessmentResult.routes.js";
 import aiToolReportRoutes from "./routes/aiToolReport.routes.js";
 import seoGeoRoutes from "./routes/seo-geo.routes.js";
 import seoOpsRoutes from "./routes/seoOps.routes.js";
+import seoIntelRoutes from "./routes/seoIntel.routes.js";
 import leadCaptureRoutes from "./routes/leadCapture.routes.js";
 import instructorRoutes from "./routes/instructor.routes.js";
 import skillsGapRoutes from "./routes/skillsGap.routes.js";
@@ -84,6 +85,7 @@ const noOriginRequiredPaths = [
   '/skills-gap/email-plan',
   '/api/auth/google',
   '/api/auth/google/callback',
+  '/admin/seo-intel/oauth/callback',
 ];
 
 const corsOptionsDelegate = function (req, callback) {
@@ -1263,6 +1265,7 @@ app.use("/", testimonialRoutes);
 app.use("/", assessmentResultRoutes);
 app.use("/admin", seoGeoRoutes);
 app.use("/admin/seo", seoOpsRoutes);
+app.use("/admin/seo-intel", seoIntelRoutes);
 app.use("/", leadCaptureRoutes);
 app.use("/instructor", instructorRoutes);
 app.use("/", skillsGapRoutes);
@@ -1276,6 +1279,13 @@ app.post("/webhooks/resend", handleResendWebhook);
 
 // Register campaign event listeners (enrollment, referral, payment, etc.)
 registerCampaignEventListeners();
+
+// Schedule Phase 5 SEO Intelligence background jobs (daily GSC/GA4 sync,
+// weekly crawl + executive report, monthly score recalc). Bull dedupes
+// repeatables by cron+data, so calling this on every boot is safe.
+import("./services/seoIntelQueue.js")
+  .then(({ scheduleSeoIntelRepeatables }) => scheduleSeoIntelRepeatables())
+  .catch((err) => console.error("[SEO Intel] failed to schedule repeatables:", err.message));
 
 // ─── Automated Email Sequences ────────────────────────────────────────────────
 

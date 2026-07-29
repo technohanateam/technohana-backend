@@ -7,7 +7,8 @@
     "seed": "node src/blogSeed.js",
     "sync-prices": "node -e \"import('fs').then(fs=>{ fs.default.copyFileSync('../technohana-frontend-master/public/data/courses.json','src/data/courses.json'); console.log('Prices synced from frontend'); })\"",
     "sync-seo-data": "node sync-seo-data.js",
-    "reseed": "node seed-courses.js"
+    "reseed": "node seed-courses.js",
+    "test": "node --test tests/seo-intel/**/*.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.0",
@@ -15,11 +16,13 @@
     "axios": "^1.13.5",
     "bcryptjs": "^3.0.3",
     "bull": "^4.14.2",
+    "cheerio": "^1.2.0",
     "cloudinary": "^2.5.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^8.2.1",
+    "googleapis": "^173.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
     "multer": "^1.4.5-lts.1",
