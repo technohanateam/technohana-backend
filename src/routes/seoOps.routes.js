@@ -34,7 +34,7 @@ import { getReports, previewReport, downloadReport } from "../controllers/seoRep
 import { getSettings, updateSettings } from "../controllers/seoSettings.controller.js";
 import { validateCsv, checkDuplicates, scoreOpportunities, generateMonthlyReport } from "../controllers/seoScripts.controller.js";
 import { runVerification, getVerificationStatus } from "../controllers/seoBacklinkVerification.controller.js";
-import { runDiscovery, getDiscoveryStatus } from "../controllers/seoBacklinkAi.controller.js";
+import { runDiscovery, getDiscoveryStatus, generateAiDraft, sendAiDraft, discardAiDraft } from "../controllers/seoBacklinkAi.controller.js";
 
 const router = express.Router();
 
@@ -72,6 +72,9 @@ router.patch("/outreach/contacts/:id/archive", requirePage("seo-ops-outreach"), 
 router.post("/outreach/contacts/:id/followups", requirePage("seo-ops-outreach"), requireMarketing, addFollowUp);
 router.post("/outreach/contacts/:id/responses", requirePage("seo-ops-outreach"), requireMarketing, addResponse);
 router.post("/outreach/contacts/import", requirePage("seo-ops-outreach"), requireMarketing, importContacts);
+router.post("/outreach/contacts/:id/ai-draft", requirePage("seo-ops-outreach"), requireMarketing, generateAiDraft);
+router.post("/outreach/contacts/:id/ai-draft/:draftIndex/send", requirePage("seo-ops-outreach"), requireMarketing, sendAiDraft);
+router.patch("/outreach/contacts/:id/ai-draft/:draftIndex/discard", requirePage("seo-ops-outreach"), requireMarketing, discardAiDraft);
 
 router.get("/outreach/campaigns", requirePage("seo-ops-outreach"), getCampaigns);
 router.post("/outreach/campaigns", requirePage("seo-ops-outreach"), requireMarketing, createCampaign);
