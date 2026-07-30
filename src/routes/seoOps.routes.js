@@ -1,7 +1,7 @@
 import express from "express";
 import { authenticateAdmin, requirePage, requireMarketing } from "../middleware/authenticateAdmin.js";
 
-import { getSeoDashboard } from "../controllers/seoDashboard.controller.js";
+import { getSeoDashboard, getBacklinkAnalytics } from "../controllers/seoDashboard.controller.js";
 import {
   getAllOpportunities,
   getCompetitorGap,
@@ -30,9 +30,12 @@ import {
   createMonitoringRecord,
   updateMonitoringRecord,
 } from "../controllers/seoMonitoring.controller.js";
-import { getReports, previewReport, downloadReport } from "../controllers/seoReport.controller.js";
+import { getReports, previewReport, downloadReport, downloadReportPdf, downloadReportCsv } from "../controllers/seoReport.controller.js";
 import { getSettings, updateSettings } from "../controllers/seoSettings.controller.js";
 import { validateCsv, checkDuplicates, scoreOpportunities, generateMonthlyReport } from "../controllers/seoScripts.controller.js";
+import { runVerification, getVerificationStatus } from "../controllers/seoBacklinkVerification.controller.js";
+import { runDiscovery, getDiscoveryStatus, generateAiDraft, sendAiDraft, discardAiDraft } from "../controllers/seoBacklinkAi.controller.js";
+import { importCompetitorCsv } from "../controllers/seoBacklinkCompetitorGap.controller.js";
 
 const router = express.Router();
 
@@ -42,6 +45,9 @@ router.use(authenticateAdmin);
 // ── Dashboard ────────────────────────────────────────────────────────────
 router.get("/dashboard", requirePage("seo-ops-dashboard"), getSeoDashboard);
 
+// ── Analytics (trend view, distinct from the Dashboard snapshot) ────────
+router.get("/analytics", requirePage("seo-ops-analytics"), getBacklinkAnalytics);
+
 // ── Opportunities ────────────────────────────────────────────────────────
 // NOTE: "/bulk" and "/import" must be registered before "/:id" — otherwise
 // Express matches the wildcard route first (id="bulk"/"import") and the
@@ -49,11 +55,14 @@ router.get("/dashboard", requirePage("seo-ops-dashboard"), getSeoDashboard);
 router.get("/opportunities", requirePage("seo-ops-opportunities"), getAllOpportunities);
 router.patch("/opportunities/bulk", requirePage("seo-ops-opportunities"), requireMarketing, bulkUpdateOpportunities);
 router.post("/opportunities/import", requirePage("seo-ops-opportunities"), requireMarketing, importOpportunities);
+router.post("/discovery/run", requirePage("seo-ops-opportunities"), requireMarketing, runDiscovery);
+router.get("/discovery/status/:jobId", requirePage("seo-ops-opportunities"), getDiscoveryStatus);
 router.get("/opportunities/:id", requirePage("seo-ops-opportunities"), getOpportunity);
 router.patch("/opportunities/:id", requirePage("seo-ops-opportunities"), requireMarketing, updateOpportunity);
 
 // ── Competitors (filtered opportunities view) ───────────────────────────
 router.get("/competitors", requirePage("seo-ops-competitors"), getCompetitorGap);
+router.post("/competitors/import", requirePage("seo-ops-competitors"), requireMarketing, importCompetitorCsv);
 
 // ── Resource Pages (filtered opportunities view) ────────────────────────
 router.get("/resource-pages", requirePage("seo-ops-resource-pages"), getResourcePages);
@@ -68,6 +77,9 @@ router.patch("/outreach/contacts/:id/archive", requirePage("seo-ops-outreach"), 
 router.post("/outreach/contacts/:id/followups", requirePage("seo-ops-outreach"), requireMarketing, addFollowUp);
 router.post("/outreach/contacts/:id/responses", requirePage("seo-ops-outreach"), requireMarketing, addResponse);
 router.post("/outreach/contacts/import", requirePage("seo-ops-outreach"), requireMarketing, importContacts);
+router.post("/outreach/contacts/:id/ai-draft", requirePage("seo-ops-outreach"), requireMarketing, generateAiDraft);
+router.post("/outreach/contacts/:id/ai-draft/:draftIndex/send", requirePage("seo-ops-outreach"), requireMarketing, sendAiDraft);
+router.patch("/outreach/contacts/:id/ai-draft/:draftIndex/discard", requirePage("seo-ops-outreach"), requireMarketing, discardAiDraft);
 
 router.get("/outreach/campaigns", requirePage("seo-ops-outreach"), getCampaigns);
 router.post("/outreach/campaigns", requirePage("seo-ops-outreach"), requireMarketing, createCampaign);
@@ -80,12 +92,16 @@ router.get("/published-links", requirePage("seo-ops-published-links"), getPublis
 // ── Monitoring ───────────────────────────────────────────────────────────
 router.get("/monitoring", requirePage("seo-ops-monitoring"), getMonitoring);
 router.post("/monitoring", requirePage("seo-ops-monitoring"), requireMarketing, createMonitoringRecord);
+router.post("/monitoring/verify", requirePage("seo-ops-monitoring"), requireMarketing, runVerification);
+router.get("/monitoring/verify/status/:jobId", requirePage("seo-ops-monitoring"), getVerificationStatus);
 router.patch("/monitoring/:id", requirePage("seo-ops-monitoring"), requireMarketing, updateMonitoringRecord);
 
 // ── Reports ──────────────────────────────────────────────────────────────
 router.get("/reports", requirePage("seo-ops-reports"), getReports);
 router.get("/reports/:id/preview", requirePage("seo-ops-reports"), previewReport);
 router.get("/reports/:id/download", requirePage("seo-ops-reports"), downloadReport);
+router.get("/reports/:id/download.pdf", requirePage("seo-ops-reports"), downloadReportPdf);
+router.get("/reports/:id/download.csv", requirePage("seo-ops-reports"), downloadReportCsv);
 
 // ── Settings ─────────────────────────────────────────────────────────────
 router.get("/settings", requirePage("seo-ops-settings"), getSettings);

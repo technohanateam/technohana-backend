@@ -8,6 +8,12 @@ import { DEFAULT_PAGES_BY_ROLE } from "../constants/adminPages.js";
 // admin-panel access just because their legacy `role` defaults to admin pages.
 const CRM_ONLY_ROLES = ["super_admin", "trainer", "accounts", "hr", "student_support", "readonly"];
 
+// Legacy `role` values allowed to reach /admin/* at all. "analyst" is the
+// Phase 6 read-only persona — it gets in here, then is naturally blocked from
+// every write route by requireAdmin/requireMarketing (which only ever match
+// "admin"/"marketing"), so no separate requireReadOnly middleware is needed.
+const ADMIN_PANEL_ROLES = ["admin", "analyst"];
+
 export const authenticateAdmin = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -40,9 +46,9 @@ export const authenticateAdmin = async (req, res, next) => {
       return res.status(403).json({ message: "This account is CRM-only and cannot access the admin panel." });
     }
 
-    // Only the legacy "admin" role may reach the admin panel — sales/CRM accounts
+    // Only ADMIN_PANEL_ROLES may reach the admin panel — sales/CRM accounts
     // belong in /crm with a crmRole, not in /admin with a legacy role.
-    if (req.baseUrl.startsWith("/admin") && payload.role !== "admin") {
+    if (req.baseUrl.startsWith("/admin") && !ADMIN_PANEL_ROLES.includes(payload.role)) {
       return res.status(403).json({ message: "This account cannot access the admin panel." });
     }
 
