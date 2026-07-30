@@ -1303,6 +1303,12 @@ import("./services/seoIntelQueue.js")
   .then(({ scheduleSeoIntelRepeatables }) => scheduleSeoIntelRepeatables())
   .catch((err) => console.error("[SEO Intel] failed to schedule repeatables:", err.message));
 
+// Schedule Phase 6 Backlink Intelligence background jobs (weekly link
+// verification, more added in later stages). Same dedupe-safe pattern.
+import("./services/backlinkQueue.js")
+  .then(({ scheduleBacklinkRepeatables }) => scheduleBacklinkRepeatables())
+  .catch((err) => console.error("[Backlink Queue] failed to schedule repeatables:", err.message));
+
 // ─── Automated Email Sequences ────────────────────────────────────────────────
 
 // Abandoned cart: check every 30 minutes, send re-engagement email after 2h

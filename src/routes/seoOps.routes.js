@@ -33,6 +33,7 @@ import {
 import { getReports, previewReport, downloadReport } from "../controllers/seoReport.controller.js";
 import { getSettings, updateSettings } from "../controllers/seoSettings.controller.js";
 import { validateCsv, checkDuplicates, scoreOpportunities, generateMonthlyReport } from "../controllers/seoScripts.controller.js";
+import { runVerification, getVerificationStatus } from "../controllers/seoBacklinkVerification.controller.js";
 
 const router = express.Router();
 
@@ -80,6 +81,8 @@ router.get("/published-links", requirePage("seo-ops-published-links"), getPublis
 // ── Monitoring ───────────────────────────────────────────────────────────
 router.get("/monitoring", requirePage("seo-ops-monitoring"), getMonitoring);
 router.post("/monitoring", requirePage("seo-ops-monitoring"), requireMarketing, createMonitoringRecord);
+router.post("/monitoring/verify", requirePage("seo-ops-monitoring"), requireMarketing, runVerification);
+router.get("/monitoring/verify/status/:jobId", requirePage("seo-ops-monitoring"), getVerificationStatus);
 router.patch("/monitoring/:id", requirePage("seo-ops-monitoring"), requireMarketing, updateMonitoringRecord);
 
 // ── Reports ──────────────────────────────────────────────────────────────
