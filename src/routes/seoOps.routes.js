@@ -35,6 +35,7 @@ import { getSettings, updateSettings } from "../controllers/seoSettings.controll
 import { validateCsv, checkDuplicates, scoreOpportunities, generateMonthlyReport } from "../controllers/seoScripts.controller.js";
 import { runVerification, getVerificationStatus } from "../controllers/seoBacklinkVerification.controller.js";
 import { runDiscovery, getDiscoveryStatus, generateAiDraft, sendAiDraft, discardAiDraft } from "../controllers/seoBacklinkAi.controller.js";
+import { importCompetitorCsv } from "../controllers/seoBacklinkCompetitorGap.controller.js";
 
 const router = express.Router();
 
@@ -58,6 +59,7 @@ router.patch("/opportunities/:id", requirePage("seo-ops-opportunities"), require
 
 // ── Competitors (filtered opportunities view) ───────────────────────────
 router.get("/competitors", requirePage("seo-ops-competitors"), getCompetitorGap);
+router.post("/competitors/import", requirePage("seo-ops-competitors"), requireMarketing, importCompetitorCsv);
 
 // ── Resource Pages (filtered opportunities view) ────────────────────────
 router.get("/resource-pages", requirePage("seo-ops-resource-pages"), getResourcePages);
