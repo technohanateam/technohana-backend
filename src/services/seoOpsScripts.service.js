@@ -3,6 +3,7 @@ import SeoContact from "../models/seoContact.model.js";
 import SeoCampaign from "../models/seoCampaign.model.js";
 import SeoMonitoring from "../models/seoMonitoring.model.js";
 import SeoReport from "../models/seoReport.model.js";
+import SeoSettings from "../models/seoSettings.model.js";
 
 // Node/Mongo port of backlink-strategy/scripts/*.py — those scripts only ran
 // against local CSV files (dev/local checkouts), so this operates on the
@@ -84,8 +85,10 @@ export const checkDuplicateOpportunities = async () => {
 const RELEVANCE_MAP = { "very high": 10, high: 8, medium: 6, low: 3, "very low": 0 };
 const EVIDENCE_MAP = { verified: 10, observed: 6, potential: 3 };
 const PRIORITY_MAP = { "very high": 10, high: 8, medium: 5, low: 2 };
+const TRAFFIC_MAP = { "very high": 10, high: 8, medium: 5, low: 2, "very low": 0 };
+// Competition is inverted: low competition for a link slot is the good outcome.
+const COMPETITION_MAP = { low: 10, medium: 6, high: 2 };
 const RELATIONSHIP_KEYWORDS = ["partnership", "vendor", "association", "chapter"];
-const CONTENT_KEYWORDS = ["guest post", "resource page", "editorial", "case study"];
 const LISTING_KEYWORDS = ["directory", "listing"];
 
 const mappedScore = (value, mapping) => mapping[String(value || "").trim().toLowerCase()] ?? 0;
@@ -96,16 +99,13 @@ const authorityScore = (value) => {
   return { score: Math.min(10, Math.round(Number(match[0]) / 10)), unscored: false };
 };
 
-const relationshipScore = (opportunityType) => {
+// Partnership Potential — how likely this relationship is to be reciprocal
+// (association/vendor ties beat a plain directory listing).
+const partnershipPotentialScore = (opportunityType) => {
   const lowered = String(opportunityType || "").toLowerCase();
   if (RELATIONSHIP_KEYWORDS.some((k) => lowered.includes(k))) return 8;
   if (LISTING_KEYWORDS.some((k) => lowered.includes(k))) return 5;
   return 2;
-};
-
-const contentScore = (opportunityType) => {
-  const lowered = String(opportunityType || "").toLowerCase();
-  return CONTENT_KEYWORDS.some((k) => lowered.includes(k)) ? 8 : 3;
 };
 
 const freshnessScore = (contentYear, currentYear) => {
@@ -118,6 +118,46 @@ const freshnessScore = (contentYear, currentYear) => {
   return 2;
 };
 
+export const DEFAULT_SCORING_WEIGHTS = {
+  relevance: 25,
+  authority: 15,
+  trafficPotential: 10,
+  editorialQuality: 15,
+  acceptanceProbability: 10,
+  partnershipPotential: 10,
+  competition: 10,
+  freshness: 5,
+};
+
+// Pure scoring function — no DB access — so it can be unit tested directly.
+// `doc` is a plain SeoOpportunity-shaped object, `weights` is a 0-100-share map
+// (see DEFAULT_SCORING_WEIGHTS), `currentYear` lets callers/tests pin "now".
+export const computeOpportunityScore = (doc, weights = DEFAULT_SCORING_WEIGHTS, currentYear = new Date().getFullYear()) => {
+  const relevance = mappedScore(doc.potentialForTechnohana, RELEVANCE_MAP);
+  const editorialQuality = mappedScore(doc.evidenceLevel, EVIDENCE_MAP);
+  const acceptanceProbability = mappedScore(doc.priority, PRIORITY_MAP);
+  const { score: authority, unscored } = authorityScore(doc.estimatedAuthority);
+  const trafficPotential = mappedScore(doc.trafficPotential, TRAFFIC_MAP);
+  const partnershipPotential = partnershipPotentialScore(doc.opportunityType);
+  const competition = mappedScore(doc.competitionLevel, COMPETITION_MAP);
+  const freshness = freshnessScore(doc.contentYear, currentYear);
+
+  // Each factor is 0-10, each weight is a 0-100 share summing to 100, so the
+  // weighted sum divided by 10 lands in [0, 100].
+  const overallScore =
+    (relevance * weights.relevance +
+      authority * weights.authority +
+      trafficPotential * weights.trafficPotential +
+      editorialQuality * weights.editorialQuality +
+      acceptanceProbability * weights.acceptanceProbability +
+      partnershipPotential * weights.partnershipPotential +
+      competition * weights.competition +
+      freshness * weights.freshness) /
+    10;
+
+  return { overallScore: Math.round(overallScore * 10) / 10, authorityUnscored: unscored };
+};
+
 export const recomputeOpportunityScores = async () => {
   const currentYear = new Date().getFullYear();
   const docs = await SeoOpportunity.find({ recordType: "competitor-gap" }).lean();
@@ -126,32 +166,18 @@ export const recomputeOpportunityScores = async () => {
     return { ok: true, stdout: "No competitor-gap opportunities to score." };
   }
 
+  const settings = await SeoSettings.findOne().lean();
+  const weights = { ...DEFAULT_SCORING_WEIGHTS, ...(settings?.scoringWeights || {}) };
+
   let unscoredCount = 0;
   const operations = docs.map((doc) => {
-    const relevance = mappedScore(doc.potentialForTechnohana, RELEVANCE_MAP);
-    const editorialQuality = mappedScore(doc.evidenceLevel, EVIDENCE_MAP);
-    const acceptanceProbability = mappedScore(doc.priority, PRIORITY_MAP);
-    const { score: authority, unscored } = authorityScore(doc.estimatedAuthority);
-    const relationship = relationshipScore(doc.opportunityType);
-    const content = contentScore(doc.opportunityType);
-    const freshness = freshnessScore(doc.contentYear, currentYear);
-
-    const overallScore =
-      (relevance * 0.3 +
-        editorialQuality * 0.2 +
-        acceptanceProbability * 0.15 +
-        authority * 0.1 +
-        relationship * 0.1 +
-        content * 0.1 +
-        freshness * 0.05) *
-      10;
-
-    if (unscored) unscoredCount += 1;
+    const { overallScore, authorityUnscored } = computeOpportunityScore(doc, weights, currentYear);
+    if (authorityUnscored) unscoredCount += 1;
 
     return {
       updateOne: {
         filter: { _id: doc._id },
-        update: { $set: { overallScore: Math.round(overallScore * 10) / 10, authorityUnscored: unscored } },
+        update: { $set: { overallScore, authorityUnscored } },
       },
     };
   });

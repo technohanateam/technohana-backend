@@ -1,7 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 
 const seoRecommendationSchema = new Schema({
-  category: { type: String, enum: ["technical", "content", "performance", "gsc", "ga4"], required: true },
+  category: { type: String, enum: ["technical", "content", "performance", "gsc", "ga4", "backlink"], required: true },
   ruleCode: { type: String, required: true },
   title: { type: String, required: true },
   description: String,
