@@ -1,7 +1,7 @@
 import express from "express";
 import { authenticateAdmin, requirePage, requireMarketing } from "../middleware/authenticateAdmin.js";
 
-import { getSeoDashboard } from "../controllers/seoDashboard.controller.js";
+import { getSeoDashboard, getBacklinkAnalytics } from "../controllers/seoDashboard.controller.js";
 import {
   getAllOpportunities,
   getCompetitorGap,
@@ -30,7 +30,7 @@ import {
   createMonitoringRecord,
   updateMonitoringRecord,
 } from "../controllers/seoMonitoring.controller.js";
-import { getReports, previewReport, downloadReport } from "../controllers/seoReport.controller.js";
+import { getReports, previewReport, downloadReport, downloadReportPdf, downloadReportCsv } from "../controllers/seoReport.controller.js";
 import { getSettings, updateSettings } from "../controllers/seoSettings.controller.js";
 import { validateCsv, checkDuplicates, scoreOpportunities, generateMonthlyReport } from "../controllers/seoScripts.controller.js";
 import { runVerification, getVerificationStatus } from "../controllers/seoBacklinkVerification.controller.js";
@@ -44,6 +44,9 @@ router.use(authenticateAdmin);
 
 // ── Dashboard ────────────────────────────────────────────────────────────
 router.get("/dashboard", requirePage("seo-ops-dashboard"), getSeoDashboard);
+
+// ── Analytics (trend view, distinct from the Dashboard snapshot) ────────
+router.get("/analytics", requirePage("seo-ops-analytics"), getBacklinkAnalytics);
 
 // ── Opportunities ────────────────────────────────────────────────────────
 // NOTE: "/bulk" and "/import" must be registered before "/:id" — otherwise
@@ -97,6 +100,8 @@ router.patch("/monitoring/:id", requirePage("seo-ops-monitoring"), requireMarket
 router.get("/reports", requirePage("seo-ops-reports"), getReports);
 router.get("/reports/:id/preview", requirePage("seo-ops-reports"), previewReport);
 router.get("/reports/:id/download", requirePage("seo-ops-reports"), downloadReport);
+router.get("/reports/:id/download.pdf", requirePage("seo-ops-reports"), downloadReportPdf);
+router.get("/reports/:id/download.csv", requirePage("seo-ops-reports"), downloadReportCsv);
 
 // ── Settings ─────────────────────────────────────────────────────────────
 router.get("/settings", requirePage("seo-ops-settings"), getSettings);

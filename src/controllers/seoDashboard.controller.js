@@ -85,3 +85,77 @@ export const getSeoDashboard = async (req, res) => {
     return res.status(500).json({ success: false, message: "Error fetching SEO dashboard" });
   }
 };
+
+// Trend-oriented analytics for the Backlink Analytics page (Module 8) —
+// distinct from the current-state snapshot above.
+export const getBacklinkAnalytics = async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const twelveWeeksAgo = new Date(now.getTime() - 12 * 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      totalOpportunities,
+      highPriority,
+      outreachSent,
+      totalRepliedOrLater,
+      liveLinks,
+      lostLinks,
+      newLinksThisMonth,
+      avgScoreAgg,
+      opportunitiesOverTime,
+      outreachFunnel,
+      linksOverTime,
+    ] = await Promise.all([
+      SeoOpportunity.countDocuments({}),
+      SeoOpportunity.countDocuments({ priority: "High" }),
+      SeoContact.countDocuments({ status: { $ne: "new" } }),
+      SeoContact.countDocuments({ status: { $in: ["responded", "negotiating", "accepted", "live-link", "published"] } }),
+      SeoMonitoring.countDocuments({ linkStatus: { $in: ["live", "published"] } }),
+      SeoMonitoring.countDocuments({ linkStatus: "lost" }),
+      SeoMonitoring.countDocuments({ linkStatus: { $in: ["live", "published"] }, publishedDate: { $gte: startOfMonth } }),
+      SeoOpportunity.aggregate([
+        { $match: { overallScore: { $ne: null } } },
+        { $group: { _id: null, avg: { $avg: "$overallScore" } } },
+      ]),
+      SeoOpportunity.aggregate([
+        { $match: { createdAt: { $gte: twelveWeeksAgo } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%W", date: "$createdAt" } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]),
+      SeoContact.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+      SeoMonitoring.aggregate([
+        { $match: { updatedAt: { $gte: twelveWeeksAgo } } },
+        { $group: { _id: { week: { $dateToString: { format: "%Y-%W", date: "$updatedAt" } }, status: "$linkStatus" }, count: { $sum: 1 } } },
+        { $sort: { "_id.week": 1 } },
+      ]),
+    ]);
+
+    const responseRate = outreachSent > 0 ? Number(((totalRepliedOrLater / outreachSent) * 100).toFixed(1)) : 0;
+    const averageOpportunityScore = avgScoreAgg[0]?.avg ? Number(avgScoreAgg[0].avg.toFixed(1)) : 0;
+
+    return res.json({
+      success: true,
+      data: {
+        kpis: {
+          totalOpportunities,
+          highPriority,
+          outreachSent,
+          responseRate,
+          liveLinks,
+          lostLinks,
+          newLinksThisMonth,
+          averageOpportunityScore,
+        },
+        charts: {
+          opportunitiesOverTime,
+          outreachFunnel,
+          linksOverTime,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching backlink analytics:", error);
+    return res.status(500).json({ success: false, message: "Error fetching backlink analytics" });
+  }
+};
