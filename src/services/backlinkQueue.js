@@ -2,8 +2,9 @@ import Bull from "bull";
 import SeoSettings from "../models/seoSettings.model.js";
 import { runVerificationBatch } from "./backlinkVerificationService.js";
 import { runDiscoveryBatch } from "./backlinkDiscoveryService.js";
+import { generateRecommendationsFromBacklinks } from "./recommendationEngine.js";
 import { redisConfig } from "../config/redis.js";
-import { SINGLE_RUN_RETRY_CONFIG } from "./seoIntelQueue.js";
+import { SYNC_RETRY_CONFIG, SINGLE_RUN_RETRY_CONFIG } from "./seoIntelQueue.js";
 
 // Mirrors the seoIntelQueue.js pattern exactly — same settings, same retry
 // presets (imported, not redefined) — for the Phase 6 backlink automation jobs.
@@ -13,6 +14,7 @@ const DEFAULT_DISCOVERY_CATEGORIES = ["education-directories", "career-blogs", "
 
 export const backlinkVerificationQueue = new Bull("backlink-verification", { redis: redisConfig, ...QUEUE_SETTINGS });
 export const backlinkDiscoveryQueue = new Bull("backlink-discovery", { redis: redisConfig, ...QUEUE_SETTINGS });
+export const backlinkRecommendationQueue = new Bull("backlink-recommendations", { redis: redisConfig, ...QUEUE_SETTINGS });
 
 backlinkVerificationQueue.process(async (job) => {
   return runVerificationBatch({ ids: job.data?.ids });
@@ -23,7 +25,11 @@ backlinkDiscoveryQueue.process(async (job) => {
   return runDiscoveryBatch({ categories, triggeredBy: job.data?.triggeredBy || "cron" });
 });
 
-for (const [name, queue] of Object.entries({ backlinkVerificationQueue, backlinkDiscoveryQueue })) {
+backlinkRecommendationQueue.process(async () => {
+  return generateRecommendationsFromBacklinks();
+});
+
+for (const [name, queue] of Object.entries({ backlinkVerificationQueue, backlinkDiscoveryQueue, backlinkRecommendationQueue })) {
   queue.on("completed", (job) => console.log(`[${name}] job ${job.id} completed`));
   queue.on("failed", (job, err) => console.error(`[${name}] job ${job.id} failed:`, err.message));
   queue.on("stalled", (job) => console.warn(`[${name}] job ${job.id} stalled, will be reclaimed`));
@@ -40,4 +46,5 @@ export async function scheduleBacklinkRepeatables() {
     ? settings.discovery.categoriesSeedList
     : DEFAULT_DISCOVERY_CATEGORIES;
   await backlinkDiscoveryQueue.add({ categories, triggeredBy: "cron" }, { repeat: { cron: "0 6 * * 1" }, ...SINGLE_RUN_RETRY_CONFIG }); // weekly, Monday 6am
+  await backlinkRecommendationQueue.add({}, { repeat: { cron: "0 5 * * *" }, ...SYNC_RETRY_CONFIG }); // daily 5am
 }
