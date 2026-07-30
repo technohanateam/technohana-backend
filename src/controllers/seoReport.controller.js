@@ -61,13 +61,21 @@ export const downloadReport = async (req, res) => {
   }
 };
 
-// Extracts "| Key | Value |" markdown table rows out of a generated report's
-// content — the same shape generateMonthlyReport() writes.
+// Extracts "| Key | Value |" markdown table *data* rows out of a generated
+// report's content (the same shape generateMonthlyReport() writes) —
+// excludes both the "|---|---|" separator line and the header row itself
+// (detected by lookahead: whichever row is immediately followed by a
+// separator line is the header), since callers build their own CSV header.
 export const extractTableRows = (content) => {
+  const lines = (content || "").split("\n");
   const rows = [];
-  for (const line of (content || "").split("\n")) {
-    const match = line.match(/^\|\s*(.+?)\s*\|\s*(.+?)\s*\|$/);
-    if (match && !/^-+$/.test(match[1])) rows.push([match[1], match[2]]);
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(/^\|\s*(.+?)\s*\|\s*(.+?)\s*\|$/);
+    if (!match) continue;
+    if (/^-+$/.test(match[1])) continue; // the separator row itself
+    const nextLine = (lines[i + 1] || "").trim();
+    if (/^\|\s*-+\s*\|\s*-+\s*\|$/.test(nextLine)) continue; // header row, next line is the separator
+    rows.push([match[1], match[2]]);
   }
   return rows;
 };
@@ -108,6 +116,10 @@ export const downloadReportPdf = async (req, res) => {
     doc.end();
   } catch (error) {
     console.error("Error generating SEO report PDF:", error);
+    // Headers/body may already be streaming by the time an error surfaces
+    // here (doc.pipe(res) writes incrementally) — sending a JSON error after
+    // that would throw ERR_HTTP_HEADERS_SENT and crash the request.
+    if (res.headersSent) return res.end();
     return res.status(500).json({ success: false, message: "Error generating PDF" });
   }
 };

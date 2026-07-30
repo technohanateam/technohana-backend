@@ -113,7 +113,17 @@ export const getBacklinkAnalytics = async (req, res) => {
       SeoContact.countDocuments({ status: { $in: ["responded", "negotiating", "accepted", "live-link", "published"] } }),
       SeoMonitoring.countDocuments({ linkStatus: { $in: ["live", "published"] } }),
       SeoMonitoring.countDocuments({ linkStatus: "lost" }),
-      SeoMonitoring.countDocuments({ linkStatus: { $in: ["live", "published"] }, publishedDate: { $gte: startOfMonth } }),
+      // publishedDate is only ever set by manual curation/CSV import — links
+      // confirmed live by the automated discovery/verification pipeline never
+      // populate it, so fall back to the monitoring record's own createdAt
+      // (when it started being tracked) whenever publishedDate is absent.
+      SeoMonitoring.countDocuments({
+        linkStatus: { $in: ["live", "published"] },
+        $or: [
+          { publishedDate: { $gte: startOfMonth } },
+          { publishedDate: { $exists: false }, createdAt: { $gte: startOfMonth } },
+        ],
+      }),
       SeoOpportunity.aggregate([
         { $match: { overallScore: { $ne: null } } },
         { $group: { _id: null, avg: { $avg: "$overallScore" } } },

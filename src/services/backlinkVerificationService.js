@@ -101,6 +101,7 @@ export async function verifyMonitoringRecord(record) {
   const previousStatus = record.linkStatus;
   const previousDofollow = record.dofollow;
   const previousAnchor = record.anchorTextObserved;
+  const previousRedirectedTo = record.redirectedTo;
 
   const finish = async (patch) => {
     Object.assign(record, patch, { lastChecked: new Date(), verificationMethod: "automated-fetch" });
@@ -228,7 +229,10 @@ export async function verifyMonitoringRecord(record) {
       })
     );
   }
-  if (redirectedTo) {
+  // Only alert on a genuinely new/changed redirect, not on every re-check of
+  // an already-known, unchanged redirect (which would otherwise re-alert on
+  // every weekly run for the lifetime of a permanently redirected link).
+  if (redirectedTo && redirectedTo !== previousRedirectedTo) {
     alertsCreated.push(
       await createAlertIfNew({
         type: "backlink_redirect_detected",

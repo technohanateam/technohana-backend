@@ -137,6 +137,33 @@ test("redirect is detected and alerted", async () => {
   assert.ok(alertsCreated.some((a) => a.type === "backlink_redirect_detected"));
 });
 
+test("an already-known, unchanged redirect does not re-alert on every subsequent run", async () => {
+  mockAxios({
+    status: 200,
+    data: htmlWithLink("Explore Courses"),
+    request: { res: { responseUrl: "https://partner.example/new-location" } },
+  });
+  // Simulates a record where a prior run already recorded this exact redirect.
+  const record = makeRecord({ redirectedTo: "https://partner.example/new-location" });
+
+  const { alertsCreated } = await verifyMonitoringRecord(record);
+
+  assert.ok(!alertsCreated.some((a) => a.type === "backlink_redirect_detected"));
+});
+
+test("a redirect changing to a new target does re-alert", async () => {
+  mockAxios({
+    status: 200,
+    data: htmlWithLink("Explore Courses"),
+    request: { res: { responseUrl: "https://partner.example/another-location" } },
+  });
+  const record = makeRecord({ redirectedTo: "https://partner.example/new-location" });
+
+  const { alertsCreated } = await verifyMonitoringRecord(record);
+
+  assert.ok(alertsCreated.some((a) => a.type === "backlink_redirect_detected"));
+});
+
 test("robots.txt disallow skips the fetch entirely and records the reason", async () => {
   mock.method(axios, "get", async (url) => {
     if (url.endsWith("/robots.txt")) {

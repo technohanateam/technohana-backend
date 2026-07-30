@@ -866,16 +866,23 @@ export function generateBacklinkAlertEmail({ website, liveUrl, alertType, descri
   };
   const label = alertTypeLabels[alertType] || 'Backlink Alert';
 
+  // website/liveUrl are our own recorded URLs, but `description` can quote
+  // scraped anchor text or error text from a third-party page — escape
+  // everything before interpolating into this HTML email.
+  const safeWebsite = escapeHtml(website);
+  const safeLiveUrl = escapeHtml(liveUrl);
+  const safeDescription = escapeHtml(description);
+
   const body = `
     <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">${label}</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
       The weekly backlink monitoring job detected a change on a tracked link.
     </p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
-      ${dataRow('Website', website || 'Unknown', false)}
-      ${dataRow('Live URL', liveUrl || '—', true)}
+      ${dataRow('Website', safeWebsite || 'Unknown', false)}
+      ${dataRow('Live URL', safeLiveUrl || '—', true)}
       ${dataRow('Alert', label, false)}
-      ${description ? dataRow('Details', description, true) : ''}
+      ${safeDescription ? dataRow('Details', safeDescription, true) : ''}
     </table>
     ${dashboardLink ? ctaButton('View in Dashboard', dashboardLink) : ''}`;
 

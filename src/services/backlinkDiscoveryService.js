@@ -20,7 +20,7 @@ async function getDiscoverySettings() {
   const settings = await SeoSettings.findOne().lean();
   return {
     fetch: { ...DEFAULT_DISCOVERY_FETCH_SETTINGS, ...(settings?.backlinkVerification || {}) },
-    candidatesPerRun: settings?.discovery?.candidatesPerRun || 15,
+    candidatesPerRun: settings?.discovery?.candidatesPerRun ?? 15,
   };
 }
 

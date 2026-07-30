@@ -16,7 +16,7 @@ export const getSettings = async (req, res) => {
   }
 };
 
-const EDITABLE_FIELDS = ["scoringWeights", "priorityThresholds", "defaultOwners", "validationRules"];
+const EDITABLE_FIELDS = ["scoringWeights", "priorityThresholds", "defaultOwners", "validationRules", "backlinkVerification", "discovery"];
 
 export const updateSettings = async (req, res) => {
   try {
