@@ -130,13 +130,13 @@ export const getBacklinkAnalytics = async (req, res) => {
       ]),
       SeoOpportunity.aggregate([
         { $match: { createdAt: { $gte: twelveWeeksAgo } } },
-        { $group: { _id: { $dateToString: { format: "%Y-%W", date: "$createdAt" } }, count: { $sum: 1 } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%U", date: "$createdAt" } }, count: { $sum: 1 } } },
         { $sort: { _id: 1 } },
       ]),
       SeoContact.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
       SeoMonitoring.aggregate([
         { $match: { updatedAt: { $gte: twelveWeeksAgo } } },
-        { $group: { _id: { week: { $dateToString: { format: "%Y-%W", date: "$updatedAt" } }, status: "$linkStatus" }, count: { $sum: 1 } } },
+        { $group: { _id: { week: { $dateToString: { format: "%Y-%U", date: "$updatedAt" } }, status: "$linkStatus" }, count: { $sum: 1 } } },
         { $sort: { "_id.week": 1 } },
       ]),
     ]);
