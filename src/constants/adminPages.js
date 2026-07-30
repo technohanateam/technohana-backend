@@ -57,6 +57,7 @@ export const ADMIN_ROLES = [
   "hr",
   "student_support",
   "readonly",
+  "analyst",
 ];
 
 export const DEFAULT_PAGES_BY_ROLE = {
@@ -108,6 +109,22 @@ export const DEFAULT_PAGES_BY_ROLE = {
   // trainer/accounts/hr/student_support/readonly are CRM-only crmRoles — they
   // never get admin-panel pages (see authenticateAdmin.js CRM_ONLY_ROLES block),
   // so no entries here are needed for them.
+
+  // Phase 6 — read-only admin-panel persona (Module 12). Gets view access to
+  // every seo-ops-* page except Settings, and none of the seo-intel-* pages.
+  // No requireMarketing/requireAdmin write route ever matches this role, so
+  // every write endpoint 403s automatically without a dedicated middleware.
+  analyst: [
+    "seo-ops-dashboard",
+    "seo-ops-opportunities",
+    "seo-ops-competitors",
+    "seo-ops-outreach",
+    "seo-ops-published-links",
+    "seo-ops-resource-pages",
+    "seo-ops-reports",
+    "seo-ops-monitoring",
+    "seo-ops-analytics",
+  ],
 };
 
 export const computeEffectivePages = (role, extraPages = [], revokedPages = []) => {
