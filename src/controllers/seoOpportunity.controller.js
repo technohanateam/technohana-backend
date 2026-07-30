@@ -12,7 +12,7 @@ const SEARCH_FIELDS = [
 ];
 
 const buildFilter = (query, recordTypeFilter) => {
-  const { search, priority, status, confidence, evidenceLevel } = query;
+  const { search, priority, status, confidence, evidenceLevel, discoverySource } = query;
   const filter = recordTypeFilter ? { recordType: recordTypeFilter } : {};
   const regexQuery = buildMultiFieldRegexQuery(search, SEARCH_FIELDS);
   if (regexQuery) Object.assign(filter, regexQuery);
@@ -20,6 +20,7 @@ const buildFilter = (query, recordTypeFilter) => {
   if (status) filter.status = status;
   if (confidence) filter.confidence = confidence;
   if (evidenceLevel) filter.evidenceLevel = evidenceLevel;
+  if (discoverySource) filter.discoverySource = discoverySource;
   return filter;
 };
 

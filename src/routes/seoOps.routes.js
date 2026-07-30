@@ -34,6 +34,7 @@ import { getReports, previewReport, downloadReport } from "../controllers/seoRep
 import { getSettings, updateSettings } from "../controllers/seoSettings.controller.js";
 import { validateCsv, checkDuplicates, scoreOpportunities, generateMonthlyReport } from "../controllers/seoScripts.controller.js";
 import { runVerification, getVerificationStatus } from "../controllers/seoBacklinkVerification.controller.js";
+import { runDiscovery, getDiscoveryStatus } from "../controllers/seoBacklinkAi.controller.js";
 
 const router = express.Router();
 
@@ -50,6 +51,8 @@ router.get("/dashboard", requirePage("seo-ops-dashboard"), getSeoDashboard);
 router.get("/opportunities", requirePage("seo-ops-opportunities"), getAllOpportunities);
 router.patch("/opportunities/bulk", requirePage("seo-ops-opportunities"), requireMarketing, bulkUpdateOpportunities);
 router.post("/opportunities/import", requirePage("seo-ops-opportunities"), requireMarketing, importOpportunities);
+router.post("/discovery/run", requirePage("seo-ops-opportunities"), requireMarketing, runDiscovery);
+router.get("/discovery/status/:jobId", requirePage("seo-ops-opportunities"), getDiscoveryStatus);
 router.get("/opportunities/:id", requirePage("seo-ops-opportunities"), getOpportunity);
 router.patch("/opportunities/:id", requirePage("seo-ops-opportunities"), requireMarketing, updateOpportunity);
 
