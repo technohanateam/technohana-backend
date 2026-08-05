@@ -21,6 +21,19 @@ export const bidStrategySchema = z.enum([
 
 export const campaignStatusSchema = z.enum(['ACTIVE', 'PAUSED']);
 
+export const datePresetSchema = z.enum([
+  'today',
+  'yesterday',
+  'last_7d',
+  'last_14d',
+  'last_30d',
+  'last_90d',
+  'this_month',
+  'last_month',
+  'this_quarter',
+  'maximum',
+]);
+
 export const geoLocationSchema = z.object({
   countries: z.array(z.string()).optional().describe('ISO country codes, e.g. ["US", "CA"].'),
   regions: z.array(z.object({ key: z.string() })).optional(),

@@ -11,6 +11,7 @@ export const READ_ONLY_TOOLS = [
   'list_ad_sets',
   'list_ads',
   'list_asset_library',
+  'list_pixels',
 ] as const;
 
 /**
