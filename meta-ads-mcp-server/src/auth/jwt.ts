@@ -32,6 +32,7 @@ export class JwtVerificationError extends Error {
 /** Issues a new bearer JWT for the /mcp endpoint, always signed with the current key. */
 export function issueMcpToken(claims: McpJwtClaims): string {
   return jwt.sign(claims, env.MCP_JWT_SECRET, {
+    algorithm: 'HS256',
     issuer: env.MCP_JWT_ISSUER,
     audience: env.MCP_JWT_AUDIENCE,
     expiresIn: env.MCP_JWT_TTL_SECONDS,
@@ -53,6 +54,7 @@ export function verifyMcpToken(token: string): McpJwtClaims {
   for (const key of candidateKeys) {
     try {
       const decoded = jwt.verify(token, key, {
+        algorithms: ['HS256'],
         issuer: env.MCP_JWT_ISSUER,
         audience: env.MCP_JWT_AUDIENCE,
       });

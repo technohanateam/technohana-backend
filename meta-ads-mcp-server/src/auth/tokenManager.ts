@@ -1,8 +1,7 @@
 import axios from 'axios';
-import { META_GRAPH_BASE_URL } from '../config/constants.js';
+import { META_GRAPH_BASE_URL, STORAGE_NAMESPACES } from '../config/constants.js';
 import { env } from '../config/env.js';
 import { getStorageAdapter } from '../storage/storage.factory.js';
-import { STORAGE_NAMESPACES } from '../config/constants.js';
 import { parseMetaApiError } from '../utils/metaErrors.js';
 import { logger } from '../utils/logger.js';
 
