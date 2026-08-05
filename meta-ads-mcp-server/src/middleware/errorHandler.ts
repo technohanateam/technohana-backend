@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { env } from '../config/env.js';
 import { MetaApiError } from '../utils/metaErrors.js';
 import { logger } from '../utils/logger.js';
+import { captureException } from '../observability/sentry.js';
 
 /** 404 handler for the small REST surface (health/ready/metrics/oauth). */
 export function notFoundHandler(req: Request, res: Response): void {
@@ -50,6 +51,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     { requestId, err: err instanceof Error ? { message: err.message, stack: err.stack } : err },
     'unhandled_error',
   );
+  captureException(err, { requestId, path: req.originalUrl });
 
   res.status(500).json({
     success: false,

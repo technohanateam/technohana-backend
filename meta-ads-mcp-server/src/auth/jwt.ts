@@ -6,6 +6,8 @@ import { isValidRole } from '../config/roles.js';
 export interface McpJwtClaims {
   sub: string;
   role: Role;
+  /** Epoch seconds. Required by the MCP SDK's requireBearerAuth, which rejects any AuthInfo without it. */
+  exp: number;
 }
 
 type KeyId = 'current' | 'previous';
@@ -59,11 +61,17 @@ export function verifyMcpToken(token: string): McpJwtClaims {
         audience: env.MCP_JWT_AUDIENCE,
       });
 
-      if (typeof decoded === 'string' || !decoded.sub || typeof decoded.role !== 'string' || !isValidRole(decoded.role)) {
+      if (
+        typeof decoded === 'string' ||
+        !decoded.sub ||
+        typeof decoded.role !== 'string' ||
+        !isValidRole(decoded.role) ||
+        typeof decoded.exp !== 'number'
+      ) {
         throw new JwtVerificationError('Malformed JWT claims');
       }
 
-      return { sub: decoded.sub, role: decoded.role };
+      return { sub: decoded.sub, role: decoded.role, exp: decoded.exp };
     } catch (error) {
       lastError = error;
     }

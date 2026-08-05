@@ -2,7 +2,24 @@ import type { ZodTypeAny, z } from 'zod';
 import { assertToolPermission } from '../auth/rbac.js';
 import { recordAuditEntry } from '../middleware/auditLogger.js';
 import { logger } from '../utils/logger.js';
+import { recordToolInvocation } from '../observability/metrics.js';
+import { captureException } from '../observability/sentry.js';
+import { ForbiddenToolError } from '../auth/rbac.js';
+import { MetaApiError } from '../utils/metaErrors.js';
 import type { McpToolContext, McpToolDefinition, McpToolHandler, McpToolTextResult } from '../types/mcp.types.js';
+
+/**
+ * Only genuinely unexpected failures are worth alerting on in Sentry - a
+ * denied-permission or a validation/expired-token error from Meta is an
+ * expected, user-actionable outcome, not an incident.
+ */
+function isUnexpectedError(error: unknown): boolean {
+  if (error instanceof ForbiddenToolError) return false;
+  if (error instanceof MetaApiError) {
+    return error.classification === 'unknown' || error.classification === 'retryable';
+  }
+  return true;
+}
 
 interface CreateToolOptions<TSchema extends ZodTypeAny> {
   name: string;
@@ -55,6 +72,7 @@ export function createTool<TSchema extends ZodTypeAny>(
       const duration = Date.now() - startedAt;
 
       logger.info({ requestId, toolName: options.name, duration, userId, status: 'success' }, 'mcp_tool_invocation');
+      recordToolInvocation(options.name, 'success', duration);
 
       if (options.mutating) {
         await recordAuditEntry({
@@ -74,6 +92,10 @@ export function createTool<TSchema extends ZodTypeAny>(
         { requestId, toolName: options.name, duration, userId, status: 'error', err: error },
         'mcp_tool_invocation',
       );
+      recordToolInvocation(options.name, 'error', duration);
+      if (isUnexpectedError(error)) {
+        captureException(error, { requestId, toolName: options.name, userId });
+      }
 
       if (options.mutating) {
         await recordAuditEntry({

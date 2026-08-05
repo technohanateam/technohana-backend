@@ -1,0 +1,129 @@
+import express from 'express';
+import type { Request, Response } from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
+import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
+import type { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { env } from './config/env.js';
+import { logger } from './utils/logger.js';
+import { requestLogger } from './middleware/requestLogger.js';
+import { rateLimiter } from './middleware/rateLimiter.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { captureRawBody } from './middleware/requestSigning.js';
+import { mcpTokenVerifier } from './auth/mcpTokenVerifier.js';
+import { createMcpServer, createSessionTransport } from './mcp.js';
+import { healthRouter } from './routes/health.routes.js';
+import { readyRouter } from './routes/ready.routes.js';
+import { metricsRouter } from './routes/metrics.routes.js';
+import { oauthRouter } from './routes/oauth.routes.js';
+import { initSentry } from './observability/sentry.js';
+
+initSentry();
+
+export const app = express();
+
+app.disable('x-powered-by');
+app.use(helmet());
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // No Origin header (server-to-server, curl, the MCP connector) - always allow.
+      if (!origin) return callback(null, true);
+      if (env.CORS_ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      callback(new Error(`Origin '${origin}' is not allowed by CORS policy.`));
+    },
+  }),
+);
+app.use(requestLogger);
+app.use(rateLimiter);
+app.use(express.json({ verify: captureRawBody, limit: '10mb' }));
+
+// Operational endpoints - unauthenticated by design (used by load balancers/orchestrators).
+app.use(healthRouter);
+app.use(readyRouter);
+app.use(metricsRouter);
+
+// Meta OAuth (browser redirect flow, protected by its own signed+time-boxed state parameter).
+app.use(oauthRouter);
+
+// --- MCP Streamable HTTP endpoint ---
+const sessionTransports = new Map<string, StreamableHTTPServerTransport>();
+const bearerAuth = requireBearerAuth({ verifier: mcpTokenVerifier });
+
+async function handleMcpPost(req: Request, res: Response): Promise<void> {
+  const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+  try {
+    if (sessionId && sessionTransports.has(sessionId)) {
+      const transport = sessionTransports.get(sessionId)!;
+      await transport.handleRequest(req, res, req.body);
+      return;
+    }
+
+    if (!sessionId && isInitializeRequest(req.body)) {
+      const transport = createSessionTransport((newSessionId) => {
+        sessionTransports.set(newSessionId, transport);
+        logger.info({ sessionId: newSessionId }, 'mcp_session_initialized');
+      });
+
+      transport.onclose = () => {
+        const sid = transport.sessionId;
+        if (sid && sessionTransports.has(sid)) {
+          sessionTransports.delete(sid);
+          logger.info({ sessionId: sid }, 'mcp_session_closed');
+        }
+      };
+
+      const server = createMcpServer();
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+      return;
+    }
+
+    res.status(400).json({
+      jsonrpc: '2.0',
+      error: { code: -32000, message: 'Bad Request: No valid session ID provided' },
+      id: null,
+    });
+  } catch (error) {
+    logger.error({ err: error, sessionId }, 'mcp_request_failed');
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: '2.0',
+        error: { code: -32603, message: 'Internal server error' },
+        id: null,
+      });
+    }
+  }
+}
+
+async function handleMcpSessionRequest(req: Request, res: Response): Promise<void> {
+  const sessionId = req.headers['mcp-session-id'] as string | undefined;
+  if (!sessionId || !sessionTransports.has(sessionId)) {
+    res.status(400).send('Invalid or missing Mcp-Session-Id header.');
+    return;
+  }
+  const transport = sessionTransports.get(sessionId)!;
+  await transport.handleRequest(req, res);
+}
+
+app.post('/mcp', bearerAuth, handleMcpPost);
+app.get('/mcp', bearerAuth, handleMcpSessionRequest);
+app.delete('/mcp', bearerAuth, handleMcpSessionRequest);
+
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+if (process.env.VITEST !== 'true') {
+  app.listen(env.PORT, () => {
+    logger.info({ port: env.PORT, nodeEnv: env.NODE_ENV }, 'meta_ads_mcp_server_started');
+  });
+
+  const shutdown = (signal: string) => {
+    logger.info({ signal }, 'shutdown_initiated');
+    process.exit(0);
+  };
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
+}

@@ -1,5 +1,6 @@
 import { RETRY_DEFAULTS } from '../config/constants.js';
 import { isRetryableError } from './metaErrors.js';
+import { metaRateLimitHitsTotal } from '../observability/metrics.js';
 import type { Logger } from './logger.js';
 
 export interface RetryOptions {
@@ -56,6 +57,7 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
         throw error;
       }
 
+      metaRateLimitHitsTotal.inc();
       await sleep(computeDelay(attempt, baseDelayMs, maxDelayMs, jitterRatio));
     }
   }
