@@ -23,41 +23,46 @@ import type {
  * shipped today; a future Google/LinkedIn/TikTok provider would implement this same
  * interface and register itself in `providers/provider.registry.ts` with no changes
  * required to the MCP tool layer.
+ *
+ * Every method takes `connectionKey` first: it identifies which stored, per-business
+ * (or per-personal-account) Meta token to use, since a single deployment can be
+ * connected to multiple Business Managers at once (see auth/tokenManager.ts).
  */
 export interface AdProvider {
   readonly name: string;
 
-  listAdAccounts(businessId?: string): Promise<MetaAdAccount[]>;
-  listBusinesses(): Promise<MetaBusiness[]>;
+  listAdAccounts(connectionKey: string, businessId?: string): Promise<MetaAdAccount[]>;
+  listBusinesses(connectionKey: string): Promise<MetaBusiness[]>;
 
-  listCampaigns(accountId: string): Promise<MetaCampaign[]>;
-  createCampaign(input: CreateCampaignInput): Promise<MetaCampaign>;
-  duplicateCampaign(campaignId: string, newName: string): Promise<MetaCampaign>;
-  pauseCampaign(campaignId: string): Promise<MetaCampaign>;
-  resumeCampaign(campaignId: string): Promise<MetaCampaign>;
-  deleteCampaign(campaignId: string): Promise<void>;
+  listCampaigns(connectionKey: string, accountId: string): Promise<MetaCampaign[]>;
+  createCampaign(connectionKey: string, input: CreateCampaignInput): Promise<MetaCampaign>;
+  duplicateCampaign(connectionKey: string, campaignId: string, newName: string): Promise<MetaCampaign>;
+  pauseCampaign(connectionKey: string, campaignId: string): Promise<MetaCampaign>;
+  resumeCampaign(connectionKey: string, campaignId: string): Promise<MetaCampaign>;
+  deleteCampaign(connectionKey: string, campaignId: string): Promise<void>;
   updateCampaignBudget(
+    connectionKey: string,
     campaignId: string,
     budget: { dailyBudgetCents?: number; lifetimeBudgetCents?: number },
   ): Promise<MetaCampaign>;
 
-  listAdSets(campaignId: string): Promise<MetaAdSet[]>;
-  createAdSet(input: CreateAdSetInput): Promise<MetaAdSet>;
-  updateAdSetTargeting(adSetId: string, targeting: MetaTargeting): Promise<MetaAdSet>;
+  listAdSets(connectionKey: string, campaignId: string): Promise<MetaAdSet[]>;
+  createAdSet(connectionKey: string, input: CreateAdSetInput): Promise<MetaAdSet>;
+  updateAdSetTargeting(connectionKey: string, adSetId: string, targeting: MetaTargeting): Promise<MetaAdSet>;
 
-  listAds(adSetId: string): Promise<MetaAd[]>;
-  createAd(input: CreateAdInput): Promise<MetaAd>;
+  listAds(connectionKey: string, adSetId: string): Promise<MetaAd[]>;
+  createAd(connectionKey: string, input: CreateAdInput): Promise<MetaAd>;
 
-  uploadImage(accountId: string, filePathOrUrl: string, name: string): Promise<MetaMediaAsset>;
-  uploadVideo(accountId: string, filePathOrUrl: string, name: string): Promise<MetaMediaAsset>;
-  listAssetLibrary(accountId: string): Promise<MetaMediaAsset[]>;
+  uploadImage(connectionKey: string, accountId: string, filePathOrUrl: string, name: string): Promise<MetaMediaAsset>;
+  uploadVideo(connectionKey: string, accountId: string, filePathOrUrl: string, name: string): Promise<MetaMediaAsset>;
+  listAssetLibrary(connectionKey: string, accountId: string): Promise<MetaMediaAsset[]>;
 
-  getInsights(query: InsightsQueryInput): Promise<MetaInsightsRow[]>;
+  getInsights(connectionKey: string, query: InsightsQueryInput): Promise<MetaInsightsRow[]>;
 
-  listLeads(formId: string, limit?: number): Promise<MetaLead[]>;
-  listLeadForms(accountId: string): Promise<MetaLeadForm[]>;
+  listLeads(connectionKey: string, formId: string, limit?: number): Promise<MetaLead[]>;
+  listLeadForms(connectionKey: string, accountId: string): Promise<MetaLeadForm[]>;
 
-  listPixels(accountId: string): Promise<MetaPixel[]>;
-  getPixelEvents(pixelId: string, since?: string, until?: string): Promise<MetaPixelEvent[]>;
-  getConversionApiDiagnostics(pixelId: string): Promise<ConversionApiDiagnostic>;
+  listPixels(connectionKey: string, accountId: string): Promise<MetaPixel[]>;
+  getPixelEvents(connectionKey: string, pixelId: string, since?: string, until?: string): Promise<MetaPixelEvent[]>;
+  getConversionApiDiagnostics(connectionKey: string, pixelId: string): Promise<ConversionApiDiagnostic>;
 }
