@@ -1,0 +1,254 @@
+openapi: 3.0.3
+info:
+  title: Meta Ads MCP Server — REST surface
+  description: >
+    Operational and OAuth REST endpoints for the Meta Ads Remote MCP Server.
+    The MCP tool surface itself (47 tools for managing Meta/Facebook/Instagram
+    Ads) is not a REST API — it is served over the Model Context Protocol at
+    POST/GET/DELETE /mcp and documented separately in docs/mcp-tools.md.
+    This spec covers only the small REST surface around it: health/readiness
+    probes, Prometheus metrics, and the Meta OAuth connection flow.
+  version: '1.0.0'
+servers:
+  - url: http://localhost:3333
+    description: Local development
+paths:
+  /live:
+    get:
+      summary: Liveness probe
+      description: Pure liveness ping - the process is up and handling requests. Always 200 if reachable at all.
+      operationId: getLive
+      security: []
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+
+  /health:
+    get:
+      summary: Shallow health summary
+      description: Always 200 as long as the process can respond; includes process uptime.
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Health summary
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StatusResponse'
+                  - type: object
+                    properties:
+                      uptimeSeconds:
+                        type: integer
+                        example: 4213
+
+  /ready:
+    get:
+      summary: Readiness probe
+      description: >
+        Checks Meta Graph API reachability and the configured storage
+        backend's connectivity - both gate the 200/503 status. Whether a
+        Meta account has been connected yet (hasMetaConnection) is reported
+        for visibility only and never gates readiness, since a freshly
+        deployed instance legitimately has zero connections until someone
+        completes /auth/meta/login.
+      operationId: getReady
+      security: []
+      responses:
+        '200':
+          description: Ready to serve traffic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+        '503':
+          description: Storage or Meta API unreachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: >
+        Prometheus text-exposition format. 404 if METRICS_ENABLED=false.
+        Exposes mcp_tool_invocations_total, mcp_tool_latency_ms,
+        mcp_tool_errors_total, meta_api_latency_ms,
+        meta_api_rate_limit_hits_total, plus Node.js default process metrics.
+      operationId: getMetrics
+      security: []
+      responses:
+        '200':
+          description: Prometheus text-exposition payload
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          description: Metrics disabled
+
+  /auth/meta/login:
+    get:
+      summary: Start the Meta OAuth flow
+      description: >
+        Redirects to Meta's OAuth authorization dialog with a signed,
+        time-boxed (10 minute) state parameter for CSRF protection. Not
+        JWT-protected - Meta's own OAuth dialog and this endpoint's state
+        signature are the security boundary for this flow.
+      operationId: startMetaOAuth
+      security: []
+      responses:
+        '302':
+          description: Redirect to https://www.facebook.com/{version}/dialog/oauth
+
+  /auth/meta/callback:
+    get:
+      summary: Complete the Meta OAuth flow
+      description: >
+        Exchanges the authorization code for a long-lived Meta access token,
+        discovers every Business Manager the user belongs to, and stores one
+        token record per business (or a single 'personal' record if none).
+        The returned connection keys are what you pass as `connectionKey` in
+        MCP tool calls.
+      operationId: completeMetaOAuth
+      security: []
+      parameters:
+        - name: code
+          in: query
+          schema:
+            type: string
+          description: Authorization code issued by Meta.
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The signed state parameter minted by /auth/meta/login.
+        - name: error
+          in: query
+          schema:
+            type: string
+          description: Present if the user denied authorization.
+        - name: error_description
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Meta account connected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  connections:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                          description: Pass this as `connectionKey` in MCP tool calls.
+                        businessName:
+                          type: string
+                          nullable: true
+        '400':
+          description: Missing/invalid code or state, or the user denied authorization
+        '502':
+          description: The Meta token exchange itself failed
+
+  /mcp:
+    post:
+      summary: MCP Streamable HTTP endpoint (JSON-RPC over HTTP)
+      description: >
+        Not a conventional REST endpoint - this is the Model Context
+        Protocol's Streamable HTTP transport. Requires `Authorization:
+        Bearer <jwt>` (see `npm run issue-token`). The first call must be an
+        `initialize` JSON-RPC request; the server returns an
+        `Mcp-Session-Id` response header that must be sent back on every
+        subsequent call. See docs/sequence-diagrams.md for the full
+        handshake and docs/mcp-tools.md for the 47 tools available once a
+        session is established.
+      operationId: mcpPost
+      responses:
+        '200':
+          description: JSON-RPC response (application/json or text/event-stream)
+        '400':
+          description: Missing/invalid session, or a malformed JSON-RPC request
+        '401':
+          description: Missing, malformed, or expired bearer token
+    get:
+      summary: MCP server-initiated notification stream (SSE)
+      operationId: mcpGet
+      parameters:
+        - name: Mcp-Session-Id
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: text/event-stream
+        '400':
+          description: Invalid or missing session
+        '401':
+          description: Missing, malformed, or expired bearer token
+    delete:
+      summary: Terminate an MCP session
+      operationId: mcpDelete
+      parameters:
+        - name: Mcp-Session-Id
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session terminated
+        '400':
+          description: Invalid or missing session
+        '401':
+          description: Missing, malformed, or expired bearer token
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    StatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        status:
+          type: string
+    ReadyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        checks:
+          type: object
+          properties:
+            storageReachable:
+              type: boolean
+            metaApiReachable:
+              type: boolean
+            hasMetaConnection:
+              type: boolean
+
+security:
+  - bearerAuth: []

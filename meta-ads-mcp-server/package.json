@@ -12,12 +12,13 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node --import ./dist/observability/register.js dist/server.js",
-    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix",
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.ts\" --fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "issue-token": "tsx scripts/issue-token.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
