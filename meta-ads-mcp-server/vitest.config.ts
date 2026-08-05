@@ -4,6 +4,26 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    // Set BEFORE any module (including setupFiles) loads, so config/env.ts's
+    // import-time validation never fails during test collection.
+    env: {
+      NODE_ENV: 'test',
+      VITEST: 'true',
+      LOG_LEVEL: 'silent',
+      MCP_JWT_SECRET: 'test-mcp-jwt-secret-not-for-production',
+      MCP_JWT_ISSUER: 'meta-ads-mcp-server-test',
+      MCP_JWT_AUDIENCE: 'claude-mcp-connector-test',
+      ANTHROPIC_API_KEY: 'test-anthropic-api-key',
+      META_APP_ID: 'test-app-id',
+      META_APP_SECRET: 'test-app-secret',
+      META_OAUTH_REDIRECT_URI: 'http://localhost:3333/auth/meta/callback',
+      STORAGE_BACKEND: 'file',
+      FILE_STORE_PATH: './tests/.tmp/test-store.json',
+      FILE_STORE_ENCRYPTION_KEY: 'b'.repeat(64),
+      CACHE_BACKEND: 'memory',
+      METRICS_ENABLED: 'false',
+      OTEL_ENABLED: 'false',
+    },
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.ts'],
     coverage: {
