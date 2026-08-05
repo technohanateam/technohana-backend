@@ -24,8 +24,15 @@ export default defineConfig({
       METRICS_ENABLED: 'false',
       OTEL_ENABLED: 'false',
     },
+    globalSetup: ['./tests/globalSetup.ts'],
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.ts'],
+    // Every test file shares one FILE_STORE_PATH (via `env` above). FileStore's
+    // write queue only serializes access within a single process, so running
+    // test files in parallel workers would let two files write the same
+    // encrypted file concurrently - a real corruption/flakiness risk, not a
+    // hypothetical one. Sequential file execution avoids it entirely.
+    fileParallelism: false,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
