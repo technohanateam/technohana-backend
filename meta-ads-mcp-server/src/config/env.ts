@@ -69,7 +69,13 @@ function loadEnv(): Env {
     const issues = parsed.error.issues
       .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
       .join('\n');
-    throw new Error(`Invalid environment configuration:\n${issues}`);
+    // Logged via console (not the pino logger) because the logger itself
+    // depends on `env` — using it here would recurse into this same failure.
+    // process.exit (not throw) keeps this out of the container's crash/stack-trace
+    // noise and gives orchestrators like Railway a single readable log line
+    // explaining exactly which var(s) are missing before the healthcheck starts failing.
+    console.error(`Invalid environment configuration:\n${issues}`);
+    process.exit(1);
   }
   return parsed.data;
 }
