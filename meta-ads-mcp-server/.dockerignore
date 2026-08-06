@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+data
+tests
+tests/.tmp
+.git
+.env
+.env.local
+*.log
+docs
+README.md
