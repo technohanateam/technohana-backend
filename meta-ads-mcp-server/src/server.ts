@@ -42,6 +42,15 @@ app.use(
       // cross-origin - CORS exists to gate cross-origin access, so this is
       // always safe to allow regardless of CORS_ALLOWED_ORIGINS.
       if (origin === mcpIssuerUrl.origin) return callback(null, true);
+      // The literal string 'null' is the serialized form of an opaque origin,
+      // which browsers send (not omit - actually send the string "null") for
+      // requests from sandboxed contexts, e.g. the iframe/popup claude.ai runs
+      // this OAuth flow's consent screen in. It isn't a spoofable value the way
+      // a real origin string is, and every route on this app that carries a
+      // real secret (the consent password, the /mcp bearer token, DCR/PKCE)
+      // enforces that independently of CORS - CORS was never the security
+      // boundary for those, only a browser-fetch convenience gate.
+      if (origin === 'null') return callback(null, true);
       if (env.CORS_ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
       callback(new Error(`Origin '${origin}' is not allowed by CORS policy.`));
     },
