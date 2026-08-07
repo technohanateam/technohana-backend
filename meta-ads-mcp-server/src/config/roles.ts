@@ -21,6 +21,7 @@ export const READ_ONLY_TOOLS = [
   'linkedin_list_creatives',
   'linkedin_list_media_library',
   'linkedin_validate_asset',
+  'linkedin_estimate_audience',
 ] as const;
 
 /**
@@ -83,6 +84,9 @@ export const ADVERTISER_TOOLS = [
   'linkedin_update_creative',
   'linkedin_upload_image',
   'linkedin_upload_video',
+  'linkedin_update_targeting',
+  'linkedin_update_budget',
+  'linkedin_update_bid',
 ] as const;
 
 /**

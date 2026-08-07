@@ -3,8 +3,8 @@ import { allTools } from '../../src/tools/index.js';
 import { ROLES, isToolAllowedForRole } from '../../src/config/roles.js';
 
 describe('tool registry', () => {
-  it('registers exactly 73 tools', () => {
-    expect(allTools).toHaveLength(73);
+  it('registers exactly 77 tools', () => {
+    expect(allTools).toHaveLength(77);
   });
 
   it('has no duplicate tool names', () => {
@@ -54,6 +54,7 @@ describe('tool registry', () => {
         'linkedin_list_creatives',
         'linkedin_list_media_library',
         'linkedin_validate_asset',
+        'linkedin_estimate_audience',
       ].sort(),
     );
   });
