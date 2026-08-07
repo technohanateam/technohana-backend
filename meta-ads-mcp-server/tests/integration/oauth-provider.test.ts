@@ -116,6 +116,33 @@ describe('OAuth 2.1 authorization server for /mcp', () => {
     expect(res.status).toBe(400);
   });
 
+  it('accepts the consent form submission when the browser sends Origin: null (sandboxed iframe/popup, e.g. claude.ai)', async () => {
+    const { clientId } = await registerClient();
+    const { challenge } = makePkcePair();
+    const { consentId } = await authorizeToConsent(clientId, challenge);
+
+    const res = await request(app)
+      .post('/oauth/consent')
+      .set('Origin', 'null')
+      .type('form')
+      .send({ consentId, password: 'test-oauth-admin-password-not-for-production' });
+    expect(res.status).toBe(302);
+    expect(new URL(res.headers.location).searchParams.get('code')).toBeTruthy();
+  });
+
+  it('still rejects a real cross-origin request', async () => {
+    const { clientId } = await registerClient();
+    const { challenge } = makePkcePair();
+    const { consentId } = await authorizeToConsent(clientId, challenge);
+
+    const res = await request(app)
+      .post('/oauth/consent')
+      .set('Origin', 'https://evil.example')
+      .type('form')
+      .send({ consentId, password: 'test-oauth-admin-password-not-for-production' });
+    expect(res.status).toBe(500);
+  });
+
   it('completes the full authorize -> consent -> token -> /mcp flow', async () => {
     const { clientId } = await registerClient();
     const { verifier, challenge } = makePkcePair();
