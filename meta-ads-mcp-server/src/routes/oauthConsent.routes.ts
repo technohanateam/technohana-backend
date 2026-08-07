@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { Router } from 'express';
 import type { Response } from 'express';
 import express from 'express';
@@ -48,8 +48,16 @@ function timingSafePasswordEqual(provided: string, expected: string): boolean {
   return timingSafeEqual(providedBuf, expectedBuf);
 }
 
-function renderConsentForm(consentId: string, options: { clientName?: string; error?: string } = {}): string {
+function renderConsentForm(consentId: string, nonce: string, options: { clientName?: string; error?: string } = {}): string {
   const { clientName, error } = options;
+  // Submission goes through fetch() + JS-driven navigation, not a native
+  // <form> POST. claude.ai renders this page inside a sandboxed iframe/popup
+  // (confirmed live: Origin: null on requests from it, an opaque document
+  // origin), and browsers block native form submissions from a sandbox
+  // lacking `allow-forms` independently of any CSP header - `form-action`
+  // tweaks can't override that. `allow-scripts` is required for this page to
+  // do anything interactive at all, so a fetch()-based submission works where
+  // a native form can't.
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -62,18 +70,50 @@ function renderConsentForm(consentId: string, options: { clientName?: string; er
   p { color: #444; line-height: 1.5; }
   input[type="password"] { width: 100%; padding: 0.6rem; font-size: 1rem; box-sizing: border-box; margin: 0.75rem 0; }
   button { width: 100%; padding: 0.6rem; font-size: 1rem; cursor: pointer; }
+  button:disabled { opacity: 0.6; cursor: default; }
   .error { color: #b91c1c; font-size: 0.9rem; }
 </style>
 </head>
 <body>
   <h1>Authorize ${clientName ? escapeHtml(clientName) : 'this client'}</h1>
   <p>An application is requesting access to this Meta Ads MCP server. Enter the operator password to approve.</p>
-  ${error ? `<p class="error">${escapeHtml(error)}</p>` : ''}
-  <form method="POST" action="/oauth/consent">
-    <input type="hidden" name="consentId" value="${escapeHtml(consentId)}">
-    <input type="password" name="password" placeholder="Operator password" autofocus required>
-    <button type="submit">Authorize</button>
+  <p class="error" id="error"${error ? '' : ' style="display:none"'}>${error ? escapeHtml(error) : ''}</p>
+  <form id="consent-form">
+    <input type="hidden" id="consentId" value="${escapeHtml(consentId)}">
+    <input type="password" id="password" placeholder="Operator password" autofocus required>
+    <button type="submit" id="submit-btn">Authorize</button>
   </form>
+  <script nonce="${nonce}">
+    document.getElementById('consent-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      var btn = document.getElementById('submit-btn');
+      var errorEl = document.getElementById('error');
+      btn.disabled = true;
+      btn.textContent = 'Authorizing...';
+      try {
+        var res = await fetch('/oauth/consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            consentId: document.getElementById('consentId').value,
+            password: document.getElementById('password').value,
+          }),
+        });
+        var data = await res.json();
+        if (res.ok && data.redirectUrl) {
+          window.location.href = data.redirectUrl;
+          return;
+        }
+        errorEl.textContent = data.message || 'Something went wrong. Please try again.';
+        errorEl.style.display = '';
+      } catch (err) {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.style.display = '';
+      }
+      btn.disabled = false;
+      btn.textContent = 'Authorize';
+    });
+  </script>
 </body>
 </html>`;
 }
@@ -92,24 +132,23 @@ function renderExpiredPage(): string {
 export const oauthConsentRouter = Router();
 
 /**
- * helmet()'s default CSP sets `form-action 'self'`, but 'self' resolves
- * against the DOCUMENT's own origin - and a document loaded in a sandboxed
- * iframe/popup without allow-same-origin (which is where claude.ai renders
- * this consent screen; see the Origin: null CORS handling in server.ts) has
- * an opaque origin, so 'self' can never match anything and the browser blocks
- * every submission outright. An explicit origin URL in form-action works
- * regardless of the document's own origin, so this route overrides just that
- * one directive rather than weakening the global CSP for the rest of the app.
+ * Sets this page's CSP with a fresh per-response nonce for its one inline
+ * <script> block (submission is fetch()-based, not a native form POST - see
+ * renderConsentForm for why), and returns that nonce so the caller can tag
+ * the <script> tag with it. 'unsafe-inline' is deliberately not used here;
+ * a nonce only authorizes the exact script emitted for this one response.
  */
-function setFormActionCsp(res: Response): void {
+function setConsentCsp(res: Response): string {
+  const nonce = randomBytes(16).toString('base64');
   res.setHeader(
     'Content-Security-Policy',
-    `default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self' ${env.MCP_OAUTH_ISSUER_URL};frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests`,
+    `default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self' ${env.MCP_OAUTH_ISSUER_URL};frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self' 'nonce-${nonce}';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';connect-src 'self';upgrade-insecure-requests`,
   );
+  return nonce;
 }
 
 oauthConsentRouter.get('/oauth/consent', async (req, res) => {
-  setFormActionCsp(res);
+  const nonce = setConsentCsp(res);
   const consentId = typeof req.query.consentId === 'string' ? req.query.consentId : undefined;
   const pending = consentId ? await getPendingAuthorization(consentId) : null;
   if (!consentId || !pending) {
@@ -117,31 +156,29 @@ oauthConsentRouter.get('/oauth/consent', async (req, res) => {
     return;
   }
   const client = await getOAuthClient(pending.clientId);
-  res.status(200).type('html').send(renderConsentForm(consentId, { clientName: client?.client_name }));
+  res.status(200).type('html').send(renderConsentForm(consentId, nonce, { clientName: client?.client_name }));
 });
 
+// The page's own <script> submits here via fetch() (see renderConsentForm),
+// not a native form POST, so this returns JSON rather than an HTML
+// re-render/redirect - the client-side script drives navigation on success.
 oauthConsentRouter.post(
   '/oauth/consent',
   consentRateLimiter,
-  express.urlencoded({ extended: false }),
+  express.json(),
   async (req, res) => {
     const consentId = typeof req.body?.consentId === 'string' ? req.body.consentId : undefined;
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
 
     const pending: PendingAuthorization | null = consentId ? await getPendingAuthorization(consentId) : null;
     if (!consentId || !pending) {
-      res.status(400).type('html').send(renderExpiredPage());
+      res.status(400).json({ message: 'This authorization request has expired or was already used. Please restart the connection from your client.' });
       return;
     }
 
     if (!timingSafePasswordEqual(password, env.MCP_OAUTH_ADMIN_PASSWORD)) {
       logger.warn({ clientId: pending.clientId }, 'oauth_consent_wrong_password');
-      const client = await getOAuthClient(pending.clientId);
-      setFormActionCsp(res);
-      res
-        .status(401)
-        .type('html')
-        .send(renderConsentForm(consentId, { clientName: client?.client_name, error: 'Incorrect password. Try again.' }));
+      res.status(401).json({ message: 'Incorrect password. Try again.' });
       return;
     }
 
@@ -154,6 +191,6 @@ oauthConsentRouter.post(
       redirectUrl.searchParams.set('state', pending.state);
     }
     logger.info({ clientId: pending.clientId }, 'oauth_consent_approved');
-    res.redirect(302, redirectUrl.href);
+    res.status(200).json({ redirectUrl: redirectUrl.href });
   },
 );
