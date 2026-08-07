@@ -24,15 +24,17 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-RUN addgroup -S app && adduser -S app -G app \
+RUN apk add --no-cache su-exec \
+    && addgroup -S app && adduser -S app -G app \
     && mkdir -p /app/data \
     && chown -R app:app /app
 
 COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package.json ./
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER app
 EXPOSE 3333
 
 # Uses global fetch (Node 18+) rather than a curl dependency, keeping the
@@ -44,4 +46,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 # --import preloads observability/register.js before server.js's own module
 # graph loads - required for OpenTelemetry auto-instrumentation to have any
 # chance of patching express/http (see observability/tracing.ts for why).
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "--import", "./dist/observability/register.js", "dist/server.js"]
