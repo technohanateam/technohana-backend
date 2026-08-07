@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { Router } from 'express';
+import type { Response } from 'express';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import {
@@ -90,7 +91,25 @@ function renderExpiredPage(): string {
 
 export const oauthConsentRouter = Router();
 
+/**
+ * helmet()'s default CSP sets `form-action 'self'`, but 'self' resolves
+ * against the DOCUMENT's own origin - and a document loaded in a sandboxed
+ * iframe/popup without allow-same-origin (which is where claude.ai renders
+ * this consent screen; see the Origin: null CORS handling in server.ts) has
+ * an opaque origin, so 'self' can never match anything and the browser blocks
+ * every submission outright. An explicit origin URL in form-action works
+ * regardless of the document's own origin, so this route overrides just that
+ * one directive rather than weakening the global CSP for the rest of the app.
+ */
+function setFormActionCsp(res: Response): void {
+  res.setHeader(
+    'Content-Security-Policy',
+    `default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self' ${env.MCP_OAUTH_ISSUER_URL};frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests`,
+  );
+}
+
 oauthConsentRouter.get('/oauth/consent', async (req, res) => {
+  setFormActionCsp(res);
   const consentId = typeof req.query.consentId === 'string' ? req.query.consentId : undefined;
   const pending = consentId ? await getPendingAuthorization(consentId) : null;
   if (!consentId || !pending) {
@@ -118,6 +137,7 @@ oauthConsentRouter.post(
     if (!timingSafePasswordEqual(password, env.MCP_OAUTH_ADMIN_PASSWORD)) {
       logger.warn({ clientId: pending.clientId }, 'oauth_consent_wrong_password');
       const client = await getOAuthClient(pending.clientId);
+      setFormActionCsp(res);
       res
         .status(401)
         .type('html')
