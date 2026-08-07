@@ -18,6 +18,9 @@ export const READ_ONLY_TOOLS = [
   'linkedin_get_ad_account',
   'linkedin_list_campaign_groups',
   'linkedin_list_campaigns',
+  'linkedin_list_creatives',
+  'linkedin_list_media_library',
+  'linkedin_validate_asset',
 ] as const;
 
 /**
@@ -74,6 +77,12 @@ export const ADVERTISER_TOOLS = [
   'linkedin_resume_campaign',
   'linkedin_archive_campaign',
   'linkedin_update_campaign',
+  'linkedin_create_single_image_ad',
+  'linkedin_create_video_ad',
+  'linkedin_create_carousel_ad',
+  'linkedin_update_creative',
+  'linkedin_upload_image',
+  'linkedin_upload_video',
 ] as const;
 
 /**

@@ -23,6 +23,12 @@ export const LINKEDIN_RETRY_DEFAULTS = {
   jitterRatio: 0.2,
 } as const;
 
+/** LinkedIn's documented Marketing API asset limits (Image Ads / Video Ads specs). */
+export const LINKEDIN_ASSET_LIMITS = {
+  maxImageBytes: 5 * 1024 * 1024,
+  maxVideoBytes: 200 * 1024 * 1024,
+} as const;
+
 /** Meta Graph API error codes considered transient/retryable. */
 export const META_RETRYABLE_ERROR_CODES = new Set<number>([1, 2, 4, 17, 32, 613]);
 

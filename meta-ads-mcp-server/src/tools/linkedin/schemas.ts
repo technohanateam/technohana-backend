@@ -48,3 +48,12 @@ export const linkedinTargetingSchema = z.object({
   audienceExpansionEnabled: z.boolean().optional().describe('Let LinkedIn expand reach beyond the explicit targeting facets.'),
   excludedAudienceSegments: z.array(z.string()).optional().describe('Matched audience segment URNs to exclude.'),
 });
+
+export const linkedinCreativeCreateStatusSchema = z.enum(['ACTIVE', 'PAUSED', 'DRAFT']);
+export const linkedinCreativeUpdateStatusSchema = z.enum(['ACTIVE', 'PAUSED']);
+
+export const linkedinCarouselCardSchema = z.object({
+  imageAssetUrn: z.string().describe('Image asset URN from linkedin_upload_image.'),
+  headline: z.string(),
+  landingPageUrl: z.string().url(),
+});
