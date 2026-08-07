@@ -33,6 +33,44 @@ sequenceDiagram
     Note over Operator,Server: `key` is what you pass as connectionKey<br/>in MCP tool calls
 ```
 
+## 1b. LinkedIn OAuth connection flow
+
+Same shape as the Meta flow, with two differences: LinkedIn issues a genuine
+**refresh token** (not just a re-exchangeable access token), and connections
+are discovered per-organization via `organizationAcls` rather than per-Business-Manager.
+
+```mermaid
+sequenceDiagram
+    actor Operator
+    participant Server as meta-ads-mcp-server
+    participant LinkedIn as LinkedIn API
+
+    Operator->>Server: GET /auth/linkedin/login
+    Server->>Server: mint signed, time-boxed state (auth/linkedinOauth.ts)
+    Server-->>Operator: 302 redirect to LinkedIn OAuth dialog
+
+    Operator->>LinkedIn: authorizes the app (LinkedIn's own UI)
+    LinkedIn-->>Operator: 302 redirect to /auth/linkedin/callback?code=...&state=...
+
+    Operator->>Server: GET /auth/linkedin/callback?code&state
+    Server->>Server: verify state signature + freshness (10 min TTL)
+    Server->>LinkedIn: POST /oauth/v2/accessToken (grant_type=authorization_code)
+    LinkedIn-->>Server: access_token (~60 days) + refresh_token (~365 days)
+    Server->>LinkedIn: GET /organizationAcls?role=ADMINISTRATOR
+    LinkedIn-->>Server: administered organization URNs
+    Server->>LinkedIn: GET /organizations/{id} (per organization, for display name)
+    LinkedIn-->>Server: organization name
+    Server->>Server: storeToken() per organization<br/>(or one 'personal' record if none) via StorageAdapter
+    Server-->>Operator: 200 { connections: [{ key, organizationName }] }
+
+    Note over Operator,Server: `key` (an organization URN) is what you pass<br/>as connectionKey in linkedin_* MCP tool calls
+```
+
+Later, `auth/linkedinTokenManager.ts`'s `getFreshAccessToken` renews the
+access token automatically ~3 days before expiry using the stored refresh
+token (`POST /oauth/v2/accessToken`, `grant_type=refresh_token`) — no browser
+round-trip required, unlike Meta's re-exchange-the-same-token approach.
+
 ## 2. MCP tool-call flow (Claude → Meta API)
 
 ```mermaid
@@ -80,9 +118,13 @@ sequenceDiagram
     end
 ```
 
+`linkedin_*` tool calls follow the identical shape, substituting
+`providers/linkedin/*.service.ts` for `Provider`, `auth/linkedinTokenManager.ts`
+for `Token`, and the LinkedIn Marketing API for `Meta`.
+
 ## 3. Bulk operation flow
 
-`bulk_pause_campaigns` shown; `bulk_resume_campaigns`, `bulk_update_budgets`, `bulk_update_target_audience`, and `bulk_create_ads` all follow the same shape (`tools/bulk.util.ts`).
+`bulk_pause_campaigns` shown; `bulk_resume_campaigns`, `bulk_update_budgets`, `bulk_update_target_audience`, `bulk_create_ads`, and LinkedIn's `linkedin_bulk_pause_campaigns`/`linkedin_bulk_resume_campaigns` all follow the same shape (`tools/bulk.util.ts`).
 
 ```mermaid
 sequenceDiagram

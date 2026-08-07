@@ -1,8 +1,10 @@
 # MCP Tool Reference
 
-47 tools, grouped by area. **Role** is the minimum RBAC tier required to invoke the tool (see `src/config/roles.ts`) — roles are hierarchical: `admin` > `advertiser` > `analyst` > `viewer`, so a higher role can always call a lower tier's tools too. Every mutating tool (anything that creates/updates/deletes a Meta resource) writes an audit log entry (`src/middleware/auditLogger.ts`).
+106 tools total (47 Meta + 59 LinkedIn), grouped by area. **Role** is the minimum RBAC tier required to invoke the tool (see `src/config/roles.ts`) — roles are hierarchical: `admin` > `advertiser` > `analyst` > `viewer`, so a higher role can always call a lower tier's tools too. Every mutating tool (anything that creates/updates/deletes a Meta or LinkedIn resource) writes an audit log entry (`src/middleware/auditLogger.ts`).
 
-Every tool accepts an optional `connectionKey` argument identifying which stored Meta connection to use (a Business Manager ID from `list_businesses`, or `'personal'` if you have no Business Manager). Omit it when exactly one Meta account is connected — it resolves automatically. See [README.md](../README.md#connecting-a-meta-account) for how connections are established.
+Every Meta tool accepts an optional `connectionKey` argument identifying which stored Meta connection to use (a Business Manager ID from `list_businesses`, or `'personal'` if you have no Business Manager); every `linkedin_*` tool accepts the same shape for LinkedIn (an organization URN from `linkedin_list_organizations`, or `'personal'`). Omit it when exactly one connection of that platform is stored — it resolves automatically. See [README.md](../README.md#connecting-a-meta-account) and [linkedin-setup.md](./linkedin-setup.md) for how connections are established.
+
+The Meta and LinkedIn tool sets are entirely separate — every LinkedIn tool name is prefixed `linkedin_` specifically so it can never collide with a same-purpose Meta tool (e.g. both platforms have "list ad accounts" and "create campaign" concepts, but as `list_ad_accounts`/`linkedin_list_ad_accounts` and `create_campaign`/`linkedin_create_campaign`).
 
 ## Accounts & Businesses
 
@@ -129,3 +131,131 @@ All copywriting tools take a shared "brief" shape: `productOrService`, `targetAu
 ```
 
 Batches are capped at `BULK_MAX_BATCH_SIZE` (default 50) and run with bounded concurrency (`BULK_MAX_CONCURRENCY`, default 5) — a partial failure never blocks the rest of the batch, and the call itself never throws for an individual item's failure.
+
+---
+
+# LinkedIn Ads Tools
+
+59 tools. See [linkedin-setup.md](./linkedin-setup.md) for connecting a LinkedIn account.
+
+## Organizations & Ad Accounts
+
+| Tool | Role | Description |
+|---|---|---|
+| `linkedin_list_organizations` | viewer | Lists LinkedIn organizations (Company Pages) the connected member administers. |
+| `linkedin_get_organization` | viewer | Retrieves a single LinkedIn organization by URN. |
+| `linkedin_list_ad_accounts` | viewer | Lists LinkedIn ad accounts visible to the connected member, optionally scoped to one organization. |
+| `linkedin_get_ad_account` | viewer | Retrieves a single LinkedIn ad account by URN. |
+
+## Campaign Groups
+
+| Tool | Role | Description |
+|---|---|---|
+| `linkedin_list_campaign_groups` | viewer | Lists campaign groups in a LinkedIn ad account. |
+| `linkedin_create_campaign_group` | advertiser | Creates a new LinkedIn campaign group. Defaults to DRAFT status for safety. |
+| `linkedin_update_campaign_group` | advertiser | Updates a LinkedIn campaign group (name, status, total budget, and/or run schedule). |
+| `linkedin_archive_campaign_group` | advertiser | Archives a LinkedIn campaign group. This stops delivery for every campaign in it and cannot be undone. |
+
+## Campaigns
+
+| Tool | Role | Description |
+|---|---|---|
+| `linkedin_list_campaigns` | viewer | Lists campaigns in a LinkedIn ad account, optionally scoped to one campaign group. |
+| `linkedin_create_campaign` | advertiser | Creates a new LinkedIn ad campaign. Defaults to DRAFT status for safety. |
+| `linkedin_duplicate_campaign` | advertiser | Duplicates an existing campaign (same objective/type/cost structure/targeting) under a new name. The duplicate is created DRAFT. |
+| `linkedin_pause_campaign` | advertiser | Pauses a LinkedIn campaign. |
+| `linkedin_resume_campaign` | advertiser | Resumes (activates) a paused LinkedIn campaign. |
+| `linkedin_archive_campaign` | advertiser | Archives a LinkedIn campaign. This stops delivery permanently and cannot be undone. |
+| `linkedin_update_campaign` | advertiser | Updates a LinkedIn campaign (name, status, budget, bid, targeting, and/or run schedule). |
+| `linkedin_bulk_pause_campaigns` | admin | Pauses up to 50 campaigns in one call. Returns a per-campaign success/failure result. |
+| `linkedin_bulk_resume_campaigns` | admin | Resumes up to 50 campaigns in one call. Returns a per-campaign success/failure result. |
+
+## Creatives
+
+| Tool | Role | Description |
+|---|---|---|
+| `linkedin_list_creatives` | viewer | Lists creatives (ads) within a LinkedIn campaign. |
+| `linkedin_create_single_image_ad` | advertiser | Creates a Single Image ad creative. Defaults to DRAFT status for safety. |
+| `linkedin_create_video_ad` | advertiser | Creates a Video ad creative. Defaults to DRAFT status for safety. |
+| `linkedin_create_carousel_ad` | advertiser | Creates a Carousel ad creative (at least 2 cards). Defaults to DRAFT status for safety. |
+| `linkedin_update_creative` | advertiser | Updates a creative (headline, commentary, landing page, CTA, and/or status). |
+
+## Media
+
+| Tool | Role | Description |
+|---|---|---|
+| `linkedin_upload_image` | advertiser | Uploads an image, returning its asset URN for use in ad creatives. |
+| `linkedin_upload_video` | advertiser | Uploads a video, returning its asset URN for use in ad creatives. |
+| `linkedin_list_media_library` | viewer | Lists every image and video asset uploaded to the ad account. |
+| `linkedin_validate_asset` | viewer | Checks a media asset's processing status and file size against LinkedIn's ad specs before it's used in a creative. |
+
+## Audience & Budget
+
+| Tool | Role | Description |
+|---|---|---|
+| `linkedin_estimate_audience` | viewer | Estimates the reachable audience size (low/high range) for a targeting spec. |
+| `linkedin_update_targeting` | advertiser | Replaces a campaign's targeting criteria. |
+| `linkedin_update_budget` | advertiser | Updates a campaign's daily and/or total budget. |
+| `linkedin_update_bid` | advertiser | Updates a campaign's bid (unit cost) amount. |
+
+## Insights
+
+| Tool | Role | Description |
+|---|---|---|
+| `linkedin_campaign_insights` | analyst | Retrieves full LinkedIn Ads Analytics (impressions, clicks, spend, CTR, CPC, CPM, CPL, conversions, leads, video metrics, ROAS) pivoted by campaign, campaign group, creative, or account. |
+| `linkedin_account_summary` | analyst | Retrieves account-level Analytics for a date range (one aggregated row across every campaign). |
+| `linkedin_spend` | analyst | Retrieves ad spend. |
+| `linkedin_clicks` | analyst | Retrieves clicks. |
+| `linkedin_impressions` | analyst | Retrieves impressions. |
+| `linkedin_ctr` | analyst | Retrieves Click-Through Rate (CTR). |
+| `linkedin_cpc` | analyst | Retrieves Cost Per Click (CPC). |
+| `linkedin_cpm` | analyst | Retrieves Cost Per Mille (CPM). |
+| `linkedin_cpl` | analyst | Retrieves Cost Per Lead (CPL). |
+| `linkedin_retrieve_leads_metric` | analyst | Retrieves one-click lead counts. |
+| `linkedin_retrieve_conversions` | analyst | Retrieves external website conversions. |
+| `linkedin_retrieve_roas` | analyst | Retrieves Return on Ad Spend (ROAS). |
+
+All insights tools pivot by `ACCOUNT`/`CAMPAIGN`/`CAMPAIGN_GROUP`/`CREATIVE` and take a `since`/`until` (`YYYY-MM-DD`) date range.
+
+## Lead Generation
+
+| Tool | Role | Description |
+|---|---|---|
+| `linkedin_list_lead_gen_forms` | analyst | Lists Lead Gen Forms for an ad account (names, status, lead counts). |
+| `linkedin_retrieve_leads` | analyst | Retrieves the most recent leads submitted through a form. |
+| `linkedin_download_leads` | analyst | Downloads every lead submitted through a form (paginates through the full result set). |
+| `linkedin_lead_statistics` | analyst | Computes lead volume statistics (total, last 7 days, last 30 days) for a form. |
+
+## AI — Copywriting
+
+All copywriting tools take a shared "brief" shape: `productOrService`, `targetAudience`, `keyBenefit`, optional `tone`, optional `objective`.
+
+| Tool | Role | Description |
+|---|---|---|
+| `linkedin_generate_ad_copy` | advertiser | Generates a complete, LinkedIn-policy-aware ad copy set (commentary, headline, description, CTA). |
+| `linkedin_generate_headlines` | advertiser | Generates several distinct headline options (~70 character guideline). |
+| `linkedin_generate_descriptions` | advertiser | Generates several distinct commentary (intro text) variants. |
+| `linkedin_generate_cta` | advertiser | Recommends the single best LinkedIn CTA label for a campaign brief. |
+
+## AI — Recommendations
+
+`linkedin_recommend_budget` and `linkedin_recommend_bid` fetch real historical Ads Analytics internally before asking Claude for a number — they are not blind guesses. `linkedin_recommend_targeting` returns suggested facet *category names* (e.g. "Software Development", "Director"), not resolved facet URNs — look each one up against LinkedIn's live targeting facets before passing it to `linkedin_update_targeting`.
+
+| Tool | Role | Description |
+|---|---|---|
+| `linkedin_recommend_budget` | advertiser | Recommends a daily budget grounded in real historical performance for the account or a specific campaign. |
+| `linkedin_recommend_bid` | advertiser | Recommends a bid (unit cost) amount grounded in real historical cost data. |
+| `linkedin_recommend_targeting` | advertiser | Recommends targeting facet categories (industries, job functions, seniorities, company sizes) for a brief. |
+| `linkedin_competitor_analysis` | advertiser | Produces a competitive positioning analysis (advantages, messaging gaps, recommended positioning). |
+
+## AI — Reporting
+
+`linkedin_campaign_health_score`'s numeric score is computed deterministically from CTR/click-to-lead-conversion/CPL signals (see `src/services/linkedinReporting.service.ts`) — the AI only writes the narrative summary. `linkedin_creative_score` is the same pattern applied to a creative's structural quality (commentary length, headline, CTA, landing page scheme).
+
+| Tool | Role | Description |
+|---|---|---|
+| `linkedin_campaign_health_score` | analyst | Computes a deterministic 0-100 health score (from CTR, click-to-lead conversion, and CPL) with an AI-written summary and next action. |
+| `linkedin_daily_report` | analyst | Generates yesterday's performance report (spend/impressions/clicks/leads totals plus an AI narrative). |
+| `linkedin_weekly_report` | analyst | Generates the last 7 days performance report. |
+| `linkedin_monthly_report` | analyst | Generates the last 30 days performance report. |
+| `linkedin_creative_score` | analyst | Computes a deterministic 0-100 structural quality score for a creative with an AI-written critique. |
