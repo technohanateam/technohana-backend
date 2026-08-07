@@ -22,6 +22,11 @@ const envSchema = z.object({
   MCP_JWT_AUDIENCE: z.string().default('claude-mcp-connector'),
   MCP_JWT_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
 
+  /** Public HTTPS base URL this server is reachable at - required to act as an OAuth 2.1 authorization server for MCP clients (e.g. claude.ai's connector setup, which requires Dynamic Client Registration). */
+  MCP_OAUTH_ISSUER_URL: z.string().url(),
+  /** Gates the authorize() consent step - the one interactive checkpoint before an OAuth client (e.g. claude.ai) is issued an access token. */
+  MCP_OAUTH_ADMIN_PASSWORD: z.string().min(8, 'MCP_OAUTH_ADMIN_PASSWORD must be at least 8 characters'),
+
   REQUEST_SIGNING_SECRET: z.string().optional(),
 
   META_APP_ID: z.string().min(1, 'META_APP_ID is required'),

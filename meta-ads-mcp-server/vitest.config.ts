@@ -13,6 +13,8 @@ export default defineConfig({
       MCP_JWT_SECRET: 'test-mcp-jwt-secret-not-for-production',
       MCP_JWT_ISSUER: 'meta-ads-mcp-server-test',
       MCP_JWT_AUDIENCE: 'claude-mcp-connector-test',
+      MCP_OAUTH_ISSUER_URL: 'http://localhost:3333',
+      MCP_OAUTH_ADMIN_PASSWORD: 'test-oauth-admin-password-not-for-production',
       ANTHROPIC_API_KEY: 'test-anthropic-api-key',
       META_APP_ID: 'test-app-id',
       META_APP_SECRET: 'test-app-secret',
