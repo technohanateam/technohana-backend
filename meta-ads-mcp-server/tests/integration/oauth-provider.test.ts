@@ -98,6 +98,17 @@ describe('OAuth 2.1 authorization server for /mcp', () => {
     expect(res.text).toContain(consentId);
   });
 
+  it('sets an explicit origin in the CSP form-action directive, not just \'self\' (opaque-origin sandboxed contexts can never match \'self\')', async () => {
+    const { clientId } = await registerClient();
+    const { challenge } = makePkcePair();
+    const { consentId } = await authorizeToConsent(clientId, challenge);
+
+    const res = await request(app).get('/oauth/consent').query({ consentId });
+    const csp = res.headers['content-security-policy'];
+    expect(csp).toContain("form-action 'self'");
+    expect(csp).toMatch(/form-action[^;]*http/);
+  });
+
   it('rejects the wrong operator password and re-renders the form', async () => {
     const { clientId } = await registerClient();
     const { challenge } = makePkcePair();
