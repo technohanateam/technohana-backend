@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
+import { mcpAuthRouter, getOAuthProtectedResourceMetadataUrl } from '@modelcontextprotocol/sdk/server/auth/router.js';
 import type { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
@@ -12,17 +13,22 @@ import { rateLimiter } from './middleware/rateLimiter.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { captureRawBody } from './middleware/requestSigning.js';
 import { mcpTokenVerifier } from './auth/mcpTokenVerifier.js';
+import { mcpOAuthProvider } from './auth/mcpOAuthProvider.js';
 import { createMcpServer, createSessionTransport } from './mcp.js';
 import { healthRouter } from './routes/health.routes.js';
 import { readyRouter } from './routes/ready.routes.js';
 import { metricsRouter } from './routes/metrics.routes.js';
 import { oauthRouter } from './routes/oauth.routes.js';
 import { linkedinOauthRouter } from './routes/linkedinOauth.routes.js';
+import { oauthConsentRouter } from './routes/oauthConsent.routes.js';
 import { initSentry } from './observability/sentry.js';
 
 initSentry();
 
 export const app = express();
+
+const mcpIssuerUrl = new URL(env.MCP_OAUTH_ISSUER_URL);
+const mcpResourceUrl = new URL('/mcp', mcpIssuerUrl);
 
 app.disable('x-powered-by');
 app.use(helmet());
@@ -31,6 +37,11 @@ app.use(
     origin: (origin, callback) => {
       // No Origin header (server-to-server, curl, the MCP connector) - always allow.
       if (!origin) return callback(null, true);
+      // Same-origin requests (e.g. the OAuth consent form's own POST back to
+      // this server) always carry an Origin header even though they aren't
+      // cross-origin - CORS exists to gate cross-origin access, so this is
+      // always safe to allow regardless of CORS_ALLOWED_ORIGINS.
+      if (origin === mcpIssuerUrl.origin) return callback(null, true);
       if (env.CORS_ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
       callback(new Error(`Origin '${origin}' is not allowed by CORS policy.`));
     },
@@ -49,9 +60,34 @@ app.use(metricsRouter);
 app.use(oauthRouter);
 app.use(linkedinOauthRouter);
 
+// OAuth 2.1 authorization server for /mcp itself - lets OAuth-only clients
+// (e.g. claude.ai's web connector setup, which requires Dynamic Client
+// Registration and a real authorize/token handshake) connect without a
+// manually-pasted bearer token. Installs /register, /authorize, /token, and
+// the .well-known metadata documents; the interactive consent step they all
+// funnel through lives in oauthConsentRouter, since provider.authorize()
+// itself has no access to the request body (see mcpOAuthProvider.ts).
+app.use(
+  mcpAuthRouter({
+    provider: mcpOAuthProvider,
+    issuerUrl: mcpIssuerUrl,
+    resourceServerUrl: mcpResourceUrl,
+    scopesSupported: ['admin'],
+    // The app's own global rateLimiter (above) already covers these routes;
+    // avoid double/inconsistent limiting from the SDK's per-endpoint defaults.
+    authorizationOptions: { rateLimit: false },
+    clientRegistrationOptions: { rateLimit: false },
+    tokenOptions: { rateLimit: false },
+  }),
+);
+app.use(oauthConsentRouter);
+
 // --- MCP Streamable HTTP endpoint ---
 const sessionTransports = new Map<string, StreamableHTTPServerTransport>();
-const bearerAuth = requireBearerAuth({ verifier: mcpTokenVerifier });
+const bearerAuth = requireBearerAuth({
+  verifier: mcpTokenVerifier,
+  resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(mcpResourceUrl),
+});
 
 async function handleMcpPost(req: Request, res: Response): Promise<void> {
   const sessionId = req.headers['mcp-session-id'] as string | undefined;

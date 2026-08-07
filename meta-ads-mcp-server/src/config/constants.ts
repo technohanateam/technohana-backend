@@ -84,7 +84,15 @@ export const STORAGE_NAMESPACES = {
   META_TOKENS: 'meta-tokens',
   LINKEDIN_TOKENS: 'linkedin-tokens',
   AUDIT_LOG: 'audit-log',
+  OAUTH_CLIENTS: 'oauth-clients',
+  OAUTH_PENDING_AUTHORIZATIONS: 'oauth-pending-authorizations',
+  OAUTH_CODES: 'oauth-codes',
 } as const;
+
+/** How long a pending authorize() consent screen stays valid before the operator must restart the flow. */
+export const OAUTH_PENDING_AUTHORIZATION_TTL_SECONDS = 600;
+/** Standard short-lived authorization code lifetime (single-use, exchanged for an access token). */
+export const OAUTH_AUTHORIZATION_CODE_TTL_SECONDS = 600;
 
 /** Meta Ads objectives under the current Outcome-Driven Ads Experiences (ODAX) model. */
 export const META_CAMPAIGN_OBJECTIVES = [

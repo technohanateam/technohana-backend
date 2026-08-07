@@ -31,8 +31,13 @@ export class JwtVerificationError extends Error {
   }
 }
 
-/** Issues a new bearer JWT for the /mcp endpoint, always signed with the current key. */
-export function issueMcpToken(claims: McpJwtClaims): string {
+/**
+ * Issues a new bearer JWT for the /mcp endpoint, always signed with the current
+ * key. `exp` is computed from MCP_JWT_TTL_SECONDS (via the `expiresIn` sign
+ * option) - callers must not supply it themselves, since jsonwebtoken throws if
+ * the payload already has an `exp` claim while `expiresIn` is also set.
+ */
+export function issueMcpToken(claims: Omit<McpJwtClaims, 'exp'>): string {
   return jwt.sign(claims, env.MCP_JWT_SECRET, {
     algorithm: 'HS256',
     issuer: env.MCP_JWT_ISSUER,
