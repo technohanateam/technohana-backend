@@ -98,7 +98,7 @@ describe('OAuth 2.1 authorization server for /mcp', () => {
     expect(res.text).toContain(consentId);
   });
 
-  it('sets an explicit origin in the CSP form-action directive, not just \'self\' (opaque-origin sandboxed contexts can never match \'self\')', async () => {
+  it('sets an explicit origin in the CSP form-action directive, not just \'self\' (opaque-origin sandboxed contexts can never match \'self\'), and a nonce for its inline script', async () => {
     const { clientId } = await registerClient();
     const { challenge } = makePkcePair();
     const { consentId } = await authorizeToConsent(clientId, challenge);
@@ -107,27 +107,29 @@ describe('OAuth 2.1 authorization server for /mcp', () => {
     const csp = res.headers['content-security-policy'];
     expect(csp).toContain("form-action 'self'");
     expect(csp).toMatch(/form-action[^;]*http/);
+    expect(csp).toMatch(/script-src[^;]*'nonce-/);
+    const nonceInHeader = /'nonce-([^']+)'/.exec(csp)![1];
+    expect(res.text).toContain(`nonce="${nonceInHeader}"`);
   });
 
-  it('rejects the wrong operator password and re-renders the form', async () => {
+  it('rejects the wrong operator password with a JSON error (the page submits via fetch(), not a native form)', async () => {
     const { clientId } = await registerClient();
     const { challenge } = makePkcePair();
     const { consentId } = await authorizeToConsent(clientId, challenge);
 
-    const res = await request(app).post('/oauth/consent').type('form').send({ consentId, password: 'wrong-password' });
+    const res = await request(app).post('/oauth/consent').send({ consentId, password: 'wrong-password' });
     expect(res.status).toBe(401);
-    expect(res.text).toContain('Incorrect password');
+    expect(res.body.message).toContain('Incorrect password');
   });
 
   it('rejects an unknown consentId', async () => {
     const res = await request(app)
       .post('/oauth/consent')
-      .type('form')
       .send({ consentId: 'does-not-exist', password: 'test-oauth-admin-password-not-for-production' });
     expect(res.status).toBe(400);
   });
 
-  it('accepts the consent form submission when the browser sends Origin: null (sandboxed iframe/popup, e.g. claude.ai)', async () => {
+  it('accepts the consent submission when the browser sends Origin: null (sandboxed iframe/popup, e.g. claude.ai)', async () => {
     const { clientId } = await registerClient();
     const { challenge } = makePkcePair();
     const { consentId } = await authorizeToConsent(clientId, challenge);
@@ -135,10 +137,9 @@ describe('OAuth 2.1 authorization server for /mcp', () => {
     const res = await request(app)
       .post('/oauth/consent')
       .set('Origin', 'null')
-      .type('form')
       .send({ consentId, password: 'test-oauth-admin-password-not-for-production' });
-    expect(res.status).toBe(302);
-    expect(new URL(res.headers.location).searchParams.get('code')).toBeTruthy();
+    expect(res.status).toBe(200);
+    expect(new URL(res.body.redirectUrl).searchParams.get('code')).toBeTruthy();
   });
 
   it('still rejects a real cross-origin request', async () => {
@@ -149,7 +150,6 @@ describe('OAuth 2.1 authorization server for /mcp', () => {
     const res = await request(app)
       .post('/oauth/consent')
       .set('Origin', 'https://evil.example')
-      .type('form')
       .send({ consentId, password: 'test-oauth-admin-password-not-for-production' });
     expect(res.status).toBe(500);
   });
@@ -161,10 +161,9 @@ describe('OAuth 2.1 authorization server for /mcp', () => {
 
     const consentRes = await request(app)
       .post('/oauth/consent')
-      .type('form')
       .send({ consentId, password: 'test-oauth-admin-password-not-for-production' });
-    expect(consentRes.status).toBe(302);
-    const redirectUrl = new URL(consentRes.headers.location);
+    expect(consentRes.status).toBe(200);
+    const redirectUrl = new URL(consentRes.body.redirectUrl);
     expect(redirectUrl.origin + redirectUrl.pathname).toBe('https://claude.example/callback');
     expect(redirectUrl.searchParams.get('state')).toBe('round-trip-state');
     const code = redirectUrl.searchParams.get('code')!;
@@ -202,9 +201,8 @@ describe('OAuth 2.1 authorization server for /mcp', () => {
 
     const consentRes = await request(app)
       .post('/oauth/consent')
-      .type('form')
       .send({ consentId, password: 'test-oauth-admin-password-not-for-production' });
-    const code = new URL(consentRes.headers.location).searchParams.get('code')!;
+    const code = new URL(consentRes.body.redirectUrl).searchParams.get('code')!;
 
     const exchangeOnce = async () =>
       request(app).post('/token').type('form').send({
@@ -231,9 +229,8 @@ describe('OAuth 2.1 authorization server for /mcp', () => {
 
     const consentRes = await request(app)
       .post('/oauth/consent')
-      .type('form')
       .send({ consentId, password: 'test-oauth-admin-password-not-for-production' });
-    const code = new URL(consentRes.headers.location).searchParams.get('code')!;
+    const code = new URL(consentRes.body.redirectUrl).searchParams.get('code')!;
 
     const tokenRes = await request(app).post('/token').type('form').send({
       grant_type: 'authorization_code',
