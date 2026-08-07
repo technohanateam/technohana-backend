@@ -57,3 +57,17 @@ export const linkedinCarouselCardSchema = z.object({
   headline: z.string(),
   landingPageUrl: z.string().url(),
 });
+
+export const linkedinInsightsPivotSchema = z.enum(['ACCOUNT', 'CAMPAIGN', 'CAMPAIGN_GROUP', 'CREATIVE']);
+export const linkedinTimeGranularitySchema = z.enum(['DAILY', 'MONTHLY', 'YEARLY', 'ALL']);
+
+export const linkedinInsightsQuerySchema = z.object({
+  connectionKey: linkedinConnectionKeySchema,
+  accountUrn: z.string().describe('Ad account URN (from linkedin_list_ad_accounts).'),
+  pivot: linkedinInsightsPivotSchema.default('CAMPAIGN'),
+  campaignUrns: z.array(z.string()).optional().describe('Restrict to specific campaigns.'),
+  campaignGroupUrns: z.array(z.string()).optional().describe('Restrict to specific campaign groups.'),
+  since: z.string().describe('YYYY-MM-DD, inclusive start of the date range.'),
+  until: z.string().describe('YYYY-MM-DD, inclusive end of the date range.'),
+  timeGranularity: linkedinTimeGranularitySchema.optional().describe('Defaults to ALL (one aggregated row for the whole range).'),
+});

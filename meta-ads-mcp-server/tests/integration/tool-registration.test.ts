@@ -3,8 +3,8 @@ import { allTools } from '../../src/tools/index.js';
 import { ROLES, isToolAllowedForRole } from '../../src/config/roles.js';
 
 describe('tool registry', () => {
-  it('registers exactly 77 tools', () => {
-    expect(allTools).toHaveLength(77);
+  it('registers exactly 93 tools', () => {
+    expect(allTools).toHaveLength(93);
   });
 
   it('has no duplicate tool names', () => {

@@ -42,6 +42,22 @@ export const ANALYST_TOOLS = [
   'daily_report',
   'weekly_report',
   'monthly_report',
+  'linkedin_campaign_insights',
+  'linkedin_account_summary',
+  'linkedin_spend',
+  'linkedin_clicks',
+  'linkedin_impressions',
+  'linkedin_ctr',
+  'linkedin_cpc',
+  'linkedin_cpm',
+  'linkedin_cpl',
+  'linkedin_retrieve_leads_metric',
+  'linkedin_retrieve_conversions',
+  'linkedin_retrieve_roas',
+  'linkedin_list_lead_gen_forms',
+  'linkedin_retrieve_leads',
+  'linkedin_download_leads',
+  'linkedin_lead_statistics',
 ] as const;
 
 /**
