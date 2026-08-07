@@ -6,16 +6,17 @@ import { recordToolInvocation } from '../observability/metrics.js';
 import { captureException } from '../observability/sentry.js';
 import { ForbiddenToolError } from '../auth/rbac.js';
 import { MetaApiError } from '../utils/metaErrors.js';
+import { LinkedInApiError } from '../utils/linkedinErrors.js';
 import type { McpToolContext, McpToolDefinition, McpToolHandler, McpToolTextResult } from '../types/mcp.types.js';
 
 /**
  * Only genuinely unexpected failures are worth alerting on in Sentry - a
- * denied-permission or a validation/expired-token error from Meta is an
- * expected, user-actionable outcome, not an incident.
+ * denied-permission or a validation/expired-token error from Meta or LinkedIn
+ * is an expected, user-actionable outcome, not an incident.
  */
 function isUnexpectedError(error: unknown): boolean {
   if (error instanceof ForbiddenToolError) return false;
-  if (error instanceof MetaApiError) {
+  if (error instanceof MetaApiError || error instanceof LinkedInApiError) {
     return error.classification === 'unknown' || error.classification === 'retryable';
   }
   return true;

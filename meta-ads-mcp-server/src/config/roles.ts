@@ -12,6 +12,12 @@ export const READ_ONLY_TOOLS = [
   'list_ads',
   'list_asset_library',
   'list_pixels',
+  'linkedin_list_organizations',
+  'linkedin_get_organization',
+  'linkedin_list_ad_accounts',
+  'linkedin_get_ad_account',
+  'linkedin_list_campaign_groups',
+  'linkedin_list_campaigns',
 ] as const;
 
 /**
@@ -59,6 +65,15 @@ export const ADVERTISER_TOOLS = [
   'generate_headlines',
   'generate_primary_text',
   'generate_cta',
+  'linkedin_create_campaign_group',
+  'linkedin_update_campaign_group',
+  'linkedin_archive_campaign_group',
+  'linkedin_create_campaign',
+  'linkedin_duplicate_campaign',
+  'linkedin_pause_campaign',
+  'linkedin_resume_campaign',
+  'linkedin_archive_campaign',
+  'linkedin_update_campaign',
 ] as const;
 
 /**
@@ -70,6 +85,8 @@ export const ADMIN_TOOLS = [
   'bulk_update_budgets',
   'bulk_update_target_audience',
   'bulk_create_ads',
+  'linkedin_bulk_pause_campaigns',
+  'linkedin_bulk_resume_campaigns',
 ] as const;
 
 export type ToolName =

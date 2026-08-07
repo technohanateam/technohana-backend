@@ -8,6 +8,7 @@ import { insightsTools } from './insights.tools.js';
 import { leadsTools } from './leads.tools.js';
 import { pixelTools } from './pixel.tools.js';
 import { aiTools } from './ai.tools.js';
+import { linkedinTools } from './linkedin/index.js';
 
 /** Every MCP tool this server exposes, aggregated for registration in mcp.ts. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,4 +22,5 @@ export const allTools: McpToolDefinition<any>[] = [
   ...leadsTools,
   ...pixelTools,
   ...aiTools,
+  ...linkedinTools,
 ];

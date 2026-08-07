@@ -18,6 +18,8 @@ const httpClient = axios.create({
 export interface LinkedInApiResult<T> {
   data: T;
   linkedinRequestId?: string;
+  /** The Rest.li key of a newly-created entity, returned in the `x-restli-id` response header on POST creates. */
+  restliId?: string;
 }
 
 interface BaseRequestConfig {
@@ -40,6 +42,11 @@ function extractLinkedInRequestId(headers: Record<string, unknown>): string | un
   return typeof value === 'string' ? value : undefined;
 }
 
+function extractRestliId(headers: Record<string, unknown>): string | undefined {
+  const value = headers['x-restli-id'] ?? headers['X-RestLi-Id'] ?? headers['x-linkedin-id'];
+  return typeof value === 'string' ? value : undefined;
+}
+
 async function execute<T>(
   method: 'GET' | 'POST' | 'DELETE' | 'PATCH',
   path: string,
@@ -58,6 +65,7 @@ async function execute<T>(
         return {
           data: response.data,
           linkedinRequestId: extractLinkedInRequestId(response.headers as Record<string, unknown>),
+          restliId: extractRestliId(response.headers as Record<string, unknown>),
         };
       } catch (error) {
         throw parseLinkedInApiError(error);
