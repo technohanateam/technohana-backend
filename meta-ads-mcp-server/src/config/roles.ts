@@ -58,6 +58,11 @@ export const ANALYST_TOOLS = [
   'linkedin_retrieve_leads',
   'linkedin_download_leads',
   'linkedin_lead_statistics',
+  'linkedin_campaign_health_score',
+  'linkedin_daily_report',
+  'linkedin_weekly_report',
+  'linkedin_monthly_report',
+  'linkedin_creative_score',
 ] as const;
 
 /**
@@ -103,6 +108,14 @@ export const ADVERTISER_TOOLS = [
   'linkedin_update_targeting',
   'linkedin_update_budget',
   'linkedin_update_bid',
+  'linkedin_generate_ad_copy',
+  'linkedin_generate_headlines',
+  'linkedin_generate_descriptions',
+  'linkedin_generate_cta',
+  'linkedin_recommend_budget',
+  'linkedin_recommend_bid',
+  'linkedin_recommend_targeting',
+  'linkedin_competitor_analysis',
 ] as const;
 
 /**

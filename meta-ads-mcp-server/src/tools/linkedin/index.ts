@@ -9,6 +9,7 @@ import { audienceTools } from './audience.tools.js';
 import { budgetTools } from './budget.tools.js';
 import { insightsTools } from './insights.tools.js';
 import { leadgenTools } from './leadgen.tools.js';
+import { aiTools } from './ai.tools.js';
 
 /** Every LinkedIn Ads MCP tool, aggregated for registration in tools/index.ts. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,4 +24,5 @@ export const linkedinTools: McpToolDefinition<any>[] = [
   ...budgetTools,
   ...insightsTools,
   ...leadgenTools,
+  ...aiTools,
 ];
