@@ -43,6 +43,20 @@ export const metaRateLimitHitsTotal = new Counter({
   registers: [metricsRegistry],
 });
 
+export const linkedinApiLatencyMs = new Histogram({
+  name: 'linkedin_api_latency_ms',
+  help: 'LinkedIn Marketing API call latency in milliseconds.',
+  labelNames: ['operation'] as const,
+  buckets: [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000],
+  registers: [metricsRegistry],
+});
+
+export const linkedinRateLimitHitsTotal = new Counter({
+  name: 'linkedin_api_rate_limit_hits_total',
+  help: 'Total times a LinkedIn Marketing API call was retried due to a rate-limit/transient error.',
+  registers: [metricsRegistry],
+});
+
 /** Records a completed tool invocation into the invocation counter and latency histogram. */
 export function recordToolInvocation(tool: string, status: 'success' | 'error', durationMs: number): void {
   if (!env.METRICS_ENABLED) return;
