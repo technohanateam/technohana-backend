@@ -3,8 +3,8 @@ import { allTools } from '../../src/tools/index.js';
 import { ROLES, isToolAllowedForRole } from '../../src/config/roles.js';
 
 describe('tool registry', () => {
-  it('registers exactly 47 tools', () => {
-    expect(allTools).toHaveLength(47);
+  it('registers exactly 106 tools', () => {
+    expect(allTools).toHaveLength(106);
   });
 
   it('has no duplicate tool names', () => {
@@ -37,7 +37,25 @@ describe('tool registry', () => {
   it('viewer can only invoke read-only tools', () => {
     const viewerAllowed = allTools.filter((tool) => isToolAllowedForRole('viewer', tool.name)).map((t) => t.name);
     expect(viewerAllowed.sort()).toEqual(
-      ['list_ad_accounts', 'list_businesses', 'list_campaigns', 'list_ad_sets', 'list_ads', 'list_asset_library', 'list_pixels'].sort(),
+      [
+        'list_ad_accounts',
+        'list_businesses',
+        'list_campaigns',
+        'list_ad_sets',
+        'list_ads',
+        'list_asset_library',
+        'list_pixels',
+        'linkedin_list_organizations',
+        'linkedin_get_organization',
+        'linkedin_list_ad_accounts',
+        'linkedin_get_ad_account',
+        'linkedin_list_campaign_groups',
+        'linkedin_list_campaigns',
+        'linkedin_list_creatives',
+        'linkedin_list_media_library',
+        'linkedin_validate_asset',
+        'linkedin_estimate_audience',
+      ].sort(),
     );
   });
 });

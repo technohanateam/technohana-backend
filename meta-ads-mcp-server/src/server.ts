@@ -17,6 +17,7 @@ import { healthRouter } from './routes/health.routes.js';
 import { readyRouter } from './routes/ready.routes.js';
 import { metricsRouter } from './routes/metrics.routes.js';
 import { oauthRouter } from './routes/oauth.routes.js';
+import { linkedinOauthRouter } from './routes/linkedinOauth.routes.js';
 import { initSentry } from './observability/sentry.js';
 
 initSentry();
@@ -44,8 +45,9 @@ app.use(healthRouter);
 app.use(readyRouter);
 app.use(metricsRouter);
 
-// Meta OAuth (browser redirect flow, protected by its own signed+time-boxed state parameter).
+// Meta and LinkedIn OAuth (browser redirect flows, each protected by its own signed+time-boxed state parameter).
 app.use(oauthRouter);
+app.use(linkedinOauthRouter);
 
 // --- MCP Streamable HTTP endpoint ---
 const sessionTransports = new Map<string, StreamableHTTPServerTransport>();

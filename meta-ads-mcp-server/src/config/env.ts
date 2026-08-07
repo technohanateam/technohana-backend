@@ -30,6 +30,14 @@ const envSchema = z.object({
   META_OAUTH_REDIRECT_URI: z.string().url(),
   META_OAUTH_SCOPES: z.string().default('ads_management ads_read business_management leads_retrieval pages_show_list'),
 
+  LINKEDIN_CLIENT_ID: z.string().min(1, 'LINKEDIN_CLIENT_ID is required'),
+  LINKEDIN_CLIENT_SECRET: z.string().min(1, 'LINKEDIN_CLIENT_SECRET is required'),
+  LINKEDIN_API_VERSION: z.string().default('202405'),
+  LINKEDIN_OAUTH_REDIRECT_URI: z.string().url(),
+  LINKEDIN_OAUTH_SCOPES: z
+    .string()
+    .default('r_ads rw_ads r_ads_reporting r_organization_admin r_organization_social'),
+
   STORAGE_BACKEND: z.enum(['file', 'redis', 'mongo', 'postgres']).default('file'),
   FILE_STORE_PATH: z.string().default('./data/store.json'),
   FILE_STORE_ENCRYPTION_KEY: z.string().optional(),
@@ -44,6 +52,12 @@ const envSchema = z.object({
   CACHE_TTL_PIXELS_SECONDS: z.coerce.number().int().positive().default(300),
   CACHE_TTL_ASSET_LIBRARY_SECONDS: z.coerce.number().int().positive().default(180),
   CACHE_TTL_CAMPAIGN_METADATA_SECONDS: z.coerce.number().int().positive().default(60),
+
+  CACHE_TTL_LINKEDIN_ORGANIZATIONS_SECONDS: z.coerce.number().int().positive().default(300),
+  CACHE_TTL_LINKEDIN_AD_ACCOUNTS_SECONDS: z.coerce.number().int().positive().default(300),
+  CACHE_TTL_LINKEDIN_CAMPAIGN_METADATA_SECONDS: z.coerce.number().int().positive().default(60),
+  CACHE_TTL_LINKEDIN_CREATIVES_SECONDS: z.coerce.number().int().positive().default(120),
+  CACHE_TTL_LINKEDIN_AUDIENCE_ESTIMATES_SECONDS: z.coerce.number().int().positive().default(600),
 
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(120),
@@ -83,3 +97,4 @@ function loadEnv(): Env {
 export const env: Env = loadEnv();
 
 export const metaOAuthScopes: string[] = env.META_OAUTH_SCOPES.split(' ').filter(Boolean);
+export const linkedinOAuthScopes: string[] = env.LINKEDIN_OAUTH_SCOPES.split(' ').filter(Boolean);

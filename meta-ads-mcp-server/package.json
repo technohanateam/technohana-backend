@@ -2,7 +2,7 @@
   "name": "meta-ads-mcp-server",
   "version": "1.0.0",
   "private": true,
-  "description": "Production-ready Remote MCP Server for managing Meta (Facebook & Instagram) Ads via the Meta Marketing API, compatible with Claude's Remote MCP Connector.",
+  "description": "Production-ready Remote MCP Server for managing Meta (Facebook & Instagram) Ads and LinkedIn Ads via their respective Marketing APIs, compatible with Claude's Remote MCP Connector.",
   "type": "module",
   "main": "dist/server.js",
   "engines": {

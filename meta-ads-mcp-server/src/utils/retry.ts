@@ -10,6 +10,12 @@ export interface RetryOptions {
   jitterRatio?: number;
   logger?: Logger;
   operationName?: string;
+  /** Defaults to the Meta Graph API error classifier. Pass a provider-specific one to reuse this backoff loop elsewhere. */
+  isRetryable?: (error: unknown) => boolean;
+  /** Called once per retried attempt, after the retryability check passes. Defaults to incrementing the Meta rate-limit counter. */
+  onRetry?: (error: unknown) => void;
+  /** If the retryable error carries a server-specified wait (e.g. LinkedIn's Retry-After), use it instead of the computed backoff delay. */
+  retryAfterMs?: (error: unknown) => number | undefined;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -32,6 +38,8 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
   const baseDelayMs = options.baseDelayMs ?? RETRY_DEFAULTS.baseDelayMs;
   const maxDelayMs = options.maxDelayMs ?? RETRY_DEFAULTS.maxDelayMs;
   const jitterRatio = options.jitterRatio ?? RETRY_DEFAULTS.jitterRatio;
+  const isRetryable = options.isRetryable ?? isRetryableError;
+  const onRetry = options.onRetry ?? (() => metaRateLimitHitsTotal.inc());
 
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -39,7 +47,7 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
       return await fn();
     } catch (error) {
       lastError = error;
-      const retryable = isRetryableError(error);
+      const retryable = isRetryable(error);
       const isLastAttempt = attempt === maxAttempts;
 
       options.logger?.warn(
@@ -50,15 +58,16 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
           operationName: options.operationName,
           err: error instanceof Error ? error.message : error,
         },
-        retryable && !isLastAttempt ? 'Meta API call failed, retrying' : 'Meta API call failed',
+        retryable && !isLastAttempt ? 'API call failed, retrying' : 'API call failed',
       );
 
       if (!retryable || isLastAttempt) {
         throw error;
       }
 
-      metaRateLimitHitsTotal.inc();
-      await sleep(computeDelay(attempt, baseDelayMs, maxDelayMs, jitterRatio));
+      onRetry(error);
+      const serverDelayMs = options.retryAfterMs?.(error);
+      await sleep(serverDelayMs ?? computeDelay(attempt, baseDelayMs, maxDelayMs, jitterRatio));
     }
   }
 

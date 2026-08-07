@@ -21,6 +21,8 @@ export const logger = pino({
       'req.headers.cookie',
       '*.accessToken',
       '*.access_token',
+      '*.refreshToken',
+      '*.refresh_token',
       '*.appSecret',
       '*.app_secret',
       '*.MCP_JWT_SECRET',
