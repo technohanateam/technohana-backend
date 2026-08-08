@@ -69,6 +69,14 @@ const blogSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "ContentOpportunity",
         default: null
+    },
+    // AI Content Factory (Milestone 5): last time a human marked this post as
+    // reviewed/refreshed. contentFreshness.service.js prefers this over
+    // updatedAt when present (a review without a content edit still counts as
+    // "current"). Never written by the freshness scan itself — read-only there.
+    lastReviewedAt: {
+        type: Date,
+        default: null
     }
 }, { timestamps: true });
 

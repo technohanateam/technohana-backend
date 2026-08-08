@@ -7,6 +7,11 @@ const topicClusterSchema = new Schema(
     description: { type: String, default: "" },
     categories: { type: [String], default: [] },
     priority: { type: Number, default: 50 },
+    // Milestone 5: last time trendResearch.service.js ran a real research
+    // call for this cluster — used to prioritize which clusters get a call
+    // when there are more clusters than maxDailyResearchCalls allows in one
+    // run (least-recently-researched first, after priority desc).
+    lastResearchedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

@@ -37,13 +37,26 @@ export function isDueForContent(settings, now = new Date()) {
 // AI-assessed against the actual candidate; course priority nudges toward
 // courses the business cares about; duplicateScore is inverted (lower
 // duplicate risk = higher final score) and always factors in even when 0.
-export function computeOverallScore({ courseRelevanceScore = 0, businessIntentScore = 0, seoOpportunityScore = 0, duplicateScore = 0, coursePriorityScore = 0 }) {
+// Milestone 5: trendScore (real signal from trendResearch.service.js) and
+// seoOpportunityScore (real signal from contentGapAnalysis.service.js, both
+// previously always 0 since no real signal existed) now carry weight too —
+// both default to 0 so pre-M5 callers/tests that never pass them are
+// unaffected.
+export function computeOverallScore({
+  courseRelevanceScore = 0,
+  businessIntentScore = 0,
+  seoOpportunityScore = 0,
+  duplicateScore = 0,
+  coursePriorityScore = 0,
+  trendScore = 0,
+}) {
   const duplicatePenaltyFactor = (100 - Math.min(100, Math.max(0, duplicateScore))) / 100;
   const base =
-    courseRelevanceScore * 0.3 +
-    businessIntentScore * 0.25 +
+    courseRelevanceScore * 0.28 +
+    businessIntentScore * 0.22 +
     seoOpportunityScore * 0.15 +
-    coursePriorityScore * 0.3;
+    coursePriorityScore * 0.25 +
+    trendScore * 0.1;
   return Math.round(Math.min(100, Math.max(0, base * duplicatePenaltyFactor)));
 }
 
@@ -85,7 +98,18 @@ async function loadExistingCorpus() {
 // The dryRun flag has no behavioral effect in M1 (it becomes meaningful starting
 // M2 when there's an actual generation step to skip) — both paths only ever
 // create ContentOpportunity/ContentRun docs, never Blogs.
-export async function generateOpportunityCandidates({ dryRun = true, triggeredBy = "MANUAL" } = {}) {
+// Milestone 5: trendScoreMap ({courseSlug: 0-100}, from
+// trendResearch.service.js's buildCourseTrendScoreMap) and gapSignalsByCourse
+// ({courseSlug: {seoOpportunityScore, gaps:[...]}}, derived by the caller from
+// analyzeContentGaps()'s matchedCourses) are both OPTIONAL — omitting them
+// (as pre-M5 callers/tests do) keeps trendScore/seoOpportunityScore at their
+// prior default of 0, so this is purely additive.
+export async function generateOpportunityCandidates({
+  dryRun = true,
+  triggeredBy = "MANUAL",
+  trendScoreMap = {},
+  gapSignalsByCourse = {},
+} = {}) {
   const settings = await getOrCreateContentFactorySettings();
 
   const run = await ContentRun.create({
@@ -201,13 +225,18 @@ export async function generateOpportunityCandidates({ dryRun = true, triggeredBy
       const creative = creativeFields[i] || {};
       const courseRelevanceScore = Number.isFinite(Number(creative.courseRelevanceScore)) ? Number(creative.courseRelevanceScore) : 50;
       const businessIntentScore = Number.isFinite(Number(creative.businessIntentScore)) ? Number(creative.businessIntentScore) : 50;
-      const seoOpportunityScore = 0; // M1 has no SEO gap analysis yet (that's M5)
+      // Milestone 5: real signals when the caller supplies them (daily
+      // planning job does, via researchTrends()/analyzeContentGaps()); 0
+      // otherwise (dry-run/manual calls that don't pass these).
+      const trendScore = Math.min(100, Math.max(0, Number(trendScoreMap[candidate.courseSlug]) || 0));
+      const seoOpportunityScore = Math.min(100, Math.max(0, Number(gapSignalsByCourse[candidate.courseSlug]?.seoOpportunityScore) || 0));
       const overallScore = computeOverallScore({
         courseRelevanceScore,
         businessIntentScore,
         seoOpportunityScore,
         duplicateScore: candidate.duplicateScore,
         coursePriorityScore: candidate.priorityScore,
+        trendScore,
       });
 
       return {
@@ -229,6 +258,7 @@ export async function generateOpportunityCandidates({ dryRun = true, triggeredBy
         targetAudience: creative.targetAudience || null,
         topicAngle: creative.topicAngle || null,
         recommendationReason: creative.recommendationReason || null,
+        trendScore,
         seoOpportunityScore,
         duplicateScore: candidate.duplicateScore,
         cannibalizationRisk: candidate.cannibalizationRisk,

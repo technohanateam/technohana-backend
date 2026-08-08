@@ -28,11 +28,11 @@ existing creation/publish/schedule code paths.
 - **Milestone 2 — Content generation** (brief → article → SEO → links → image prompt).
   **Not yet implemented.**
 - **Milestone 3 — Editorial quality** (fact-check, AI-style eval, quality gate,
-  revision agent). **Not yet implemented.**
+  revision agent). **Implemented.**
 - **Milestone 4 — Calendar + automation** (backlog, calendar, daily planning job, cost
-  controls, global pause). **Not yet implemented.**
+  controls, global pause). **Implemented.**
 - **Milestone 5 — Research intelligence** (trends, SEO gaps, freshness) + final
-  regression pass. **Not yet implemented.**
+  regression pass. **Implemented — see "As-built — Milestone 5" below. Project complete.**
 
 ---
 
@@ -731,3 +731,226 @@ only ever controls whether generation is **auto-triggered** — never whether a 
   logic, untouched) → (only if `autoGenerateArticles`) triggers generation for the top N by
   score (step 7) → those still land in `NEEDS_REVISION`/`HUMAN_REVIEW`, never
   auto-approved/published (M2/M3's orchestrator, unmodified).
+
+---
+
+## As-built — Milestone 5
+
+Milestone 5 replaces the M4 stubs with real trend research and SEO gap analysis, adds a
+weekly content-freshness scan, wires the resulting signals into opportunity scoring, and
+runs the final full-project regression pass.
+
+### Backend — files created
+
+- `src/services/contentFactory/contentFreshness.service.js` — `runFreshnessScan()` (weekly
+  Bull job) plus two pure helpers, `classifyBlogFreshness()` and `worstStatus()`.
+- `src/prompts/contentFactory/trendResearch.prompt.js` — system/user prompt for the
+  per-cluster web-search call, anti-fabrication rules mirrored from
+  `factChecker.prompt.js`.
+- `tests/content-factory/trendResearch.test.js`, `contentGapAnalysis.test.js`,
+  `contentFreshness.test.js` — unit tests for every new pure function.
+
+`contentGapAnalysis.prompt.js` was **not** created — see "Content-gap approach" below for
+why a Claude call was judged unnecessary for that step.
+
+### Backend — files modified (stub → real implementation)
+
+- `src/services/contentFactory/trendResearch.service.js` — `researchTrends()` now makes
+  ONE batched `runClaudeWebSearchLoop()` call per `TopicCluster` (never per-course), capped
+  by `settings.maxDailyResearchCalls`. Returns
+  `{trends: [{topic, summary, sourceUrls, cluster, clusterId, matchedCourses}]}`. Also
+  exports two pure functions: `matchTrendToCourses(trend, courseCatalogSummary, threshold)`
+  (Jaccard token-overlap scoring, default threshold `0.3`, no DB/network) and
+  `buildCourseTrendScoreMap(trends)` (reduces to `{courseSlug: 0-100}`, best trend wins per
+  course).
+- `src/services/contentFactory/contentGapAnalysis.service.js` — `analyzeContentGaps()` now
+  reads `SeoGscMetric` (`dimensionType:"query"`, `impressions >= 100` default,
+  `ctr < 0.02` default) with **zero** AI/network calls. Returns
+  `{gaps: [{query, impressions, ctr, matchedCourses, suggestedAngle}]}`. Exports pure
+  `matchGapQueryToCourses()`, `buildSuggestedAngle()` (deterministic template), and
+  `buildCourseGapSignalMap(gaps)` (reduces to `{courseSlug: {seoOpportunityScore, query}}`).
+- `src/services/contentFactory/dailyPlanningJob.processor.js` — step (4)/(5) now call the
+  real services instead of stubs; step (6) builds `trendScoreMap`/`gapSignalsByCourse` via
+  the two `buildCourse*Map()` helpers and passes them into
+  `generateOpportunityCandidates()`. The run's `trendsSummary`/`gapsSummary` (top 5 each,
+  by matched-course-count / impressions respectively) are attached to the `ContentRun`
+  before it saves, so the dashboard widgets can read them off the existing `GET /runs`
+  fetch — no new endpoint needed.
+- `src/services/contentFactory/contentStrategy.service.js` — `generateOpportunityCandidates()`
+  gained two **optional** params, `trendScoreMap`/`gapSignalsByCourse` (default `{}`, so
+  every pre-M5 caller/test is unaffected). `computeOverallScore()` gained an optional
+  `trendScore` param and now weights
+  `courseRelevanceScore*0.28 + businessIntentScore*0.22 + seoOpportunityScore*0.15 + coursePriorityScore*0.25 + trendScore*0.1`
+  (previously `0.3/0.25/0.15/0.3`, `seoOpportunityScore` always `0`) — still sums to 1.0,
+  still multiplied by the same duplicate-penalty factor. Newly created `ContentOpportunity`
+  docs now store a real `trendScore` field (was always schema-default `0`).
+- `src/models/topicCluster.model.js` — additive `lastResearchedAt: Date` (used to
+  prioritize which clusters get a research call when there are more clusters than
+  `maxDailyResearchCalls` allows).
+- `src/models/contentFactorySettings.model.js` — additive
+  `freshnessSensitiveKeywords: [String]`, default
+  `["AI","GPT","Claude","certification","pricing","AWS","Azure","GCP"]`, admin-editable via
+  the existing `PATCH /settings` endpoint (no new route needed).
+- `src/models/contentRun.model.js` — additive `trendsSummary`/`gapsSummary`
+  (`[Schema.Types.Mixed]`, default `[]`).
+- `src/models/blogs.model.js` — additive `lastReviewedAt: { type: Date, default: null }`.
+  Nothing else in this file touched.
+- `src/services/contentFactory/contentFactoryQueue.js` — new
+  `contentFactoryFreshnessQueue` (own Bull queue, same `QUEUE_SETTINGS`/logging pattern as
+  the planning queue), weekly repeatable added inside
+  `scheduleContentFactoryRepeatables()` alongside the existing daily one.
+
+### Trend-research batching approach and cost-cap handling
+
+One Claude call per `TopicCluster` (read via `TopicCluster.find()`), never per-course — with
+~10-15 clusters vs 350+ courses this keeps AI spend bounded regardless of catalog growth,
+per the plan's hard cost-control requirement. `settings.maxDailyResearchCalls` (default 15)
+hard-caps how many cluster calls run in a single `researchTrends()` invocation:
+`selectClustersForResearch()` sorts eligible clusters by `priority` descending, then by
+`lastResearchedAt` ascending (never-researched clusters — `null` — sort first) as the
+tiebreaker, and slices to the cap. Budget is also re-checked via `enforceBudgetOrPause()`
+**before every individual cluster call** (not just once at the top of the job) — a real
+paid-call loop can legitimately breach the daily budget partway through, and the loop stops
+early (keeping whatever trends were already found) rather than continuing to spend. Any
+trend the model reports with zero real `sourceUrls` (i.e. it couldn't back the claim with an
+actual search result) is dropped entirely — mirrors `factChecker.service.js`'s "never keep
+an unfounded claim" rule, applied here as "never keep an unsourced trend."
+
+### Content-gap-analysis approach: deterministic, not AI-assisted
+
+Purely deterministic aggregation — **no Claude call**, and `contentGapAnalysis.prompt.js`
+was deliberately not created. Reasoning: "high impressions + low CTR" is already a
+mechanically detectable signal straight out of `SeoGscMetric` (real visibility, weak
+engagement); turning that into a `suggestedAngle` is a fixed template
+(`"<query>" already gets N impressions but only X% CTR — create/refresh content ...`), not a
+judgment call that benefits from an LLM's creativity. Adding a Claude call here would add
+cost, latency, and a new failure mode (parse errors, fabrication risk) without adding signal
+quality — the raw aggregation is already the useful output. `matchGapQueryToCourses()` reuses
+the same token-overlap approach as `matchTrendToCourses()` but is kept as its own small pure
+function (mirrors `duplicateDetection.service.js`'s precedent of a self-contained scoring fn
+per service) since a GSC query string and an AI-generated trend object are different enough
+inputs that sharing one function would need an awkward adapter.
+
+### Content-freshness classification and course-linkage handling
+
+`classifyBlogFreshness(blog, keywords, now)` (pure) computes `ageDays` from
+`lastReviewedAt || updatedAt || createdAt`, checks the blog's `category`/`tags`/`title`
+against the admin-editable `freshnessSensitiveKeywords` list (case-insensitive substring
+match), and applies one of two threshold sets: standard (`FRESH ≤90d`, `REVIEW ≤180d`,
+else `OUTDATED`) or sensitive (`FRESH ≤45d`, `REVIEW ≤120d`, else `OUTDATED`) — fast-moving
+topics (AI/cloud/pricing/certifications) age out roughly twice as fast. `runFreshnessScan()`
+links each published blog to a course two ways, in order: (1) `sourceOpportunityId` →
+`ContentOpportunity.courseSlug` (factory-originated posts — exact linkage), (2) best-effort
+fallback for pre-factory/manually-authored posts with no `sourceOpportunityId`: match
+`blog.category` to every `Course` sharing that exact category (case-insensitive), applying
+the blog's status to all of them. **Blogs matching neither path contribute to no course's
+freshness score** — they're still counted in the run's `statusCounts`/`unmatchedBlogs`
+summary for visibility, but no `CourseContentSettings` doc is touched for them (there's no
+reliable course to attribute an uncategorized/unlinked post to). Per course, `worstStatus()`
+takes the single worst status among all its linked blogs (one stale post is enough to flag a
+course) and writes `freshnessStatus`/`lastFreshnessCheckedAt` — the **only** two fields this
+scan ever writes; blog `content` is never touched, matching the plan's "flags for human
+review, never edits" constraint.
+
+### Frontend changes
+
+- `CourseIntelligence.jsx` — new "Freshness" column (badge: green Fresh / amber Review
+  Recommended / red Outdated) reading `row.freshnessStatus`, which
+  `courseIntelligence.controller.js`'s `listCourses()` was **already** returning since M1
+  (confirmed by reading the controller — no backend change was needed here, only the
+  frontend table was missing the column).
+- `ContentFactoryDashboard.jsx` — two new read-only widgets, "Trending This Week" and "Top
+  SEO Gap Opportunities," both sourced from the most recent `PLANNING` `ContentRun`'s
+  `trendsSummary`/`gapsSummary` (already fetched by the existing `fetchContentRuns()` call —
+  no new `adminService.js` function or backend endpoint was needed). Both link to the
+  existing Opportunities page (no cluster-filter query param exists on that page yet, so the
+  link is a plain navigation, per the plan's "otherwise just display" fallback).
+
+### Verification performed
+
+- `node --check` on every new/modified backend file — all pass.
+- Backend `npm test` (`node --test tests/seo-intel/**/*.test.js tests/backlink/**/*.test.js
+  tests/content-factory/**/*.test.js`) — **108 tests pass, 0 fail** (was 89 after M4; +19 new
+  Milestone 5 tests across the three new test files, all pure-function coverage with no DB
+  connection required).
+- Backend has no `lint`/`build` npm scripts (plain Node service, no bundler/TS) — `npm test`
+  plus `node --check` are the verification gates, consistent with M1-M4.
+- Frontend `npm run build` — succeeds (398 course pages regenerated by `postbuild` as usual).
+  `dist/`/`public/sitemap.xml` drift discarded via `git checkout -- dist public/sitemap.xml`
+  before anything was staged, confirmed via `git status` afterward.
+- Frontend `npx eslint` on the two changed files — zero problems. Full `npm run lint` across
+  the whole frontend repo shows pre-existing errors confined to the separate
+  `technohana-mobile/` React Native app and `vite.config.js` (`process`/`__dirname` globals) —
+  none in any content-factory file, none newly introduced by this milestone.
+- Frontend `npm test` (vitest) — same 3 pre-existing baseline failures as recorded in the M3/M4
+  docs (`AdminSeoExecutiveDashboard`/`ConnectPropertyDialog`/`SeoKpiCard`, all SEO-dashboard
+  tests unrelated to content-factory) — confirmed pre-existing via `git stash` (failures
+  identical with and without this milestone's changes applied), no new failures.
+- Full final regression pass — see the dedicated checklist in the project report; every item
+  confirmed by reading the actual route/component code (no live server available in this
+  environment).
+- Grepped `src/` for `images.generate`/`image.generate`/`generateImage`/`dall-e`/`DALL` —
+  the only real hits are `generateImageConcept()` in `imagePromptWriter.service.js` (which
+  itself contains no OpenAI/image-API import or call — it's a Claude text call producing a
+  prompt/alt-text/filename triple only) and course-catalog data mentioning "DALL-E" as
+  course content, plus one blog-seed fixture string — zero actual image-generation API calls
+  anywhere in the project, confirmed by reading `imagePromptWriter.service.js` in full.
+
+---
+
+## Feature complete — all 5 milestones
+
+The AI Content Factory is now fully built across both repos on
+`claude/current-blog-plan-a7wjyi`:
+
+1. **Foundation** — course priority scoring/aggregation, topic clusters (admin-confirmed
+   mapping, never auto-applied), opportunity generation with pre-AI duplicate detection,
+   dry-run planning, settings/global pause.
+2. **Content generation** — brief → article (web-search-grounded) → SEO fields → internal
+   links → image concept (prompt/alt-text only) pipeline, with per-step job ledger and
+   resumable retries; human review + approve writes an ordinary `Blogs` draft via the
+   existing creation path.
+3. **Editorial quality** — search-grounded fact-checking (never fabricates a source),
+   AI-style risk scoring, a composite quality gate, one capped automatic revision pass,
+   bulk review actions (server-re-validated, never implies publish).
+4. **Calendar + automation** — cost/budget tracking per AI call, automatic pause + admin
+   email on budget breach, content backlog with recommended dates, a calendar that writes
+   the existing `Blogs.scheduledAt`/`published` fields (no parallel scheduler), the daily
+   planning job tying it all together.
+5. **Research intelligence** — real per-cluster trend research and deterministic SEO
+   gap analysis feeding real `trendScore`/`seoOpportunityScore` signals into opportunity
+   ranking, weekly freshness scanning surfaced on Course Intelligence, dashboard
+   trend/gap widgets.
+
+**Core safety properties, confirmed end-to-end:**
+
+- **AI never auto-publishes.** Every path that can create/modify a `Blogs` doc (approve,
+  bulk-approve, calendar schedule) requires an explicit human action; the daily planning
+  job's optional `autoGenerateArticles` flag only ever auto-*triggers generation*, which
+  still always lands in `HUMAN_REVIEW`/`NEEDS_REVISION` — traced with no exception found
+  anywhere in the orchestrator, controllers, or M4/M5 additions.
+- **The existing blog system is untouched.** `AdminBlogs.jsx`'s core list/search/pagination,
+  `generate-from-course`/`generate-from-urls`, manual New/Edit/Delete, toolbar actions,
+  per-row actions, bulk publish/delete, and cover-image-generate→Cloudinary are all
+  byte-identical to their pre-factory behavior (verified by reading the current route/
+  component code against the M2 report's "byte-unchanged" claim).
+- **Image generation is prompt-only.** Confirmed by a full-repo grep — zero real
+  `openai.images.generate()` or equivalent calls exist anywhere in `src/`.
+- **Automation defaults to PAUSED.** `contentFactorySettings.model.js`'s
+  `automationStatus` schema default is `"PAUSED"`; the daily planning job checks this first,
+  before any AI spend.
+- **Budget auto-pause exists.** `budgetGuard.service.js`'s `enforceBudgetOrPause()` flips
+  automation to `PAUSED` and emails `MAIL_TO` the moment projected spend would exceed
+  `dailyAiBudgetUsd`, checked before every AI-consuming phase of the planning job and now
+  also before every individual trend-research cluster call (Milestone 5).
+
+**Recommendation:** leave `automationStatus` at its default `PAUSED` after this lands, even
+though the code is feature-complete. Nothing about the automated *pipeline mechanics* needs
+further engineering work to be correct, but a human should manually walk through one real
+dry-run → generate → review → approve cycle against production data (real course catalog,
+real GSC data, real topic-cluster mapping) before flipping automation on — topic-cluster
+mapping in particular is admin-confirmed but has never been confirmed against the *real*
+category taxonomy in a live run, and the trend-research/gap-analysis signals, while now real,
+have not yet been observed against real GSC/web-search data end-to-end. Enabling automation
+is a one-click reversible action (`POST /settings/toggle-automation`) once that manual pass
+is done.

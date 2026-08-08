@@ -3,8 +3,8 @@ import ContentOpportunity from "../../models/contentOpportunity.model.js";
 import { getOrCreateContentFactorySettings } from "../../models/contentFactorySettings.model.js";
 import { enforceBudgetOrPause } from "./budgetGuard.service.js";
 import { refreshCoursePriorities } from "./coursePriorityAggregation.service.js";
-import { researchTrends } from "./trendResearch.service.js";
-import { analyzeContentGaps } from "./contentGapAnalysis.service.js";
+import { researchTrends, buildCourseTrendScoreMap } from "./trendResearch.service.js";
+import { analyzeContentGaps, buildCourseGapSignalMap } from "./contentGapAnalysis.service.js";
 import { generateOpportunityCandidates } from "./contentStrategy.service.js";
 import { enqueueGeneration } from "./contentGenerationQueue.js";
 
@@ -68,11 +68,12 @@ export async function runDailyPlanningJob({ triggeredBy = "CRON" } = {}) {
       return { skipped: true, reason: budgetCheck.reason, partial: result };
     }
 
-    // (4) Trend research — M5 stub, always returns { trends: [] } today, but
-    // the pipeline shape (and its call site) is final now.
+    // (4) Trend research — Milestone 5: real batched per-cluster
+    // web_search_20260209 calls (capped by settings.maxDailyResearchCalls).
     const { trends } = await researchTrends();
 
-    // (5) SEO/content-gap analysis — M5 stub, always returns { gaps: [] }.
+    // (5) SEO/content-gap analysis — Milestone 5: real, deterministic read of
+    // already-synced SeoGscMetric rows (no AI/network call).
     const { gaps } = await analyzeContentGaps();
 
     budgetCheck = await enforceBudgetOrPause(settings);
@@ -80,15 +81,33 @@ export async function runDailyPlanningJob({ triggeredBy = "CRON" } = {}) {
       return { skipped: true, reason: budgetCheck.reason, partial: result };
     }
 
-    // (6) Candidate generation — M1's existing strategy logic. trends/gaps
-    // are empty arrays for now (M5 fills them in); generateOpportunityCandidates
-    // doesn't currently accept them, so they're intentionally not passed —
-    // nothing here depends on their shape yet.
-    void trends;
-    void gaps;
-    const { run, opportunities } = await generateOpportunityCandidates({ dryRun: false, triggeredBy });
+    // (6) Candidate generation — M1's existing strategy logic, now fed the
+    // real per-course trendScore/seoOpportunityScore signals derived from (4)
+    // and (5) so newly-created opportunities carry real scores instead of 0.
+    const trendScoreMap = buildCourseTrendScoreMap(trends);
+    const gapSignalsByCourse = buildCourseGapSignalMap(gaps);
+    const { run, opportunities } = await generateOpportunityCandidates({
+      dryRun: false,
+      triggeredBy,
+      trendScoreMap,
+      gapSignalsByCourse,
+    });
     result.coursesEvaluated = run.coursesEvaluated || 0;
     result.opportunitiesCreated = run.opportunitiesCreated || 0;
+
+    // Lightweight summaries for the dashboard widgets (top few by signal
+    // strength) — persisted onto this ContentRun so the frontend can read
+    // them off the existing GET /runs fetch with no new endpoint.
+    run.trendsSummary = trends
+      .slice()
+      .sort((a, b) => (b.matchedCourses?.length || 0) - (a.matchedCourses?.length || 0))
+      .slice(0, 5)
+      .map((t) => ({ topic: t.topic, summary: t.summary, cluster: t.cluster, matchedCourseCount: t.matchedCourses?.length || 0 }));
+    run.gapsSummary = gaps
+      .slice()
+      .sort((a, b) => b.impressions - a.impressions)
+      .slice(0, 5)
+      .map((g) => ({ query: g.query, impressions: g.impressions, ctr: g.ctr, suggestedAngle: g.suggestedAngle }));
 
     // (7) Optional auto-generation of top-N newly-created PLANNED
     // opportunities. autoGenerateArticles defaults false. Even when true,

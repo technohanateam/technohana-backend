@@ -14,6 +14,12 @@ const contentRunSchema = new Schema(
     errors: { type: [String], default: [] },
     dryRun: { type: Boolean, default: true },
     settingsSnapshot: { type: Schema.Types.Mixed, default: {} },
+    // Milestone 5: lightweight summaries of what trendResearch/contentGapAnalysis
+    // found this run, so the dashboard's "Trending this week"/"Top SEO gaps"
+    // widgets can read them straight off the latest PLANNING ContentRun
+    // instead of a new endpoint (reuses the existing GET /runs fetch).
+    trendsSummary: { type: [Schema.Types.Mixed], default: [] },
+    gapsSummary: { type: [Schema.Types.Mixed], default: [] },
   },
   { timestamps: true, suppressReservedKeysWarning: true }
 );

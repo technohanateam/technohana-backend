@@ -33,6 +33,15 @@ const contentFactorySettingsSchema = new Schema(
       type: Schema.Types.Mixed,
       default: () => ({ titleSimilarity: 0.75, keywordOverlap: 0.6 }),
     },
+    // Milestone 5: admin-editable keyword list (NOT a fixed category list —
+    // the real category taxonomy is long-tail and drifts) used by
+    // contentFreshness.service.js to weight blogs more aggressively toward
+    // OUTDATED when their category/tags/title match one of these fast-moving
+    // topics.
+    freshnessSensitiveKeywords: {
+      type: [String],
+      default: () => ["AI", "GPT", "Claude", "certification", "pricing", "AWS", "Azure", "GCP"],
+    },
     pausedReason: { type: String, default: null },
     pausedAt: { type: Date, default: null },
     budgetExceededAt: { type: Date, default: null },
