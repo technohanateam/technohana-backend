@@ -60,7 +60,7 @@ export async function generateRecoveryEmail(user) {
       availableCoupons: coupons,
     });
 
-    const raw = await callClaude({ system: SYSTEM_PROMPT, prompt, maxTokens: 800 });
+    const { text: raw } = await callClaude({ system: SYSTEM_PROMPT, prompt, maxTokens: 800 });
     const { subject, bodyHtml } = extractJson(raw);
     if (!subject || !bodyHtml) return null;
 

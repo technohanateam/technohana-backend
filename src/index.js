@@ -61,6 +61,7 @@ import aiToolReportRoutes from "./routes/aiToolReport.routes.js";
 import seoGeoRoutes from "./routes/seo-geo.routes.js";
 import seoOpsRoutes from "./routes/seoOps.routes.js";
 import seoIntelRoutes from "./routes/seoIntel.routes.js";
+import contentFactoryRoutes from "./routes/contentFactory.routes.js";
 import leadCaptureRoutes from "./routes/leadCapture.routes.js";
 import instructorRoutes from "./routes/instructor.routes.js";
 import skillsGapRoutes from "./routes/skillsGap.routes.js";
@@ -1282,6 +1283,7 @@ app.use("/", assessmentResultRoutes);
 app.use("/admin", seoGeoRoutes);
 app.use("/admin/seo", seoOpsRoutes);
 app.use("/admin/seo-intel", seoIntelRoutes);
+app.use("/admin/content-factory", contentFactoryRoutes);
 app.use("/", leadCaptureRoutes);
 app.use("/instructor", instructorRoutes);
 app.use("/", skillsGapRoutes);
@@ -1308,6 +1310,12 @@ import("./services/seoIntelQueue.js")
 import("./services/backlinkQueue.js")
   .then(({ scheduleBacklinkRepeatables }) => scheduleBacklinkRepeatables())
   .catch((err) => console.error("[Backlink Queue] failed to schedule repeatables:", err.message));
+
+// Schedule AI Content Factory background jobs (daily planning run at 5am).
+// Same dedupe-safe pattern — checks automationStatus itself before doing work.
+import("./services/contentFactory/contentFactoryQueue.js")
+  .then(({ scheduleContentFactoryRepeatables }) => scheduleContentFactoryRepeatables())
+  .catch((err) => console.error("[Content Factory Queue] failed to schedule repeatables:", err.message));
 
 // ─── Automated Email Sequences ────────────────────────────────────────────────
 

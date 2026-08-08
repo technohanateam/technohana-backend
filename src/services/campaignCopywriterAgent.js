@@ -35,7 +35,7 @@ Respond ONLY with valid JSON:
   "abVariants": ["Variant A subject", "Variant B subject"]
 }`;
 
-  const raw = await callClaude({
+  const { text: raw } = await callClaude({
     system: "You are a professional B2B email copywriter. Respond only with valid JSON.",
     prompt,
     maxTokens: 800,

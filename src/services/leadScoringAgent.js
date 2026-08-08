@@ -40,7 +40,7 @@ export async function scoreEnquiry(enquiryId) {
       utm: enquiry.utm || null,
     });
 
-    const raw = await callClaude({ system: SYSTEM_PROMPT, prompt, maxTokens: 1024 });
+    const { text: raw } = await callClaude({ system: SYSTEM_PROMPT, prompt, maxTokens: 1024 });
     const result = extractJson(raw);
 
     const score = Math.min(100, Math.max(0, Number(result.score) || 0));
