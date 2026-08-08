@@ -20,7 +20,6 @@ export interface AiCompletionOptions {
   system: string;
   prompt: string;
   maxTokens?: number;
-  temperature?: number;
 }
 
 /** Sends a single-turn prompt to Claude and returns the concatenated text response. */
@@ -31,7 +30,6 @@ export async function completeText(options: AiCompletionOptions): Promise<string
     const response = await anthropic.messages.create({
       model: env.ANTHROPIC_MODEL,
       max_tokens: options.maxTokens ?? 1024,
-      temperature: options.temperature ?? 0.7,
       system: options.system,
       messages: [{ role: 'user', content: options.prompt }],
     });
