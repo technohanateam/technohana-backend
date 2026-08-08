@@ -6,6 +6,16 @@ import { getSettings, updateSettings, toggleAutomation } from "../controllers/co
 import { listCourses, updateCourseSettings, recomputePriority } from "../controllers/contentFactory/courseIntelligence.controller.js";
 import { listClusters, createCluster, updateCluster, deleteCluster, proposeMapping, applyMapping } from "../controllers/contentFactory/topicCluster.controller.js";
 import { listOpportunities, getOpportunity, runDryRunPlan, listRuns, rejectOpportunity, overrideScore } from "../controllers/contentFactory/contentOpportunity.controller.js";
+import { generateOpportunityArticle, getGenerationJob, retryGenerationJob } from "../controllers/contentFactory/contentGeneration.controller.js";
+import {
+  listReviewItems,
+  getReviewItem,
+  updateReviewDraft,
+  regenerateReview,
+  requestRevision,
+  rejectReviewItem,
+  approveReviewItem,
+} from "../controllers/contentFactory/humanReview.controller.js";
 
 const router = express.Router();
 
@@ -37,5 +47,19 @@ router.patch("/opportunities/:id/reject", requireMarketing, rejectOpportunity);
 router.patch("/opportunities/:id/score", requireAdmin, overrideScore);
 router.post("/plan/dry-run", requireAdmin, contentFactoryAiLimiter, runDryRunPlan);
 router.get("/runs", requireMarketing, listRuns);
+
+// ── Milestone 2: Content Generation ─────────────────────────────────────────
+router.post("/opportunities/:id/generate", requireMarketing, contentFactoryAiLimiter, generateOpportunityArticle);
+router.get("/jobs/:id", requireMarketing, getGenerationJob);
+router.post("/jobs/:id/retry", requireMarketing, contentFactoryAiLimiter, retryGenerationJob);
+
+// ── Milestone 2: Human Review ────────────────────────────────────────────────
+router.get("/review", requireMarketing, listReviewItems);
+router.get("/review/:opportunityId", requireMarketing, getReviewItem);
+router.patch("/review/:opportunityId", requireMarketing, updateReviewDraft);
+router.post("/review/:opportunityId/regenerate", requireMarketing, contentFactoryAiLimiter, regenerateReview);
+router.post("/review/:opportunityId/request-revision", requireMarketing, contentFactoryAiLimiter, requestRevision);
+router.post("/review/:opportunityId/reject", requireMarketing, rejectReviewItem);
+router.post("/review/:opportunityId/approve", requireMarketing, approveReviewItem);
 
 export default router;

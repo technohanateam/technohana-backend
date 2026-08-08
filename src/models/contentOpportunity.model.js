@@ -107,6 +107,46 @@ const contentOpportunitySchema = new Schema(
     reviewedBy: { type: String, default: null },
     reviewedAt: { type: Date, default: null },
     rejectionReason: { type: String, default: null },
+
+    // ── Milestone 2: content generation ──────────────────────────────────────
+    humanRevisionNote: { type: String, default: null },
+    generationAttempts: { type: Number, default: 0 },
+
+    imageConcept: {
+      prompt: { type: String, default: null },
+      altText: { type: String, default: null },
+      suggestedFilename: { type: String, default: null },
+      // AI_PROMPT_ONLY is the only tier this build ever produces — real image
+      // generation (AI_GENERATED) is explicitly out of scope for this project.
+      tier: { type: String, enum: ["AI_GENERATED", "AI_PROMPT_ONLY", "MANUAL_UPLOAD"], default: "AI_PROMPT_ONLY" },
+      imageUrl: { type: String, default: null },
+      status: { type: String, enum: ["IMAGE_PENDING", "IMAGE_READY", "IMAGE_FAILED"], default: "IMAGE_PENDING" },
+    },
+
+    // Mirrors the Blogs schema fields 1:1 on purpose so approval can copy
+    // fields directly onto a new Blogs document.
+    articleDraft: {
+      title: { type: String, default: null },
+      slug: { type: String, default: null },
+      content: { type: String, default: null }, // HTML
+      excerpt: { type: String, default: null },
+      metaTitle: { type: String, default: null },
+      metaDescription: { type: String, default: null },
+      tags: { type: [String], default: [] },
+      readTimeMin: { type: Number, default: null },
+      sources: { type: [{ title: String, url: String, _id: false }], default: [] },
+      faqs: { type: [{ question: String, answer: String, _id: false }], default: [] },
+      suggestedInternalLinks: {
+        courses: { type: [{ courseSlug: String, anchorText: String, reason: String, _id: false }], default: [] },
+        blogs: { type: [{ blogId: String, anchorText: String, reason: String, _id: false }], default: [] },
+      },
+      // Extra convenience fields threaded through generation (not part of the
+      // Blogs schema itself, but needed so approve() can populate the new
+      // Blogs doc's author/category/focusKeyword without re-deriving them).
+      focusKeyword: { type: String, default: null },
+      author: { type: String, default: null },
+      category: { type: String, default: null },
+    },
   },
   { timestamps: true }
 );

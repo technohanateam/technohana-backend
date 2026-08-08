@@ -62,6 +62,13 @@ const blogSchema = new mongoose.Schema({
     scheduledAt: {
         type: Date,
         default: null
+    },
+    // AI Content Factory (Milestone 2): set when this draft originated from an
+    // approved ContentOpportunity, so the admin UI can show an "AI Factory" badge.
+    sourceOpportunityId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "ContentOpportunity",
+        default: null
     }
 }, { timestamps: true });
 

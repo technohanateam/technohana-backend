@@ -18,6 +18,7 @@ import AiRiskReport from "../models/aiRiskReport.model.js";
 import Testimonial from "../models/testimonial.model.js";
 import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
+import { createBlogFromPayload } from "../services/blogCreation.service.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
@@ -615,43 +616,10 @@ router.get("/blogs", authenticateAdmin, requirePage("blogs"), async (req, res) =
 // POST /admin/blogs
 router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   try {
-    const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs } = req.body;
-    if (!title) return res.status(400).json({ message: "Title is required." });
-
-    const lastBlog = await Blogs.findOne().sort({ id: -1 }).lean();
-    const nextId = lastBlog ? (lastBlog.id || 0) + 1 : 1;
-
-    const generatedSlug =
-      slug ||
-      title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
-
-    const existing = await Blogs.findOne({ slug: generatedSlug });
-    if (existing) return res.status(409).json({ message: "A blog with this slug already exists." });
-
-    const blog = new Blogs({
-      id: nextId,
-      title,
-      slug: generatedSlug,
-      img: img || "",
-      author: author || "",
-      date: date || new Date().toISOString().split("T")[0],
-      content: sanitizeContent(content) || "",
-      category: category || "",
-      excerpt: excerpt || "",
-      metaTitle: metaTitle || "",
-      metaDescription: metaDescription || "",
-      focusKeyword: focusKeyword || "",
-      tags: tags || [],
-      readTimeMin: readTimeMin || null,
-      sources: sources || [],
-      faqs: faqs || [],
-    });
-    await blog.save();
+    const blog = await createBlogFromPayload(req.body);
     return res.status(201).json({ data: blog });
   } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ message: err.message });
     console.error("Admin create blog error:", err);
     return res.status(500).json({ message: "Server error" });
   }
