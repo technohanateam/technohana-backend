@@ -615,7 +615,7 @@ router.get("/blogs", authenticateAdmin, requirePage("blogs"), async (req, res) =
 // POST /admin/blogs
 router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   try {
-    const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs } = req.body;
+    const { title, slug, img, author, authorId, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs, contentType } = req.body;
     if (!title) return res.status(400).json({ message: "Title is required." });
 
     const lastBlog = await Blogs.findOne().sort({ id: -1 }).lean();
@@ -637,6 +637,7 @@ router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, asy
       slug: generatedSlug,
       img: img || "",
       author: author || "",
+      authorId: authorId || null,
       date: date || new Date().toISOString().split("T")[0],
       content: sanitizeContent(content) || "",
       category: category || "",
@@ -648,6 +649,7 @@ router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, asy
       readTimeMin: readTimeMin || null,
       sources: sources || [],
       faqs: faqs || [],
+      contentType: contentType || "search-article",
     });
     await blog.save();
     return res.status(201).json({ data: blog });
@@ -660,10 +662,17 @@ router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, asy
 // PUT /admin/blogs/:id
 router.put("/blogs/:id", authenticateAdmin, requirePage("blogs"), requireMarketing, async (req, res) => {
   try {
-    const { title, slug, img, author, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs } = req.body;
+    const { title, slug, img, author, authorId, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs, contentType, valueScores } = req.body;
+    const updateFields = { title, slug, img, author, date, content: sanitizeContent(content), category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs };
+    if (authorId !== undefined) updateFields.authorId = authorId || null;
+    if (contentType !== undefined) updateFields.contentType = contentType;
+    if (valueScores !== undefined) {
+      updateFields.valueScores = valueScores;
+      updateFields.valueScoreSource = "admin";
+    }
     const updated = await Blogs.findByIdAndUpdate(
       req.params.id,
-      { title, slug, img, author, date, content: sanitizeContent(content), category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs },
+      updateFields,
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "Blog not found." });
@@ -1154,7 +1163,7 @@ router.post("/blogs/bulk-delete", authenticateAdmin, requirePage("blogs"), requi
 // POST /admin/blogs/auto-seo — AI-fill SEO fields for a single blog
 router.post("/blogs/auto-seo", authenticateAdmin, requirePage("blogs"), requireMarketing, adminAiLimiter, async (req, res) => {
   try {
-    const { _id, title, content, category } = req.body;
+    const { _id, title, content, category, estimateValueScores } = req.body;
     if (!_id || !title) return res.status(400).json({ message: "_id and title are required." });
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -1175,6 +1184,18 @@ Keep titles readable.
 Avoid clickbait.
 Return only JSON.`;
 
+    // The value-score/contentType estimate is opt-in only (never returned by
+    // default) — these are subjective AI estimates, not facts, and must be
+    // clearly tagged as such (valueScoreSource: "ai-estimated") wherever used.
+    const valueScorePrompt = estimateValueScores
+      ? `
+Also estimate, as your honest best-effort judgment only (these are estimates, not facts):
+contentType — one of: search-article, authority-article, linkable-asset, research, expert-article, resource, tool, case-study
+valueScores — each 0-100: content, authority, linkability, business, originality, courseRelevance
+
+Add to the JSON: "suggestedContentType":"", "valueScores":{"content":0,"authority":0,"linkability":0,"business":0,"originality":0,"courseRelevance":0}`
+      : "";
+
     const prompt = `Article:
 ${plainText}
 
@@ -1183,7 +1204,7 @@ Meta title — 50–60 characters
 Meta description — 140–160 characters
 Excerpt — 40–70 words
 Focus keyword — one primary keyword only
-
+${valueScorePrompt}
 Return only:
 {"metaTitle":"","metaDescription":"","excerpt":"","focusKeyword":""}`;
 
@@ -1210,9 +1231,15 @@ Return only:
     }
     if (!seoFields) return res.status(500).json({ message: "Failed to parse AI SEO response.", raw });
 
+    const setFields = { metaTitle: seoFields.metaTitle || "", metaDescription: seoFields.metaDescription || "", excerpt: seoFields.excerpt || "", focusKeyword: seoFields.focusKeyword || "" };
+    if (estimateValueScores && seoFields.valueScores) {
+      setFields.valueScores = seoFields.valueScores;
+      setFields.valueScoreSource = "ai-estimated";
+      if (seoFields.suggestedContentType) setFields.contentType = seoFields.suggestedContentType;
+    }
     const updated = await Blogs.findByIdAndUpdate(
       _id,
-      { $set: { metaTitle: seoFields.metaTitle || "", metaDescription: seoFields.metaDescription || "", excerpt: seoFields.excerpt || "", focusKeyword: seoFields.focusKeyword || "" } },
+      { $set: setFields },
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "Blog not found." });
