@@ -25,7 +25,7 @@ export const getBlogBySlug = async (req, res) => {
       slug: req.params.slug,
       published: true,
       $or: [{ scheduledAt: null }, { scheduledAt: { $lte: now } }],
-    });
+    }).populate("authorId");
     if (!blog) return res.status(404).json({ success: false, message: "Blog not found" });
     return res.json({ success: true, data: blog });
   } catch (error) {

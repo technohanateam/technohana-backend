@@ -45,6 +45,9 @@ export const ADMIN_PAGES = [
   "seo-intel-executive",
   "seo-intel-recommendations",
   "seo-intel-system-health",
+  "seo-topic-clusters",
+  "seo-internal-links",
+  "authors",
 ];
 
 export const ADMIN_ROLES = [
@@ -105,6 +108,9 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "seo-intel-executive",
     "seo-intel-recommendations",
     "seo-intel-system-health",
+    "seo-topic-clusters",
+    "seo-internal-links",
+    "authors",
   ],
   // trainer/accounts/hr/student_support/readonly are CRM-only crmRoles — they
   // never get admin-panel pages (see authenticateAdmin.js CRM_ONLY_ROLES block),
@@ -124,6 +130,8 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "seo-ops-reports",
     "seo-ops-monitoring",
     "seo-ops-analytics",
+    "seo-topic-clusters",
+    "seo-internal-links",
   ],
 };
 
