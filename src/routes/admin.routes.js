@@ -44,6 +44,12 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
+// Mirrors the Blogs model's contentType enum and valueScores sub-schema keys
+// (src/models/blogs.model.js) — used to sanitize AI-estimated values before
+// writing them via findByIdAndUpdate, which skips schema validation.
+const BLOG_CONTENT_TYPES = ["search-article", "authority-article", "linkable-asset", "research", "expert-article", "resource", "tool", "case-study"];
+const VALUE_SCORE_KEYS = ["content", "authority", "linkability", "business", "originality", "courseRelevance"];
+
 const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // 5 attempts per IP address
@@ -665,7 +671,7 @@ router.put("/blogs/:id", authenticateAdmin, requirePage("blogs"), requireMarketi
     const { title, slug, img, author, authorId, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs, contentType, valueScores } = req.body;
     const updateFields = { title, slug, img, author, date, content: sanitizeContent(content), category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs };
     if (authorId !== undefined) updateFields.authorId = authorId || null;
-    if (contentType !== undefined) updateFields.contentType = contentType;
+    if (contentType !== undefined && BLOG_CONTENT_TYPES.includes(contentType)) updateFields.contentType = contentType;
     if (valueScores !== undefined) {
       updateFields.valueScores = valueScores;
       updateFields.valueScoreSource = "admin";
@@ -1232,10 +1238,22 @@ Return only:
     if (!seoFields) return res.status(500).json({ message: "Failed to parse AI SEO response.", raw });
 
     const setFields = { metaTitle: seoFields.metaTitle || "", metaDescription: seoFields.metaDescription || "", excerpt: seoFields.excerpt || "", focusKeyword: seoFields.focusKeyword || "" };
-    if (estimateValueScores && seoFields.valueScores) {
-      setFields.valueScores = seoFields.valueScores;
-      setFields.valueScoreSource = "ai-estimated";
-      if (seoFields.suggestedContentType) setFields.contentType = seoFields.suggestedContentType;
+    if (estimateValueScores && seoFields.valueScores && typeof seoFields.valueScores === "object") {
+      // findByIdAndUpdate doesn't run schema validators by default — clamp/
+      // whitelist here so a malformed or out-of-range AI response can't
+      // silently write bad data past the model's enum/min/max constraints.
+      const clampedScores = {};
+      for (const key of VALUE_SCORE_KEYS) {
+        const val = Number(seoFields.valueScores[key]);
+        if (Number.isFinite(val)) clampedScores[key] = Math.max(0, Math.min(100, Math.round(val)));
+      }
+      if (Object.keys(clampedScores).length > 0) {
+        setFields.valueScores = clampedScores;
+        setFields.valueScoreSource = "ai-estimated";
+      }
+      if (BLOG_CONTENT_TYPES.includes(seoFields.suggestedContentType)) {
+        setFields.contentType = seoFields.suggestedContentType;
+      }
     }
     const updated = await Blogs.findByIdAndUpdate(
       _id,

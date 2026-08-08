@@ -50,7 +50,7 @@ const scoreCourseAgainstBlog = (blog, course, sharedClusterCourseIds) => {
 
   const blogTags = (blog.tags || []).map(normalize);
   const courseNeedle = normalize(course.courseTitle);
-  if (courseNeedle && blogTags.some((tag) => courseNeedle.includes(tag) || tag.includes(courseNeedle))) {
+  if (courseNeedle && blogTags.some((tag) => tag && (courseNeedle.includes(tag) || tag.includes(courseNeedle)))) {
     score += 40;
     reasons.push("tag/title overlap");
   }
@@ -153,7 +153,7 @@ export const getRecommendationsForCourse = async (courseId) => {
       }
       const courseNeedle = normalize(course.courseTitle);
       const blogTags = (blog.tags || []).map(normalize);
-      if (courseNeedle && blogTags.some((tag) => courseNeedle.includes(tag) || tag.includes(courseNeedle))) {
+      if (courseNeedle && blogTags.some((tag) => tag && (courseNeedle.includes(tag) || tag.includes(courseNeedle)))) {
         score += 40;
         reasons.push("tag/title overlap");
       }
