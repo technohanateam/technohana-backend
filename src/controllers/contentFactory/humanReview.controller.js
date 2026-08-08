@@ -198,8 +198,13 @@ async function uniqueSlug(desiredSlug) {
 
 // Shared approval logic — used by both the single approve endpoint and
 // bulk-approve, so there is exactly one place that creates a Blogs draft
-// from an opportunity. Never schedules/publishes beyond setting
-// `published:false` (+ optional scheduledAt) — same as it always has.
+// from an opportunity. With no scheduledAt, the draft lands `published:false`
+// same as any manually created draft. With a scheduledAt, it matches the
+// existing auto-schedule convention (admin.routes.js `POST /blogs/auto-schedule`)
+// of `published:true` + a future `scheduledAt` — the public blog routes
+// (blog.controller.js) gate visibility on `published:true AND scheduledAt
+// null-or-past`, so `published:false` with a scheduledAt would silently never
+// go live.
 async function approveOpportunityCore(opportunity, { scheduledAt, reviewerName }) {
   const draft = opportunity.articleDraft?.toObject ? opportunity.articleDraft.toObject() : opportunity.articleDraft;
   if (!draft?.title || !draft?.content) {
@@ -233,8 +238,12 @@ async function approveOpportunityCore(opportunity, { scheduledAt, reviewerName }
     sourceOpportunityId: opportunity._id,
   });
 
-  blog.published = false;
-  if (scheduledAt) blog.scheduledAt = new Date(scheduledAt);
+  if (scheduledAt) {
+    blog.published = true;
+    blog.scheduledAt = new Date(scheduledAt);
+  } else {
+    blog.published = false;
+  }
   await blog.save();
 
   opportunity.status = scheduledAt ? "SCHEDULED" : "APPROVED";
