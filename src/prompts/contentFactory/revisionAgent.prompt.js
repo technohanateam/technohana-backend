@@ -1,6 +1,8 @@
 // revisionAgent.service.js — genuine rewrite of flagged sections, not
 // synonym-swapping. `stronger` is set true on the single retry attempt after
 // the sanity check fails once.
+import { buildEditorialProfileBlock } from "./editorialProfile.js";
+
 export function buildRevisionAgentPrompt({ articleDraft, flagReasons, factCheckFindings, brief, humanNote, stronger }) {
   const unverifiable = (factCheckFindings || []).filter((f) => f.verifiable === false);
   const verified = (factCheckFindings || []).filter((f) => f.verifiable === true);
@@ -20,6 +22,10 @@ You MUST preserve exactly, unchanged in meaning:
 
 For any claim flagged as unverifiable, either remove/soften it to a qualitative statement or
 rephrase it so it is not stated as a hard fact.
+
+${buildEditorialProfileBlock()}
+The rewrite must still sound like this voice — restructuring for freshness is not license to
+drift into a different tone or a more generic one.
 
 ${stronger ? `IMPORTANT: A previous revision attempt was rejected for being too similar to the
 original (near-identical wording). This time you MUST substantially restructure the flagged

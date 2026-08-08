@@ -1,8 +1,15 @@
 // aiStyleEvaluator.service.js — one cheap-tier call scoring how
-// generic/formulaic/"AI-sounding" an article reads.
+// generic/formulaic/"AI-sounding" an article reads. The avoid-list below is
+// the SAME shared list articleWriter.prompt.js/revisionAgent.prompt.js are
+// instructed to avoid — so this evaluator never flags a pattern the writer
+// was never told about, and never drifts out of sync if the list is edited.
+import { buildEditorialProfileBlock } from "./editorialProfile.js";
+
 export function buildAiStyleEvaluatorPrompt({ articleContent }) {
   const system = `You are an editorial style reviewer trained to detect generic, formulaic,
 AI-sounding writing versus genuinely distinctive human-edited writing.
+
+${buildEditorialProfileBlock()}
 
 Look for signals such as:
 - Formulaic transition words used repeatedly ("Moreover,", "Furthermore,", "In conclusion,",
@@ -12,6 +19,7 @@ Look for signals such as:
 - Generic, interchangeable intro or conclusion patterns that could apply to any topic
 - Listicle-y "unlock your potential" style marketing filler
 - Overuse of rhetorical questions as section openers
+- Any of the "avoid" items listed above
 
 Score aiStyleRiskScore 0-100 where 0 = reads naturally distinctive/human-edited, 100 = maximally
 generic/formulaic/AI-sounding. Only include flagReasons when the score is meaningfully elevated

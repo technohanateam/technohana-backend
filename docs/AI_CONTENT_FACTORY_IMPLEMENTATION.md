@@ -898,6 +898,193 @@ review, never edits" constraint.
 
 ---
 
+## Production validation + pilot readiness (2026-08-08)
+
+A live validation pass was run against the **real production database and real
+Anthropic/OpenAI credentials** (not a staging copy) — every finding below is from
+actually executing the code, not re-reading it. `automationStatus` was `PAUSED` at the
+start and was left `PAUSED` at the end; no article was ever approved or published.
+
+### Scheduling-visibility regression proof (live, not just unit tests)
+
+Created one disposable, clearly-tagged test post directly via the `Blogs` model and
+checked all three public retrieval paths (`GET /blogs`, `GET /blogs/:slug`, and the
+SSR/OG-crawler `GET /blog/:slug`) at each state, then deleted it:
+
+| State | In `/blogs` list | `/blogs/:slug` 200 | SSR route leaks title |
+|---|---|---|---|
+| draft (`published:false`) | No | No | No |
+| `published:true`, `scheduledAt` **future** (+24h) | **No** | **No** | **No** |
+| `published:true`, `scheduledAt` **past** (-24h) | Yes | Yes | Yes |
+| deleted | No | No | No |
+
+All four states passed. This is the strongest possible confirmation of the earlier
+`buildPublicBlogFilter()` fix — proven against the real running route handlers, not a
+mock.
+
+### Real defects found and fixed during this pass
+
+1. **Course priority scores were nearly uniform across all 425 real courses**
+   (scores 10-11, everything `TIER_4_LONG_TAIL`, zero usable differentiation). Root
+   cause: `DEFAULT_CAPS.courseViews90d` (5000) and `enquiryCount90d` (40) were guesses
+   made with no real distribution to calibrate against — against actual data
+   (catalogue-wide 90-day views ≈2,300, and most `Enquiry.courseTitle` values are
+   generic labels like "General Enquiry" rather than real course names), both signals
+   normalized to near-zero for every course, and the score degenerated to whatever
+   `recency` alone contributed — itself uniform since only 19 blogs exist across 425
+   courses. **Fix:** `coursePriorityAggregation.service.js` now computes the actual
+   observed max per signal each run and passes dynamic caps into
+   `computeCoursePriorityScore()` (extended with an optional third `caps` param,
+   backward compatible — `DEFAULT_CAPS` remains the floor for sparse data). Re-run
+   against the same real data produced genuine differentiation (scores 10-27, sensible
+   top courses: LangChain Fundamentals, SOC Analyst, Claude API/Anthropic Platform,
+   MS-102). Regression tests added: `tests/content-factory/coursePriorityScoring.test.js`.
+   **Not fixed, flagged for the business:** `Enquiry.courseTitle` data quality — most
+   enquiry records don't carry a real course name, which limits how much the enquiry
+   signal can ever contribute regardless of scoring logic. This is a lead-capture form
+   data-entry issue, out of Content Factory's scope to fix in code.
+2. **The batched opportunity-candidate Claude call truncated mid-JSON at real batch
+   size** (20 candidates, the real `maxDailyOpportunities`) — `maxTokens: 4096` was a
+   fixed value that didn't scale with batch size. **Fix:**
+   `contentStrategy.service.js` now sizes `maxTokens` proportionally
+   (`Math.min(8192, Math.max(2048, 1024 + survivors.length * 350))`). Re-run
+   successfully created all 20 real opportunities with zero `Blogs` writes.
+3. **`parseModelJson` failed on a real content-brief response** containing a literal,
+   unescaped `"` inside a string value (a heading with a quoted phrase) — the existing
+   control-char repair pass's quote-boundary tracking ended the string early.
+   **Fix:** added a fallback second repair pass (`escapeStrayQuotesInStrings`), only
+   invoked when the first parse attempt fails, so well-formed responses are completely
+   unaffected. Regression tests added: `tests/content-factory/parseModelJson.test.js`
+   (includes the exact real failure pattern).
+4. **`articleWriter.service.js`'s per-turn timeout (120000ms, matching the original
+   `generate-from-course` route) was insufficient** for brief-driven generation in 2 of
+   3 initial real attempts. Raised to 180000ms in this file only (a deliberate,
+   independent copy — `generate-from-course` itself was not touched). Even at 180s,
+   articles for 2 of 2 subsequent real attempts still didn't complete before the
+   session hit real Anthropic credit exhaustion (see below) — whether 180s is
+   sufficient in practice under normal (non-credit-exhausted) conditions could not be
+   fully confirmed in this session and should be re-checked once real generation
+   resumes.
+
+Every fix above: `node --check` clean, full test suite re-run green after each
+(`128/128` at the end, up from `117/117` at the start of this pass — 11 new regression
+tests added), zero regressions to any pre-existing content-factory or blog behavior.
+
+### Real system behavior observed under genuine failure conditions
+
+Across 6 real generation attempts (2 batches of 3), the session's Anthropic API
+account ran out of credits mid-pilot (`"Your credit balance is too low to access the
+Anthropic API"`) — a real external/billing blocker, not a code defect, and outside
+this session's authority to resolve. This is valuable evidence in its own right: even
+under real, unplanned failure conditions (network timeouts, then an actual API
+rejection), **every `ContentGenerationJob` correctly recorded `status:"FAILED"` with
+the real error message, every subsequent step correctly stayed `PENDING` (never
+fabricated as complete), and zero corrupted or partial-fake articles were ever
+persisted** — confirming the "never persist corrupt records, fail safely" design
+property under genuine adverse conditions, not just synthetic unit tests. These 6 real
+`ContentGenerationJob`/opportunity records are left in the database exactly as they
+failed; once API credits are restored, the existing `[Retry]`/regenerate UI actions can
+resume them with the fixes above already in place.
+
+Total real AI cost incurred during this entire validation pass: **$0.30** (per
+`AiUsageLog`, cross-checked exactly against `ContentFactorySettings.todaySpendUsd` —
+confirming the cost-tracking wiring itself is accurate against real usage), covering 1
+topic-cluster proposal, 2 opportunity-candidate batches, and 5 content-brief attempts
+(4 successful). Well within the $20/day default budget.
+
+### Topic clusters (live)
+
+Proposed against the real 51 distinct course categories: 8 clusters (AI & GenAI,
+Cloud & DevOps, Data & Analytics, Business Applications & Integration, Cybersecurity &
+Compliance, Business & Agile, Development & Automation, Industry-Specific Tech),
+programmatically verified to cover all 51 categories exactly once (zero gaps, zero
+duplicates). Priorities sensibly reflect the business's actual stated AI/GenAI
+positioning (95, highest) down to the long-tail industry-vertical catch-all (70,
+lowest). Reviewed and applied — this is now the real, live cluster set.
+
+### Duplicate/cannibalization detection (live)
+
+Tested against the real 19-post blog corpus with three cases: an exact-title repeat of
+a real post (`EXACT_DUPLICATE`, score 100, `HIGH`), a reworded title on the same real
+topic (`KEYWORD_CANNIBALIZATION`, score 67, `MEDIUM`), and a genuinely unrelated new
+topic (score 0, `NONE`, no false positive). All three fired exactly as designed.
+
+### Content opportunities (live, post-fix)
+
+20 real opportunities generated from real course + real cluster data, zero `Blogs`
+writes, zero incorrect duplicate flags. Strongest opportunities cluster around AI &
+GenAI (Claude API, Agentic AI Engineering, LangChain — well-aligned with the
+company's positioning) and Cybersecurity (CISSP, AWS Security Specialty); all 20 came
+back as `contentType: COURSE_GUIDE` — a real, worth-noting lack of type diversity in
+this particular run's candidate-picking logic (plausibly because every one of these
+courses has zero prior blog coverage, where `COURSE_GUIDE` is a reasonable default
+first article — but worth watching in subsequent runs once courses have existing
+coverage to diversify against).
+
+### Content briefs (live, partial pilot)
+
+4 real content briefs were generated successfully before the credit exhaustion
+(Claude API Developer Guide, CISSP, MS-900, and one from the pre-fix batch). All four
+show genuinely specific, non-generic headings and reader questions (e.g. the MS-900
+brief explicitly frames "is this worth it vs. MS-102/SC-900" rather than a generic
+syllabus list; the CISSP brief's angle centers on the specific "think like a manager"
+exam-mindset shift rather than restating the 8 domains). This is real evidence the
+planning/briefing layer produces specific, useful output — but **no full article
+completed generation in this session**, so the end-to-end writing-quality,
+AI-style-risk, and quality-gate pass/fail behavior against a real article could not be
+directly observed here. This remains open until API credits are restored and a
+generation run is retried.
+
+### Editorial voice profile (added this pass)
+
+Found missing entirely as a shared concept — `articleWriter.prompt.js` had its own
+inline style prose, `aiStyleEvaluator.prompt.js` had an independent, differently-worded
+"avoid" list, and `revisionAgent.prompt.js` had no voice guidance at all, so the three
+could silently drift out of sync. Added `src/prompts/contentFactory/editorialProfile.js`
+(plain module, not a DB model — lightweight per the plan) defining VOICE/AUDIENCE/
+PREFER/AVOID once, wired into all three prompts via `buildEditorialProfileBlock()`.
+
+### PILOT automation status — evaluated, not added
+
+`automationStatus` is checked in exactly one place in the entire codebase
+(`dailyPlanningJob.processor.js`), and the settings a `PILOT` mode would need
+(`autoGenerateArticles`, `maxDailyArticles`) already exist independently of
+`automationStatus`. A third enum value would be purely redundant with
+`ENABLED + autoGenerateArticles:true + maxDailyArticles:5` — zero new capability for
+real schema/UI/controller cost. Not added, per the plan's own explicit fallback
+instruction. See "Recommended pilot configuration" below for the equivalent using
+existing settings.
+
+### Recommended pilot configuration (using existing settings, no new status needed)
+
+```json
+PATCH /admin/content-factory/settings
+{
+  "autoGenerateArticles": true,
+  "maxDailyArticles": 5,
+  "maxDailyOpportunities": 20,
+  "dailyAiBudgetUsd": 5
+}
+```
+Then `POST /settings/toggle-automation { "automationStatus": "ENABLED" }` when ready.
+Human approval and the absence of automatic publishing are structural — true
+regardless of any of these settings.
+
+### Final recommendation from this pass
+
+**GO WITH PILOT — with one hard precondition: restore Anthropic API credits and
+successfully complete at least one full article generation (through the quality gate)
+before enabling `autoGenerateArticles` or scheduling anything live.** Every layer
+proven reachable in this session (scheduling-visibility, priority scoring, topic
+clusters, duplicate detection, opportunity generation, cost tracking, safe-failure
+behavior) is now genuinely correct against real production data, not just
+unit-tested. The one layer that could not be fully validated end-to-end — full article
+generation through fact-check/AI-style/quality-gate/human-review — has real, promising
+partial evidence (4 solid content briefs, zero corrupted records under real failure)
+but no complete real article to inspect. `automationStatus` remains `PAUSED`.
+
+---
+
 ## Feature complete — all 5 milestones
 
 The AI Content Factory is now fully built across both repos on

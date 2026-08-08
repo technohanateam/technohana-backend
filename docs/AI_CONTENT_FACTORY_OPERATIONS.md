@@ -152,6 +152,43 @@ This is a Redis/Bull health question, not a content-factory-specific one — see
    fired; if there is one with `status:"FAILED"`, read its `errors` array for the thrown
    error message.
 
+## Pilot procedure (recommended before enabling full automation)
+
+A live validation pass (2026-08-08, see `AI_CONTENT_FACTORY_IMPLEMENTATION.md`
+"Production validation + pilot readiness") found and fixed several real defects
+(course-priority cap calibration, a batched-call JSON truncation bug, a JSON-repair
+gap, an article-generation timeout) and proved scheduling-visibility, topic clusters,
+duplicate detection, and cost tracking all work correctly against real production
+data. It could not fully validate end-to-end article quality because the Anthropic API
+account ran out of credits mid-session — a real external blocker, not a code issue.
+
+**Before enabling anything live:**
+1. Confirm the Anthropic API account has sufficient credit balance.
+2. Pick 2-3 opportunities from the real `ContentOpportunity` queue already created by
+   that validation pass (20 exist, `status:"PLANNED"`) and generate them via
+   `POST /opportunities/:id/generate` or the Human Review UI's "Generate Article"
+   button.
+3. Confirm at least one reaches `HUMAN_REVIEW` (or `NEEDS_REVISION` with a sensible
+   flag reason) and read the actual article — title, structure, factual claims,
+   internal links, AI-style score. This is the one thing the code-level validation
+   pass could not confirm end-to-end.
+4. Only then apply the pilot settings below and enable automation.
+
+**Recommended pilot settings** (no `PILOT` enum value exists — evaluated and
+deliberately not added, see the implementation doc; this uses existing settings
+fields to the same effect):
+```
+PATCH /admin/content-factory/settings
+{ "autoGenerateArticles": true, "maxDailyArticles": 5, "maxDailyOpportunities": 20, "dailyAiBudgetUsd": 5 }
+
+POST /admin/content-factory/settings/toggle-automation
+{ "automationStatus": "ENABLED" }
+```
+Human approval and no-automatic-publishing are structural guarantees, unaffected by
+any of these settings — every generated article still lands in `HUMAN_REVIEW`/
+`NEEDS_REVISION` regardless of `autoGenerateArticles`, and nothing publishes without
+an explicit `POST /review/:id/approve` (or `bulk-approve`) click.
+
 ## Rollback guidance
 
 No destructive migration is ever needed to disable the AI Content Factory — every schema
