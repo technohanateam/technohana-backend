@@ -15,6 +15,9 @@ import {
   requestRevision,
   rejectReviewItem,
   approveReviewItem,
+  bulkApproveReview,
+  bulkRejectReview,
+  bulkRegenerateReview,
 } from "../controllers/contentFactory/humanReview.controller.js";
 
 const router = express.Router();
@@ -61,5 +64,10 @@ router.post("/review/:opportunityId/regenerate", requireMarketing, contentFactor
 router.post("/review/:opportunityId/request-revision", requireMarketing, contentFactoryAiLimiter, requestRevision);
 router.post("/review/:opportunityId/reject", requireMarketing, rejectReviewItem);
 router.post("/review/:opportunityId/approve", requireMarketing, approveReviewItem);
+
+// ── Milestone 3: Bulk Review Actions ────────────────────────────────────────
+router.post("/review/bulk-approve", requireMarketing, bulkApproveReview);
+router.post("/review/bulk-reject", requireMarketing, bulkRejectReview);
+router.post("/review/bulk-regenerate", requireMarketing, contentFactoryAiLimiter, bulkRegenerateReview);
 
 export default router;

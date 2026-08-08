@@ -308,3 +308,223 @@ straight to `HUMAN_REVIEW`, skipping `AI_REVIEW`.
 - Confirmed via grep that no route among `generate-from-course`, `generate-from-urls`,
   `rewrite`, `auto-seo`, `auto-schedule`, `bulk-publish`, `bulk-delete`, `seed-static`,
   `upload-image` appears in this milestone's diff.
+
+## As-built — Milestone 3
+
+Editorial quality: fact-check, AI-style eval, quality gate, revision agent, full human
+review UI (AI Quality tab, revision history), bulk review actions.
+
+### `claudeWebSearchLoop.js` extraction decision — **extracted, not duplicated a third time**
+The plan flagged this as a judgment call ("extract only if zero behavior change; otherwise
+write a fresh, smaller duplicate"). Decision: **extracted** `utils/claudeWebSearchLoop.js`
+from `admin.routes.js`'s `POST /admin/blogs/generate-from-course` handler, and switched
+that route to call it.
+
+Why this was safe to do (not the same situation M2 faced with `articleWriter.service.js`):
+the loop in `generate-from-course` is a **self-contained, parameter-free block** — it reads
+`system`/`userPrompt`/`apiKey` from local closures and returns nothing but `finalText`
+(everything downstream — JSON parsing, response shape — lives outside the loop and was left
+completely untouched). Unlike M2's `articleWriter.service.js`, which needed a *different*
+call shape (return `usage`/`model` alongside text, brief-aware prompt), this extraction
+needed **zero interface change** at the call site — same inputs (`apiKey`, `system`,
+`prompt`, hardcoded `model`/`maxTokens`/`maxTurns`/`timeout` values passed through
+unchanged), same output consumed the same way (`if (!finalText) return res.status(500)...`).
+Verified byte-identical behavior by comparing the pre/post diff line-by-line: same
+`axios.post` URL/headers/body shape, same turn cap (5), same timeout (120000ms), same
+stop-reason branches (`end_turn` extracts text and breaks, `tool_use` continues, anything
+else breaks with empty `finalText`), same message-history append behavior. The util also
+returns `usage`/`model`/`turns` for callers that want them (factChecker.service.js does);
+the extracted `generate-from-course` call site simply doesn't destructure those fields, so
+its behavior is unaffected.
+
+`articleWriter.service.js` (M2) was **not** touched — it keeps its own inline copy of the
+loop exactly as M2 left it, per the explicit instruction not to touch it. So there are now
+two consumers of the shared util (`generate-from-course` and `factChecker.service.js`) and
+one still-independent copy (`articleWriter.service.js`) — this is intentional, not an
+oversight.
+
+### Quality gate composition (`qualityGate.service.js`)
+`computeQualityGateResult(scores, settings)` is a **pure function** — no imports of
+mongoose models, `aiAgent.service.js`, or any network client inside that specific function
+(verified: it only touches its own module-level `WEIGHTS`/`TOTAL_WEIGHT` constants and the
+arguments passed in). Unit tests in `tests/content-factory/qualityGate.test.js` call it with
+plain objects only.
+
+`overallScore` is a weighted average of all dimensions except `aiStyleRiskScore`, which is
+folded in **inverted** (`100 - aiStyleRiskScore`) rather than treated as a pure separate
+gate — it still *also* gates independently (see below), so it counts twice by design: once
+as a component of the composite score, once as its own hard threshold. Weights (documented
+in the module, sum to 100): `factualityScore` 15 (highest — accuracy is the highest-stakes
+dimension), `seoScore`/`originalityScore`/`courseRelevanceScore` 10 each,
+`readabilityScore`/`searchIntentAlignmentScore`/`specificityScore`/`originalInsightScore` 8
+each, `internalLinksScore`/`ctaRelevanceScore`/`editorialQualityScore` 6 each,
+`aiStyleRiskScore` (inverted) 5.
+
+`flaggedForRevision` is true when `aiStyleRiskScore > settings.aiStyleRiskThreshold` **OR**
+`overallScore < settings.overallScoreFloor`, exactly per spec. `overallScoreFloor` did not
+already exist on `contentFactorySettings.model.js` — added additively, default `60`.
+
+Two dimensions are computed **deterministically instead of asking the AI**, per the plan's
+explicit instruction not to re-ask the model for something computable:
+- `seoScore` — reuses `seoThresholds.js`'s existing 50-60/140-160 char ranges (same source
+  the editor UI's SEO checklist uses), scored as 5 equal-weight checks (focus keyword set,
+  meta title in range, meta description in range, excerpt filled in, tags.length >= 3 — the
+  last one swapped in for "featured image set" since a cover image isn't part of
+  `articleDraft` and image generation is prompt-only in this project).
+- `internalLinksScore` — reuses `internalLinker.service.js`'s own target ranges (2-5 course
+  links, 1-4 blog links) against the actual `suggestedInternalLinks` counts already on the
+  draft.
+
+The remaining 8 dimensions (originality, readability, courseRelevance,
+searchIntentAlignment, ctaRelevance, specificity, originalInsight, editorialQuality) come
+from **one combined** `standard`-tier Claude call (`qualityEvaluator.prompt.js`) — kept to
+one call rather than one call per dimension, per the plan's cost-consciousness. `factuality`
+comes from the fact-checker's findings (`verifiable count / total count * 100`, defaulting
+to 80 when an article makes no checkable claims — a neutral-good default rather than
+penalizing an article that simply didn't take factual risks). `aiStyleRiskScore` comes from
+its own dedicated cheap-tier call.
+
+### Fact-checker (`factChecker.service.js`)
+One Claude call with `web_search_20260209` tool access via the shared loop util (internally
+may take several search turns — from the orchestrator's point of view it's one
+`QUALITY_GATE`-step sub-call). Never fabricates a source: a finding is only trusted as
+`verifiable: true` if the model both claims `verifiable:true` **and** supplied a
+`sourceUrl` — a `verifiable:true` claim missing a `sourceUrl` is downgraded to `false` with
+an explanatory note rather than trusted at face value. Failures (parse errors, no final
+response) never throw up into the quality gate — they resolve to an empty findings list plus
+an `error` field, so a fact-checker failure can never block the rest of the quality gate the
+way a hard throw would.
+
+### AI-style evaluator (`aiStyleEvaluator.service.js`)
+One `cheap`-tier call, scores `aiStyleRiskScore` 0-100 (higher = more
+generic/formulaic/AI-sounding — formulaic transitions, generic hedging, repetitive
+structure, generic intro/conclusion patterns). `flagReasons` only populated when the score
+is elevated (>= 30), matching the plan's "reasons only populated when score is elevated"
+requirement.
+
+### Revision agent (`revisionAgent.service.js`) — cap and sanity check
+`reviseArticle(articleDraft, qualityScoreResult, brief, opts)` is a `standard`-tier call
+instructed to genuinely restructure flagged sections (explicit anti-synonym-swap
+instruction, strengthened further on the retry — see `revisionAgent.prompt.js`'s `stronger`
+branch). `sources`, `faqs`, and `suggestedInternalLinks` are force-preserved from the
+original draft in `mergeRevision()` regardless of what the model returns — belt-and-suspenders
+on top of the prompt instruction, never trusting the model alone not to touch them.
+
+Sanity check: a dependency-free Sorensen-Dice similarity over character bigrams
+(`diceSimilarity`) compares normalized (HTML-stripped, lowercased, whitespace-collapsed)
+before/after `content`. Above `0.9` similarity, the revision is judged "basically
+unchanged" and a second attempt runs with a strengthened prompt. If the second attempt is
+*also* above the threshold, `reviseArticle` gives up gracefully — returns the
+less-similar of the two attempts plus a `note` explaining automatic revision couldn't
+substantially change the draft, rather than looping indefinitely. **Hard cap: exactly 2
+Claude calls per `reviseArticle()` invocation, always.**
+
+### Orchestrator wiring and the automatic-revision cap (no infinite loop)
+`contentGenerationOrchestrator.service.js`'s `STEP_ORDER` now ends in `QUALITY_GATE`. Inside
+that step:
+1. `runQualityGate(opportunity._id, articleDraft)` runs once.
+2. **Only if** `flaggedForRevision` **and** `opportunity.autoRevisionCount === 0`:
+   `reviseArticle()` runs (bounded to 2 Claude calls, see above), `autoRevisionCount` is
+   incremented to `1`, a `REVISION` entry is appended to `job.steps[]` (not part of the
+   fixed `STEP_ORDER` since it's conditional — `REVISION` was added additively to
+   `ContentGenerationJob`'s step-name enum), and `runQualityGate` runs a **second and final**
+   time on the revised draft.
+3. Whatever the last `runQualityGate` result was becomes `qualityGateOutcome`, consumed
+   after the loop to set the opportunity's final status: `NEEDS_REVISION` if still flagged
+   (with `humanRevisionNote` summarizing the flag reasons so the reason is visible without
+   opening the quality tab), `HUMAN_REVIEW` otherwise.
+
+**No infinite loop is possible**: `runQualityGate` is called at most twice per pipeline run
+(step 1, and once more only inside the `autoRevisionCount === 0` branch — which can only be
+true once per run, since it's set to `1` synchronously before that branch's `runQualityGate`
+call). `reviseArticle` itself is hard-capped at 2 Claude calls regardless of how similar its
+output is. There is no retry-on-still-flagged behavior anywhere in the automatic path — a
+still-flagged draft after the one revision pass goes straight to `NEEDS_REVISION`, it is
+never fed back into another automatic revision attempt.
+
+`autoRevisionCount` resets to `0` on a full pipeline restart (`runGenerationPipeline` — a
+brand-new article draft gets its own fresh automatic-revision allowance) but is left
+untouched by `retryFromStep` (a partial resume continues working on the same draft, so the
+cap must persist across it) and is **never** touched by the human-requested revision path
+(`requestRevision` controller — see below), consistent with the plan's "the cap is only for
+the fully-automatic pass; a human explicitly asking again is a new, allowed action".
+
+Both `ContentQualityScore` docs from an auto-revision pass are kept (never overwritten) —
+`generationAttempt` is derived from `ContentQualityScore.countDocuments({opportunityId}) + 1`
+inside `runQualityGate`, so the second call within the same pipeline run naturally gets
+`generationAttempt: 2`, giving the review UI (`RevisionDiff.jsx`) a real before/after to
+show.
+
+### Human-requested revision (`humanReview.controller.js` — `request-revision`)
+Now a real endpoint instead of the M2 stub: loads the latest `ContentQualityScore` (for
+`flagReasons`/`factCheckFindings` context) and the `ContentBrief`, calls
+`reviseArticle(draft, qualityScoreResult, brief, { humanNote })` with the human's note
+merged in as additional prompt context (see `revisionAgent.prompt.js`'s `humanNote`
+section). Explicitly does **not** touch `opportunity.autoRevisionCount` — this path is
+unlimited by design, a human can request revision as many times as they want. After
+revision, status is set back to `HUMAN_REVIEW` (never auto-approved) so the human re-checks
+the result before approving.
+
+### Bulk actions and server-side re-validation
+`POST /review/bulk-approve` loops over the given ids and, **for each one individually**,
+calls `assertApprovable(opportunity)` before calling the same `approveOpportunityCore()`
+function the single `approve` endpoint uses (no forked approval logic) — `assertApprovable`
+independently re-checks both the opportunity's `status` (must be `HUMAN_REVIEW`/`AI_REVIEW`)
+**and** queries the latest `ContentQualityScore` doc's `flaggedForRevision` field itself,
+never trusting anything the client sent about which items are "safe". Anything that fails
+either check is pushed to a `skipped: [{id, reason}]` array in the response rather than
+being silently included or causing the whole batch to fail — verified by manually
+constructing a request with a known-`NEEDS_REVISION` id mixed into an otherwise-valid `ids`
+array and confirming it comes back in `skipped` with the real approved items still
+succeeding. `POST /review/bulk-reject` and `POST /review/bulk-regenerate` follow the same
+per-id-not-trusting-the-client shape (though reject doesn't need quality-gate
+re-validation — rejecting a flagged item is always safe).
+
+### Frontend — AI Quality tab, revision history, bulk action bar
+`ReviewModal.jsx` now threads `qualityScore`, `qualityScoreHistory`, and
+`autoRevisionCount` through `reviewContext` (the `GET /review/:id` controller response was
+extended server-side to include the latest `ContentQualityScore` plus the full
+`qualityScoreHistory` array, rather than adding a second dedicated endpoint, per plan
+guidance). `AdminBlogs.jsx`'s `BlogModal` "AI Quality" tab (still inside the pre-existing
+additive `reviewContext` branch — the non-`reviewContext` path is untouched) now renders a
+new `QualityTab` component: dimension score grid with green ≥ 80 / amber 50-79 / red < 50
+thresholds (`aiStyleRiskScore` colored inverted since lower is better), `flagReasons` list,
+`factCheckFindings` list with a green check (verifiable) or amber warning (unverifiable)
+icon per finding, and — only when `autoRevisionCount > 0` — a `RevisionDiff.jsx` component
+showing the first vs. last `ContentQualityScore` docs' numbers side by side with a
+"still flagged for: X" note. Kept intentionally simple (numbers side-by-side, not a text
+diff library) per the plan's explicit "simpler is fine here" guidance.
+
+`HumanReview.jsx` gained checkbox-based multi-select and a floating bulk action bar
+(Bulk Approve / Bulk Regenerate / Bulk Reject), visually matching `AdminBlogs.jsx`'s
+existing bulk bar (`fixed bottom-4 ... bg-gray-900 text-white rounded-2xl shadow-2xl`
+pattern, read directly from that file before building this one). Bulk Approve gives a
+client-side heads-up (amber warning count) for any selected row whose `status` is
+`NEEDS_REVISION` — but the click is never blocked; the server is the actual authority and
+reports back which ids were skipped and why.
+
+### Additive schema changes
+- `contentQualityScore.model.js` — new collection, one doc per generation attempt.
+- `contentFactorySettings.model.js` — `overallScoreFloor` (default `60`), additive.
+- `contentOpportunity.model.js` — `autoRevisionCount` (default `0`), additive.
+- `contentGenerationJob.model.js` — `REVISION` added to the step-name enum, additive.
+
+### Verification performed
+- `node --check` on every new/modified backend file — all pass.
+- Backend `npm test` — 81 tests pass (the pre-existing 75 backlink/seo-intel tests
+  unmodified, plus 6 new pure-function tests for `computeQualityGateResult` in
+  `tests/content-factory/qualityGate.test.js`, added to the `test` script's glob).
+- Frontend `npm run build` — succeeds. `npx eslint` on every new/modified frontend file —
+  zero new problems (one pre-existing `no-unused-vars` in `AdminBlogs.jsx`'s
+  `handleGenerateLinks`, confirmed unrelated to this milestone's changes, left as-is).
+  Frontend `npm test` (vitest) — same 3 pre-existing failures as baseline
+  (`AdminSeoExecutiveDashboard`/`ConnectPropertyDialog`/`SeoKpiCard`, all SEO-dashboard
+  tests unrelated to content-factory, confirmed via grep that none reference
+  `contentFactory`/`AdminBlogs`/`ReviewModal`), no new failures introduced.
+- Traced the full path manually: generate → QUALITY_GATE scores it → if flagged, exactly one
+  auto-revision → re-score → NEEDS_REVISION (still flagged, both `ContentQualityScore` docs
+  visible) or HUMAN_REVIEW (no longer flagged) → confirmed no code path re-enters the
+  automatic revision branch for the same pipeline run.
+- Confirmed `computeQualityGateResult` has zero imports of mongoose models, `aiAgent.service.js`,
+  or `axios`/`callClaude` anywhere in `qualityGate.service.js`'s pure-function section (only
+  the orchestrating `runQualityGate` function below it does DB/network work).

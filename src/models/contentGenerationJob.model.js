@@ -1,6 +1,9 @@
 import mongoose, { Schema } from "mongoose";
 
-const STEP_NAMES = ["BRIEF", "ARTICLE", "SEO", "LINKS", "IMAGE_PROMPT", "QUALITY_GATE"];
+// REVISION is an M3 addition: appended to job.steps only when the automatic
+// revision pass inside the QUALITY_GATE step actually runs — not part of the
+// fixed pipeline order, so it's not always present.
+const STEP_NAMES = ["BRIEF", "ARTICLE", "SEO", "LINKS", "IMAGE_PROMPT", "QUALITY_GATE", "REVISION"];
 
 const stepSchema = new Schema(
   {

@@ -16,6 +16,10 @@ const contentFactorySettingsSchema = new Schema(
     dailyAiBudgetUsd: { type: Number, default: 20 },
     todaySpendUsd: { type: Number, default: 0 },
     aiStyleRiskThreshold: { type: Number, default: 30 },
+    // Milestone 3: quality-gate floor — computeQualityGateResult() flags for
+    // revision when overallScore falls below this, in addition to the
+    // aiStyleRiskThreshold check above.
+    overallScoreFloor: { type: Number, default: 60 },
     autoGenerateArticles: { type: Boolean, default: false },
     priorityWeights: {
       type: Schema.Types.Mixed,

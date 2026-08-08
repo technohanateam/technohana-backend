@@ -1,21 +1,25 @@
 import ContentOpportunity from "../../models/contentOpportunity.model.js";
 import ContentBrief from "../../models/contentBrief.model.js";
 import ContentGenerationJob from "../../models/contentGenerationJob.model.js";
+import ContentQualityScore from "../../models/contentQualityScore.model.js";
 import { Blogs } from "../../models/blogs.model.js";
 import { createBlogFromPayload } from "../../services/blogCreation.service.js";
 import { enqueueGeneration } from "../../services/contentFactory/contentGenerationQueue.js";
+import { reviseArticle } from "../../services/contentFactory/revisionAgent.service.js";
 
 // GET /admin/content-factory/review/:opportunityId
-// No real AI-quality scores exist yet in M2 (that's M3) — those fields are
-// returned null/empty so the frontend can render placeholders gracefully.
+// M3: includes the latest ContentQualityScore plus full attempt history
+// (rather than a second dedicated endpoint) so the frontend's AI Quality tab
+// and revision-history indicator have everything in one response.
 export const getReviewItem = async (req, res) => {
   try {
     const opportunity = await ContentOpportunity.findById(req.params.opportunityId).lean();
     if (!opportunity) return res.status(404).json({ success: false, message: "Opportunity not found" });
 
-    const [brief, job] = await Promise.all([
+    const [brief, job, qualityScoreHistory] = await Promise.all([
       ContentBrief.findOne({ opportunityId: opportunity._id }).lean(),
       ContentGenerationJob.findOne({ opportunityId: opportunity._id }).sort({ createdAt: -1 }).lean(),
+      ContentQualityScore.find({ opportunityId: opportunity._id }).sort({ generationAttempt: 1, createdAt: 1 }).lean(),
     ]);
 
     return res.json({
@@ -24,7 +28,8 @@ export const getReviewItem = async (req, res) => {
         opportunity,
         brief: brief || null,
         job: job || null,
-        qualityScore: null, // placeholder — lands in Milestone 3
+        qualityScore: qualityScoreHistory.length ? qualityScoreHistory[qualityScoreHistory.length - 1] : null,
+        qualityScoreHistory,
       },
     });
   } catch (err) {
@@ -106,22 +111,49 @@ export const regenerateReview = async (req, res) => {
 };
 
 // POST /admin/content-factory/review/:opportunityId/request-revision
-// M2 stub: records the human note and re-queues the full pipeline. The real
-// Revision Agent (targeted AI rewrite of flagged sections) is Milestone 3's
-// job, not implemented here.
+// M3: real Revision Agent wiring — calls revisionAgent.service.js with the
+// human's note merged alongside any existing quality-gate flag reasons. This
+// is a human-requested revision, NOT the automatic pipeline pass, so it is
+// NOT limited by opportunity.autoRevisionCount — a human can ask again as
+// many times as needed. After revision, status goes back to HUMAN_REVIEW
+// (never auto-approved) so the human re-checks the result.
 export const requestRevision = async (req, res) => {
   try {
     const opportunity = await ContentOpportunity.findById(req.params.opportunityId);
     if (!opportunity) return res.status(404).json({ success: false, message: "Opportunity not found" });
 
-    opportunity.status = "NEEDS_REVISION";
-    opportunity.humanRevisionNote = req.body?.note || null;
+    const draft = opportunity.articleDraft?.toObject ? opportunity.articleDraft.toObject() : opportunity.articleDraft;
+    if (!draft?.content) {
+      return res.status(400).json({ success: false, message: "No article draft to revise yet." });
+    }
+
+    const note = req.body?.note || null;
+    opportunity.humanRevisionNote = note;
     await opportunity.save();
 
-    const job = await ContentGenerationJob.create({ opportunityId: opportunity._id, status: "QUEUED" });
-    await enqueueGeneration(opportunity._id.toString());
+    const [brief, latestScore] = await Promise.all([
+      ContentBrief.findOne({ opportunityId: opportunity._id }).lean(),
+      ContentQualityScore.findOne({ opportunityId: opportunity._id }).sort({ createdAt: -1 }).lean(),
+    ]);
 
-    return res.json({ success: true, data: { jobId: job._id }, message: "Revision requested and regeneration queued" });
+    const qualityScoreResult = {
+      flagReasons: latestScore?.flagReasons || [],
+      factCheckFindings: latestScore?.factCheckFindings || [],
+    };
+
+    const revisionResult = await reviseArticle(draft, qualityScoreResult, brief, { humanNote: note });
+
+    opportunity.articleDraft = revisionResult.articleDraft;
+    opportunity.status = "HUMAN_REVIEW";
+    await opportunity.save();
+
+    return res.json({
+      success: true,
+      data: { opportunity, gaveUp: revisionResult.gaveUp, note: revisionResult.note },
+      message: revisionResult.gaveUp
+        ? "Revision applied, but the automatic rewrite could not substantially change the flagged sections — please review closely."
+        : "Revision applied — back in human review",
+    });
   } catch (err) {
     console.error("[ContentFactory] requestRevision error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
@@ -164,6 +196,72 @@ async function uniqueSlug(desiredSlug) {
   return candidate;
 }
 
+// Shared approval logic — used by both the single approve endpoint and
+// bulk-approve, so there is exactly one place that creates a Blogs draft
+// from an opportunity. Never schedules/publishes beyond setting
+// `published:false` (+ optional scheduledAt) — same as it always has.
+async function approveOpportunityCore(opportunity, { scheduledAt, reviewerName }) {
+  const draft = opportunity.articleDraft?.toObject ? opportunity.articleDraft.toObject() : opportunity.articleDraft;
+  if (!draft?.title || !draft?.content) {
+    return { ok: false, statusCode: 400, message: "Article draft is missing a title or content." };
+  }
+
+  const desiredSlug =
+    draft.slug ||
+    draft.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+  const slug = await uniqueSlug(desiredSlug);
+
+  const blog = await createBlogFromPayload({
+    title: draft.title,
+    slug,
+    img: opportunity.imageConcept?.imageUrl || "",
+    author: draft.author || "",
+    date: new Date().toISOString().split("T")[0],
+    content: draft.content,
+    category: draft.category || opportunity.category || "",
+    excerpt: draft.excerpt || "",
+    metaTitle: draft.metaTitle || "",
+    metaDescription: draft.metaDescription || "",
+    focusKeyword: draft.focusKeyword || opportunity.focusKeyword || "",
+    tags: draft.tags || [],
+    readTimeMin: draft.readTimeMin || null,
+    sources: draft.sources || [],
+    faqs: draft.faqs || [],
+    sourceOpportunityId: opportunity._id,
+  });
+
+  blog.published = false;
+  if (scheduledAt) blog.scheduledAt = new Date(scheduledAt);
+  await blog.save();
+
+  opportunity.status = scheduledAt ? "SCHEDULED" : "APPROVED";
+  opportunity.resultingBlogId = blog._id;
+  opportunity.reviewedBy = reviewerName || null;
+  opportunity.reviewedAt = new Date();
+  await opportunity.save();
+
+  return { ok: true, blogId: blog._id };
+}
+
+// Server-side re-validation that an opportunity is actually safe to approve —
+// never trusts the client's selection alone. Rejects/skips anything whose
+// status isn't an approvable review state, or whose latest quality score is
+// still flagged for revision.
+async function assertApprovable(opportunity) {
+  if (!opportunity) return { approvable: false, reason: "Opportunity not found" };
+  if (!["HUMAN_REVIEW", "AI_REVIEW"].includes(opportunity.status)) {
+    return { approvable: false, reason: `Cannot approve from status ${opportunity.status}` };
+  }
+  const latestScore = await ContentQualityScore.findOne({ opportunityId: opportunity._id }).sort({ createdAt: -1 }).lean();
+  if (latestScore?.flaggedForRevision) {
+    return { approvable: false, reason: "Latest quality score is still flagged for revision" };
+  }
+  return { approvable: true };
+}
+
 // POST /admin/content-factory/review/:opportunityId/approve
 // Optional `scheduledAt` in the body also schedules the new draft (single
 // endpoint handles both "Approve" and "Approve & Schedule" — chosen over a
@@ -174,59 +272,141 @@ export const approveReviewItem = async (req, res) => {
     const opportunity = await ContentOpportunity.findById(req.params.opportunityId);
     if (!opportunity) return res.status(404).json({ success: false, message: "Opportunity not found" });
 
-    // AI_REVIEW accepted too since M3's quality-gate distinction doesn't
-    // fully exist yet — HUMAN_REVIEW is the primary expected M2 state.
+    // AI_REVIEW accepted too since AI_REVIEW is only ever transient — most
+    // opportunities reach HUMAN_REVIEW or NEEDS_REVISION via the quality gate.
     if (!["HUMAN_REVIEW", "AI_REVIEW"].includes(opportunity.status)) {
       return res.status(409).json({ success: false, message: `Cannot approve from status ${opportunity.status}` });
     }
 
-    const draft = opportunity.articleDraft?.toObject ? opportunity.articleDraft.toObject() : opportunity.articleDraft;
-    if (!draft?.title || !draft?.content) {
-      return res.status(400).json({ success: false, message: "Article draft is missing a title or content." });
-    }
+    const reviewerName = req.admin?.name || req.admin?.email || req.admin?.uid || null;
+    const result = await approveOpportunityCore(opportunity, { scheduledAt: req.body?.scheduledAt, reviewerName });
+    if (!result.ok) return res.status(result.statusCode).json({ success: false, message: result.message });
 
-    const desiredSlug =
-      draft.slug ||
-      draft.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
-    const slug = await uniqueSlug(desiredSlug);
-
-    const blog = await createBlogFromPayload({
-      title: draft.title,
-      slug,
-      img: opportunity.imageConcept?.imageUrl || "",
-      author: draft.author || "",
-      date: new Date().toISOString().split("T")[0],
-      content: draft.content,
-      category: draft.category || opportunity.category || "",
-      excerpt: draft.excerpt || "",
-      metaTitle: draft.metaTitle || "",
-      metaDescription: draft.metaDescription || "",
-      focusKeyword: draft.focusKeyword || opportunity.focusKeyword || "",
-      tags: draft.tags || [],
-      readTimeMin: draft.readTimeMin || null,
-      sources: draft.sources || [],
-      faqs: draft.faqs || [],
-      sourceOpportunityId: opportunity._id,
-    });
-
-    blog.published = false;
-    const scheduledAt = req.body?.scheduledAt;
-    if (scheduledAt) blog.scheduledAt = new Date(scheduledAt);
-    await blog.save();
-
-    opportunity.status = scheduledAt ? "SCHEDULED" : "APPROVED";
-    opportunity.resultingBlogId = blog._id;
-    opportunity.reviewedBy = req.admin?.name || req.admin?.email || req.admin?.uid || null;
-    opportunity.reviewedAt = new Date();
-    await opportunity.save();
-
-    return res.json({ success: true, data: { blogId: blog._id }, message: "Approved — draft created in Blogs" });
+    return res.json({ success: true, data: { blogId: result.blogId }, message: "Approved — draft created in Blogs" });
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ success: false, message: err.message });
     console.error("[ContentFactory] approveReviewItem error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /admin/content-factory/review/bulk-approve — { ids: [...] }
+// Re-validates EVERY id server-side (status + latest quality score) — never
+// trusts the client's selection alone. Anything that fails validation is
+// skipped and reported back, not silently included.
+export const bulkApproveReview = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    if (!ids.length) return res.status(400).json({ success: false, message: "ids array is required" });
+
+    const reviewerName = req.admin?.name || req.admin?.email || req.admin?.uid || null;
+    const approved = [];
+    const skipped = [];
+
+    for (const id of ids) {
+      // eslint-disable-next-line no-await-in-loop
+      const opportunity = await ContentOpportunity.findById(id);
+      // eslint-disable-next-line no-await-in-loop
+      const check = await assertApprovable(opportunity);
+      if (!check.approvable) {
+        skipped.push({ id, reason: check.reason });
+        continue;
+      }
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const result = await approveOpportunityCore(opportunity, { scheduledAt: null, reviewerName });
+        if (result.ok) approved.push({ id, blogId: result.blogId });
+        else skipped.push({ id, reason: result.message });
+      } catch (err) {
+        skipped.push({ id, reason: err.message });
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: { approved, skipped },
+      message: `Approved ${approved.length} of ${ids.length}${skipped.length ? `; skipped ${skipped.length}` : ""}`,
+    });
+  } catch (err) {
+    console.error("[ContentFactory] bulkApproveReview error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /admin/content-factory/review/bulk-reject — { ids: [...], rejectionReason }
+export const bulkRejectReview = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    if (!ids.length) return res.status(400).json({ success: false, message: "ids array is required" });
+
+    const reviewerName = req.admin?.name || req.admin?.email || req.admin?.uid || null;
+    const result = await ContentOpportunity.updateMany(
+      { _id: { $in: ids } },
+      {
+        $set: {
+          status: "REJECTED",
+          rejectionReason: req.body?.rejectionReason || null,
+          reviewedBy: reviewerName,
+          reviewedAt: new Date(),
+        },
+      }
+    );
+
+    return res.json({
+      success: true,
+      data: { matched: result.matchedCount ?? result.n, modified: result.modifiedCount ?? result.nModified },
+      message: `Rejected ${result.modifiedCount ?? result.nModified ?? 0} opportunit${(result.modifiedCount ?? result.nModified) === 1 ? "y" : "ies"}`,
+    });
+  } catch (err) {
+    console.error("[ContentFactory] bulkRejectReview error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /admin/content-factory/review/bulk-regenerate — { ids: [...] }
+// Respects the same status validation as the single regenerate endpoint
+// (implicitly, via generateOpportunityArticle's GENERATABLE_STATUSES —
+// regenerateReview here mirrors regenerateReview's own less-restrictive
+// re-queue behavior, so any in-review status can be sent back through the
+// pipeline).
+export const bulkRegenerateReview = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    if (!ids.length) return res.status(400).json({ success: false, message: "ids array is required" });
+
+    const queued = [];
+    const skipped = [];
+
+    for (const id of ids) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const opportunity = await ContentOpportunity.findById(id);
+        if (!opportunity) {
+          skipped.push({ id, reason: "Opportunity not found" });
+          continue;
+        }
+        opportunity.status = "SELECTED";
+        opportunity.generationAttempts = (opportunity.generationAttempts || 0) + 1;
+        // eslint-disable-next-line no-await-in-loop
+        await opportunity.save();
+
+        // eslint-disable-next-line no-await-in-loop
+        const job = await ContentGenerationJob.create({ opportunityId: opportunity._id, status: "QUEUED" });
+        // eslint-disable-next-line no-await-in-loop
+        await enqueueGeneration(opportunity._id.toString());
+        queued.push({ id, jobId: job._id });
+      } catch (err) {
+        skipped.push({ id, reason: err.message });
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: { queued, skipped },
+      message: `Regeneration queued for ${queued.length} of ${ids.length}`,
+    });
+  } catch (err) {
+    console.error("[ContentFactory] bulkRegenerateReview error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };

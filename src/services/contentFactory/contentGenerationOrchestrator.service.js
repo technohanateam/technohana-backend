@@ -6,10 +6,14 @@ import { writeArticle } from "./articleWriter.service.js";
 import { writeSeoFields } from "./seoFieldWriter.service.js";
 import { generateInternalLinks } from "./internalLinker.service.js";
 import { generateImageConcept } from "./imagePromptWriter.service.js";
+import { runQualityGate } from "./qualityGate.service.js";
+import { reviseArticle } from "./revisionAgent.service.js";
 
-// M2 pipeline order. QUALITY_GATE exists on the ContentGenerationJob schema
-// for M3 forward-compat but is never run/populated here.
-const STEP_ORDER = ["BRIEF", "ARTICLE", "SEO", "LINKS", "IMAGE_PROMPT"];
+// M3: QUALITY_GATE runs after IMAGE_PROMPT. It may internally trigger ONE
+// automatic REVISION pass (tracked via opportunity.autoRevisionCount, capped
+// at 1 here) — that sub-step isn't in STEP_ORDER since it's conditional, but
+// gets its own entry appended to job.steps when it runs (see runSteps below).
+const STEP_ORDER = ["BRIEF", "ARTICLE", "SEO", "LINKS", "IMAGE_PROMPT", "QUALITY_GATE"];
 
 // Rough $/1K-token estimate table — public approximate pricing, NOT exact
 // billing. Good enough for the budget-tracking UI (M4), not for invoicing.
@@ -65,6 +69,39 @@ async function markStepFailed(job, name, error) {
   await job.save();
 }
 
+function sumUsage(...usages) {
+  return usages.reduce(
+    (acc, u) => ({
+      input_tokens: acc.input_tokens + (u?.input_tokens || 0),
+      output_tokens: acc.output_tokens + (u?.output_tokens || 0),
+    }),
+    { input_tokens: 0, output_tokens: 0 }
+  );
+}
+
+// Appends a new step entry to job.steps (used for REVISION, which isn't part
+// of the fixed STEP_ORDER since it's conditional on the quality gate flagging
+// the draft) and persists it.
+async function appendStep(job, { name, model, usage, error, startedAt }) {
+  const tokensIn = usage?.input_tokens || 0;
+  const tokensOut = usage?.output_tokens || 0;
+  const estimatedCostUsd = model ? estimateCostUsd(model, tokensIn, tokensOut) : 0;
+  job.steps.push({
+    name,
+    status: error ? "FAILED" : "DONE",
+    startedAt: startedAt || new Date(),
+    finishedAt: new Date(),
+    model: model || null,
+    tokensIn,
+    tokensOut,
+    estimatedCostUsd,
+    error: error || null,
+  });
+  job.totalTokens += tokensIn + tokensOut;
+  job.totalCostUsd += estimatedCostUsd;
+  await job.save();
+}
+
 // Runs STEP_ORDER starting at `fromIndex`, reusing already-persisted data for
 // earlier steps (brief / articleDraft / imageConcept passed in) rather than
 // regenerating them. Mutates and saves `job` and `opportunity` as it goes.
@@ -72,6 +109,9 @@ async function markStepFailed(job, name, error) {
 // gracefully.
 async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imageConcept }) {
   const startedAt = Date.now();
+  // Set inside the QUALITY_GATE branch, consumed after the loop to decide the
+  // final opportunity status (NEEDS_REVISION vs HUMAN_REVIEW).
+  let qualityGateOutcome = null;
 
   for (let i = fromIndex; i < STEP_ORDER.length; i++) {
     const stepName = STEP_ORDER[i];
@@ -99,6 +139,46 @@ async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imag
         const result = await generateImageConcept(articleDraft, opportunity);
         imageConcept = result.imageConcept;
         await markStepDone(job, stepName, result);
+      } else if (stepName === "QUALITY_GATE") {
+        let gateResult = await runQualityGate(opportunity._id, articleDraft);
+
+        // Automatic revision pass — capped at exactly 1 (guaranteed by the
+        // `autoRevisionCount === 0` guard, never re-entered for this
+        // opportunity's automatic pipeline again after this point).
+        if (gateResult.flaggedForRevision && (opportunity.autoRevisionCount || 0) === 0) {
+          const revisionStartedAt = new Date();
+          const revisionResult = await reviseArticle(articleDraft, gateResult, brief);
+          articleDraft = revisionResult.articleDraft;
+          opportunity.autoRevisionCount = (opportunity.autoRevisionCount || 0) + 1;
+          opportunity.articleDraft = articleDraft;
+          await opportunity.save();
+
+          await appendStep(job, {
+            name: "REVISION",
+            model: revisionResult.model,
+            usage: revisionResult.usage,
+            error: revisionResult.gaveUp ? revisionResult.note : null,
+            startedAt: revisionStartedAt,
+          });
+
+          // Re-run the gate on the revised draft — this produces a SECOND
+          // ContentQualityScore doc (generationAttempt auto-incremented
+          // inside runQualityGate), so both attempts' flag history stays
+          // visible to the review UI.
+          gateResult = await runQualityGate(opportunity._id, articleDraft);
+        }
+
+        qualityGateOutcome = gateResult;
+
+        const combinedUsage = sumUsage(
+          gateResult.usage?.factChecker,
+          gateResult.usage?.aiStyle,
+          gateResult.usage?.qualityEvaluator
+        );
+        await markStepDone(job, stepName, {
+          model: gateResult.models?.qualityEvaluator || gateResult.models?.factChecker || null,
+          usage: combinedUsage,
+        });
       }
 
       // Persist progress after each step so partial work is never lost even
@@ -130,11 +210,21 @@ async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imag
   job.durationMs = Date.now() - startedAt;
   await job.save();
 
-  // Skip AI_REVIEW/QUALITY_GATE — M3 will insert a QUALITY_GATE step here
-  // that may redirect to NEEDS_REVISION instead of going straight to
-  // HUMAN_REVIEW.
-  opportunity.status = "HUMAN_REVIEW";
-  opportunity.errorMessage = null;
+  // M3: if the quality gate is still flagged after the one automatic
+  // revision pass (or was flagged and no revision was possible/attempted —
+  // shouldn't happen given the branch above, but fail safe), route to
+  // NEEDS_REVISION with the flag history visible via ContentQualityScore
+  // docs rather than straight to HUMAN_REVIEW.
+  if (qualityGateOutcome?.flaggedForRevision) {
+    opportunity.status = "NEEDS_REVISION";
+    opportunity.errorMessage = null;
+    opportunity.humanRevisionNote = qualityGateOutcome.flagReasons?.length
+      ? `Automatic quality gate flagged this draft after ${opportunity.autoRevisionCount > 0 ? "a revision pass" : "generation"}: ${qualityGateOutcome.flagReasons.join(" ")}`
+      : opportunity.humanRevisionNote;
+  } else {
+    opportunity.status = "HUMAN_REVIEW";
+    opportunity.errorMessage = null;
+  }
   await opportunity.save();
 
   return { success: true, job, opportunity };
@@ -148,6 +238,10 @@ export async function runGenerationPipeline(opportunityId) {
 
   opportunity.status = "GENERATING";
   opportunity.generationAttempts = (opportunity.generationAttempts || 0) + 1;
+  // A full restart produces an entirely new article draft, so it gets its
+  // own fresh automatic-revision allowance — the cap is "1 automatic pass
+  // per generated draft", not "1 ever for this opportunity".
+  opportunity.autoRevisionCount = 0;
   await opportunity.save();
 
   let job = await ContentGenerationJob.findOne({ opportunityId, status: { $in: ["QUEUED", "RUNNING"] } }).sort({ createdAt: -1 });

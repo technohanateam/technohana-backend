@@ -112,6 +112,12 @@ const contentOpportunitySchema = new Schema(
     humanRevisionNote: { type: String, default: null },
     generationAttempts: { type: Number, default: 0 },
 
+    // ── Milestone 3: quality gate / revision ─────────────────────────────────
+    // Counts ONLY the fully-automatic revision pass the orchestrator runs
+    // inside the quality gate — capped at 1 there. Human-requested revisions
+    // via the review UI do NOT increment this (see humanReview.controller.js).
+    autoRevisionCount: { type: Number, default: 0 },
+
     imageConcept: {
       prompt: { type: String, default: null },
       altText: { type: String, default: null },
