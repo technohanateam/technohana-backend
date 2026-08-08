@@ -1,4 +1,4 @@
-import { callClaude } from "../aiAgent.service.js";
+import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import { buildRevisionAgentPrompt } from "../../prompts/contentFactory/revisionAgent.prompt.js";
 
@@ -89,7 +89,7 @@ export async function reviseArticle(articleDraft, qualityScoreResult, brief, opt
       humanNote,
       stronger,
     });
-    const { text, usage, model } = await callClaude({ system, prompt, maxTokens: 4096, tier: "standard" });
+    const { text, usage, model } = await trackedCallClaude({ system, prompt, maxTokens: 4096, tier: "standard", callType: "revision", opportunityId: brief?.opportunityId || null });
     const parsed = parseModelJson(text);
     const revised = mergeRevision(articleDraft, parsed);
     const similarity = diceSimilarity(originalNormalized, normalizeText(revised.content));

@@ -1,4 +1,4 @@
-import { callClaude } from "../aiAgent.service.js";
+import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import { buildSeoFieldWriterPrompt } from "../../prompts/contentFactory/seoFieldWriter.prompt.js";
 
@@ -7,7 +7,7 @@ import { buildSeoFieldWriterPrompt } from "../../prompts/contentFactory/seoField
 // responsible for actually writing them onto the opportunity.
 export async function writeSeoFields(articleDraft, brief) {
   const { system, prompt } = buildSeoFieldWriterPrompt({ articleDraft, brief });
-  const { text, usage, model } = await callClaude({ system, prompt, maxTokens: 512, tier: "cheap" });
+  const { text, usage, model } = await trackedCallClaude({ system, prompt, maxTokens: 512, tier: "cheap", callType: "seo", opportunityId: brief?.opportunityId || null });
 
   let parsed;
   try {

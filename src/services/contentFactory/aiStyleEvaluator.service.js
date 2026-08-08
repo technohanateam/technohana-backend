@@ -1,12 +1,12 @@
-import { callClaude } from "../aiAgent.service.js";
+import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import { buildAiStyleEvaluatorPrompt } from "../../prompts/contentFactory/aiStyleEvaluator.prompt.js";
 
 // ONE cheap-tier Claude call scoring aiStyleRiskScore (0-100, higher = more
 // generic/formulaic/AI-sounding).
-export async function evaluateAiStyle(articleContent) {
+export async function evaluateAiStyle(articleContent, opportunityId = null) {
   const { system, prompt } = buildAiStyleEvaluatorPrompt({ articleContent });
-  const { text, usage, model } = await callClaude({ system, prompt, maxTokens: 512, tier: "cheap" });
+  const { text, usage, model } = await trackedCallClaude({ system, prompt, maxTokens: 512, tier: "cheap", callType: "aiStyleEval", opportunityId });
 
   let parsed;
   try {

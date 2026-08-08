@@ -2,7 +2,7 @@ import ContentQualityScore from "../../models/contentQualityScore.model.js";
 import ContentBrief from "../../models/contentBrief.model.js";
 import ContentOpportunity from "../../models/contentOpportunity.model.js";
 import { getOrCreateContentFactorySettings } from "../../models/contentFactorySettings.model.js";
-import { callClaude } from "../aiAgent.service.js";
+import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import { buildQualityEvaluatorPrompt } from "../../prompts/contentFactory/qualityEvaluator.prompt.js";
 import { factCheckArticle } from "./factChecker.service.js";
@@ -144,11 +144,11 @@ export async function runQualityGate(opportunityId, articleDraft) {
   const internalLinksScore = computeInternalLinksScoreDeterministic(articleDraft);
 
   const [factCheckResult, aiStyleResult, qualityEvalResult] = await Promise.all([
-    factCheckArticle(articleDraft).catch((err) => ({ findings: [], error: err.message })),
-    evaluateAiStyle(articleDraft?.content).catch((err) => ({ aiStyleRiskScore: 0, flagReasons: [], error: err.message })),
+    factCheckArticle(articleDraft, opportunityId).catch((err) => ({ findings: [], error: err.message })),
+    evaluateAiStyle(articleDraft?.content, opportunityId).catch((err) => ({ aiStyleRiskScore: 0, flagReasons: [], error: err.message })),
     (async () => {
       const { system, prompt } = buildQualityEvaluatorPrompt({ articleDraft, brief, opportunity });
-      const { text, usage, model } = await callClaude({ system, prompt, maxTokens: 768, tier: "standard" });
+      const { text, usage, model } = await trackedCallClaude({ system, prompt, maxTokens: 768, tier: "standard", callType: "qualityEval", opportunityId });
       const parsed = parseModelJson(text);
       return { parsed, usage, model };
     })().catch((err) => ({ parsed: {}, error: err.message })),

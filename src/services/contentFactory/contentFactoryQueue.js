@@ -1,9 +1,7 @@
 import Bull from "bull";
 import { redisConfig } from "../../config/redis.js";
 import { SYNC_RETRY_CONFIG } from "../seoIntelQueue.js";
-import { getOrCreateContentFactorySettings } from "../../models/contentFactorySettings.model.js";
-import ContentRun from "../../models/contentRun.model.js";
-import { generateOpportunityCandidates } from "./contentStrategy.service.js";
+import { runDailyPlanningJob } from "./dailyPlanningJob.processor.js";
 
 // Mirrors the backlinkQueue.js/seoIntelQueue.js pattern — same settings,
 // imported retry preset (not redefined).
@@ -11,28 +9,14 @@ const QUEUE_SETTINGS = { settings: { maxStalledCount: 2, lockDuration: 5 * 60 * 
 
 export const contentFactoryPlanningQueue = new Bull("content-factory-planning", { redis: redisConfig, ...QUEUE_SETTINGS });
 
-contentFactoryPlanningQueue.process(async () => {
-  const settings = await getOrCreateContentFactorySettings();
-
-  if (settings.automationStatus === "PAUSED") {
-    await ContentRun.create({
-      runType: "PLANNING",
-      triggeredBy: "CRON",
-      status: "COMPLETE",
-      startedAt: new Date(),
-      finishedAt: new Date(),
-      coursesEvaluated: 0,
-      opportunitiesCreated: 0,
-      opportunitiesSkippedDuplicate: 0,
-      articlesGenerated: 0,
-      errors: ["skipped — automation paused"],
-      dryRun: false,
-      settingsSnapshot: settings.toObject ? settings.toObject() : settings,
-    });
-    return { skipped: true, reason: "automation paused" };
-  }
-
-  return generateOpportunityCandidates({ dryRun: false, triggeredBy: "CRON" });
+// Milestone 4: the full daily planning sequence (PAUSED check, budget guard,
+// priority refresh, trend/gap stubs, candidate generation, optional
+// auto-generation) now lives in dailyPlanningJob.processor.js — this
+// processor just calls it, preserving the PAUSED-check-first behavior that
+// used to be inlined here (absorbed into the processor module, not
+// duplicated).
+contentFactoryPlanningQueue.process(async (job) => {
+  return runDailyPlanningJob({ triggeredBy: job.data?.triggeredBy || "CRON" });
 });
 
 contentFactoryPlanningQueue.on("completed", (job) => console.log(`[content-factory-planning] job ${job.id} completed`));
@@ -43,4 +27,12 @@ contentFactoryPlanningQueue.on("error", (err) => console.error("[content-factory
 // Bull dedupes repeatables by cron+data, so calling this on every boot is safe.
 export async function scheduleContentFactoryRepeatables() {
   await contentFactoryPlanningQueue.add({}, { repeat: { cron: "0 5 * * *" }, ...SYNC_RETRY_CONFIG });
+}
+
+// Manual trigger — POST /admin/content-factory/plan/run-now enqueues this
+// immediately rather than waiting for the daily cron. Still runs the exact
+// same runDailyPlanningJob sequence (PAUSED check, budget guard, etc.), just
+// triggeredBy MANUAL instead of CRON.
+export function enqueuePlanningRunNow() {
+  return contentFactoryPlanningQueue.add({ triggeredBy: "MANUAL" }, { attempts: 1 });
 }

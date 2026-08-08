@@ -1,6 +1,7 @@
 import Course from "../../models/course.model.js";
 import TopicCluster from "../../models/topicCluster.model.js";
-import { callClaude, extractJson } from "../aiAgent.service.js";
+import { extractJson } from "../aiAgent.service.js";
+import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { buildSystemPrompt, buildUserPrompt } from "../../prompts/contentFactory/topicClusterProposal.prompt.js";
 
 const slugify = (s) =>
@@ -21,11 +22,13 @@ export async function proposeTopicClusterMapping() {
     return { clusters: [], categories: [] };
   }
 
-  const { text } = await callClaude({
+  const { text } = await trackedCallClaude({
     system: buildSystemPrompt(),
     prompt: buildUserPrompt({ categories: cleanCategories }),
     maxTokens: 2048,
     tier: "cheap",
+    callType: "clusterMapping",
+    opportunityId: null,
   });
 
   const parsed = extractJson(text);

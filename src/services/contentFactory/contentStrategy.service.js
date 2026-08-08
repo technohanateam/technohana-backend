@@ -7,7 +7,8 @@ import { Blogs } from "../../models/blogs.model.js";
 import { getOrCreateContentFactorySettings } from "../../models/contentFactorySettings.model.js";
 import { refreshCoursePriorities, effectivePriority } from "./coursePriorityAggregation.service.js";
 import { scoreDuplicateRisk } from "./duplicateDetection.service.js";
-import { callClaude, extractJson } from "../aiAgent.service.js";
+import { extractJson } from "../aiAgent.service.js";
+import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { buildSystemPrompt, buildUserPrompt } from "../../prompts/contentFactory/opportunityCandidateWriter.prompt.js";
 
 // Days-due-per-frequency, used by isDueForContent().
@@ -185,11 +186,13 @@ export async function generateOpportunityCandidates({ dryRun = true, triggeredBy
     }
 
     // ONE batched Claude call for all surviving candidates.
-    const { text } = await callClaude({
+    const { text } = await trackedCallClaude({
       system: buildSystemPrompt(),
       prompt: buildUserPrompt({ candidates: survivors }),
       maxTokens: 4096,
       tier: "standard",
+      callType: "opportunityCandidates",
+      opportunityId: null,
     });
     const parsed = extractJson(text);
     const creativeFields = Array.isArray(parsed.opportunities) ? parsed.opportunities : [];

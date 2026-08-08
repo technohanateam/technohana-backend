@@ -15,6 +15,10 @@ const contentFactorySettingsSchema = new Schema(
     maxRetries: { type: Number, default: 3 },
     dailyAiBudgetUsd: { type: Number, default: 20 },
     todaySpendUsd: { type: Number, default: 0 },
+    // Milestone 4: YYYY-MM-DD string marking which day todaySpendUsd is for —
+    // aiUsageTracker.service.js resets todaySpendUsd to 0 when this doesn't
+    // match "today" before incrementing, so spend rolls over daily.
+    todaySpendDate: { type: String, default: null },
     aiStyleRiskThreshold: { type: Number, default: 30 },
     // Milestone 3: quality-gate floor — computeQualityGateResult() flags for
     // revision when overallScore falls below this, in addition to the

@@ -1,4 +1,4 @@
-import { callClaude } from "../aiAgent.service.js";
+import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import { buildImagePromptWriterPrompt } from "../../prompts/contentFactory/imagePromptWriter.prompt.js";
 
@@ -18,7 +18,7 @@ export async function generateImageConcept(articleDraft, opportunity) {
 
   try {
     const { system, prompt } = buildImagePromptWriterPrompt({ articleDraft, opportunity });
-    const { text, usage, model } = await callClaude({ system, prompt, maxTokens: 400, tier: "cheap" });
+    const { text, usage, model } = await trackedCallClaude({ system, prompt, maxTokens: 400, tier: "cheap", callType: "imagePrompt", opportunityId: opportunity?._id || null });
     const parsed = parseModelJson(text);
 
     const imageConcept = {

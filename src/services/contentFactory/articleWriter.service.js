@@ -2,6 +2,7 @@ import axios from "axios";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import { buildArticleWriterPrompts } from "../../prompts/contentFactory/articleWriter.prompt.js";
 import Course from "../../models/course.model.js";
+import { recordAiUsage } from "./aiUsageTracker.service.js";
 
 // THE KEY REUSE STEP — this is a deliberate COPY (not a refactor-in-place)
 // of admin.routes.js's `POST /admin/blogs/generate-from-course` agentic
@@ -76,6 +77,19 @@ export async function writeArticle(brief, opportunity) {
 
     break;
   }
+
+  // Milestone 4: this loop calls the Anthropic API directly (axios, not
+  // callClaude()), so it can't go through trackedCallClaude() — still record
+  // the accumulated token usage as its own AiUsageLog row for cost visibility
+  // on what's likely the most expensive single step in the pipeline.
+  await recordAiUsage({
+    model,
+    tier: "standard",
+    tokensIn: usage.input_tokens,
+    tokensOut: usage.output_tokens,
+    callType: "article",
+    opportunityId: opportunity?._id || null,
+  });
 
   if (!finalText) throw new Error("Claude did not produce a final response for the article.");
 

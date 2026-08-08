@@ -1,4 +1,4 @@
-import { callClaude } from "../aiAgent.service.js";
+import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import ContentBrief from "../../models/contentBrief.model.js";
 import { buildContentBriefPrompt } from "../../prompts/contentFactory/contentBrief.prompt.js";
@@ -9,7 +9,7 @@ const VALID_DEPTHS = ["SHORT", "STANDARD", "COMPREHENSIVE"];
 // the opportunity belong to the orchestrator, not here.
 export async function generateContentBrief(opportunity) {
   const { system, prompt } = buildContentBriefPrompt(opportunity);
-  const { text, usage, model } = await callClaude({ system, prompt, maxTokens: 2048, tier: "standard" });
+  const { text, usage, model } = await trackedCallClaude({ system, prompt, maxTokens: 2048, tier: "standard", callType: "brief", opportunityId: opportunity?._id || null });
 
   let parsed;
   try {

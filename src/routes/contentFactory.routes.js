@@ -19,6 +19,10 @@ import {
   bulkRejectReview,
   bulkRegenerateReview,
 } from "../controllers/contentFactory/humanReview.controller.js";
+import { getCalendarHandler, scheduleHandler, rescheduleHandler, unscheduleHandler } from "../controllers/contentFactory/contentCalendar.controller.js";
+import { getBacklogHandler } from "../controllers/contentFactory/contentBacklog.controller.js";
+import { getUsage } from "../controllers/contentFactory/costControls.controller.js";
+import { runPlanningNow } from "../controllers/contentFactory/planning.controller.js";
 
 const router = express.Router();
 
@@ -69,5 +73,20 @@ router.post("/review/:opportunityId/approve", requireMarketing, approveReviewIte
 router.post("/review/bulk-approve", requireMarketing, bulkApproveReview);
 router.post("/review/bulk-reject", requireMarketing, bulkRejectReview);
 router.post("/review/bulk-regenerate", requireMarketing, contentFactoryAiLimiter, bulkRegenerateReview);
+
+// ── Milestone 4: Calendar ────────────────────────────────────────────────────
+router.get("/calendar", requireMarketing, getCalendarHandler);
+router.post("/calendar/:opportunityId/schedule", requireMarketing, scheduleHandler);
+router.post("/calendar/:opportunityId/reschedule", requireMarketing, rescheduleHandler);
+router.post("/calendar/:opportunityId/unschedule", requireMarketing, unscheduleHandler);
+
+// ── Milestone 4: Backlog ─────────────────────────────────────────────────────
+router.get("/backlog", requireMarketing, getBacklogHandler);
+
+// ── Milestone 4: Cost Controls (financial data — admin only) ────────────────
+router.get("/usage", requireAdmin, getUsage);
+
+// ── Milestone 4: Manual planning trigger ─────────────────────────────────────
+router.post("/plan/run-now", requireAdmin, runPlanningNow);
 
 export default router;

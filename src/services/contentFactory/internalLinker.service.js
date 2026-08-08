@@ -1,6 +1,6 @@
 import Course from "../../models/course.model.js";
 import { Blogs } from "../../models/blogs.model.js";
-import { callClaude } from "../aiAgent.service.js";
+import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import { buildInternalLinkerPrompt } from "../../prompts/contentFactory/internalLinker.prompt.js";
 
@@ -60,7 +60,7 @@ export async function generateInternalLinks(articleDraft, brief, opportunity) {
         candidateCourses: candidateCourses.map((c) => ({ courseSlug: c.courseSlug || c.id, courseTitle: c.courseTitle })),
         candidateBlogs,
       });
-      const result = await callClaude({ system, prompt, maxTokens: 768, tier: "cheap" });
+      const result = await trackedCallClaude({ system, prompt, maxTokens: 768, tier: "cheap", callType: "links", opportunityId: opportunity?._id || null });
       usage = result.usage;
       model = result.model;
       chosen = parseModelJson(result.text) || { courses: [], blogs: [] };

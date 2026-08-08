@@ -528,3 +528,206 @@ reports back which ids were skipped and why.
 - Confirmed `computeQualityGateResult` has zero imports of mongoose models, `aiAgent.service.js`,
   or `axios`/`callClaude` anywhere in `qualityGate.service.js`'s pure-function section (only
   the orchestrating `runQualityGate` function below it does DB/network work).
+
+## As-built — Milestone 4 (Calendar + automation: backlog, calendar, daily planning job, cost controls, global pause)
+
+This milestone was **resumed** after a prior agent hit a session limit mid-work with real,
+uncommitted files already sitting in the working tree. Before writing anything new, every
+uncommitted file was read in full and verified against the plan rather than trusted at face
+value.
+
+### What the prior partial work already covered (verified correct, kept as-is)
+- `src/models/aiUsageLog.model.js` — complete: `date`/`callType`/`model`/`tier`/`tokensIn`/
+  `tokensOut`/`estimatedCostUsd`/`opportunityId`/`jobId`, indexed on `{date, callType}`.
+- `src/services/contentFactory/aiUsageTracker.service.js` — complete: `recordAiUsage()` (writes
+  an `AiUsageLog` row + rolls `ContentFactorySettings.todaySpendUsd` forward, resetting on a new
+  `todaySpendDate`, wrapped in try/catch so logging failures never break the caller's actual AI
+  result) and `trackedCallClaude()` (drop-in `callClaude()` wrapper).
+- `src/services/contentFactory/budgetGuard.service.js` — complete: pure `checkBudget(settings,
+  proposedCallEstimateUsd)` (verified genuinely pure — no imports beyond the settings model's
+  factory function and `sendEmail`, neither invoked inside `checkBudget` itself; see the new
+  unit tests below) and DB-touching `enforceBudgetOrPause()` which sets `automationStatus:PAUSED`,
+  `pausedReason:"DAILY_AI_BUDGET_EXCEEDED"`, and emails `MAIL_TO` via the existing `sendEmail()` —
+  idempotent (won't re-email if already paused for that exact reason).
+- `src/services/contentFactory/trendResearch.service.js` / `contentGapAnalysis.service.js` — both
+  correct M4-scope stubs (`{trends:[]}` / `{gaps:[]}`, zero AI/network calls), left untouched;
+  real logic is Milestone 5.
+- `contentFactorySettings.model.js`, `aiStyleEvaluator.service.js`, `contentBriefWriter.service.js`,
+  `imagePromptWriter.service.js`, `internalLinker.service.js`, `qualityGate.service.js`,
+  `revisionAgent.service.js`, `seoFieldWriter.service.js`, `topicClusterMapping.service.js` — all
+  nine files' `callClaude()` → `trackedCallClaude()` conversions were re-read line-by-line and
+  found **fully correct**: right `callType` string per call site, `opportunityId`/`jobId` correctly
+  threaded through from each caller's own arguments, no leftover raw `callClaude(` imports, no
+  broken imports. Nothing needed fixing here — the prior agent's work on this list was complete
+  and accurate.
+
+### What this milestone added — remaining `trackedCallClaude`/cost-logging conversions
+- `contentStrategy.service.js` — the one remaining raw `callClaude()` call (M1's batched
+  candidate-writer call) converted to `trackedCallClaude(..., callType: "opportunityCandidates")`.
+- `factChecker.service.js` and `articleWriter.service.js` — both use the agentic
+  `web_search_20260209` loop pattern (the former via the shared `utils/claudeWebSearchLoop.js`,
+  the latter via its own inline axios loop, per the M2/M3 "notable deviations" decision) rather
+  than the simple `callClaude()` shape, so neither routes through `trackedCallClaude()` directly —
+  per the plan, that's fine as long as each still logs its own `AiUsageLog` row. Both now call
+  `recordAiUsage()` directly after their loop completes, with the loop's accumulated
+  `tokensIn`/`tokensOut` (`callType: "factCheck"` / `callType: "article"`), so cost visibility
+  isn't lost for what's likely the single most expensive step in the pipeline (`articleWriter`).
+- Grepped the entirety of `src/services/contentFactory/**` for `callClaude(` afterward: zero
+  remaining call sites outside `aiUsageTracker.service.js` itself (which legitimately wraps the
+  raw function) and explanatory comments.
+
+### What was fully new in this milestone
+**Backend services**
+- `contentFactory/contentBacklog.service.js` — `getBacklog({page,limit})` (paginated
+  `ContentOpportunity` docs with `status` in `APPROVED`/`SCHEDULED` whose `resultingBlogId`
+  points to a `Blogs` doc with `scheduledAt:null`), `recommendScheduleDate(opportunity,
+  existingCalendarEntries, settings)` (pure — no DB access inside; unit-tested, see below), and
+  `getBacklogWithRecommendations()` (DB wrapper: loads the backlog + scheduled `Blogs` for the
+  next 30 days joined back to their source opportunity's `clusterId`, then calls the pure
+  recommender per item).
+- `contentFactory/contentCalendar.service.js` — `getCalendar({month})`, `scheduleOpportunity()`,
+  `rescheduleOpportunity()`, `unscheduleOpportunity()`. See "Existing blog-scheduling semantics"
+  below for the exact mechanism this file matches.
+- `contentFactory/dailyPlanningJob.processor.js` — `runDailyPlanningJob()`, the complete §30
+  sequence: (1) PAUSED check (absorbed from `contentFactoryQueue.js`'s old inline check — not
+  duplicated), (2)+(mid-run) `enforceBudgetOrPause()` re-checked before each further
+  AI-consuming phase, (3) `refreshCoursePriorities({force:false})`, (4) `researchTrends()` stub,
+  (5) `analyzeContentGaps()` stub, (6) `generateOpportunityCandidates({dryRun:false})`, (7)
+  optional auto-generation of the top `maxDailyArticles` newly-created `PLANNED` opportunities by
+  `overallScore` via `enqueueGeneration()` when `settings.autoGenerateArticles===true` (default
+  `false`) — with the budget re-checked again before each individual enqueue in the loop, (8)
+  final `ContentRun` counts written back.
+- `contentFactoryQueue.js` — refactored so its Bull `.process()` calls
+  `runDailyPlanningJob()` instead of inlining the PAUSED check + calling
+  `generateOpportunityCandidates()` directly; added `enqueuePlanningRunNow()` for the manual
+  trigger endpoint (same processor, `triggeredBy:"MANUAL"`).
+
+**Backend controllers/routes** (all under the existing `authenticateAdmin, requirePage
+("content-factory")` guard already applied at the top of `contentFactory.routes.js`)
+- `contentFactory/contentCalendar.controller.js` — `GET /calendar`, `POST
+  /calendar/:opportunityId/{schedule,reschedule,unschedule}`, all `requireMarketing` (matches
+  blog scheduling's existing permission level).
+- `contentFactory/contentBacklog.controller.js` — `GET /backlog`, `requireMarketing`.
+- `contentFactory/costControls.controller.js` — `GET /usage?range=today|7d|30d`, `requireAdmin`
+  (financial data) — a single Mongo aggregation pipeline per breakdown (by day, by callType, and
+  totals), not N+1 reads.
+- `contentFactory/planning.controller.js` — `POST /plan/run-now`, `requireAdmin`, enqueues
+  `runDailyPlanningJob` immediately via the existing queue rather than waiting for the cron.
+
+**Frontend**
+- `src/pages/admin/contentFactory/ContentCalendar.jsx` — hand-built CSS-grid month view (no
+  calendar library is a dependency in this project — checked `package.json` first, per the
+  plan's explicit instruction — so no new dependency was added). Click an item to
+  reschedule (date input) or unschedule via a small modal.
+- `src/pages/admin/contentFactory/ContentBacklog.jsx` — paginated approved-not-scheduled list;
+  each row shows the backend's `recommendedDate` with a one-click "Use Recommended" button, plus
+  a manual date override input + Schedule button.
+- Added as tabs 6/7 ("Calendar", "Backlog") in `ContentFactoryLayout.jsx`, matching routes in
+  `App.jsx` (component renamed to `ContentFactoryCalendar` on import to avoid a name collision
+  with the pre-existing public `ContentCalendar` page at `/content-calendar`), and nav entries in
+  `AdminLayout.jsx`'s existing "Content Factory" section — no new `pageKey`/registry entry needed
+  since `content-factory` already exists.
+- `ContentFactoryDashboard.jsx` — added a today's-AI-spend progress-bar widget (color escalates
+  green→amber→red as spend approaches the daily budget), a red "paused due to budget" banner
+  (shown only when `pausedReason==="DAILY_AI_BUDGET_EXCEEDED"`, with a "Re-enable Automation"
+  button reusing the existing automation toggle), and a separate "Run Planning Job Now" button
+  (calls `POST /plan/run-now`) placed in its own card, explicitly distinct from the pre-existing
+  "Run Dry-Run Plan Now" button — dry-run never touches `Blogs`/generation; run-now is the real
+  planning job and may (only if `autoGenerateArticles` is on) trigger real generation.
+- `adminService.js` — added `fetchContentCalendar`, `scheduleContentFactoryItem`,
+  `rescheduleContentFactoryItem`, `unscheduleContentFactoryItem`, `fetchContentBacklog`,
+  `fetchAiUsage`, `runPlanningJobNow`.
+
+### Existing blog-scheduling semantics — what was actually found
+
+Read before writing `contentCalendar.service.js`, as required: `blog.controller.js`'s public
+`getAllBlogs()`/`getBlogBySlug()`, `admin.routes.js`'s `PATCH /blogs/:id/publish`, and
+`POST /blogs/auto-schedule`.
+
+**Finding: there is no cron or background job that flips `published` when `scheduledAt`
+arrives.** The public read paths gate visibility purely at query time —
+`Blogs.find({ published: true, $or: [{scheduledAt:null},{scheduledAt:{$lte:now}}] })` — so a
+post only ever "goes live at its scheduledAt" if `published` is **already `true`** and
+`scheduledAt` is set to a moment that has now passed. Both existing endpoints that schedule
+posts (`PATCH /blogs/:id/publish` and `POST /blogs/auto-schedule`) always set `published: true`
+together with `scheduledAt`, confirming this is the one real mechanism — there is no second,
+different scheduling pathway anywhere else in the codebase.
+
+`contentCalendar.service.js`'s `scheduleOpportunity()`/`rescheduleOpportunity()` therefore always
+pair `scheduledAt` with `published: true` when writing to the resulting `Blogs` doc, exactly
+mirroring this confirmed mechanism, so items scheduled from the new Calendar/Backlog UI go live
+identically to any other existing scheduled post. `unscheduleOpportunity()` sets both
+`scheduledAt: null` and `published: false` (reverting a scheduled item back to an unpublished
+draft, not leaving it published-with-no-date, which would make it go live immediately under the
+same query-time gate).
+
+**Note — a discrepancy found in already-committed M2/M3 code, not touched by this milestone:**
+`humanReview.controller.js`'s `approveOpportunityCore()` (Milestone 2) sets `scheduledAt` when
+the reviewer passes it to "Approve & Schedule" but leaves `blog.published` at its default
+`false`. Given the mechanism above, a post approved-and-scheduled that way will **not** actually
+go live at its `scheduledAt` — it stays a draft until someone separately flips `published` via
+the existing `PATCH /blogs/:id/publish` toggle. This is out of Milestone 4's scope (a M2/M3 file,
+not on the M4 file list, and M1-M3 are explicitly "committed and pushed — do not touch"), so it
+was left as-is and is flagged here for whoever picks up Milestone 5 or a future bugfix pass —
+the fix would be a one-line addition (`blog.published = true;` alongside the existing
+`if (scheduledAt) blog.scheduledAt = ...` line) if it turns out to be an actual oversight rather
+than intentional (e.g. "approved and scheduled" meaning "reserved a date, still needs a final
+manual publish click" as a deliberate extra safety gate — this doc doesn't assume either reading,
+just reports the mechanism as found).
+
+### Critical constraint verification — `autoGenerateArticles` never bypasses human review
+
+Traced explicitly: `dailyPlanningJob.processor.js` step (7) only runs when
+`settings.autoGenerateArticles === true` (schema default `false`, confirmed in
+`contentFactorySettings.model.js`). Even when true, it does exactly one thing per selected
+opportunity — flips its status to `SELECTED` and calls `enqueueGeneration(opp._id)`, which adds
+a job to `contentGenerationQueue` (Milestone 2). That queue's processor calls
+`runGenerationPipeline()` in `contentGenerationOrchestrator.service.js` (Milestone 2/3, unmodified
+by M4), whose `runSteps()` function — traced line-by-line — only ever sets the opportunity's
+final `status` to `NEEDS_REVISION` or `HUMAN_REVIEW` after the `QUALITY_GATE` step; there is no
+code path anywhere in that orchestrator, in M4's new files, or in `humanReview.controller.js`
+that sets `status: "APPROVED"`/creates a `Blogs` doc without an explicit human hitting one of the
+`POST /review/:opportunityId/{approve,bulk-approve}` endpoints. `autoGenerateArticles` therefore
+only ever controls whether generation is **auto-triggered** — never whether a human reviews it.
+
+### Additive schema changes
+- `contentFactorySettings.model.js` — `todaySpendDate` (String, default `null`), additive; added
+  by the prior agent's partial work, verified correct (used by `aiUsageTracker.service.js` to
+  detect day rollover before incrementing `todaySpendUsd`).
+- `aiUsageLog.model.js` — entirely new collection (Milestone 4 scope per the plan).
+
+### Verification performed
+- `node --check` on every new/modified backend file — all pass.
+- Backend `npm test` — **89 tests pass**: the pre-existing 81 seo-intel/backlink/content-factory
+  tests (including the 6 `qualityGate.test.js` content-factory tests from M3) unmodified, plus
+  8 new pure-function tests added this milestone:
+  `tests/content-factory/budgetGuard.test.js` (4 tests for `checkBudget()` — under-budget allow,
+  over-budget block, missing-fields-default-to-zero, zero-proposed-cost still checks current
+  spend) and `tests/content-factory/contentBacklog.test.js` (4 tests for
+  `recommendScheduleDate()` — returns a date ≥ tomorrow, skips a day already at `softMax`, avoids
+  a same-cluster collision on an under-`softMax` day, and a determinism/purity check that
+  identical inputs produce identical output).
+- Confirmed `checkBudget()` is genuinely pure by inspection (only imports are the settings
+  factory function and `sendEmail`, and `checkBudget` itself calls neither — only
+  `enforceBudgetOrPause` does) and by the unit tests above exercising it with plain objects only,
+  no DB connection required to run them.
+- Confirmed `recommendScheduleDate()` is pure/near-pure by inspection (`existingCalendarEntries`
+  and `settings` are both parameters, no DB import anywhere in `contentBacklog.service.js`'s
+  function itself — only `getBacklogWithRecommendations()`, the separate DB wrapper, touches
+  Mongo) and by the determinism unit test above.
+- Frontend `npm run build` — succeeds (398 course pages regenerated by `postbuild` as usual).
+  `npx eslint` on every new/modified frontend file — zero new problems (one pre-existing,
+  unrelated `no-unused-vars` in `AdminLayout.jsx` confirmed present on the pre-M4 commit via
+  `git stash`, left as-is). Frontend `npm test` (vitest) — same 3 pre-existing baseline failures
+  as the M3 doc recorded (`AdminSeoExecutiveDashboard`/`ConnectPropertyDialog`/`SeoKpiCard`, all
+  SEO-dashboard tests unrelated to content-factory), no new failures introduced.
+- `dist/`/`public/sitemap.xml` build-artifact drift from `npm run build` was discarded via
+  `git checkout -- dist public/sitemap.xml` before staging anything, per the plan's explicit
+  standing instruction (this has apparently happened on every prior milestone) — confirmed via
+  `git status` afterward that only real source files remain modified/untracked.
+- Traced the full automation path manually (see "Critical constraint verification" above):
+  planning job runs → respects PAUSED (step 1, absorbed from the old inline queue check) →
+  respects budget (step 2 + mid-run re-checks) → creates opportunities (step 6, M1's existing
+  logic, untouched) → (only if `autoGenerateArticles`) triggers generation for the top N by
+  score (step 7) → those still land in `NEEDS_REVISION`/`HUMAN_REVIEW`, never
+  auto-approved/published (M2/M3's orchestrator, unmodified).
