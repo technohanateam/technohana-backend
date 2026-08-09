@@ -1,3 +1,11 @@
+// Narration is required for content-bearing slide types; title/quiz/exercise/
+// transition slides are commonly silent by design (the interactive component
+// or a bare divider takes over) — but if the AI *did* write narration for one
+// of these, that's a deliberate choice to allow, not something to strip.
+const NARRATION_REQUIRED_TYPES = new Set([
+  "concept", "comparison", "process", "architecture", "diagram", "code", "example", "case-study", "summary",
+]);
+
 // Automated QA gate (spec §23) — schema/consistency checks that run before a
 // lesson can move from AI_REVIEWED to HUMAN_REVIEW. Pure function over the
 // lesson doc; no AI calls, no DB writes — caller persists qualityScore/issues.
@@ -21,7 +29,9 @@ export function runLessonQa(lesson) {
 
   slides.forEach((slide, i) => {
     if (!slide.narration || !slide.narration.trim()) {
-      issues.push(`Slide ${i + 1} has no narration`);
+      if (NARRATION_REQUIRED_TYPES.has(slide.type)) {
+        issues.push(`Slide ${i + 1} (${slide.type}) has no narration`);
+      }
       return;
     }
     const slideText = (slide.title || "") + " " + (slide.body || "") + " " + (slide.bullets || []).join(" ");

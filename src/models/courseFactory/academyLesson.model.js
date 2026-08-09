@@ -7,6 +7,28 @@ const SLIDE_TYPES = [
   "summary", "transition",
 ];
 
+// Deterministic diagram types the PPTX renderer knows how to draw (Priority
+// 3) — structured data the AI supplies as WHAT to communicate; the renderer
+// (src/services/courseFactory/pptxRenderers/) decides HOW it looks.
+const DIAGRAM_TYPES = ["PROCESS", "CYCLE", "ARCHITECTURE", "COMPARISON", "FLOW", "HIERARCHY", "TIMELINE", "TABLE", "CODE"];
+
+const diagramStepSchema = new Schema({ label: { type: String, required: true }, description: { type: String, default: "" } }, { _id: false });
+const diagramColumnSchema = new Schema({ title: { type: String, required: true }, items: { type: [String], default: [] } }, { _id: false });
+const diagramBoxSchema = new Schema({ label: { type: String, required: true }, description: { type: String, default: "" } }, { _id: false });
+
+const diagramSchema = new Schema(
+  {
+    type: { type: String, enum: DIAGRAM_TYPES, required: true },
+    steps: { type: [diagramStepSchema], default: undefined }, // PROCESS/CYCLE/FLOW/TIMELINE
+    columns: { type: [diagramColumnSchema], default: undefined }, // COMPARISON
+    boxes: { type: [diagramBoxSchema], default: undefined }, // ARCHITECTURE/HIERARCHY
+    rows: { type: [[String]], default: undefined }, // TABLE — first row is the header
+    code: { type: String, default: undefined }, // CODE
+    language: { type: String, default: undefined }, // CODE
+  },
+  { _id: false }
+);
+
 const slideSchema = new Schema(
   {
     order: { type: Number, required: true },
@@ -16,6 +38,7 @@ const slideSchema = new Schema(
     bullets: { type: [String], default: [] },
     body: { type: String, default: "" },
     visualPrompt: { type: String, default: "" },
+    diagram: { type: diagramSchema, default: null },
     speakerNotes: { type: String, default: "" },
     narration: { type: String, default: "" }, // must NOT just repeat slide text — QA checks this
     estimatedSeconds: { type: Number, default: 30 },
@@ -108,6 +131,15 @@ const academyLessonSchema = new Schema(
       pptxVersion: { type: Number, default: 0 },
     },
 
+    // Denormalized for quick display (source of truth is still each
+    // LessonGenerationJob's own step ledger) — approximate, admin-configurable
+    // pricing, not exact provider billing.
+    costUsd: {
+      contentUsd: { type: Number, default: 0 },
+      audioUsd: { type: Number, default: 0 },
+      totalUsd: { type: Number, default: 0 },
+    },
+
     qa: {
       qualityScore: { type: Number, default: null },
       issues: { type: [String], default: [] },
@@ -128,4 +160,4 @@ academyLessonSchema.index({ courseId: 1, slug: 1 }, { unique: true });
 
 const AcademyLesson = mongoose.model("AcademyLesson", academyLessonSchema);
 export default AcademyLesson;
-export { SLIDE_TYPES };
+export { SLIDE_TYPES, DIAGRAM_TYPES };

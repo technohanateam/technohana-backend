@@ -35,7 +35,11 @@ export async function callClaude({ system, prompt, maxTokens = 1024, tier = "sta
     messages: [{ role: "user", content: prompt }],
   });
   const text = response.content.find((b) => b.type === "text")?.text ?? "";
-  return { text, usage: response.usage, model };
+  // stopReason additive to the existing {text, usage, model} shape — existing
+  // callers that don't destructure it are unaffected. "max_tokens" means the
+  // response was cut off mid-generation (see courseFactory truncation
+  // handling) rather than finishing naturally ("end_turn").
+  return { text, usage: response.usage, model, stopReason: response.stop_reason };
 }
 
 // Pull a JSON object out of a model reply that may include surrounding prose

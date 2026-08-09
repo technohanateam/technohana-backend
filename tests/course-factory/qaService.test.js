@@ -8,7 +8,7 @@ function baseLesson(overrides = {}) {
     durationMinutes: 15,
     learningObjectives: ["Explain RAG", "Identify when to use it"],
     slides: [
-      { title: "RAG", narration: "Retrieval-Augmented Generation lets a model use external documents to answer questions accurately.", estimatedSeconds: 900 },
+      { type: "concept", title: "RAG", narration: "Retrieval-Augmented Generation lets a model use external documents to answer questions accurately.", estimatedSeconds: 900 },
     ],
     quiz: [
       { question: "When is RAG useful?", type: "multiple-choice", options: ["a", "b"], correctAnswer: 0, explanation: "Because..." },
@@ -30,10 +30,30 @@ test("runLessonQa passes a well-formed lesson", () => {
 });
 
 test("runLessonQa flags a slide whose narration just repeats the title", () => {
-  const lesson = baseLesson({ slides: [{ title: "RAG", narration: "RAG", estimatedSeconds: 30 }] });
+  const lesson = baseLesson({ slides: [{ type: "concept", title: "RAG", narration: "RAG", estimatedSeconds: 30 }] });
   const result = runLessonQa(lesson);
   assert.ok(result.issues.some((i) => i.includes("narration")));
   assert.equal(result.passed, false);
+});
+
+test("runLessonQa does not flag missing narration on title/quiz/exercise/transition slides", () => {
+  const lesson = baseLesson({
+    slides: [
+      { type: "concept", title: "RAG", narration: "Retrieval-Augmented Generation lets a model use external documents.", estimatedSeconds: 900 },
+      { type: "title", title: "Intro", narration: "", estimatedSeconds: 0 },
+      { type: "quiz", title: "Knowledge Check", narration: "", estimatedSeconds: 0 },
+      { type: "exercise", title: "Try It", narration: "", estimatedSeconds: 0 },
+      { type: "transition", title: "Up Next", narration: "", estimatedSeconds: 0 },
+    ],
+  });
+  const result = runLessonQa(lesson);
+  assert.ok(!result.issues.some((i) => i.includes("no narration")), result.issues.join("; "));
+});
+
+test("runLessonQa flags missing narration on a concept/process/architecture slide", () => {
+  const lesson = baseLesson({ slides: [{ type: "process", title: "The Loop", narration: "", estimatedSeconds: 60 }] });
+  const result = runLessonQa(lesson);
+  assert.ok(result.issues.some((i) => i.includes("no narration")));
 });
 
 test("runLessonQa flags too few quiz questions", () => {

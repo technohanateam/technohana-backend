@@ -1,5 +1,14 @@
 import { callClaude, extractJson } from "../aiAgent.service.js";
 import { recordCourseFactorySpend, estimateCostUsd } from "./budgetGuard.service.js";
+import { getOrCreateCourseFactorySettings } from "../../models/courseFactory/courseFactorySettings.model.js";
+
+export class BlueprintTruncatedError extends Error {
+  constructor(maxTokens) {
+    super(`Course blueprint generation was truncated at maxTokens=${maxTokens} (stop_reason: max_tokens) — response is incomplete. Raise CourseFactorySettings.blueprintMaxTokens (or reduce moduleCount/lessonsPerModule) and retry.`);
+    this.name = "BlueprintTruncatedError";
+    this.maxTokens = maxTokens;
+  }
+}
 
 // Turns admin-supplied course inputs into an editable course + module + lesson
 // title skeleton. No lesson content is generated here — the admin reviews and
@@ -44,14 +53,21 @@ Return JSON exactly in this shape:
   ]
 }`;
 
-  const result = await callClaude({ system, prompt, maxTokens: 4096, tier: "standard" });
+  const settings = await getOrCreateCourseFactorySettings();
+  const maxTokens = settings.blueprintMaxTokens || 8000;
+  const result = await callClaude({ system, prompt, maxTokens, tier: "standard" });
   const tokensIn = result.usage?.input_tokens || 0;
   const tokensOut = result.usage?.output_tokens || 0;
-  await recordCourseFactorySpend(estimateCostUsd(result.model, tokensIn, tokensOut));
+  const costUsd = estimateCostUsd(result.model, tokensIn, tokensOut);
+  await recordCourseFactorySpend(costUsd);
+
+  if (result.stopReason === "max_tokens") {
+    throw new BlueprintTruncatedError(maxTokens);
+  }
 
   const parsed = extractJson(result.text);
   validateBlueprint(parsed, { moduleCount });
-  return { blueprint: parsed, model: result.model, usage: result.usage };
+  return { blueprint: parsed, model: result.model, usage: result.usage, costUsd };
 }
 
 function validateBlueprint(blueprint, { moduleCount }) {

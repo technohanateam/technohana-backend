@@ -6,10 +6,23 @@ const PROVIDERS = {
   openai: generateOpenAiSpeech,
 };
 
-// Terms that need careful handling per spec §16 — kept as a validation flag,
-// not auto-corrected (SSML/pronunciation lexicons are provider-specific and
-// out of scope for the single OpenAI provider wired up in Phase 1).
-const PRONUNCIATION_SENSITIVE_TERMS = ["LangGraph", "LangChain", "MCP", "RAG", "LLM", "API", "OpenAI", "Anthropic", "Azure"];
+// Terms that need careful handling per spec §16/§7 — kept as a validation
+// flag for human review, not auto-corrected. IMPORTANT, honest limitation:
+// OpenAI's tts-1 (the only provider wired up in Phase 1) exposes no SSML,
+// phoneme, or pronunciation-lexicon API — there is nothing this codebase can
+// call to actually change how it pronounces "MCP" or "LangGraph". Flagging
+// these terms lets an admin listen during the audio-preview step (Lesson
+// Editor "Narration & Audio" tab) and manually reword the narration if a
+// term comes out wrong — that's the real, honest mitigation available today.
+// A provider with real pronunciation control (Azure Speech, Google Cloud TTS
+// both support SSML <phoneme>/<say-as>) would need its own ttsProviders/*
+// module — the abstraction in generateLessonAudio() below is already built
+// for that; only the provider implementation is missing.
+const PRONUNCIATION_SENSITIVE_TERMS = [
+  "AI", "LLM", "API", "RAG", "MCP",
+  "LangChain", "LangGraph", "CrewAI", "AutoGen",
+  "OpenAI", "Anthropic", "Azure", "AI Foundry", "Claude", "GPT",
+];
 
 // Narration validation per spec §16 — run before any TTS call is made.
 export function validateNarration(text) {
@@ -44,6 +57,9 @@ export async function generateLessonAudio({ text, lessonSlug }) {
   if (!generate) throw new Error(`Unknown TTS provider: ${providerName}`);
 
   const buffer = await generate({ text, voice });
+  // Approximate, admin-configurable — not exact provider billing (same
+  // caveat as the Claude cost tables elsewhere in this codebase).
+  const costUsd = text.length * (settings.ttsCostPerCharUsd || 0);
 
   const result = await new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -59,5 +75,6 @@ export async function generateLessonAudio({ text, lessonSlug }) {
     durationSeconds: result.duration || 0,
     voice,
     provider: providerName,
+    costUsd,
   };
 }

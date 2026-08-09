@@ -46,10 +46,10 @@ export const generateBlueprint = async (req, res) => {
     if (!title || !audience || !level) {
       return res.status(400).json({ success: false, message: "title, audience, and level are required" });
     }
-    const { blueprint } = await generateCourseBlueprint({ title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle });
+    const { blueprint, costUsd } = await generateCourseBlueprint({ title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle });
     return res.json({
       success: true,
-      data: { title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle, blueprint },
+      data: { title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle, blueprint, costUsd },
     });
   } catch (err) {
     console.error("[CourseFactory] generateBlueprint error:", err);
@@ -62,7 +62,7 @@ export const generateBlueprint = async (req, res) => {
 // docs, all in DRAFT status. No lesson content is generated here.
 export const approveBlueprint = async (req, res) => {
   try {
-    const { title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle, blueprint } = req.body || {};
+    const { title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle, blueprint, costUsd } = req.body || {};
     if (!blueprint || !Array.isArray(blueprint.modules)) {
       return res.status(400).json({ success: false, message: "blueprint.modules is required" });
     }
@@ -84,6 +84,7 @@ export const approveBlueprint = async (req, res) => {
       skills: blueprint.skills || [],
       capstone: blueprint.capstone || {},
       blueprintInput: { audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle },
+      blueprintCostUsd: costUsd || 0,
       status: "APPROVED",
       approvedBy: req.admin?.uid || null,
       approvedAt: new Date(),
@@ -146,7 +147,14 @@ export const getCourseProduction = async (req, res) => {
       lessons: lessons.filter((l) => String(l.moduleId) === String(m._id)),
     }));
 
-    return res.json({ success: true, data: { course, modules: modulesWithLessons } });
+    const lessonsCostUsd = lessons.reduce((sum, l) => sum + (l.costUsd?.totalUsd || 0), 0);
+    const costSummary = {
+      blueprintCostUsd: course.blueprintCostUsd || 0,
+      lessonsCostUsd,
+      totalCostUsd: (course.blueprintCostUsd || 0) + lessonsCostUsd,
+    };
+
+    return res.json({ success: true, data: { course, modules: modulesWithLessons, costSummary } });
   } catch (err) {
     console.error("[CourseFactory] getCourseProduction error:", err);
     return res.status(500).json({ success: false, message: "Server error" });

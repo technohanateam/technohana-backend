@@ -1,6 +1,20 @@
 import { callClaude, extractJson } from "../aiAgent.service.js";
 import { recordCourseFactorySpend, estimateCostUsd } from "./budgetGuard.service.js";
-import { SLIDE_TYPES } from "../../models/courseFactory/academyLesson.model.js";
+import { SLIDE_TYPES, DIAGRAM_TYPES } from "../../models/courseFactory/academyLesson.model.js";
+import { getOrCreateCourseFactorySettings } from "../../models/courseFactory/courseFactorySettings.model.js";
+
+// Thrown when Claude's response was cut off by the token limit rather than
+// finishing naturally — the JSON is genuinely incomplete, not just malformed,
+// so parseModelJson's repair heuristics are never even attempted (they can't
+// recover missing content, only fix formatting). The orchestrator must not
+// persist partial content or generate downstream assets (PPTX/audio) from it.
+export class LessonContentTruncatedError extends Error {
+  constructor(maxTokens) {
+    super(`Lesson content generation was truncated at maxTokens=${maxTokens} (stop_reason: max_tokens) — response is incomplete, not malformed. Raise CourseFactorySettings.lessonContentMaxTokens and retry.`);
+    this.name = "LessonContentTruncatedError";
+    this.maxTokens = maxTokens;
+  }
+}
 
 // Generates the full canonical lesson in one strict-JSON Claude call: sections,
 // slides (concise, per spec §7 — narration carries the explanation, slides
@@ -11,7 +25,15 @@ import { SLIDE_TYPES } from "../../models/courseFactory/academyLesson.model.js";
 export async function generateLessonContent({ course, module, lesson }) {
   const system = `You are a senior instructional designer and technical writer producing a lesson for Technohana's AI Academy. Output ONLY a single JSON object, no prose, no markdown fences.
 
-Critical rule: slide text and narration text must NEVER be near-duplicates. Slides are terse (a heading, a few words, a short bullet). Narration is what an instructor would actually say out loud to explain that slide — a full explanatory sentence or two, in a natural teaching voice.`;
+Critical rule: slide text and narration text must NEVER be near-duplicates. Slides are terse (a heading, a few words, a short bullet). Narration is what an instructor would actually say out loud to explain that slide — a full explanatory sentence or two, in a natural teaching voice.
+
+Narration voice rules (this is what most separates a professional course from an AI-generated one):
+- Explain the idea, don't describe the slide. Never write "On this slide, we..." or "Here we can see..." or "As you can see..." — just say the thing.
+- No greetings, no "Welcome to this lesson" openers, no "Let's dive in" filler. Start narration for slide 1 by orienting the learner in one sentence, not by greeting them.
+- Never repeat a bullet point word-for-word in narration — narration adds the reasoning, the "why," or a clarifying example the bullet doesn't have room for.
+- Connect slides with a short natural transition at the start or end of narration where it helps ("Now that you've seen X, here's where it breaks down in practice." not "Moving on to the next slide.").
+- Vary sentence openers across slides — don't start every slide's narration the same way.
+- Bad: "On this slide, we can see the four components of an AI agent." Good: "An AI agent typically combines four capabilities: it can reason about a task, use tools to interact with external systems, maintain relevant context, and take actions toward a goal."`;
 
   const prompt = `Write the full content for one lesson.
 
@@ -34,6 +56,16 @@ Lesson structure to follow (spec):
 Slide count: choose the number the content actually needs (typically 7-15 for a 10-20 minute lesson). Do not pad.
 Slide types available: ${SLIDE_TYPES.join(", ")}.
 
+Diagrams — do NOT put a process/architecture/comparison/etc. explanation into "bullets" as a wall of text. Instead, for any slide of type process, architecture, comparison, diagram, or code, populate a structured "diagram" object so it renders as an actual visual (boxes, arrows, columns, a real table, or a real code block) — not bullet text. Diagram types available: ${DIAGRAM_TYPES.join(", ")}.
+Diagram shapes by type:
+- PROCESS / FLOW / TIMELINE: { "type": "PROCESS", "steps": [ { "label": "...", "description": "..." } ] } — 3-6 steps, left-to-right.
+- CYCLE: same "steps" shape as PROCESS, used when the sequence repeats (e.g. an agent loop).
+- COMPARISON: { "type": "COMPARISON", "columns": [ { "title": "...", "items": ["...","..."] }, { "title": "...", "items": ["...","..."] } ] } — 2-3 columns.
+- ARCHITECTURE / HIERARCHY: { "type": "ARCHITECTURE", "boxes": [ { "label": "...", "description": "..." } ] } — 3-9 labeled components.
+- TABLE: { "type": "TABLE", "rows": [ ["Header A","Header B"], ["row1a","row1b"] ] } — first row is the header.
+- CODE: { "type": "CODE", "code": "actual code, \\n for line breaks", "language": "python" } — real, runnable-looking code, not pseudocode unless the concept is language-agnostic.
+Leave "diagram" as null for slide types that don't need one (title, example, case-study, quiz, exercise, summary, transition) — those use plain "bullets"/"body" instead.
+
 Quiz: write questions that test applying the concept to a scenario, not naming definitions. Each question must map to one of the learning objectives.
 
 Return JSON exactly in this shape:
@@ -43,7 +75,7 @@ Return JSON exactly in this shape:
   "slides": [
     {
       "order": 1, "type": "title", "title": "...", "subtitle": "", "bullets": [],
-      "body": "", "visualPrompt": "", "speakerNotes": "", "narration": "...", "estimatedSeconds": 40
+      "body": "", "visualPrompt": "", "diagram": null, "speakerNotes": "", "narration": "...", "estimatedSeconds": 40
     }
   ],
   "quiz": [
@@ -68,15 +100,28 @@ If a hands-on exercise genuinely doesn't fit this topic, set "exercise" to null 
   // 7-8k output tokens — 8192 was measured truncating mid-JSON on a real
   // pilot run (stop_reason: "max_tokens"), which parseModelJson's repair
   // heuristics cannot recover from since the JSON is genuinely incomplete,
-  // not just malformed. 16000 leaves real headroom above the observed need.
-  const result = await callClaude({ system, prompt, maxTokens: 16000, tier: "standard" });
+  // not just malformed. Configurable so an admin can raise it (or a future
+  // section-by-section generation strategy can lower it) without a deploy.
+  const settings = await getOrCreateCourseFactorySettings();
+  const maxTokens = settings.lessonContentMaxTokens || 16000;
+  const result = await callClaude({ system, prompt, maxTokens, tier: "standard" });
   const tokensIn = result.usage?.input_tokens || 0;
   const tokensOut = result.usage?.output_tokens || 0;
-  await recordCourseFactorySpend(estimateCostUsd(result.model, tokensIn, tokensOut));
+  const costUsd = estimateCostUsd(result.model, tokensIn, tokensOut);
+  await recordCourseFactorySpend(costUsd);
+
+  // Truncation is detected and rejected BEFORE attempting to parse — a
+  // truncated response is incomplete, not malformed, so no amount of JSON
+  // repair can recover it. Spend is still recorded above (tokens were
+  // genuinely consumed) but nothing incomplete is ever parsed, validated, or
+  // returned to the caller for persistence.
+  if (result.stopReason === "max_tokens") {
+    throw new LessonContentTruncatedError(maxTokens);
+  }
 
   const parsed = extractJson(result.text);
   validateLessonContent(parsed);
-  return { content: parsed, model: result.model, usage: result.usage };
+  return { content: parsed, model: result.model, usage: result.usage, costUsd };
 }
 
 function validateLessonContent(content) {
@@ -89,6 +134,31 @@ function validateLessonContent(content) {
     if (typeof slide.order !== "number") slide.order = i + 1;
     if (slide.narration && slide.title && slide.narration.trim() === slide.title.trim()) {
       throw new Error(`Slide ${i + 1} narration is identical to its title — narration must explain, not repeat`);
+    }
+    if (slide.diagram) {
+      if (!DIAGRAM_TYPES.includes(slide.diagram.type)) {
+        throw new Error(`Slide ${i + 1} has an invalid diagram type: ${slide.diagram.type}`);
+      }
+      const needsSteps = ["PROCESS", "CYCLE", "FLOW", "TIMELINE"].includes(slide.diagram.type);
+      const needsColumns = slide.diagram.type === "COMPARISON";
+      const needsBoxes = ["ARCHITECTURE", "HIERARCHY"].includes(slide.diagram.type);
+      const needsRows = slide.diagram.type === "TABLE";
+      const needsCode = slide.diagram.type === "CODE";
+      if (needsSteps && (!Array.isArray(slide.diagram.steps) || slide.diagram.steps.length === 0)) {
+        throw new Error(`Slide ${i + 1} diagram (${slide.diagram.type}) is missing "steps"`);
+      }
+      if (needsColumns && (!Array.isArray(slide.diagram.columns) || slide.diagram.columns.length === 0)) {
+        throw new Error(`Slide ${i + 1} diagram (COMPARISON) is missing "columns"`);
+      }
+      if (needsBoxes && (!Array.isArray(slide.diagram.boxes) || slide.diagram.boxes.length === 0)) {
+        throw new Error(`Slide ${i + 1} diagram (${slide.diagram.type}) is missing "boxes"`);
+      }
+      if (needsRows && (!Array.isArray(slide.diagram.rows) || slide.diagram.rows.length === 0)) {
+        throw new Error(`Slide ${i + 1} diagram (TABLE) is missing "rows"`);
+      }
+      if (needsCode && !slide.diagram.code) {
+        throw new Error(`Slide ${i + 1} diagram (CODE) is missing "code"`);
+      }
     }
   });
 

@@ -81,6 +81,8 @@ async function runSteps({ lesson, job, fromIndex }) {
         lesson.instructorNotes = c.instructorNotes || {};
         lesson.transcript = c.transcript || "";
         lesson.narration.script = c.transcript || "";
+        lesson.costUsd.contentUsd = result.costUsd || 0;
+        lesson.costUsd.totalUsd = (lesson.costUsd.contentUsd || 0) + (lesson.costUsd.audioUsd || 0);
         await lesson.save();
         await markStepDone(job, stepName, result);
         // These are produced by the same CONTENT call — mark them done too so
@@ -98,8 +100,18 @@ async function runSteps({ lesson, job, fromIndex }) {
         lesson.narration.audioPublicId = audio.publicId;
         lesson.narration.voice = audio.voice;
         lesson.narration.durationSeconds = audio.durationSeconds;
+        lesson.costUsd.audioUsd = audio.costUsd || 0;
+        lesson.costUsd.totalUsd = (lesson.costUsd.contentUsd || 0) + (lesson.costUsd.audioUsd || 0);
         await lesson.save();
-        await markStepDone(job, stepName, {});
+        // AUDIO has its own $/char cost (not token-based), so it's recorded
+        // via a direct estimatedCostUsd assignment rather than markStepDone's
+        // usual token-based estimate (which needs a model/usage pair).
+        const audioStep = getStep(job, stepName);
+        audioStep.status = "DONE";
+        audioStep.finishedAt = new Date();
+        audioStep.estimatedCostUsd = audio.costUsd || 0;
+        job.totalCostUsd += audioStep.estimatedCostUsd;
+        await job.save();
 
         const pptx = await generateAndUploadPptx(lesson);
         lesson.assets.pptxUrl = pptx.url;

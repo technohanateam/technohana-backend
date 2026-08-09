@@ -44,6 +44,9 @@ const academyCourseSchema = new Schema(
     status: { type: String, enum: ["DRAFT", "APPROVED", "PUBLISHED"], default: "DRAFT", index: true },
     version: { type: Number, default: 1 },
 
+    // Approximate, admin-configurable pricing — not exact provider billing.
+    blueprintCostUsd: { type: Number, default: 0 },
+
     createdBy: { type: String, default: null },
     approvedBy: { type: String, default: null },
     approvedAt: { type: Date, default: null },
