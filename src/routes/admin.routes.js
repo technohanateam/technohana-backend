@@ -624,43 +624,6 @@ router.get("/blogs", authenticateAdmin, requirePage("blogs"), async (req, res) =
 router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   try {
     const blog = await createBlogFromPayload(req.body);
-    const { title, slug, img, author, authorId, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs, contentType } = req.body;
-    if (!title) return res.status(400).json({ message: "Title is required." });
-
-    const lastBlog = await Blogs.findOne().sort({ id: -1 }).lean();
-    const nextId = lastBlog ? (lastBlog.id || 0) + 1 : 1;
-
-    const generatedSlug =
-      slug ||
-      title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
-
-    const existing = await Blogs.findOne({ slug: generatedSlug });
-    if (existing) return res.status(409).json({ message: "A blog with this slug already exists." });
-
-    const blog = new Blogs({
-      id: nextId,
-      title,
-      slug: generatedSlug,
-      img: img || "",
-      author: author || "",
-      authorId: authorId || null,
-      date: date || new Date().toISOString().split("T")[0],
-      content: sanitizeContent(content) || "",
-      category: category || "",
-      excerpt: excerpt || "",
-      metaTitle: metaTitle || "",
-      metaDescription: metaDescription || "",
-      focusKeyword: focusKeyword || "",
-      tags: tags || [],
-      readTimeMin: readTimeMin || null,
-      sources: sources || [],
-      faqs: faqs || [],
-      contentType: contentType || "search-article",
-    });
-    await blog.save();
     return res.status(201).json({ data: blog });
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ message: err.message });
