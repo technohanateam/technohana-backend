@@ -2,15 +2,30 @@ import { Blogs } from "../models/blogs.model.js";
 
 const LIST_PROJECTION = { content: 0, faqs: 0, sources: 0, metaTitle: 0, metaDescription: 0, focusKeyword: 0 };
 
+// Single source of truth for "is this blog publicly visible right now" —
+// every public-facing route (list, single-post JSON, SSR/OG crawler HTML)
+// must use this, not hand-roll its own published/scheduledAt condition.
+// A post only goes live once BOTH published:true AND its scheduledAt is
+// null or already in the past (see also the identical convention in
+// admin.routes.js's auto-schedule handler and contentCalendar.service.js).
+export function buildPublicBlogFilter(now = new Date()) {
+  return {
+    published: true,
+    $or: [{ scheduledAt: null }, { scheduledAt: { $lte: now } }],
+  };
+}
+
+// Pure JS mirror of buildPublicBlogFilter's semantics, for testing and for
+// any in-process (non-Mongo-query) visibility check.
+export function isPubliclyVisible(blog, now = new Date()) {
+  if (!blog?.published) return false;
+  if (blog.scheduledAt == null) return true;
+  return new Date(blog.scheduledAt) <= now;
+}
+
 export const getAllBlogs = async (req, res) => {
   try {
-    const now = new Date();
-    const blogs = await Blogs.find({
-      $or: [
-        { published: true, scheduledAt: null },
-        { published: true, scheduledAt: { $lte: now } },
-      ],
-    }, LIST_PROJECTION).sort({ createdAt: -1 });
+    const blogs = await Blogs.find(buildPublicBlogFilter(), LIST_PROJECTION).sort({ createdAt: -1 });
     return res.json(blogs);
   } catch (error) {
     console.error("Error fetching all blogs:", error);
@@ -20,6 +35,7 @@ export const getAllBlogs = async (req, res) => {
 
 export const getBlogBySlug = async (req, res) => {
   try {
+    const blog = await Blogs.findOne({ slug: req.params.slug, ...buildPublicBlogFilter() });
     const now = new Date();
     const blog = await Blogs.findOne({
       slug: req.params.slug,
@@ -36,7 +52,7 @@ export const getBlogBySlug = async (req, res) => {
 
 export const getBlog = async (req, res) => {
   try {
-    const blog = await Blogs.findOne({ slug: req.params.slug, published: true });
+    const blog = await Blogs.findOne({ slug: req.params.slug, ...buildPublicBlogFilter() });
     if (!blog) {
       return res.send(`
         <!DOCTYPE html>

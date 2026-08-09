@@ -455,7 +455,7 @@ Created: ${new Date(lead.createdAt).toLocaleDateString()}
 
 Write a concise, actionable summary for the sales rep.`;
 
-    const summary = await callClaude({ system: "You are a helpful CRM assistant.", prompt, maxTokens: 300 });
+    const { text: summary } = await callClaude({ system: "You are a helpful CRM assistant.", prompt, maxTokens: 300 });
     res.json({ success: true, data: { summary } });
   } catch (err) {
     res.status(500).json({ success: false, message: "AI summary failed" });
@@ -485,7 +485,7 @@ Rules:
 
 Respond ONLY with valid JSON: {"score": <number>, "band": "<hot|warm|cold>", "reasoning": "<2 sentences>", "suggestedFollowUp": "<1 sentence action>"}`;
 
-    const raw = await callClaude({ system: "You are a precise JSON-only lead scoring assistant.", prompt, maxTokens: 200 });
+    const { text: raw } = await callClaude({ system: "You are a precise JSON-only lead scoring assistant.", prompt, maxTokens: 200 });
 
     let parsed;
     try {
@@ -531,7 +531,7 @@ ${context ? `Additional context: ${context}` : ""}
 
 Write subject line and email body. Keep it concise (under 150 words). Focus on value, not features. Sign as "TechnoHana Sales Team".`;
 
-    const draft = await callClaude({ system: "You are a B2B sales email writer.", prompt, maxTokens: 400 });
+    const { text: draft } = await callClaude({ system: "You are a B2B sales email writer.", prompt, maxTokens: 400 });
     res.json({ success: true, data: { draft } });
   } catch (err) {
     res.status(500).json({ success: false, message: "AI email draft failed" });
@@ -668,7 +668,7 @@ Write a structured proposal with these sections:
 Format as clean HTML using only: <h3>, <p>, <ul>, <li>, <strong>, <br>.
 Keep total length under 400 words. Sign as "TechnoHana Corporate Learning Team".`;
 
-    const html = await callClaude({
+    const { text: html } = await callClaude({
       system: "You are a professional B2B proposal writer for a corporate training company.",
       prompt,
       maxTokens: 800,

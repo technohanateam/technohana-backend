@@ -45,7 +45,7 @@ Do NOT mention discounts or prices.
 
 Respond ONLY with JSON: {"subject": "...", "body": "..."}`;
 
-        const raw = await callClaude({
+        const { text: raw } = await callClaude({
           system: "You are a friendly learning coach. Respond only with valid JSON.",
           prompt,
           maxTokens: 300,

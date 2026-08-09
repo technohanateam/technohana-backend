@@ -63,6 +63,19 @@ const blogSchema = new mongoose.Schema({
         type: Date,
         default: null
     },
+    // AI Content Factory (Milestone 2): set when this draft originated from an
+    // approved ContentOpportunity, so the admin UI can show an "AI Factory" badge.
+    sourceOpportunityId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "ContentOpportunity",
+        default: null
+    },
+    // AI Content Factory (Milestone 5): last time a human marked this post as
+    // reviewed/refreshed. contentFreshness.service.js prefers this over
+    // updatedAt when present (a review without a content edit still counts as
+    // "current"). Never written by the freshness scan itself — read-only there.
+    lastReviewedAt: {
+        type: Date,
     contentType: {
         type: String,
         enum: ["search-article", "authority-article", "linkable-asset", "research", "expert-article", "resource", "tool", "case-study"],

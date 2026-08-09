@@ -10,6 +10,7 @@ import { v2 as cloudinary } from "cloudinary";
 import { fileURLToPath } from "url";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
 import { parseModelJson } from "../utils/parseModelJson.js";
+import { runClaudeWebSearchLoop } from "../utils/claudeWebSearchLoop.js";
 import { User } from "../models/user.model.js";
 import { Order } from "../models/order.model.js";
 import Enquiry from "../models/enquiry.model.js";
@@ -18,6 +19,7 @@ import AiRiskReport from "../models/aiRiskReport.model.js";
 import Testimonial from "../models/testimonial.model.js";
 import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
+import { createBlogFromPayload } from "../services/blogCreation.service.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
@@ -621,6 +623,7 @@ router.get("/blogs", authenticateAdmin, requirePage("blogs"), async (req, res) =
 // POST /admin/blogs
 router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, async (req, res) => {
   try {
+    const blog = await createBlogFromPayload(req.body);
     const { title, slug, img, author, authorId, date, content, category, excerpt, metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs, contentType } = req.body;
     if (!title) return res.status(400).json({ message: "Title is required." });
 
@@ -660,6 +663,7 @@ router.post("/blogs", authenticateAdmin, requirePage("blogs"), requireAdmin, asy
     await blog.save();
     return res.status(201).json({ data: blog });
   } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ message: err.message });
     console.error("Admin create blog error:", err);
     return res.status(500).json({ message: "Server error" });
   }
@@ -836,54 +840,19 @@ Return ONLY this JSON object:
 
 Sources: only URLs returned by web search. Never invent URLs.`;
 
-    // Agentic loop: Claude may call web_search multiple times before producing the final text
-    const messages = [{ role: "user", content: userPrompt }];
-    const tools = [{ type: "web_search_20260209", name: "web_search" }];
-    let finalText = "";
-
-    for (let turn = 0; turn < 5; turn++) {
-      const response = await axios.post(
-        "https://api.anthropic.com/v1/messages",
-        {
-          model: "claude-sonnet-5",
-          max_tokens: 8192,
-          system: systemPrompt,
-          tools,
-          messages,
-        },
-        {
-          headers: {
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-          },
-          timeout: 120000,
-        }
-      );
-
-      const { stop_reason, content } = response.data;
-
-      // Append assistant turn to message history (includes embedded search results
-      // for built-in tools like web_search_20260209 — the API handles these server-side)
-      messages.push({ role: "assistant", content });
-
-      if (stop_reason === "end_turn") {
-        // Claude is done — extract the final text block
-        const textBlock = content.find(b => b.type === "text");
-        finalText = textBlock?.text?.trim() || "";
-        break;
-      }
-
-      if (stop_reason === "tool_use") {
-        // For Anthropic built-in tools (web_search_20260209), search results are
-        // already embedded in the response content by the API. Just continue —
-        // do NOT fabricate tool_result blocks.
-        continue;
-      }
-
-      // Any other stop reason — bail out
-      break;
-    }
+    // Agentic loop: Claude may call web_search multiple times before producing the final text.
+    // Milestone 3: extracted into utils/claudeWebSearchLoop.js (shared with factChecker.service.js)
+    // — same request shape/turn limit/stop-reason handling as before, so this route's behavior is
+    // unchanged.
+    const { finalText } = await runClaudeWebSearchLoop({
+      apiKey,
+      system: systemPrompt,
+      prompt: userPrompt,
+      model: "claude-sonnet-5",
+      maxTokens: 8192,
+      maxTurns: 5,
+      timeout: 120000,
+    });
 
     if (!finalText) return res.status(500).json({ message: "Claude did not produce a final response." });
 
