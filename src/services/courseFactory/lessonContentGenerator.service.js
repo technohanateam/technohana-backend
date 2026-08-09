@@ -102,8 +102,16 @@ If a hands-on exercise genuinely doesn't fit this topic, set "exercise" to null 
   // heuristics cannot recover from since the JSON is genuinely incomplete,
   // not just malformed. Configurable so an admin can raise it (or a future
   // section-by-section generation strategy can lower it) without a deploy.
-  const settings = await getOrCreateCourseFactorySettings();
-  const maxTokens = settings.lessonContentMaxTokens || 16000;
+  // Non-blocking fetch (same philosophy as aiUsageTracker's spend recording)
+  // — a transient DB hiccup shouldn't prevent generation from even starting;
+  // it just falls back to the schema default for this one call.
+  let maxTokens = 16000;
+  try {
+    const settings = await getOrCreateCourseFactorySettings();
+    maxTokens = settings.lessonContentMaxTokens || 16000;
+  } catch (err) {
+    console.error("[CourseFactory] could not load lessonContentMaxTokens setting, using default 16000:", err.message);
+  }
   const result = await callClaude({ system, prompt, maxTokens, tier: "standard" });
   const tokensIn = result.usage?.input_tokens || 0;
   const tokensOut = result.usage?.output_tokens || 0;

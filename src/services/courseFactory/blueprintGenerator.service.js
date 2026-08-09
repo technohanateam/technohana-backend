@@ -53,8 +53,14 @@ Return JSON exactly in this shape:
   ]
 }`;
 
-  const settings = await getOrCreateCourseFactorySettings();
-  const maxTokens = settings.blueprintMaxTokens || 8000;
+  // Non-blocking fetch — see lessonContentGenerator.service.js for rationale.
+  let maxTokens = 8000;
+  try {
+    const settings = await getOrCreateCourseFactorySettings();
+    maxTokens = settings.blueprintMaxTokens || 8000;
+  } catch (err) {
+    console.error("[CourseFactory] could not load blueprintMaxTokens setting, using default 8000:", err.message);
+  }
   const result = await callClaude({ system, prompt, maxTokens, tier: "standard" });
   const tokensIn = result.usage?.input_tokens || 0;
   const tokensOut = result.usage?.output_tokens || 0;
