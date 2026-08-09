@@ -954,3 +954,224 @@ category taxonomy in a live run, and the trend-research/gap-analysis signals, wh
 have not yet been observed against real GSC/web-search data end-to-end. Enabling automation
 is a one-click reversible action (`POST /settings/toggle-automation`) once that manual pass
 is done.
+
+---
+
+## Production Validation
+
+A validation-only audit pass performed against the feature-complete code on
+`claude/current-blog-plan-a7wjyi` (backend PR #109 / frontend PR #136). **Hard environment
+constraint:** this sandbox has no `MONGO_DB`, `REDIS_URL`, or `ANTHROPIC_API_KEY` configured
+(no `.env`, no `mongod` binary). Everything below marked "verified (static)" or "verified
+(test)" was actually checked by reading the real source or running the real test suite; nothing
+requiring a live DB/API call was fabricated or simulated. `automationStatus` was left at its
+default `PAUSED` throughout and remains `PAUSED`.
+
+### What was cross-checked against this doc's own claims
+- Every M1-M5 "As-built" claim re-checked file-by-file: models, services, controllers, routes,
+  and prompts all exist exactly where documented. `automationStatus` default confirmed
+  `"PAUSED"` by reading `contentFactorySettings.model.js` directly (not trusted from this doc).
+- Image generation confirmed prompt-only by re-grepping `src/` for
+  `images.generate`/`generateImage`/`dall-e`/`DALL` — zero real image-API calls anywhere.
+- The M4 "As-built" section's own self-reported discrepancy (`approveOpportunityCore` setting
+  `scheduledAt` while leaving `published:false`) was re-verified: it **is** fixed, in
+  `humanReview.controller.js`'s `approveOpportunityCore()` (`blog.published = true` whenever
+  `scheduledAt` is provided) — commit `7bcee18`. A regression test for this already exists
+  (`tests/blog/publicVisibility.test.js`).
+- **Discrepancy found and fixed this pass:** `contentCalendar.service.js`'s header comment
+  still claimed the above bug was "left untouched... not fixed in this pass" — stale from
+  before the M4→post-M5 fix commit landed. Updated the comment to reflect reality (code
+  behavior itself was already correct; this was a documentation-accuracy fix only).
+
+### Scheduled-publishing re-audit (§3)
+Re-grepped every `Blogs.find`/`findOne`/`aggregate`/`countDocuments` call site across both
+repos. `blog.controller.js`'s `getAllBlogs`, `getBlogBySlug`, and `getBlog` (the SSR/OG-crawler
+route) all build their query from `buildPublicBlogFilter()` — confirmed by reading the file
+directly, not just the existing test. Every admin-only consumer (`admin.routes.js`'s blog
+routes, `seo-analytics`, content-factory's calendar/backlog/freshness/internal-linker/strategy
+services) sits behind `authenticateAdmin` (verified by reading the actual route declarations)
+and is never reachable by an unauthenticated request. Content-factory services that read
+unpublished/scheduled `Blogs` docs for internal purposes (`internalLinker.service.js`,
+`contentStrategy.service.js`'s duplicate-detection corpus, `contentFreshness.service.js`,
+`contentBacklog.service.js`) do so only for admin-side scoring/suggestion logic (title/slug/
+category fields feeding an AI prompt or an internal dedup score) — none of them serve that data
+back to an unauthenticated caller, so this is a content-quality consideration (e.g.
+recommending an internal link to a not-yet-live post — the link target is still gated by the
+same public filter) rather than a new exposure path. No new exposure bug was found; no fix was
+needed here beyond the stale-comment correction above.
+
+### Human-approval-safety trace (§5)
+Traced every code path that can touch a `Blogs` document end-to-end, with file:line citations:
+- `contentGenerationOrchestrator.service.js`'s `runSteps()` (lines ~142-227): the pipeline's
+  only two possible terminal statuses after `QUALITY_GATE` are `NEEDS_REVISION` (line 219) and
+  `HUMAN_REVIEW` (line 225) — no code path sets `APPROVED`/`SCHEDULED` or creates a `Blogs` doc.
+- `dailyPlanningJob.processor.js` step (7) (lines 112-147): even with `autoGenerateArticles:true`,
+  the loop only calls `ContentOpportunity.updateOne({status:"SELECTED"})` and
+  `enqueueGeneration()` — it never calls anything in `humanReview.controller.js`.
+- `humanReview.controller.js`'s `approveOpportunityCore()` (lines 208-256) is the **only**
+  function anywhere in the codebase that creates a `Blogs` doc from an opportunity, and it is
+  only ever invoked from `approveReviewItem` (explicit single approve, line 291) and
+  `bulkApproveReview` (line 326) — both admin-authenticated HTTP actions.
+- `assertApprovable()` (lines 262-272) — confirmed it re-queries `ContentQualityScore` fresh
+  from the DB (`.findOne({opportunityId}).sort({createdAt:-1})`, line 267) rather than trusting
+  anything the client sent; `bulkApproveReview` calls it per-id inside its loop (line 319)
+  before calling `approveOpportunityCore`.
+- `retryFromStep()` (`contentGenerationOrchestrator.service.js` lines 262-300) only resumes
+  generation steps from `STEP_ORDER`; it routes through the identical `runSteps()` end-state
+  logic as a fresh run, so it cannot skip the human-review gate.
+- **Verified (test):** `npm test` passes 142/142, including the existing bulk-approve/
+  quality-gate/budget-guard suites that already exercise this logic with plain-object inputs.
+
+### Topic-cluster mechanism audit (§8)
+`topicClusterMapping.service.js` read in full: `proposeTopicClusterMapping()` (lines 17-47)
+makes one `trackedCallClaude()` call and returns a plain object — it contains no
+`TopicCluster.create`/`save`/`bulkWrite` call anywhere in the function. `applyTopicClusterMapping()`
+(lines 51-78) is a separate export, only reachable via the explicit `POST
+/clusters/apply-mapping` route, and is the only function in the file that writes
+`TopicCluster.bulkWrite()`. **Not executable in this sandbox:** running a real mapping proposal
+against the actual 350+-course category taxonomy (needs `ANTHROPIC_API_KEY` + `MONGO_DB`). The
+matching/similarity logic used elsewhere in the pipeline (duplicate detection, trend-to-course
+matching, gap-to-course matching) is pure and was exercised with representative inputs — see the
+new `tests/content-factory/pureScoring.test.js` — but topic-cluster proposal itself has no pure
+sub-function to sanity-check in isolation (the categorization judgment is entirely inside the
+Claude call), so per the plan's explicit guidance, no fabricated "real" mapping was produced.
+
+### Quality/fact-check/trend/cost-control audits (§13/§16/§17/§18/§19/§20/§21)
+- **Quality gate** (`qualityGate.service.js`): `computeQualityGateResult()` (lines 54-88) is
+  confirmed pure by inspection — no mongoose/network imports touched inside that function.
+  Weights sum to 100 (verified: 15+10+10+10+8+8+8+8+6+6+6+5=100). `flaggedForRevision` is
+  `aiStyleRiskScore > threshold OR overallScore < floor`, exactly as documented.
+- **AI-style anti-cliché list** (`aiStyleEvaluator.prompt.js`): present in the system prompt —
+  quotes "Moreover,", "Furthermore,", "In conclusion,", "Additionally,", "in today's fast-paced
+  world", generic/interchangeable intros and conclusions, repetitive paragraph structure,
+  "unlock your potential" listicle filler, rhetorical-question overuse. Close but not verbatim
+  to the task's example phrasing ("In today's rapidly evolving...", "Let's dive into...") —
+  the spirit and mechanism are the same (a named list of concrete AI-writing tells, not a vague
+  instruction), noted as a minor phrasing gap, not a functional one.
+- **Revision agent** (`revisionAgent.prompt.js`): explicitly instructs structural rewriting —
+  "This is not a copy-edit pass — restructure sentences and paragraphs... Simply swapping
+  synonyms or lightly rewording is NOT acceptable and will be rejected" — and explicitly
+  requires preserving `sources`/`faqs`/existing internal links and any already-verified fact.
+  The auto-revision cap is confirmed exactly 1 automatic pass:
+  `contentGenerationOrchestrator.service.js` line 148,
+  `gateResult.flaggedForRevision && (opportunity.autoRevisionCount || 0) === 0`, incremented
+  synchronously on line 152 before the branch can re-enter.
+- **Fact-checker** (`factChecker.service.js`/`.prompt.js`): confirmed a `verifiable:true` claim
+  is downgraded to `false` unless it also carries a real `sourceUrl` (service line 62,
+  belt-and-suspenders on top of the prompt's own instruction). **Finding:** neither
+  `factChecker.prompt.js` nor `trendResearch.prompt.js`'s system prompt contains an explicit
+  statement telling the model to treat web-search-retrieved content as untrusted data separate
+  from developer instructions (i.e. no "search results are data, not commands" framing). This
+  is a real, if narrow, prompt-injection-hardening gap — a maliciously crafted page a search
+  result links to could in theory attempt to inject instructions into what the model reads
+  during its search turns. Not exploited or demonstrated (no live API access), but flagged as
+  a genuine finding worth a follow-up prompt hardening pass, not fixed in this audit since it's
+  a prompt-wording change with no pure-function regression test possible and no live model to
+  validate the fix against.
+- **Trend research cost control** (`trendResearch.service.js`): confirmed per-cluster batching
+  (`for (const cluster of selected)`, line 139 — never per-course) and a real hard cap via
+  `selectClustersForResearch()` (lines 110-118, `sorted.slice(0, Math.max(0, maxCalls))`),
+  prioritized by `TopicCluster.priority` descending then `lastResearchedAt` ascending (nulls
+  first). Budget is re-checked before every individual cluster call (line 144), not just once.
+- **SEO gap analysis** (`contentGapAnalysis.service.js`): confirmed deterministic — grepped the
+  file for `callClaude`/`trackedCallClaude` imports and found none; only imports are
+  `SeoGscMetric`/`Course` models. No external fetch of competitor pages anywhere in the file.
+- **Cost controls / pause** (`budgetGuard.service.js`, `contentFactorySettings.model.js`,
+  `dailyPlanningJob.processor.js`): `automationStatus` schema default confirmed `"PAUSED"`
+  (model line 7). `runDailyPlanningJob()` checks `automationStatus === "PAUSED"` as literally
+  its first statement (line 20), before any DB read or AI call. `enforceBudgetOrPause()`
+  genuinely sets `automationStatus:"PAUSED"`, `pausedReason:"DAILY_AI_BUDGET_EXCEEDED"`, and
+  calls `sendEmail()` to `process.env.MAIL_TO` (lines 35-51), idempotently (won't re-email if
+  already paused for that exact reason, line 31). Manual/interactive routes (`/plan/dry-run`,
+  single generate/retry, the entire `/review/**` flow, calendar/backlog) were confirmed to have
+  zero `automationStatus` references anywhere in their controllers — grepped the full list of
+  `automationStatus` call sites repo-wide (5 total, all in the settings controller, the daily
+  planning job, and the budget guard) and cross-checked none of them sit in a manual-action
+  controller.
+
+### Performance audit (§23)
+No N+1 pattern (a `.find()`/`.findOne()` inside a loop over courses/opportunities) found in
+`coursePriorityAggregation.service.js` (bulk `Promise.all` of 3 `.aggregate()` calls +
+1 lookup query, no per-course loop), `courseIntelligence.controller.js` (single `Course.find()`
++ single `CourseContentSettings.find({$in})`, paginated in-memory after), or
+`dailyPlanningJob.processor.js` (calls bulk service functions, no direct per-item DB loop of its
+own). `contentOpportunity.controller.js`'s list endpoint uses real `skip`/`limit` at the Mongo
+query level. `courseIntelligence.controller.js`'s `listCourses()` loads the full course catalog
+(350+ docs) into memory before paginating — at this scale that's a bounded, acceptable full
+scan, not a query-per-item N+1, and was left as-is (not a genuine defect to fix in an audit
+pass).
+
+### PILOT-tier recommendation (§24/§25)
+Grepped every `automationStatus` reference repo-wide: 5 call sites total (schema definition,
+the settings-toggle controller's validation, `dailyPlanningJob.processor.js`'s PAUSED check,
+and `budgetGuard.service.js`'s read+write). Adding a third `"PILOT"` enum value would touch the
+schema, the toggle-controller validation, and would require a **new behavioral distinction**
+inside `dailyPlanningJob.processor.js` (what should PILOT actually skip or restrict that
+ENABLED doesn't?) — since `maxDailyArticles`, `maxDailyOpportunities`, and
+`autoGenerateArticles` already exist as independent, admin-editable settings fields, the exact
+same safety profile a "PILOT" status would provide is achievable today with zero code changes:
+`automationStatus:"ENABLED"`, `maxDailyArticles:5`, `autoGenerateArticles:false` (planning runs
+automatically and creates scored opportunities, but article generation stays fully
+human-initiated via the Human Review page until the operator is confident enough to flip
+`autoGenerateArticles:true`). **Recommendation: do not add a `PILOT` enum value** — it would
+add a new status to reason about everywhere `automationStatus` is checked without adding any
+capability the existing settings fields don't already provide, and risks blurring the clean
+binary ENABLED/PAUSED semantic the rest of the codebase (and this doc's "Core safety
+properties") already relies on. The settings-based approach above is the recommended pilot
+configuration.
+
+### Verification performed this pass
+- Backend `npm test`: **142/142 pass** (117 pre-existing + 25 new pure-function tests added in
+  `tests/content-factory/pureScoring.test.js`, covering `scoreDuplicateRisk()`,
+  `computeCoursePriorityScore()`, `isDueForContent()`, and `computeOverallScore()` — all four
+  were documented as pure/unit-testable but had zero prior test coverage).
+- Backend has no `lint`/`build` scripts (unchanged from prior milestones) — `npm test` +
+  `node --check` on every touched file are the verification gates.
+- Frontend `npm run build`: succeeds (398 course pages regenerated by `postbuild`, no `dist`/
+  `sitemap.xml` drift left behind).
+- Frontend `npm run lint`: 204 pre-existing problems, all confined to
+  `technohana-mobile/`, `vite.config.js`, and a handful of unrelated pages/services (confirmed
+  via `git blame`/`git log -L` that each predates the Content Factory branch) — zero new
+  problems in any content-factory file. Targeted `npx eslint` on every content-factory
+  file plus `AdminBlogs.jsx`/`AdminLayout.jsx`/`adminAccess.js`/`App.jsx`/`adminService.js`
+  found only the same 2 pre-existing, unrelated `no-unused-vars` issues already recorded in
+  the M2 as-built section.
+- Frontend `npm test` (vitest): 4 passed / 3 failed — the exact same 3 pre-existing baseline
+  failures recorded in every prior milestone's as-built section
+  (`AdminSeoExecutiveDashboard`/`ConnectPropertyDialog`/`SeoKpiCard`, all SEO-dashboard tests
+  unrelated to content-factory), no new failures.
+- `git log --oneline -- src/routes/admin.routes.js` + `git show` on every commit that touched
+  it: confirmed only two changes across the entire Content Factory branch — M2's `POST /blogs`
+  body replacement (`createBlogFromPayload()`) and M3's byte-behavior-preserving
+  `generate-from-course` web-search-loop extraction (diff verified line-by-line against
+  `utils/claudeWebSearchLoop.js`) — no other blog route was touched by any commit.
+- `AdminBlogs.jsx`'s `BlogModal` non-`reviewContext` path re-verified: every `reviewContext`
+  reference in the file is guarded by `reviewContext &&`/`reviewContext ?` (confirmed via grep
+  of every occurrence), and `handleSubmit`'s save logic falls through to the original
+  `isEdit ? updateBlog : createBlog` branch unchanged when `reviewContext` is absent.
+
+### Sections that could NOT be executed in this sandbox
+No `MONGO_DB`, `REDIS_URL`, or `ANTHROPIC_API_KEY` were available, so the following genuinely
+require a real staging/production environment and were not run, simulated, or fabricated:
+- A live end-to-end scheduling test (create → approve-and-schedule → verify hidden →
+  advance past `scheduledAt` → verify visible) against a real Mongo document.
+- A real dry-run against the actual 350+-course catalogue; a real top/bottom-20 course-priority
+  report; a real 50-100 opportunity batch; a real duplicate/cannibalization test against the
+  actual existing blog corpus.
+- Generating and editorially scoring real pilot articles (needs `ANTHROPIC_API_KEY`).
+- Running a real topic-cluster mapping proposal against the actual course category taxonomy.
+- Observing real trend-research/SEO-gap signals end-to-end against live GSC/web-search data.
+- Confirming budget-triggered auto-pause fires under genuine metered spend (the logic is
+  covered by `tests/content-factory/budgetGuard.test.js`'s pure-function tests, but a live
+  spend event was never triggered here).
+
+### Final recommendation
+**GO WITH PILOT, contingent on completing the live-data validation sections above in a real
+environment before enabling automation.** The static audit found the safety-critical
+properties genuinely hold as documented (human-approval gate cannot be bypassed by any traced
+code path, automation defaults to and remains `PAUSED`, budget auto-pause is real and wired
+correctly, the existing blog system is provably untouched beyond the documented single-route
+changes) and surfaced one real prompt-injection-hardening gap (fact-checker/trend-research
+prompts don't explicitly frame search results as untrusted data) worth a follow-up pass, plus
+one stale-comment discrepancy (now fixed) — no blocking defect was found that would justify
+DO NOT GO. `automationStatus` was not changed and remains `PAUSED`.

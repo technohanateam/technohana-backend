@@ -13,13 +13,12 @@ import { Blogs } from "../../models/blogs.model.js";
 // `POST /admin/blogs/auto-schedule` endpoint and the `PATCH
 // /admin/blogs/:id/publish` endpoint both always set `published: true`
 // together with `scheduledAt`, confirming this is the one true mechanism.
-// (Note: humanReview.controller.js's approveOpportunityCore, from M2/M3,
-// currently sets `scheduledAt` on approve-and-schedule but leaves
-// `published: false` — with the mechanism above, a post approved that way
-// will NOT actually go live at its scheduledAt without a further manual
-// publish toggle. That's pre-existing M2/M3 code, left untouched here since
-// M4's scope is contentCalendar.service.js only — flagged in the as-built
-// doc and the final report, not fixed in this pass.)
+// (Note: humanReview.controller.js's approveOpportunityCore previously set
+// `scheduledAt` on approve-and-schedule but left `published: false`, which
+// meant a post approved that way would never actually go live. This was
+// fixed in a later pass — approveOpportunityCore now sets `published: true`
+// whenever `scheduledAt` is provided, exactly mirroring the mechanism this
+// file already followed. Re-verified during the production-validation audit.)
 //
 // contentCalendar.service.js therefore always pairs `scheduledAt` with
 // `published: true`, exactly mirroring the confirmed real mechanism, so that

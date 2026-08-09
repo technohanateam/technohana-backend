@@ -186,3 +186,107 @@ normal pause/resume operation.
 posts are ordinary `Blogs` documents distinguishable only by a non-null
 `sourceOpportunityId` — they can be filtered, edited, unpublished, or deleted through the
 exact same existing admin blog tools as any manually-authored post.
+
+## Production Validation
+
+A code-level audit of the feature-complete factory was performed against
+`claude/current-blog-plan-a7wjyi` in a sandbox with **no `MONGO_DB`, `REDIS_URL`, or
+`ANTHROPIC_API_KEY`** — every safety mechanism described above (pause gating, budget
+auto-pause, human-approval-only publish, topic-cluster admin-confirmation) was verified by
+reading the real source and tracing every code path by hand, plus the full existing/extended
+automated test suite (142/142 passing). **None of the following was run** — they require real
+credentials against a real environment and must be completed by an operator before flipping
+`automationStatus` to `"ENABLED"` in production. This is a runbook, not a report of results —
+check items off as you complete them for real.
+
+### Pre-launch live-data validation checklist
+
+Complete in order. Each step assumes `MONGO_DB`, `REDIS_URL`, and `ANTHROPIC_API_KEY` are set
+in the target environment (staging strongly preferred over production for the first pass).
+
+1. **Confirm the app boots clean against real infra.**
+   - [ ] `npm run start` connects to Mongo and Redis with no errors; server logs show
+     `scheduleContentFactoryRepeatables()` registering both cron jobs (`content-factory-planning`,
+     `content-factory-freshness`) without duplicate-repeatable errors.
+   - [ ] `GET /admin/content-factory/settings` returns a singleton doc with
+     `automationStatus: "PAUSED"` (the code default — confirm it wasn't manually flipped by a
+     prior session/migration).
+
+2. **Topic clusters — first real mapping.**
+   - [ ] Admin UI → Topic Clusters → "Propose Mapping". Confirm the proposal reads real
+     `Course.category` values from the live catalog (not a fixture) and that **nothing** is
+     written to `TopicCluster` until you click "Apply".
+   - [ ] Review the proposed clusters for sanity against the real category taxonomy — this is
+     the one step in the whole pipeline that has never been checked against real data before
+     this launch. Hand-edit names/categories if the AI's grouping is off before applying.
+   - [ ] Apply, then confirm `GET /admin/content-factory/clusters` shows the applied set.
+
+3. **Course priority — first real aggregation.**
+   - [ ] Trigger `recomputePriority` (or wait for the first planning run). Spot-check the
+     top-5 and bottom-5 scored courses against your own business intuition — do the courses
+     you'd expect to be prioritized (high enquiry/revenue/views) actually land in
+     `TIER_1_STRATEGIC`/`TIER_2_GROWTH`?
+   - [ ] Confirm `gscClicks28d`/`gscImpressions28d` are still 0 for every course (documented M1
+     limitation — no course↔URL mapping exists yet) unless that's been separately addressed
+     since this doc was written.
+
+4. **Dry-run planning — zero-risk first real pass.**
+   - [ ] Dashboard → "Run Dry-Run Plan Now". Confirm it creates scored `ContentOpportunity`
+     docs and a `ContentRun` log entry, and creates **zero** `Blogs` documents (check
+     `Blogs.countDocuments()` before/after — should be unchanged).
+   - [ ] Run it a second time immediately after. Confirm it does not create near-duplicate
+     opportunities for the same course/content-type pairing it just created (the
+     pre-AI-call `scoreDuplicateRisk()` dedup should suppress this).
+   - [ ] Spot-check 5-10 of the generated opportunities' `title`/`recommendationReason`/
+     `topicAngle` fields for real editorial sanity (not gibberish, actually relevant to the
+     course).
+
+5. **One real generation → review → approve cycle, end to end.**
+   - [ ] Pick a single low-stakes opportunity. `POST /opportunities/:id/generate`. Watch the
+     job ledger (`GET /jobs/:id`) step through BRIEF → ARTICLE → SEO → LINKS → IMAGE_PROMPT →
+     QUALITY_GATE in real time.
+   - [ ] Confirm it lands in `HUMAN_REVIEW` or `NEEDS_REVISION` — never anything further along
+     — with no human action taken yet.
+   - [ ] Open it in Human Review. Editorially read the full article — check for genuine
+     factual accuracy (spot-check 2-3 of the fact-checker's `findings` against the actual
+     sourceUrl), check the internal links actually resolve to real course/blog pages, check the
+     image concept prompt/alt-text/filename are sensible.
+   - [ ] If flagged (`NEEDS_REVISION`), confirm exactly one automatic revision pass happened
+     (check `autoRevisionCount === 1` and two `ContentQualityScore` docs exist for the
+     opportunity) before it reached human review.
+   - [ ] Click Approve & Schedule with a near-future date. Confirm the resulting `Blogs` doc has
+     `published: true` and the correct `scheduledAt`. Confirm it does **not** appear on the
+     public `/blogs` listing yet (still in the future).
+   - [ ] Wait until `scheduledAt` passes (or set it a minute in the future for this test).
+     Confirm the post now appears on the public site with no manual action taken.
+
+6. **Budget guard — one real forced breach.**
+   - [ ] Temporarily set `dailyAiBudgetUsd` very low (e.g. `$0.01`) via `PATCH /settings`.
+   - [ ] Trigger any AI-consuming action (dry-run, generate, etc.) and confirm
+     `automationStatus` flips to `PAUSED`, `pausedReason` is set, and the configured
+     `MAIL_TO` address actually receives the pause-notification email.
+   - [ ] Confirm manual/interactive actions (generate, review, approve) still work while
+     paused — only the daily planning job's automatic path should be blocked.
+   - [ ] Restore a realistic `dailyAiBudgetUsd` and re-enable automation before continuing.
+
+7. **Trend research and SEO gap analysis — first real signals.**
+   - [ ] Confirm `SeoGscMetric` has real synced rows before expecting non-empty gap results
+     (`analyzeContentGaps()` returns `{gaps: []}` on an empty/unsynced GSC connection — that's
+     correct behavior, not a bug, but means nothing to review until GSC sync has run at least
+     once).
+   - [ ] Trigger a real planning run (not dry-run) and confirm `researchTrends()` makes at most
+     `maxDailyResearchCalls` real Claude calls (check `GET /usage` afterward for a `trendResearch`
+     `callType` count), and that every returned trend genuinely has a real `sourceUrls` entry —
+     spot check a few by opening the URLs.
+
+8. **Final go/no-go review.**
+   - [ ] Everything above passed with no unexpected findings.
+   - [ ] Decide the real `autoGenerateArticles`/`maxDailyArticles` starting values (recommended:
+     start with `autoGenerateArticles: false` so the daily job only creates opportunities, and
+     generation stays a manual per-item action, until you're confident in article quality at
+     scale — see the PILOT-tier discussion in `AI_CONTENT_FACTORY_IMPLEMENTATION.md`).
+   - [ ] Only then set `automationStatus: "ENABLED"`.
+
+Nothing above was executed in this validation pass — the sandbox this audit ran in has no
+`MONGO_DB`/`REDIS_URL`/`ANTHROPIC_API_KEY`. All 8 steps remain outstanding for whoever owns the
+production launch.
