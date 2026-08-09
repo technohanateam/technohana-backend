@@ -42,6 +42,15 @@ const contentQualityScoreSchema = new Schema(
     factCheckFindings: { type: [factCheckFindingSchema], default: [] },
 
     evaluatedByModel: { type: String, default: null },
+
+    // Non-fatal sub-evaluator failures (factChecker/aiStyle degrade to a
+    // documented neutral default rather than failing the whole gate) —
+    // recorded so a reviewer can tell "this score reflects a real judgment"
+    // apart from "this dimension's evaluator errored and fell back."
+    evaluationErrors: {
+      factChecker: { type: String, default: null },
+      aiStyle: { type: String, default: null },
+    },
   },
   { timestamps: true }
 );

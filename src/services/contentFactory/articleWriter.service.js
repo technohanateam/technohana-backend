@@ -38,30 +38,42 @@ export async function writeArticle(brief, opportunity) {
   const usage = { input_tokens: 0, output_tokens: 0 };
 
   for (let turn = 0; turn < 5; turn++) {
-    const response = await axios.post(
-      "https://api.anthropic.com/v1/messages",
-      {
-        model,
-        max_tokens: 8192,
-        system,
-        tools,
-        messages,
-      },
-      {
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-        },
-        // 180s, not the 120s generate-from-course uses (a separate, untouched
-        // file/call): a live validation run (2026-08-08) found brief-driven
-        // generation — more search turns, a longer structured prompt than the
-        // course-only original — timed out at 120s in 2 of 3 real attempts.
-        // This runs inside an async Bull job, not an HTTP request an admin is
-        // waiting on, so the extra headroom has no UX cost.
-        timeout: 180000,
+    let response;
+    // A single retry on timeout — live production logs (2026-08-09) show the
+    // 180s-per-turn timeout still gets exceeded on some search-heavy turns
+    // even after the 120s->180s bump. This runs inside an async Bull job with
+    // no admin waiting on the HTTP request, so trading a little extra worst-
+    // case duration for not aborting the whole article on one slow turn is a
+    // clear win — a bare timeout is very likely transient API-side slowness,
+    // not a real prompt/data problem worth failing the pipeline over.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        response = await axios.post(
+          "https://api.anthropic.com/v1/messages",
+          {
+            model,
+            max_tokens: 8192,
+            system,
+            tools,
+            messages,
+          },
+          {
+            headers: {
+              "x-api-key": apiKey,
+              "anthropic-version": "2023-06-01",
+              "Content-Type": "application/json",
+            },
+            timeout: 180000,
+          }
+        );
+        break;
+      } catch (err) {
+        const isTimeout = err.code === "ECONNABORTED" || /timeout/i.test(err.message || "");
+        if (!isTimeout || attempt === 1) throw err;
+        console.warn(`[content-factory] articleWriter turn ${turn} timed out, retrying once:`, err.message);
       }
-    );
+    }
 
     const { stop_reason, content, usage: turnUsage } = response.data;
     if (turnUsage) {

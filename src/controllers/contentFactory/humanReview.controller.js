@@ -90,18 +90,33 @@ export const updateReviewDraft = async (req, res) => {
   }
 };
 
+// Opportunities that already have (or are getting) a draft to reconsider —
+// mirrors GENERATABLE_STATUSES in contentGeneration.controller.js, which
+// covers the "not yet generated" side (PLANNED/SELECTED/NEEDS_REVISION).
+// Deliberately excludes GENERATING (a job is already in flight — see the
+// double-job-doc race this guards against) and terminal states
+// (APPROVED/SCHEDULED/PUBLISHED/REJECTED), which have their own workflows.
+const REGENERATABLE_STATUSES = ["HUMAN_REVIEW", "AI_REVIEW", "NEEDS_REVISION", "FAILED"];
+
 // POST /admin/content-factory/review/:opportunityId/regenerate
 export const regenerateReview = async (req, res) => {
   try {
     const opportunity = await ContentOpportunity.findById(req.params.opportunityId);
     if (!opportunity) return res.status(404).json({ success: false, message: "Opportunity not found" });
 
+    if (!REGENERATABLE_STATUSES.includes(opportunity.status)) {
+      return res.status(409).json({
+        success: false,
+        message: `Cannot regenerate from status ${opportunity.status}.`,
+      });
+    }
+
     opportunity.status = "SELECTED";
     opportunity.generationAttempts = (opportunity.generationAttempts || 0) + 1;
     await opportunity.save();
 
     const job = await ContentGenerationJob.create({ opportunityId: opportunity._id, status: "QUEUED" });
-    await enqueueGeneration(opportunity._id.toString());
+    await enqueueGeneration(opportunity._id.toString(), job._id.toString());
 
     return res.json({ success: true, data: { jobId: job._id }, message: "Regeneration queued" });
   } catch (err) {
@@ -373,11 +388,8 @@ export const bulkRejectReview = async (req, res) => {
 };
 
 // POST /admin/content-factory/review/bulk-regenerate — { ids: [...] }
-// Respects the same status validation as the single regenerate endpoint
-// (implicitly, via generateOpportunityArticle's GENERATABLE_STATUSES —
-// regenerateReview here mirrors regenerateReview's own less-restrictive
-// re-queue behavior, so any in-review status can be sent back through the
-// pipeline).
+// Respects the same status validation as the single regenerate endpoint —
+// REGENERATABLE_STATUSES, defined above.
 export const bulkRegenerateReview = async (req, res) => {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
@@ -394,6 +406,10 @@ export const bulkRegenerateReview = async (req, res) => {
           skipped.push({ id, reason: "Opportunity not found" });
           continue;
         }
+        if (!REGENERATABLE_STATUSES.includes(opportunity.status)) {
+          skipped.push({ id, reason: `Cannot regenerate from status ${opportunity.status}` });
+          continue;
+        }
         opportunity.status = "SELECTED";
         opportunity.generationAttempts = (opportunity.generationAttempts || 0) + 1;
         // eslint-disable-next-line no-await-in-loop
@@ -402,7 +418,7 @@ export const bulkRegenerateReview = async (req, res) => {
         // eslint-disable-next-line no-await-in-loop
         const job = await ContentGenerationJob.create({ opportunityId: opportunity._id, status: "QUEUED" });
         // eslint-disable-next-line no-await-in-loop
-        await enqueueGeneration(opportunity._id.toString());
+        await enqueueGeneration(opportunity._id.toString(), job._id.toString());
         queued.push({ id, jobId: job._id });
       } catch (err) {
         skipped.push({ id, reason: err.message });

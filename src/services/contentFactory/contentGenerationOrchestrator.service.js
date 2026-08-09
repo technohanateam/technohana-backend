@@ -8,6 +8,7 @@ import { generateInternalLinks } from "./internalLinker.service.js";
 import { generateImageConcept } from "./imagePromptWriter.service.js";
 import { runQualityGate } from "./qualityGate.service.js";
 import { reviseArticle } from "./revisionAgent.service.js";
+import { enforceBudgetOrPause } from "./budgetGuard.service.js";
 
 // M3: QUALITY_GATE runs after IMAGE_PROMPT. It may internally trigger ONE
 // automatic REVISION pass (tracked via opportunity.autoRevisionCount, capped
@@ -230,11 +231,38 @@ async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imag
   return { success: true, job, opportunity };
 }
 
+// Marks a job (and, where given, its target step) FAILED with `reason`
+// without touching the opportunity's status — used when the pipeline is
+// blocked before it ever starts (daily AI budget exceeded), so the
+// opportunity stays in its current generatable/review status rather than
+// being reported as if generation itself failed.
+async function failJobForBudget(jobId, reason, stepName) {
+  if (!jobId) return;
+  const job = await ContentGenerationJob.findById(jobId);
+  if (!job) return;
+  ensureSteps(job);
+  if (stepName) await markStepFailed(job, stepName, new Error(reason));
+  job.status = "FAILED";
+  await job.save();
+}
+
 // Creates/loads a ContentGenerationJob and runs the full pipeline from the
-// start. Never throws further up — returns a result object.
-export async function runGenerationPipeline(opportunityId) {
+// start. Never throws further up — returns a result object. `jobId`, when
+// given, is the caller's already-created ContentGenerationJob._id — using it
+// directly (instead of re-deriving "the most recent QUEUED/RUNNING job for
+// this opportunity") avoids updating the wrong doc if a double-submit ever
+// creates two job docs for the same opportunity.
+export async function runGenerationPipeline(opportunityId, jobId) {
   const opportunity = await ContentOpportunity.findById(opportunityId);
   if (!opportunity) return { success: false, error: "Opportunity not found" };
+
+  const budgetCheck = await enforceBudgetOrPause();
+  if (budgetCheck.paused) {
+    const reason = budgetCheck.reason || "Daily AI budget exceeded — automation is paused.";
+    console.warn(`[content-factory] generation blocked for opportunity ${opportunity._id}: ${reason}`);
+    await failJobForBudget(jobId, reason, STEP_ORDER[0]);
+    return { success: false, failedStep: "BUDGET", error: reason, opportunity };
+  }
 
   try {
     opportunity.status = "GENERATING";
@@ -245,7 +273,10 @@ export async function runGenerationPipeline(opportunityId) {
     opportunity.autoRevisionCount = 0;
     await opportunity.save();
 
-    let job = await ContentGenerationJob.findOne({ opportunityId, status: { $in: ["QUEUED", "RUNNING"] } }).sort({ createdAt: -1 });
+    let job = jobId ? await ContentGenerationJob.findById(jobId) : null;
+    if (!job) {
+      job = await ContentGenerationJob.findOne({ opportunityId, status: { $in: ["QUEUED", "RUNNING"] } }).sort({ createdAt: -1 });
+    }
     if (!job) {
       job = new ContentGenerationJob({ opportunityId, status: "RUNNING", steps: [] });
     } else {
@@ -286,29 +317,70 @@ export async function retryFromStep(jobId, stepName) {
   const fromIndex = STEP_ORDER.indexOf(targetName);
   if (fromIndex === -1) return { success: false, error: `Unknown step: ${targetName}` };
 
-  // Reset the target step and any after it so re-running is visible in the
-  // ledger; steps before it keep their DONE record untouched.
-  job.steps.forEach((s) => {
-    if (STEP_ORDER.indexOf(s.name) >= fromIndex) {
-      s.status = "PENDING";
-      s.error = null;
+  const budgetCheck = await enforceBudgetOrPause();
+  if (budgetCheck.paused) {
+    const reason = budgetCheck.reason || "Daily AI budget exceeded — automation is paused.";
+    console.warn(`[content-factory] retry blocked for opportunity ${opportunity._id}: ${reason}`);
+    await failJobForBudget(jobId, reason, targetName);
+    return { success: false, failedStep: "BUDGET", error: reason, opportunity };
+  }
+
+  try {
+    const articleIndex = STEP_ORDER.indexOf("ARTICLE");
+    const qualityGateIndex = STEP_ORDER.indexOf("QUALITY_GATE");
+
+    // Reset the target step and any after it so re-running is visible in the
+    // ledger; steps before it keep their DONE record untouched. A stray
+    // REVISION entry from a previous attempt isn't in STEP_ORDER (it's
+    // appended dynamically, not part of the fixed pipeline), so it's handled
+    // separately below rather than via the indexOf comparison, which would
+    // otherwise never match it (indexOf returns -1) and leave it stale.
+    job.steps = job.steps.filter((s) => !(s.name === "REVISION" && fromIndex <= qualityGateIndex));
+    job.steps.forEach((s) => {
+      if (STEP_ORDER.indexOf(s.name) >= fromIndex) {
+        s.status = "PENDING";
+        s.error = null;
+      }
+    });
+    job.status = "RUNNING";
+    await job.save();
+
+    opportunity.status = "GENERATING";
+    opportunity.generationAttempts = (opportunity.generationAttempts || 0) + 1;
+    // Retrying from BRIEF or ARTICLE produces an entirely new draft, so — same
+    // as a full restart — it gets its own fresh automatic-revision allowance
+    // rather than inheriting a count already spent on a prior, different draft.
+    if (fromIndex <= articleIndex) {
+      opportunity.autoRevisionCount = 0;
     }
-  });
-  job.status = "RUNNING";
-  await job.save();
+    await opportunity.save();
 
-  opportunity.status = "GENERATING";
-  opportunity.generationAttempts = (opportunity.generationAttempts || 0) + 1;
-  await opportunity.save();
+    const brief = fromIndex > 0 ? await ContentBrief.findOne({ opportunityId: opportunity._id }) : null;
 
-  const brief = fromIndex > 0 ? await ContentBrief.findOne({ opportunityId: opportunity._id }) : null;
-
-  return runSteps({
-    opportunity,
-    job,
-    fromIndex,
-    brief,
-    articleDraft: opportunity.articleDraft?.toObject ? opportunity.articleDraft.toObject() : opportunity.articleDraft,
-    imageConcept: opportunity.imageConcept?.toObject ? opportunity.imageConcept.toObject() : opportunity.imageConcept,
-  });
+    return runSteps({
+      opportunity,
+      job,
+      fromIndex,
+      brief,
+      articleDraft: opportunity.articleDraft?.toObject ? opportunity.articleDraft.toObject() : opportunity.articleDraft,
+      imageConcept: opportunity.imageConcept?.toObject ? opportunity.imageConcept.toObject() : opportunity.imageConcept,
+    });
+  } catch (err) {
+    // Same rationale as runGenerationPipeline's catch: setup here (job/
+    // opportunity save, brief lookup) has no other error handling, and Bull
+    // jobs run with attempts:1, so an uncaught rejection here would leave
+    // the opportunity/job stuck on GENERATING/RUNNING forever instead of
+    // reporting FAILED.
+    console.error(`[content-factory] retry setup failed for opportunity ${opportunity._id}:`, err.message);
+    job.status = "FAILED";
+    job.retryCount += 1;
+    job.lastAttemptAt = new Date();
+    await job.save();
+    opportunity.status = "FAILED";
+    opportunity.errorMessage = err.message;
+    opportunity.retryCount += 1;
+    opportunity.lastAttemptAt = new Date();
+    await opportunity.save();
+    return { success: false, failedStep: "SETUP", error: err.message, job, opportunity };
+  }
 }

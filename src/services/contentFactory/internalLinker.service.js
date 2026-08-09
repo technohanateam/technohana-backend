@@ -23,6 +23,10 @@ export async function generateInternalLinks(articleDraft, brief, opportunity) {
   const suggestedCourseSlugs = (brief?.internalLinkTargets?.courses || []).map((c) => c.courseSlug).filter(Boolean);
   const suggestedBlogIds = (brief?.internalLinkTargets?.blogs || []).map((b) => b.blogId).filter(Boolean);
 
+  // Category-scoped fallback only runs when there IS a category to scope
+  // by — an unfiltered Course.find({})/Blogs.find({}) would hand back "any
+  // 10 records in the collection" as link candidates, which is worse than no
+  // fallback at all (irrelevant recommendations inserted into the article).
   const [bySlug, byCategory] = await Promise.all([
     suggestedCourseSlugs.length
       ? Course.find({ $or: [{ courseSlug: { $in: suggestedCourseSlugs } }, { id: { $in: suggestedCourseSlugs } }] })
@@ -30,10 +34,9 @@ export async function generateInternalLinks(articleDraft, brief, opportunity) {
           .limit(10)
           .lean()
       : Promise.resolve([]),
-    Course.find(opportunity?.category ? { category: opportunity.category } : {})
-      .select("id courseSlug courseTitle category")
-      .limit(10)
-      .lean(),
+    opportunity?.category
+      ? Course.find({ category: opportunity.category }).select("id courseSlug courseTitle category").limit(10).lean()
+      : Promise.resolve([]),
   ]);
   const courseCandidatesMap = new Map();
   [...bySlug, ...byCategory].forEach((c) => courseCandidatesMap.set(String(c._id), c));
@@ -41,7 +44,9 @@ export async function generateInternalLinks(articleDraft, brief, opportunity) {
 
   const [blogsById, blogsByCategory] = await Promise.all([
     suggestedBlogIds.length ? Blogs.find({ _id: { $in: suggestedBlogIds.filter((id) => /^[a-f\d]{24}$/i.test(id)) } }).select("_id title slug category").limit(10).lean() : Promise.resolve([]),
-    Blogs.find(opportunity?.category ? { category: opportunity.category } : {}).select("_id title slug category").limit(10).lean(),
+    opportunity?.category
+      ? Blogs.find({ category: opportunity.category }).select("_id title slug category").limit(10).lean()
+      : Promise.resolve([]),
   ]);
   const blogCandidatesMap = new Map();
   [...blogsById, ...blogsByCategory].forEach((b) => blogCandidatesMap.set(String(b._id), b));
