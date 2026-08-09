@@ -20,7 +20,7 @@ export const generateOpportunityArticle = async (req, res) => {
     }
 
     const job = await ContentGenerationJob.create({ opportunityId: opportunity._id, status: "QUEUED" });
-    await enqueueGeneration(opportunity._id.toString());
+    await enqueueGeneration(opportunity._id.toString(), job._id.toString());
 
     return res.json({ success: true, data: { jobId: job._id }, message: "Generation queued" });
   } catch (err) {
@@ -46,6 +46,10 @@ export const retryGenerationJob = async (req, res) => {
   try {
     const job = await ContentGenerationJob.findById(req.params.id).lean();
     if (!job) return res.status(404).json({ success: false, message: "Job not found" });
+
+    if (["QUEUED", "RUNNING"].includes(job.status)) {
+      return res.status(409).json({ success: false, message: `Cannot retry — job is already ${job.status}.` });
+    }
 
     const failedStep = req.body?.step || job.steps.find((s) => s.status === "FAILED")?.name;
     if (!failedStep) return res.status(400).json({ success: false, message: "No failed step to retry" });

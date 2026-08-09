@@ -143,6 +143,15 @@ export async function runQualityGate(opportunityId, articleDraft) {
   const seoScore = computeSeoScoreDeterministic(articleDraft);
   const internalLinksScore = computeInternalLinksScoreDeterministic(articleDraft);
 
+  // factChecker/aiStyle degrade to a documented neutral default on failure
+  // (their errors are recorded on the doc below for visibility, not silently
+  // dropped) — but the quality-evaluator call covers 6 of the 12 weighted
+  // dimensions (~48% of overallScore), so letting IT fail silently would
+  // zero out nearly half the score and very likely trip flaggedForRevision
+  // on a perfectly fine article, with the real cause (an API/infra error,
+  // not a content problem) invisible anywhere a reviewer would look. Let it
+  // propagate instead, so the orchestrator's step-level catch reports this
+  // as a real QUALITY_GATE failure the admin can retry.
   const [factCheckResult, aiStyleResult, qualityEvalResult] = await Promise.all([
     factCheckArticle(articleDraft, opportunityId).catch((err) => ({ findings: [], error: err.message })),
     evaluateAiStyle(articleDraft?.content, opportunityId).catch((err) => ({ aiStyleRiskScore: 0, flagReasons: [], error: err.message })),
@@ -151,7 +160,7 @@ export async function runQualityGate(opportunityId, articleDraft) {
       const { text, usage, model } = await trackedCallClaude({ system, prompt, maxTokens: 768, tier: "standard", callType: "qualityEval", opportunityId });
       const parsed = parseModelJson(text);
       return { parsed, usage, model };
-    })().catch((err) => ({ parsed: {}, error: err.message })),
+    })(),
   ]);
 
   const factualityScore = computeFactualityScore(factCheckResult.findings);
@@ -198,6 +207,10 @@ export async function runQualityGate(opportunityId, articleDraft) {
     flagReasons: gateResult.flagReasons,
     factCheckFindings: factCheckResult.findings || [],
     evaluatedByModel: qualityEvalResult.model || null,
+    evaluationErrors: {
+      factChecker: factCheckResult.error || null,
+      aiStyle: aiStyleResult.error || null,
+    },
   });
 
   return {
