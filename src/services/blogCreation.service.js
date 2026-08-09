@@ -40,9 +40,9 @@ const sanitizeContent = (content) => (content ? XSS_OPTIONS.process(content) : c
 // responses the route used to send directly).
 export async function createBlogFromPayload(payload = {}) {
   const {
-    title, slug, img, author, date, content, category, excerpt,
+    title, slug, img, author, authorId, date, content, category, excerpt,
     metaTitle, metaDescription, focusKeyword, tags, readTimeMin, sources, faqs,
-    sourceOpportunityId,
+    sourceOpportunityId, contentType,
   } = payload;
 
   if (!title) {
@@ -74,6 +74,7 @@ export async function createBlogFromPayload(payload = {}) {
     slug: generatedSlug,
     img: img || "",
     author: author || "",
+    authorId: authorId || null,
     date: date || new Date().toISOString().split("T")[0],
     content: sanitizeContent(content) || "",
     category: category || "",
@@ -86,6 +87,7 @@ export async function createBlogFromPayload(payload = {}) {
     sources: sources || [],
     faqs: faqs || [],
     sourceOpportunityId: sourceOpportunityId || null,
+    contentType: contentType || "search-article",
   });
   await blog.save();
   return blog;
