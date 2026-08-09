@@ -76,6 +76,8 @@ const blogSchema = new mongoose.Schema({
     // "current"). Never written by the freshness scan itself — read-only there.
     lastReviewedAt: {
         type: Date,
+        default: null
+    },
     contentType: {
         type: String,
         enum: ["search-article", "authority-article", "linkable-asset", "research", "expert-article", "resource", "tool", "case-study"],

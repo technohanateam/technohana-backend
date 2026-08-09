@@ -35,13 +35,7 @@ export const getAllBlogs = async (req, res) => {
 
 export const getBlogBySlug = async (req, res) => {
   try {
-    const blog = await Blogs.findOne({ slug: req.params.slug, ...buildPublicBlogFilter() });
-    const now = new Date();
-    const blog = await Blogs.findOne({
-      slug: req.params.slug,
-      published: true,
-      $or: [{ scheduledAt: null }, { scheduledAt: { $lte: now } }],
-    }).populate("authorId");
+    const blog = await Blogs.findOne({ slug: req.params.slug, ...buildPublicBlogFilter() }).populate("authorId");
     if (!blog) return res.status(404).json({ success: false, message: "Blog not found" });
     return res.json({ success: true, data: blog });
   } catch (error) {
