@@ -63,7 +63,13 @@ Return JSON exactly in this shape:
 
 If a hands-on exercise genuinely doesn't fit this topic, set "exercise" to null rather than inventing a fake one. Same for "lab" — only include it for hands-on technical lessons, and only reference real, generally available tools (e.g. Google Colab, GitHub, a browser sandbox) as an "externalResourceUrl" placeholder description, never invent infrastructure Technohana doesn't have.`;
 
-  const result = await callClaude({ system, prompt, maxTokens: 8192, tier: "standard" });
+  // A full lesson payload (8-15 slides + narration + quiz + exercise +
+  // instructor notes + transcript, all in one JSON response) routinely runs
+  // 7-8k output tokens — 8192 was measured truncating mid-JSON on a real
+  // pilot run (stop_reason: "max_tokens"), which parseModelJson's repair
+  // heuristics cannot recover from since the JSON is genuinely incomplete,
+  // not just malformed. 16000 leaves real headroom above the observed need.
+  const result = await callClaude({ system, prompt, maxTokens: 16000, tier: "standard" });
   const tokensIn = result.usage?.input_tokens || 0;
   const tokensOut = result.usage?.output_tokens || 0;
   await recordCourseFactorySpend(estimateCostUsd(result.model, tokensIn, tokensOut));
