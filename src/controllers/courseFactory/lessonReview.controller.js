@@ -1,0 +1,120 @@
+import AcademyLesson from "../../models/courseFactory/academyLesson.model.js";
+import { runLessonQa } from "../../services/courseFactory/qaService.js";
+
+// GET /admin/course-factory/lessons/:id
+export const getLesson = async (req, res) => {
+  try {
+    const lesson = await AcademyLesson.findById(req.params.id).lean();
+    if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
+    return res.json({ success: true, data: lesson });
+  } catch (err) {
+    console.error("[CourseFactory] getLesson error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// PATCH /admin/course-factory/lessons/:id
+// Admin-editable fields only (spec §27 lesson editor) — never lets the
+// client set status/assets/qa directly, those flow through their own routes.
+const EDITABLE_FIELDS = [
+  "title", "description", "durationMinutes", "learningObjectives", "sections",
+  "slides", "narration", "quiz", "exercise", "lab", "resources", "sources",
+  "instructorNotes", "transcript",
+];
+export const updateLesson = async (req, res) => {
+  try {
+    const lesson = await AcademyLesson.findById(req.params.id);
+    if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
+    if (lesson.status === "PUBLISHED") {
+      return res.status(409).json({ success: false, message: "Editing a published lesson creates a new draft version — not yet supported; unpublish first." });
+    }
+
+    for (const field of EDITABLE_FIELDS) {
+      if (req.body?.[field] !== undefined) lesson[field] = req.body[field];
+    }
+    lesson.version += 1;
+    await lesson.save();
+    return res.json({ success: true, data: lesson, message: "Lesson updated" });
+  } catch (err) {
+    console.error("[CourseFactory] updateLesson error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /admin/course-factory/lessons/:id/qa
+// Runs the QA gate synchronously (pure function, no AI call) and persists it.
+export const runQa = async (req, res) => {
+  try {
+    const lesson = await AcademyLesson.findById(req.params.id);
+    if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
+
+    const qa = runLessonQa(lesson.toObject());
+    lesson.qa = { qualityScore: qa.qualityScore, issues: qa.issues, checkedAt: new Date() };
+    if (lesson.status === "DRAFT") lesson.status = "AI_REVIEWED";
+    await lesson.save();
+
+    return res.json({ success: true, data: lesson.qa, message: qa.passed ? "QA passed" : `QA found ${qa.issues.length} issue(s)` });
+  } catch (err) {
+    console.error("[CourseFactory] runQa error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /admin/course-factory/lessons/:id/submit-review
+// AI_REVIEWED -> HUMAN_REVIEW (spec §23 status ladder).
+export const submitForReview = async (req, res) => {
+  try {
+    const lesson = await AcademyLesson.findById(req.params.id);
+    if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
+    if (lesson.status !== "AI_REVIEWED") {
+      return res.status(409).json({ success: false, message: `Cannot submit for review from status ${lesson.status}. Run QA first.` });
+    }
+    lesson.status = "HUMAN_REVIEW";
+    await lesson.save();
+    return res.json({ success: true, message: "Submitted for human review" });
+  } catch (err) {
+    console.error("[CourseFactory] submitForReview error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /admin/course-factory/lessons/:id/approve
+// HUMAN_REVIEW -> APPROVED. Requires admin role (destructive/publishing-path
+// action) — wired via requireAdmin in the route.
+export const approveLesson = async (req, res) => {
+  try {
+    const lesson = await AcademyLesson.findById(req.params.id);
+    if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
+    if (lesson.status !== "HUMAN_REVIEW") {
+      return res.status(409).json({ success: false, message: `Cannot approve from status ${lesson.status}.` });
+    }
+    lesson.status = "APPROVED";
+    lesson.approvedAt = new Date();
+    await lesson.save();
+    return res.json({ success: true, message: "Lesson approved" });
+  } catch (err) {
+    console.error("[CourseFactory] approveLesson error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /admin/course-factory/lessons/:id/publish
+// APPROVED -> PUBLISHED. Never publishes unreviewed AI content (spec §23
+// non-negotiable rule #8) — the APPROVED gate above is what enforces that.
+export const publishLesson = async (req, res) => {
+  try {
+    const lesson = await AcademyLesson.findById(req.params.id);
+    if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
+    if (lesson.status !== "APPROVED") {
+      return res.status(409).json({ success: false, message: `Cannot publish from status ${lesson.status}. Must be APPROVED.` });
+    }
+    lesson.status = "PUBLISHED";
+    lesson.publishedAt = new Date();
+    await lesson.save();
+
+    return res.json({ success: true, message: "Lesson published to the Academy" });
+  } catch (err) {
+    console.error("[CourseFactory] publishLesson error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
