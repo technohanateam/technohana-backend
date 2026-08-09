@@ -53,7 +53,13 @@ export async function writeArticle(brief, opportunity) {
           "anthropic-version": "2023-06-01",
           "Content-Type": "application/json",
         },
-        timeout: 120000,
+        // 180s, not the 120s generate-from-course uses (a separate, untouched
+        // file/call): a live validation run (2026-08-08) found brief-driven
+        // generation — more search turns, a longer structured prompt than the
+        // course-only original — timed out at 120s in 2 of 3 real attempts.
+        // This runs inside an async Bull job, not an HTTP request an admin is
+        // waiting on, so the extra headroom has no UX cost.
+        timeout: 180000,
       }
     );
 

@@ -9,7 +9,61 @@ export function parseModelJson(text) {
   if (start === -1 || end === -1 || end <= start) {
     throw new Error("No JSON object found in model response");
   }
-  return JSON.parse(escapeControlCharsInStrings(text.slice(start, end + 1)));
+  const sliced = text.slice(start, end + 1);
+  const controlCharsFixed = escapeControlCharsInStrings(sliced);
+  try {
+    return JSON.parse(controlCharsFixed);
+  } catch (firstError) {
+    // Fallback only — never runs on an already-valid response. A live
+    // validation run (2026-08-08) found a content-brief response fail here:
+    // a heading/example string containing a literal, unescaped `"` (e.g. a
+    // quoted phrase) makes escapeControlCharsInStrings' quote-boundary
+    // tracking end the string early, corrupting everything after it. This is
+    // a best-effort heuristic second pass, not a guarantee — if it also
+    // fails, the original error is what surfaces (more informative than the
+    // heuristic's own error).
+    try {
+      return JSON.parse(escapeStrayQuotesInStrings(controlCharsFixed));
+    } catch {
+      throw firstError;
+    }
+  }
+}
+
+// Re-walks the string tracking JSON structural position; inside a string
+// value, a `"` is only treated as the real closing quote if the next
+// non-whitespace character is a valid JSON continuation (`,` `}` `]` `:`) —
+// otherwise it's escaped as a literal quote and the string is kept open.
+function escapeStrayQuotesInStrings(str) {
+  let result = "";
+  let inString = false;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (ch === "\\" && inString) {
+      result += ch + (str[i + 1] || "");
+      i += 1;
+      continue;
+    }
+    if (ch === '"') {
+      if (!inString) {
+        result += ch;
+        inString = true;
+        continue;
+      }
+      let j = i + 1;
+      while (j < str.length && /\s/.test(str[j])) j += 1;
+      const next = str[j];
+      if (next === "," || next === "}" || next === "]" || next === ":" || next === undefined) {
+        result += ch;
+        inString = false;
+      } else {
+        result += '\\"';
+      }
+      continue;
+    }
+    result += ch;
+  }
+  return result;
 }
 
 const VALID_JSON_ESCAPES = new Set(['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u']);

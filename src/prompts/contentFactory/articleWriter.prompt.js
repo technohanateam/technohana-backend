@@ -4,6 +4,8 @@
 // left completely untouched. Structure and rules are deliberately similar so
 // output quality/shape stays consistent with the existing manual AI-generate
 // flow, but headings/questions/angle/depth all come from the brief now.
+import { buildEditorialProfileBlock } from "./editorialProfile.js";
+
 export function buildArticleWriterPrompts({ brief, opportunity, relatedCoursesBullets }) {
   const year = new Date().getFullYear();
 
@@ -23,20 +25,17 @@ Before writing:
    unless it is something you can verify is true from the material you were given — when in
    doubt, omit the claim rather than invent it.
 
+${buildEditorialProfileBlock()}
+
 Writing style:
 - Vary your structure by topic instead of always using the same template. Pick whichever of
   these fits the brief best (or a reasonable variation): problem -> explanation -> solution;
   scenario -> analysis -> recommendation; question -> technical explanation -> example ->
   common mistakes. Do not force every article into the same shape.
-- Prefer specific, concrete examples over generic claims ("many companies" is weak; a
-  specific, verifiable scenario or search-result-backed fact is strong).
-- Write naturally — avoid the most overused AI-writing tics (e.g. leaning on "In today's
-  fast-paced world", "unlock your potential", "delve into", excessive rhetorical questions,
-  formulaic listicle openers) where a more direct sentence would do. This is a style
-  preference, not a hard ban list — use judgment.
-- Professional, clear, technical where appropriate, written for professionals/students/
-  developers/decision makers. Avoid marketing hype and exaggerated claims. Never use emojis.
-  Short paragraphs. Bullet lists where useful. Explain technical concepts simply.
+- The avoid-list above is a style preference, not a hard ban list — use judgment; a phrase
+  used once naturally is fine, the point is not to lean on it as a crutch.
+- Never use emojis. Short paragraphs. Bullet lists where useful. Explain technical concepts
+  simply.
 
 SEO Requirements:
 - Naturally use the focus keyword — in the title, first paragraph, one H2, and conclusion.

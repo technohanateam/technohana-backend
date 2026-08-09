@@ -209,11 +209,18 @@ export async function generateOpportunityCandidates({
       return { run, opportunities: [] };
     }
 
-    // ONE batched Claude call for all surviving candidates.
+    // ONE batched Claude call for all surviving candidates. maxTokens must
+    // scale with the batch size: a fixed 4096 was proven too small in a live
+    // validation run (2026-08-08) against ~20 real candidates — the model's
+    // JSON array response was truncated mid-object, breaking parseModelJson.
+    // ~350 tokens/candidate covers title+keywords+angle+reason comfortably
+    // with headroom; floor/ceiling keep small batches cheap and cap worst-case
+    // cost regardless of how large maxDailyOpportunities is configured.
+    const candidateMaxTokens = Math.min(8192, Math.max(2048, 1024 + survivors.length * 350));
     const { text } = await trackedCallClaude({
       system: buildSystemPrompt(),
       prompt: buildUserPrompt({ candidates: survivors }),
-      maxTokens: 4096,
+      maxTokens: candidateMaxTokens,
       tier: "standard",
       callType: "opportunityCandidates",
       opportunityId: null,

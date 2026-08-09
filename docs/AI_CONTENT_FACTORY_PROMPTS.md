@@ -26,6 +26,14 @@ full prompt text.
 deterministic (no Claude call). See `AI_CONTENT_FACTORY_IMPLEMENTATION.md`
 "As-built — Milestone 5" for why.
 
+**`editorialProfile.js`** (not a prompt module itself, added during the 2026-08-08
+production validation pass) — shared VOICE/AUDIENCE/PREFER/AVOID definition, consumed
+by `articleWriter.prompt.js`, `revisionAgent.prompt.js`, and `aiStyleEvaluator.prompt.js`
+via `buildEditorialProfileBlock()`, so the three can't silently drift out of sync (the
+writer being told to avoid a pattern the style evaluator never learned to detect, or
+vice versa). See `AI_CONTENT_FACTORY_IMPLEMENTATION.md`'s validation section for why
+this was added.
+
 ---
 
 ### `topicClusterProposal.prompt.js`

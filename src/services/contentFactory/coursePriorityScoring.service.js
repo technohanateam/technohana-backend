@@ -2,11 +2,25 @@
 // Trivially unit-testable with plain object inputs:
 //   computeCoursePriorityScore({ enquiryCount90d: 12, ... }, { enquiry: 25, ... })
 
-// Normalization caps — a judgment call since we have no historical
-// distribution to calibrate against yet. Chosen so a "strong" course
-// (roughly top-decile signal) lands near 100 without one outlier course
-// dominating every other course's relative score.
-const CAPS = {
+// Normalization caps — a judgment call absent a real historical distribution
+// to calibrate against. Chosen so a "strong" course (roughly top-decile
+// signal) lands near 100 without one outlier course dominating every other
+// course's relative score.
+//
+// These are a FLOOR, not the only source of truth: a live validation run
+// against Technohana's actual production data (2026-08-08, ~425 courses)
+// found total 90-day course views catalogue-wide were ~2,300 — orders of
+// magnitude below the 5000-view cap below — so every course's `views`
+// component normalized to near-zero and the whole score collapsed to
+// whatever `recency` alone contributed (itself uniform across ~406 of 425
+// courses, since only 19 blogs exist total). The caller
+// (coursePriorityAggregation.service.js) computes the actual observed max
+// per run and passes tighter dynamic caps via the optional `caps` param
+// below, falling back to these DEFAULT_CAPS only as a floor for extremely
+// sparse data (so a single fluke view/enquiry doesn't make one course look
+// maximally hot). This function itself stays pure — no DB access, caps are
+// just another plain-object argument.
+export const DEFAULT_CAPS = {
   enquiryCount90d: 40, // ~1.3 enquiries/day sustained is a very hot course
   orderRevenue90d: 500000, // in the base pricing minor unit's home currency (INR-equivalent)
   courseViews90d: 5000,
@@ -36,7 +50,7 @@ function normalizeRecency(daysSinceLastBlog) {
 
 const DEFAULT_WEIGHTS = { enquiry: 25, revenue: 25, views: 15, gscClicks: 15, gscImpressions: 10, recency: 10 };
 
-export function computeCoursePriorityScore(inputs = {}, weights = DEFAULT_WEIGHTS) {
+export function computeCoursePriorityScore(inputs = {}, weights = DEFAULT_WEIGHTS, caps = DEFAULT_CAPS) {
   const {
     enquiryCount90d = 0,
     orderRevenue90d = 0,
@@ -47,14 +61,15 @@ export function computeCoursePriorityScore(inputs = {}, weights = DEFAULT_WEIGHT
   } = inputs;
 
   const w = { ...DEFAULT_WEIGHTS, ...(weights || {}) };
+  const c = { ...DEFAULT_CAPS, ...(caps || {}) };
   const weightSum = Object.values(w).reduce((sum, x) => sum + (Number(x) || 0), 0) || 1;
 
   const normalized = {
-    enquiry: normalizeLinear(enquiryCount90d, CAPS.enquiryCount90d),
-    revenue: normalizeLinear(orderRevenue90d, CAPS.orderRevenue90d),
-    views: normalizeLinear(courseViews90d, CAPS.courseViews90d),
-    gscClicks: normalizeLinear(gscClicks28d, CAPS.gscClicks28d),
-    gscImpressions: normalizeLinear(gscImpressions28d, CAPS.gscImpressions28d),
+    enquiry: normalizeLinear(enquiryCount90d, c.enquiryCount90d),
+    revenue: normalizeLinear(orderRevenue90d, c.orderRevenue90d),
+    views: normalizeLinear(courseViews90d, c.courseViews90d),
+    gscClicks: normalizeLinear(gscClicks28d, c.gscClicks28d),
+    gscImpressions: normalizeLinear(gscImpressions28d, c.gscImpressions28d),
     recency: normalizeRecency(daysSinceLastBlog),
   };
 

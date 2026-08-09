@@ -4,7 +4,12 @@ import Enquiry from "../../models/enquiry.model.js";
 import { Order } from "../../models/order.model.js";
 import CourseContentSettings from "../../models/courseContentSettings.model.js";
 import { getOrCreateContentFactorySettings } from "../../models/contentFactorySettings.model.js";
-import { computeCoursePriorityScore } from "./coursePriorityScoring.service.js";
+import { computeCoursePriorityScore, DEFAULT_CAPS } from "./coursePriorityScoring.service.js";
+
+// Floors beneath which we don't shrink a dynamic cap — protects against a
+// single fluke enquiry/view making one course look maximally hot when the
+// catalogue-wide dataset is still very sparse (e.g. day one of real usage).
+const MIN_DYNAMIC_CAP = { enquiryCount90d: 3, courseViews90d: 10 };
 
 const RECOMPUTE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const SIGNAL_WINDOW_DAYS = 90;
@@ -77,6 +82,25 @@ export async function refreshCoursePriorities({ force = false } = {}) {
   const viewsById = new Map(viewRows.map((r) => [r._id, r.count]));
   const lastBlogBySlug = new Map(existingSettings.map((s) => [s.courseSlug, s.lastBlogGeneratedAt]));
 
+  // Dynamic caps: DEFAULT_CAPS (coursePriorityScoring.service.js) are guesses
+  // with no real distribution to calibrate against. Once real data exists,
+  // using a fixed guessed cap that's orders of magnitude above actual usage
+  // silently collapses every course's normalized score toward 0 for that
+  // signal — confirmed against production data where a 5000-view cap made a
+  // catalogue-wide 90-day total of ~2,300 views normalize to near-zero for
+  // every course, and the whole priority score degenerated to whatever
+  // `recency` alone contributed. Shrinking the cap to the actual observed
+  // max (floored so sparse data doesn't overreact to one fluke) restores
+  // real differentiation between courses without touching the weighting
+  // philosophy or any other signal.
+  const observedMaxViews = Math.max(0, ...viewsById.values());
+  const observedMaxEnquiry = Math.max(0, ...enquiryByTitle.values());
+  const dynamicCaps = {
+    ...DEFAULT_CAPS,
+    courseViews90d: Math.max(MIN_DYNAMIC_CAP.courseViews90d, observedMaxViews),
+    enquiryCount90d: Math.max(MIN_DYNAMIC_CAP.enquiryCount90d, observedMaxEnquiry),
+  };
+
   const now = new Date();
   const bulkOps = [];
 
@@ -98,7 +122,8 @@ export async function refreshCoursePriorities({ force = false } = {}) {
         gscImpressions28d: 0,
         daysSinceLastBlog,
       },
-      weights
+      weights,
+      dynamicCaps
     );
 
     bulkOps.push({
