@@ -236,24 +236,38 @@ export async function runGenerationPipeline(opportunityId) {
   const opportunity = await ContentOpportunity.findById(opportunityId);
   if (!opportunity) return { success: false, error: "Opportunity not found" };
 
-  opportunity.status = "GENERATING";
-  opportunity.generationAttempts = (opportunity.generationAttempts || 0) + 1;
-  // A full restart produces an entirely new article draft, so it gets its
-  // own fresh automatic-revision allowance — the cap is "1 automatic pass
-  // per generated draft", not "1 ever for this opportunity".
-  opportunity.autoRevisionCount = 0;
-  await opportunity.save();
+  try {
+    opportunity.status = "GENERATING";
+    opportunity.generationAttempts = (opportunity.generationAttempts || 0) + 1;
+    // A full restart produces an entirely new article draft, so it gets its
+    // own fresh automatic-revision allowance — the cap is "1 automatic pass
+    // per generated draft", not "1 ever for this opportunity".
+    opportunity.autoRevisionCount = 0;
+    await opportunity.save();
 
-  let job = await ContentGenerationJob.findOne({ opportunityId, status: { $in: ["QUEUED", "RUNNING"] } }).sort({ createdAt: -1 });
-  if (!job) {
-    job = new ContentGenerationJob({ opportunityId, status: "RUNNING", steps: [] });
-  } else {
-    job.status = "RUNNING";
+    let job = await ContentGenerationJob.findOne({ opportunityId, status: { $in: ["QUEUED", "RUNNING"] } }).sort({ createdAt: -1 });
+    if (!job) {
+      job = new ContentGenerationJob({ opportunityId, status: "RUNNING", steps: [] });
+    } else {
+      job.status = "RUNNING";
+    }
+    ensureSteps(job);
+    await job.save();
+
+    return runSteps({ opportunity, job, fromIndex: 0 });
+  } catch (err) {
+    // Setup before runSteps() has its own step-level try/catch, so a failure
+    // here (e.g. the opportunity/job save) would otherwise escape uncaught,
+    // leaving the opportunity stuck on GENERATING forever since Bull jobs run
+    // with attempts:1 and its "failed" handler only logs.
+    console.error(`[content-factory] generation setup failed for opportunity ${opportunity._id}:`, err.message);
+    opportunity.status = "FAILED";
+    opportunity.errorMessage = err.message;
+    opportunity.retryCount = (opportunity.retryCount || 0) + 1;
+    opportunity.lastAttemptAt = new Date();
+    await opportunity.save();
+    return { success: false, failedStep: "SETUP", error: err.message, opportunity };
   }
-  ensureSteps(job);
-  await job.save();
-
-  return runSteps({ opportunity, job, fromIndex: 0 });
 }
 
 // Re-runs only from the failed step onward, reusing already-persisted
