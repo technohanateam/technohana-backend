@@ -81,6 +81,7 @@ async function runSteps({ lesson, job, fromIndex }) {
         lesson.instructorNotes = c.instructorNotes || {};
         lesson.transcript = c.transcript || "";
         lesson.narration.script = c.transcript || "";
+        lesson.sources = c.sources || [];
         lesson.costUsd.contentUsd = result.costUsd || 0;
         lesson.costUsd.totalUsd = (lesson.costUsd.contentUsd || 0) + (lesson.costUsd.audioUsd || 0);
         await lesson.save();
@@ -120,7 +121,7 @@ async function runSteps({ lesson, job, fromIndex }) {
         await lesson.save();
       } else if (stepName === "QA") {
         const qa = runLessonQa(lesson.toObject ? lesson.toObject() : lesson);
-        lesson.qa = { qualityScore: qa.qualityScore, issues: qa.issues, checkedAt: new Date() };
+        lesson.qa = { qualityScore: qa.qualityScore, issues: qa.issues, publishReady: qa.publishReady, checkedAt: new Date() };
         lesson.status = "AI_REVIEWED";
         await lesson.save();
         await markStepDone(job, stepName, {});

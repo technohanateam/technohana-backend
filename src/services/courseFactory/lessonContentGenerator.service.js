@@ -33,7 +33,23 @@ Narration voice rules (this is what most separates a professional course from an
 - Never repeat a bullet point word-for-word in narration — narration adds the reasoning, the "why," or a clarifying example the bullet doesn't have room for.
 - Connect slides with a short natural transition at the start or end of narration where it helps ("Now that you've seen X, here's where it breaks down in practice." not "Moving on to the next slide.").
 - Vary sentence openers across slides — don't start every slide's narration the same way.
-- Bad: "On this slide, we can see the four components of an AI agent." Good: "An AI agent typically combines four capabilities: it can reason about a task, use tools to interact with external systems, maintain relevant context, and take actions toward a goal."`;
+- Bad: "On this slide, we can see the four components of an AI agent." Good: "An AI agent typically combines four capabilities: it can reason about a task, use tools to interact with external systems, maintain relevant context, and take actions toward a goal."
+
+Technical wording: avoid absolutist claims about architecture ("Every agent has these four components," "All agents work this way"). Prefer scoped, practical framing: "A practical agent architecture commonly consists of...", "Most production agents follow this pattern...". Real systems vary; teach the common pattern without overclaiming universality.
+
+Agent loop terminology — if this lesson describes an agent's execution loop, use exactly this cycle and these stage names, in this order, every time it comes up: PERCEIVE → REASON → ACT → OBSERVE → EVALUATE → REPEAT OR STOP. Do not invent synonyms for these stages (no "Think" instead of "Reason", no "Sense" instead of "Perceive") — consistent terminology across lessons is what lets a learner recognize the same concept in a later lesson.
+
+Agent decision logic — when a slide teaches how an agent decides what to do next, use a structured decision object, never an exposed free-text chain-of-thought pattern. Do NOT use "thought" / "action" / "action_input" as the field names an application reads to drive control flow — that pattern exposes private reasoning as an application-level contract, which is not the pattern to teach. Instead use a structured decision shape like:
+decision = llm_call(context)
+if decision["type"] == "final":
+    return decision["answer"]
+tool_name = decision["tool"]
+tool_input = decision["input"]
+result = tools[tool_name](tool_input)
+context += {"action": tool_name, "observation": result}
+Frame this as REASON (the llm_call and decision), ACT (calling the tool), OBSERVE (appending the result to context) — not as "exposing the model's private reasoning."
+
+Sources — if this lesson teaches implementation-level content (any slide of type "code" or "architecture"), populate "sources" with 1-3 real, verifiable sources (official docs preferred). Every entry must have a real "title" and "url" you are confident actually exists — never invent a plausible-looking URL. Set "verificationStatus" to "PENDING_VERIFICATION" for every source (this system cannot browse the web to confirm a URL is live, so a human reviewer must verify it before the lesson is publish-ready — never claim "VERIFIED"). If you cannot name a real source you're confident exists, leave "sources" as an empty array rather than inventing one.`;
 
   const prompt = `Write the full content for one lesson.
 
@@ -90,7 +106,10 @@ Return JSON exactly in this shape:
     "teachingObjectives": ["..."], "estimatedTeachingTime": "...",
     "talkingPoints": ["..."], "demos": ["..."], "discussionQuestions": ["..."], "commonMistakes": ["..."]
   },
-  "transcript": "full narration script concatenated, in order, as one readable transcript"
+  "transcript": "full narration script concatenated, in order, as one readable transcript",
+  "sources": [
+    { "title": "...", "url": "https://...", "publisher": "...", "type": "official-docs", "verificationStatus": "PENDING_VERIFICATION" }
+  ]
 }
 
 If a hands-on exercise genuinely doesn't fit this topic, set "exercise" to null rather than inventing a fake one. Same for "lab" — only include it for hands-on technical lessons, and only reference real, generally available tools (e.g. Google Colab, GitHub, a browser sandbox) as an "externalResourceUrl" placeholder description, never invent infrastructure Technohana doesn't have.`;
@@ -132,7 +151,7 @@ If a hands-on exercise genuinely doesn't fit this topic, set "exercise" to null 
   return { content: parsed, model: result.model, usage: result.usage, costUsd };
 }
 
-function validateLessonContent(content) {
+export function validateLessonContent(content) {
   if (!content || typeof content !== "object") throw new Error("Lesson content response was not a JSON object");
   if (!Array.isArray(content.slides) || content.slides.length === 0) throw new Error("Lesson has no slides");
   if (content.slides.length > 25) throw new Error(`Lesson has ${content.slides.length} slides — likely over-generated`);
@@ -182,5 +201,15 @@ function validateLessonContent(content) {
 
   if (!content.transcript || content.transcript.trim().length < 100) {
     throw new Error("Transcript is missing or too short");
+  }
+
+  if (content.sources) {
+    if (!Array.isArray(content.sources)) throw new Error("sources must be an array");
+    content.sources.forEach((src, i) => {
+      if (!src.title || !src.url) throw new Error(`Source ${i + 1} is missing title or url`);
+      // Never trust the model's own verification claim — qaService.js and the
+      // publish gate both require PENDING_VERIFICATION until a human checks it.
+      src.verificationStatus = "PENDING_VERIFICATION";
+    });
   }
 }

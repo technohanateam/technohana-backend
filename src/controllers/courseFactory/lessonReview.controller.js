@@ -49,7 +49,7 @@ export const runQa = async (req, res) => {
     if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
 
     const qa = runLessonQa(lesson.toObject());
-    lesson.qa = { qualityScore: qa.qualityScore, issues: qa.issues, checkedAt: new Date() };
+    lesson.qa = { qualityScore: qa.qualityScore, issues: qa.issues, publishReady: qa.publishReady, checkedAt: new Date() };
     if (lesson.status === "DRAFT") lesson.status = "AI_REVIEWED";
     await lesson.save();
 
@@ -107,6 +107,9 @@ export const publishLesson = async (req, res) => {
     if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
     if (lesson.status !== "APPROVED") {
       return res.status(409).json({ success: false, message: `Cannot publish from status ${lesson.status}. Must be APPROVED.` });
+    }
+    if (lesson.qa?.publishReady === false) {
+      return res.status(409).json({ success: false, message: "Cannot publish — sources are missing or still PENDING_VERIFICATION. Verify sources, then re-run QA before publishing." });
     }
     lesson.status = "PUBLISHED";
     lesson.publishedAt = new Date();

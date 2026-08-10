@@ -59,11 +59,21 @@ const quizQuestionSchema = new Schema(
   { _id: false }
 );
 
+const SOURCE_TYPES = ["official-docs", "blog", "paper", "other"];
+
+// verificationStatus defaults to PENDING_VERIFICATION because this pipeline
+// cannot itself browse the web to confirm a URL is real and current — only a
+// human reviewer (or a future fact-check step) can set VERIFIED. A lesson
+// with any non-VERIFIED technical source is flagged as not publish-ready by
+// qaService.js, matching the "do not invent citations, do not mark verified
+// unless actually checked" requirement.
 const sourceSchema = new Schema(
   {
     title: { type: String, required: true },
     url: { type: String, required: true },
     publisher: { type: String, default: "" },
+    type: { type: String, enum: SOURCE_TYPES, default: "other" },
+    verificationStatus: { type: String, enum: ["VERIFIED", "PENDING_VERIFICATION"], default: "PENDING_VERIFICATION" },
     accessedAt: { type: Date, default: Date.now },
   },
   { _id: false }
@@ -143,6 +153,7 @@ const academyLessonSchema = new Schema(
     qa: {
       qualityScore: { type: Number, default: null },
       issues: { type: [String], default: [] },
+      publishReady: { type: Boolean, default: false },
       checkedAt: { type: Date, default: null },
     },
 
@@ -160,4 +171,4 @@ academyLessonSchema.index({ courseId: 1, slug: 1 }, { unique: true });
 
 const AcademyLesson = mongoose.model("AcademyLesson", academyLessonSchema);
 export default AcademyLesson;
-export { SLIDE_TYPES, DIAGRAM_TYPES };
+export { SLIDE_TYPES, DIAGRAM_TYPES, SOURCE_TYPES };

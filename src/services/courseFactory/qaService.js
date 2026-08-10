@@ -6,6 +6,12 @@ const NARRATION_REQUIRED_TYPES = new Set([
   "concept", "comparison", "process", "architecture", "diagram", "code", "example", "case-study", "summary",
 ]);
 
+// A lesson counts as "technical" if it teaches implementation-level content
+// (code/architecture slides) — these are exactly the lessons where citing a
+// real, checkable source matters most, and where an invented or unverified
+// citation is most costly if wrong.
+const TECHNICAL_SLIDE_TYPES = new Set(["code", "architecture"]);
+
 // Automated QA gate (spec §23) — schema/consistency checks that run before a
 // lesson can move from AI_REVIEWED to HUMAN_REVIEW. Pure function over the
 // lesson doc; no AI calls, no DB writes — caller persists qualityScore/issues.
@@ -51,9 +57,25 @@ export function runLessonQa(lesson) {
 
   if (!lesson.transcript || lesson.transcript.trim().length < 100) issues.push("Transcript missing or too short");
 
-  (lesson.sources || []).forEach((src, i) => {
+  const sources = lesson.sources || [];
+  sources.forEach((src, i) => {
     if (!src.url || !/^https?:\/\//.test(src.url)) issues.push(`Source ${i + 1} has an invalid URL`);
   });
+
+  const isTechnical = slides.some((s) => TECHNICAL_SLIDE_TYPES.has(s.type));
+  let publishReady = true;
+  if (isTechnical) {
+    if (sources.length === 0) {
+      issues.push("Technical lesson has no sources — not publish-ready");
+      publishReady = false;
+    } else {
+      const unverified = sources.filter((s) => s.verificationStatus !== "VERIFIED");
+      if (unverified.length > 0) {
+        issues.push(`${unverified.length} of ${sources.length} source(s) still PENDING_VERIFICATION — not publish-ready until a human reviewer verifies them`);
+        publishReady = false;
+      }
+    }
+  }
 
   if (!lesson.assets?.pptxUrl) issues.push("PPTX asset not yet generated");
   if (!lesson.narration?.audioUrl) issues.push("Audio asset not yet generated");
@@ -61,7 +83,7 @@ export function runLessonQa(lesson) {
   // Simple 0-100 score: start at 100, subtract per issue, floor at 0.
   const qualityScore = Math.max(0, 100 - issues.length * 8);
 
-  return { qualityScore, issues, passed: issues.length === 0 };
+  return { qualityScore, issues, passed: issues.length === 0, publishReady };
 }
 
 // Cheap word-overlap ratio — good enough to flag "slide text pasted into

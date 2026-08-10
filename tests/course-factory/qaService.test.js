@@ -68,3 +68,39 @@ test("runLessonQa flags missing PPTX/audio assets", () => {
   assert.ok(result.issues.some((i) => i.includes("PPTX")));
   assert.ok(result.issues.some((i) => i.includes("Audio")));
 });
+
+test("runLessonQa flags a technical lesson (code/architecture slide) with no sources as not publish-ready", () => {
+  const lesson = baseLesson({
+    slides: [{ type: "code", title: "Minimal Agent Loop", narration: "Walkthrough of the loop.", estimatedSeconds: 60 }],
+    sources: [],
+  });
+  const result = runLessonQa(lesson);
+  assert.ok(result.issues.some((i) => i.includes("no sources")));
+  assert.equal(result.publishReady, false);
+});
+
+test("runLessonQa flags a technical lesson with only PENDING_VERIFICATION sources as not publish-ready", () => {
+  const lesson = baseLesson({
+    slides: [{ type: "architecture", title: "Components", narration: "The four components.", estimatedSeconds: 60 }],
+    sources: [{ title: "LangChain Docs", url: "https://python.langchain.com/docs", verificationStatus: "PENDING_VERIFICATION" }],
+  });
+  const result = runLessonQa(lesson);
+  assert.ok(result.issues.some((i) => i.includes("PENDING_VERIFICATION")));
+  assert.equal(result.publishReady, false);
+});
+
+test("runLessonQa marks a technical lesson publish-ready once all sources are VERIFIED", () => {
+  const lesson = baseLesson({
+    slides: [{ type: "code", title: "Minimal Agent Loop", narration: "Walkthrough of the loop.", estimatedSeconds: 60 }],
+    sources: [{ title: "LangChain Docs", url: "https://python.langchain.com/docs", verificationStatus: "VERIFIED" }],
+    assets: { pptxUrl: "https://res.cloudinary.com/x.pptx" },
+    narration: { audioUrl: "https://res.cloudinary.com/x.mp3" },
+  });
+  const result = runLessonQa(lesson);
+  assert.equal(result.publishReady, true, result.issues.join("; "));
+});
+
+test("runLessonQa does not require sources for a non-technical lesson", () => {
+  const result = runLessonQa(baseLesson()); // default slide type is "concept", no sources
+  assert.equal(result.publishReady, true, result.issues.join("; "));
+});
