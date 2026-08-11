@@ -1,19 +1,11 @@
-import axios from "axios";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import { buildArticleWriterPrompts } from "../../prompts/contentFactory/articleWriter.prompt.js";
 import Course from "../../models/course.model.js";
-import { recordAiUsage } from "./aiUsageTracker.service.js";
 
-// THE KEY REUSE STEP — this is a deliberate COPY (not a refactor-in-place)
-// of admin.routes.js's `POST /admin/blogs/generate-from-course` agentic
-// web_search loop, parameterized on a ContentBrief instead of raw course
-// fields. The existing route's inline logic is left completely untouched to
-// avoid any regression risk to that already-working, must-not-break route —
-// see plan decision + "Notable deviations" in the plan file.
-export async function writeArticle(brief, opportunity) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not configured");
-
+// Manual Claude Pro workflow — builds the single-shot article prompt (the
+// admin pastes this into Claude Pro chat, which has its own web search, then
+// pastes the response back for parseArticleResponse below).
+export async function buildArticleWriterPrompt(brief, opportunity) {
   let relatedCoursesBullets = "  (none — use only the main course link above)";
   try {
     if (opportunity.category) {
@@ -29,87 +21,12 @@ export async function writeArticle(brief, opportunity) {
     // Non-fatal — fall back to the default bullets text above.
   }
 
-  const { system, prompt } = buildArticleWriterPrompts({ brief, opportunity, relatedCoursesBullets });
+  return buildArticleWriterPrompts({ brief, opportunity, relatedCoursesBullets });
+}
 
-  const messages = [{ role: "user", content: prompt }];
-  const tools = [{ type: "web_search_20260209", name: "web_search" }];
-  let finalText = "";
-  let model = "claude-sonnet-5";
-  const usage = { input_tokens: 0, output_tokens: 0 };
-
-  for (let turn = 0; turn < 5; turn++) {
-    let response;
-    // A single retry on timeout — live production logs (2026-08-09) show the
-    // 180s-per-turn timeout still gets exceeded on some search-heavy turns
-    // even after the 120s->180s bump. This runs inside an async Bull job with
-    // no admin waiting on the HTTP request, so trading a little extra worst-
-    // case duration for not aborting the whole article on one slow turn is a
-    // clear win — a bare timeout is very likely transient API-side slowness,
-    // not a real prompt/data problem worth failing the pipeline over.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        response = await axios.post(
-          "https://api.anthropic.com/v1/messages",
-          {
-            model,
-            max_tokens: 8192,
-            system,
-            tools,
-            messages,
-          },
-          {
-            headers: {
-              "x-api-key": apiKey,
-              "anthropic-version": "2023-06-01",
-              "Content-Type": "application/json",
-            },
-            timeout: 180000,
-          }
-        );
-        break;
-      } catch (err) {
-        const isTimeout = err.code === "ECONNABORTED" || /timeout/i.test(err.message || "");
-        if (!isTimeout || attempt === 1) throw err;
-        console.warn(`[content-factory] articleWriter turn ${turn} timed out, retrying once:`, err.message);
-      }
-    }
-
-    const { stop_reason, content, usage: turnUsage } = response.data;
-    if (turnUsage) {
-      usage.input_tokens += turnUsage.input_tokens || 0;
-      usage.output_tokens += turnUsage.output_tokens || 0;
-    }
-
-    messages.push({ role: "assistant", content });
-
-    if (stop_reason === "end_turn") {
-      const textBlock = content.find((b) => b.type === "text");
-      finalText = textBlock?.text?.trim() || "";
-      break;
-    }
-
-    if (stop_reason === "tool_use") {
-      continue;
-    }
-
-    break;
-  }
-
-  // Milestone 4: this loop calls the Anthropic API directly (axios, not
-  // callClaude()), so it can't go through trackedCallClaude() — still record
-  // the accumulated token usage as its own AiUsageLog row for cost visibility
-  // on what's likely the most expensive single step in the pipeline.
-  await recordAiUsage({
-    model,
-    tier: "standard",
-    tokensIn: usage.input_tokens,
-    tokensOut: usage.output_tokens,
-    callType: "article",
-    opportunityId: opportunity?._id || null,
-  });
-
-  if (!finalText) throw new Error("Claude did not produce a final response for the article.");
+// Parses the manually-pasted Claude Pro response into an articleDraft.
+export function parseArticleResponse(finalText, brief, opportunity) {
+  if (!finalText) throw new Error("No article response provided.");
 
   let generated;
   try {
@@ -139,5 +56,5 @@ export async function writeArticle(brief, opportunity) {
     category: generated.category || opportunity.category || null,
   };
 
-  return { articleDraft, usage, model };
+  return { articleDraft };
 }

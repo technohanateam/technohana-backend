@@ -1,6 +1,7 @@
-import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import { buildImagePromptWriterPrompt } from "../../prompts/contentFactory/imagePromptWriter.prompt.js";
+
+export { buildImagePromptWriterPrompt };
 
 const fallbackFilename = (title) =>
   `${String(title || "cover")
@@ -9,16 +10,15 @@ const fallbackFilename = (title) =>
     .replace(/(^-|-$)/g, "")
     .slice(0, 60)}.jpg`;
 
-// ONE cheap-tier Claude call producing a cover-image CONCEPT — never a real
-// image. Real image generation is explicitly out of scope for this whole
-// project. Must never block article completion: any failure here falls back
-// to a minimal derived concept instead of throwing.
-export async function generateImageConcept(articleDraft, opportunity) {
+// Parses a manually-pasted Claude Pro response producing a cover-image
+// CONCEPT — never a real image. Must never block article completion: any
+// parse failure (or empty paste) falls back to a minimal derived concept
+// instead of throwing.
+export function parseImageConceptResponse(text, articleDraft, opportunity) {
   const title = articleDraft.title || opportunity.title;
 
   try {
-    const { system, prompt } = buildImagePromptWriterPrompt({ articleDraft, opportunity });
-    const { text, usage, model } = await trackedCallClaude({ system, prompt, maxTokens: 400, tier: "cheap", callType: "imagePrompt", opportunityId: opportunity?._id || null });
+    if (!text) throw new Error("No image concept response provided.");
     const parsed = parseModelJson(text);
 
     const imageConcept = {
@@ -29,10 +29,8 @@ export async function generateImageConcept(articleDraft, opportunity) {
       imageUrl: null,
       status: "IMAGE_PENDING",
     };
-    return { imageConcept, usage, model };
+    return { imageConcept };
   } catch (err) {
-    // Never throw — return a minimal fallback so image concept generation
-    // can never block the rest of the pipeline.
     const imageConcept = {
       prompt: `A clean, professional editorial cover image representing the topic: "${title}". No text overlays, no logos.`,
       altText: title,
@@ -41,6 +39,6 @@ export async function generateImageConcept(articleDraft, opportunity) {
       imageUrl: null,
       status: "IMAGE_PENDING",
     };
-    return { imageConcept, usage: null, model: null, fallback: true, error: err.message };
+    return { imageConcept, fallback: true, error: err.message };
   }
 }

@@ -105,6 +105,10 @@ Never leak stack traces or internal error details in production responses.
 | Shared Claude client (AI agents) | `src/services/aiAgent.service.js` |
 | Recovery email agent | `src/services/recoveryEmailAgent.js` |
 | Lead scoring agent | `src/services/leadScoringAgent.js` |
+| AI Course Factory pipeline | `src/services/courseFactory/` (blueprintGenerator, lessonContentGenerator, pptxGenerator, ttsService, qaService, lessonGenerationOrchestrator, courseFactoryQueue) |
+| AI Course Factory admin routes | `src/routes/courseFactory.routes.js` (mounted at `/admin/course-factory`, page key `course-factory`) |
+| Public AI Academy routes | `src/routes/academy.routes.js` (mounted at `/academy`, unauthenticated, PUBLISHED content only) |
+| Academy content models | `src/models/courseFactory/` (AcademyCourse, AcademyModule, AcademyLesson, LessonGenerationJob, CourseFactorySettings) |
 
 ## Environment Variables (never commit)
 ```
@@ -128,6 +132,10 @@ CLOUDINARY_API_SECRET=
 REDIS_URL=
 GA4_PROPERTY_ID=
 GOOGLE_SERVICE_ACCOUNT_KEY=
+OPENAI_API_KEY=
+TTS_PROVIDER=
+TTS_VOICE=
+TTS_LANGUAGE=
 ```
 
 ## Reference Docs

@@ -1,13 +1,11 @@
-import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import { buildAiStyleEvaluatorPrompt } from "../../prompts/contentFactory/aiStyleEvaluator.prompt.js";
 
-// ONE cheap-tier Claude call scoring aiStyleRiskScore (0-100, higher = more
-// generic/formulaic/AI-sounding).
-export async function evaluateAiStyle(articleContent, opportunityId = null) {
-  const { system, prompt } = buildAiStyleEvaluatorPrompt({ articleContent });
-  const { text, usage, model } = await trackedCallClaude({ system, prompt, maxTokens: 512, tier: "cheap", callType: "aiStyleEval", opportunityId });
+export { buildAiStyleEvaluatorPrompt };
 
+// Parses a manually-pasted Claude Pro response scoring aiStyleRiskScore
+// (0-100, higher = more generic/formulaic/AI-sounding).
+export function parseAiStyleResponse(text) {
   let parsed;
   try {
     parsed = parseModelJson(text);
@@ -18,5 +16,5 @@ export async function evaluateAiStyle(articleContent, opportunityId = null) {
   const aiStyleRiskScore = Math.max(0, Math.min(100, Number(parsed.aiStyleRiskScore) || 0));
   const flagReasons = aiStyleRiskScore >= 30 && Array.isArray(parsed.flagReasons) ? parsed.flagReasons.filter(Boolean) : [];
 
-  return { aiStyleRiskScore, flagReasons, usage, model };
+  return { aiStyleRiskScore, flagReasons };
 }

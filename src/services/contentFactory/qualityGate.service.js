@@ -2,11 +2,10 @@ import ContentQualityScore from "../../models/contentQualityScore.model.js";
 import ContentBrief from "../../models/contentBrief.model.js";
 import ContentOpportunity from "../../models/contentOpportunity.model.js";
 import { getOrCreateContentFactorySettings } from "../../models/contentFactorySettings.model.js";
-import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import { buildQualityEvaluatorPrompt } from "../../prompts/contentFactory/qualityEvaluator.prompt.js";
-import { factCheckArticle } from "./factChecker.service.js";
-import { evaluateAiStyle } from "./aiStyleEvaluator.service.js";
+import { buildFactCheckerPrompt, parseFactCheckResponse } from "./factChecker.service.js";
+import { buildAiStyleEvaluatorPrompt, parseAiStyleResponse } from "./aiStyleEvaluator.service.js";
 import { META_TITLE_RANGE, META_DESCRIPTION_RANGE } from "./seoThresholds.js";
 
 // Weighted-average composition of overallScore. aiStyleRiskScore is inverted
@@ -129,42 +128,50 @@ function computeFactualityScore(findings) {
   return Math.round((verifiableCount / findings.length) * 100);
 }
 
-// Orchestrating function — does the DB/network work, calls the pure
-// computeQualityGateResult() above, persists a ContentQualityScore doc.
-export async function runQualityGate(opportunityId, articleDraft) {
-  const [opportunity, brief, settings, priorScoreCount] = await Promise.all([
+// Builds the 3 prompts the QUALITY_GATE step needs (fact-check, AI-style,
+// quality-eval) so they can be shown together for one manual paste-back
+// round trip, per the pause-once-per-STEP design.
+export async function buildQualityGatePrompts(opportunityId, articleDraft) {
+  const [opportunity, brief] = await Promise.all([
     ContentOpportunity.findById(opportunityId).lean(),
     ContentBrief.findOne({ opportunityId }).lean(),
-    getOrCreateContentFactorySettings(),
-    ContentQualityScore.countDocuments({ opportunityId }),
   ]);
   if (!opportunity) throw new Error("Opportunity not found for quality gate");
+
+  return {
+    factCheck: buildFactCheckerPrompt({ articleDraft }),
+    aiStyle: buildAiStyleEvaluatorPrompt({ articleContent: articleDraft?.content }),
+    qualityEval: buildQualityEvaluatorPrompt({ articleDraft, brief, opportunity }),
+  };
+}
+
+// Orchestrating function — parses the 3 manually-pasted responses, does the
+// deterministic scoring, calls the pure computeQualityGateResult() above,
+// persists a ContentQualityScore doc.
+export async function resolveQualityGate(opportunityId, articleDraft, { factCheckText, aiStyleText, qualityEvalText }) {
+  const settings = await getOrCreateContentFactorySettings();
+  const priorScoreCount = await ContentQualityScore.countDocuments({ opportunityId });
 
   const seoScore = computeSeoScoreDeterministic(articleDraft);
   const internalLinksScore = computeInternalLinksScoreDeterministic(articleDraft);
 
-  // factChecker/aiStyle degrade to a documented neutral default on failure
-  // (their errors are recorded on the doc below for visibility, not silently
-  // dropped) — but the quality-evaluator call covers 6 of the 12 weighted
-  // dimensions (~48% of overallScore), so letting IT fail silently would
-  // zero out nearly half the score and very likely trip flaggedForRevision
-  // on a perfectly fine article, with the real cause (an API/infra error,
-  // not a content problem) invisible anywhere a reviewer would look. Let it
-  // propagate instead, so the orchestrator's step-level catch reports this
-  // as a real QUALITY_GATE failure the admin can retry.
-  const [factCheckResult, aiStyleResult, qualityEvalResult] = await Promise.all([
-    factCheckArticle(articleDraft, opportunityId).catch((err) => ({ findings: [], error: err.message })),
-    evaluateAiStyle(articleDraft?.content, opportunityId).catch((err) => ({ aiStyleRiskScore: 0, flagReasons: [], error: err.message })),
-    (async () => {
-      const { system, prompt } = buildQualityEvaluatorPrompt({ articleDraft, brief, opportunity });
-      const { text, usage, model } = await trackedCallClaude({ system, prompt, maxTokens: 768, tier: "standard", callType: "qualityEval", opportunityId });
-      const parsed = parseModelJson(text);
-      return { parsed, usage, model };
-    })(),
-  ]);
+  const factCheckResult = parseFactCheckResponse(factCheckText);
+  const aiStyleResult = (() => {
+    try {
+      return parseAiStyleResponse(aiStyleText);
+    } catch (err) {
+      return { aiStyleRiskScore: 0, flagReasons: [], error: err.message };
+    }
+  })();
+  const qe = (() => {
+    try {
+      return parseModelJson(qualityEvalText);
+    } catch (err) {
+      throw new Error(`Failed to parse quality evaluator AI response: ${err.message}`);
+    }
+  })();
 
   const factualityScore = computeFactualityScore(factCheckResult.findings);
-  const qe = qualityEvalResult.parsed || {};
 
   const scores = {
     seoScore,
@@ -206,7 +213,7 @@ export async function runQualityGate(opportunityId, articleDraft) {
     flaggedForRevision: gateResult.flaggedForRevision,
     flagReasons: gateResult.flagReasons,
     factCheckFindings: factCheckResult.findings || [],
-    evaluatedByModel: qualityEvalResult.model || null,
+    evaluatedByModel: null,
     evaluationErrors: {
       factChecker: factCheckResult.error || null,
       aiStyle: aiStyleResult.error || null,
@@ -219,15 +226,5 @@ export async function runQualityGate(opportunityId, articleDraft) {
     flagReasons: gateResult.flagReasons,
     factCheckFindings: factCheckResult.findings || [],
     qualityScoreDoc,
-    usage: {
-      factChecker: factCheckResult.usage || null,
-      aiStyle: aiStyleResult.usage || null,
-      qualityEvaluator: qualityEvalResult.usage || null,
-    },
-    models: {
-      factChecker: factCheckResult.model || null,
-      aiStyle: aiStyleResult.model || null,
-      qualityEvaluator: qualityEvalResult.model || null,
-    },
   };
 }
