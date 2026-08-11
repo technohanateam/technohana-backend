@@ -71,7 +71,7 @@ export const retryGenerationJob = async (req, res) => {
 export const regenerateLessonComponent = async (req, res) => {
   try {
     const { step } = req.body || {};
-    const validSteps = ["CONTENT", "SLIDES", "NARRATION", "AUDIO", "QUIZ", "EXERCISE", "INSTRUCTOR_NOTES", "TRANSCRIPT", "QA"];
+    const validSteps = ["CONTENT", "SLIDES", "NARRATION", "PPTX", "AUDIO", "QUIZ", "EXERCISE", "INSTRUCTOR_NOTES", "TRANSCRIPT", "QA"];
     if (!step || !validSteps.includes(step)) {
       return res.status(400).json({ success: false, message: `step must be one of: ${validSteps.join(", ")}` });
     }

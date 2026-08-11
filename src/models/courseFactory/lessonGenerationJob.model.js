@@ -2,7 +2,7 @@ import mongoose, { Schema } from "mongoose";
 
 // Mirrors contentGenerationJob.model.js's per-step ledger pattern exactly,
 // scoped to a single lesson's asset pipeline instead of a blog article.
-const STEP_NAMES = ["CONTENT", "SLIDES", "NARRATION", "AUDIO", "QUIZ", "EXERCISE", "INSTRUCTOR_NOTES", "TRANSCRIPT", "QA"];
+const STEP_NAMES = ["CONTENT", "SLIDES", "NARRATION", "PPTX", "AUDIO", "QUIZ", "EXERCISE", "INSTRUCTOR_NOTES", "TRANSCRIPT", "QA"];
 
 const stepSchema = new Schema(
   {

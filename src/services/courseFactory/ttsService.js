@@ -24,8 +24,21 @@ const PRONUNCIATION_SENSITIVE_TERMS = [
   "OpenAI", "Anthropic", "Azure", "AI Foundry", "Claude", "GPT",
 ];
 
+// OpenAI's tts-1 speech endpoint hard-rejects input over 4096 characters —
+// this is the provider's real documented limit, not a stylistic preference.
+// Found via a real E2E run: the whole-lesson transcript (16 slides, 1356
+// words / ~7500 chars) exceeded it. There is currently no per-slide/per-
+// chunk TTS generation + audio stitching in this pipeline, so any lesson
+// whose full transcript exceeds this genuinely cannot produce audio in one
+// call today — that's a real architecture gap (chunked generation +
+// concatenation), not something a validation threshold can paper over.
+const OPENAI_TTS_CHAR_LIMIT = 4096;
+
 // Narration validation per spec §16 — run before any TTS call is made.
-export function validateNarration(text) {
+// `context` distinguishes what's being validated: "slide" (a single slide's
+// narration, expected to be short) vs "lesson" (the full concatenated
+// transcript the AUDIO step actually sends to the provider in one call).
+export function validateNarration(text, { context = "slide" } = {}) {
   const issues = [];
   if (!text || !text.trim()) {
     issues.push("Narration is empty");
@@ -33,7 +46,15 @@ export function validateNarration(text) {
   }
   const wordCount = text.trim().split(/\s+/).length;
   if (wordCount < 5) issues.push(`Narration is unusually short (${wordCount} words)`);
-  if (wordCount > 220) issues.push(`Narration is unusually long for one slide (${wordCount} words) — consider splitting`);
+
+  if (context === "lesson") {
+    if (text.length > OPENAI_TTS_CHAR_LIMIT) {
+      issues.push(`Full-lesson narration is ${text.length} characters — exceeds the TTS provider's ${OPENAI_TTS_CHAR_LIMIT}-character limit per request. This lesson's transcript is too long for single-call audio generation (no per-slide/chunked TTS is implemented yet).`);
+    }
+  } else if (wordCount > 220) {
+    issues.push(`Narration is unusually long for one slide (${wordCount} words) — consider splitting`);
+  }
+
   // eslint-disable-next-line no-control-regex
   if (/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(text)) issues.push("Narration contains unsupported control characters");
   const termsUsed = PRONUNCIATION_SENSITIVE_TERMS.filter((t) => text.includes(t));
@@ -44,7 +65,7 @@ export function validateNarration(text) {
 // CourseFactorySettings.ttsProvider (env-configurable default), abstracted so
 // a second provider can be added without touching call sites (spec §15).
 export async function generateLessonAudio({ text, lessonSlug }) {
-  const validation = validateNarration(text);
+  const validation = validateNarration(text, { context: "lesson" });
   if (!validation.valid) {
     throw new Error(`Narration failed validation: ${validation.issues.join("; ")}`);
   }

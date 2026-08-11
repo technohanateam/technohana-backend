@@ -11,7 +11,12 @@ import { enforceBudgetOrPause, estimateCostUsd } from "./budgetGuard.service.js"
 // Mirrors contentGenerationOrchestrator.service.js's step-ledger pattern
 // (spec §31 idempotency: only PENDING/FAILED steps re-run on "Generate
 // Missing Assets"; a full regenerate is a distinct, explicit action per step).
-const STEP_ORDER = ["CONTENT", "SLIDES", "NARRATION", "AUDIO", "QUIZ", "EXERCISE", "INSTRUCTOR_NOTES", "TRANSCRIPT", "QA"];
+// PPTX runs right after NARRATION (needs only lesson.slides, already set by
+// CONTENT) and BEFORE AUDIO — found via a real E2E run that PPTX was
+// previously generated inside the AUDIO step, so a narration/TTS failure
+// silently meant no PPTX either, despite PPTX having no real dependency on
+// audio succeeding.
+const STEP_ORDER = ["CONTENT", "SLIDES", "NARRATION", "PPTX", "AUDIO", "QUIZ", "EXERCISE", "INSTRUCTOR_NOTES", "TRANSCRIPT", "QA"];
 
 function ensureSteps(job) {
   if (!job.steps || job.steps.length === 0) {
@@ -95,6 +100,13 @@ async function runSteps({ lesson, job, fromIndex }) {
         // Narration script already produced by CONTENT; this step is a no-op
         // placeholder unless individually regenerated (see regenerateLessonComponent).
         await markStepDone(job, stepName, {});
+      } else if (stepName === "PPTX") {
+        const pptx = await generateAndUploadPptx(lesson);
+        lesson.assets.pptxUrl = pptx.url;
+        lesson.assets.pptxPublicId = pptx.publicId;
+        lesson.assets.pptxVersion = (lesson.assets.pptxVersion || 0) + 1;
+        await lesson.save();
+        await markStepDone(job, stepName, {});
       } else if (stepName === "AUDIO") {
         const audio = await generateLessonAudio({ text: lesson.narration.script, lessonSlug: lesson.slug });
         lesson.narration.audioUrl = audio.url;
@@ -113,12 +125,6 @@ async function runSteps({ lesson, job, fromIndex }) {
         audioStep.estimatedCostUsd = audio.costUsd || 0;
         job.totalCostUsd += audioStep.estimatedCostUsd;
         await job.save();
-
-        const pptx = await generateAndUploadPptx(lesson);
-        lesson.assets.pptxUrl = pptx.url;
-        lesson.assets.pptxPublicId = pptx.publicId;
-        lesson.assets.pptxVersion = (lesson.assets.pptxVersion || 0) + 1;
-        await lesson.save();
       } else if (stepName === "QA") {
         const qa = runLessonQa(lesson.toObject ? lesson.toObject() : lesson);
         lesson.qa = { qualityScore: qa.qualityScore, issues: qa.issues, publishReady: qa.publishReady, checkedAt: new Date() };
