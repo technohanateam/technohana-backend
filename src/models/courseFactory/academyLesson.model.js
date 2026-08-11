@@ -75,8 +75,14 @@ const sourceSchema = new Schema(
     type: { type: String, enum: SOURCE_TYPES, default: "other" },
     verificationStatus: { type: String, enum: ["VERIFIED", "PENDING_VERIFICATION"], default: "PENDING_VERIFICATION" },
     accessedAt: { type: Date, default: Date.now },
-  },
-  { _id: false }
+    // Who/when a human actually checked this source — only ever set by the
+    // dedicated verify/unverify admin route, never by the generic lesson
+    // PATCH or by generation itself.
+    verifiedBy: { type: String, default: null },
+    verifiedAt: { type: Date, default: null },
+  }
+  // Real _ids (default) so the verify/unverify route can address a specific
+  // source stably, rather than by array index.
 );
 
 const academyLessonSchema = new Schema(

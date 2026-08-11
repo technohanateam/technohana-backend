@@ -91,6 +91,7 @@ test("runLessonQa flags a technical lesson with only PENDING_VERIFICATION source
 
 test("runLessonQa marks a technical lesson publish-ready once all sources are VERIFIED", () => {
   const lesson = baseLesson({
+    durationMinutes: 1,
     slides: [{ type: "code", title: "Minimal Agent Loop", narration: "Walkthrough of the loop.", estimatedSeconds: 60 }],
     sources: [{ title: "LangChain Docs", url: "https://python.langchain.com/docs", verificationStatus: "VERIFIED" }],
     assets: { pptxUrl: "https://res.cloudinary.com/x.pptx" },

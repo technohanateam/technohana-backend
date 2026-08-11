@@ -63,16 +63,13 @@ export function runLessonQa(lesson) {
   });
 
   const isTechnical = slides.some((s) => TECHNICAL_SLIDE_TYPES.has(s.type));
-  let publishReady = true;
   if (isTechnical) {
     if (sources.length === 0) {
       issues.push("Technical lesson has no sources — not publish-ready");
-      publishReady = false;
     } else {
       const unverified = sources.filter((s) => s.verificationStatus !== "VERIFIED");
       if (unverified.length > 0) {
         issues.push(`${unverified.length} of ${sources.length} source(s) still PENDING_VERIFICATION — not publish-ready until a human reviewer verifies them`);
-        publishReady = false;
       }
     }
   }
@@ -83,7 +80,14 @@ export function runLessonQa(lesson) {
   // Simple 0-100 score: start at 100, subtract per issue, floor at 0.
   const qualityScore = Math.max(0, 100 - issues.length * 8);
 
-  return { qualityScore, issues, passed: issues.length === 0, publishReady };
+  // publishReady is deliberately the SAME "zero issues" gate as `passed` —
+  // sources issues are pushed into the shared `issues` list above like any
+  // other QA failure, so an unrelated problem (too few quiz questions, a
+  // missing PPTX, etc.) blocks publish-readiness exactly the same way an
+  // unverified source does. There is no special carve-out where fixing
+  // sources alone can make an otherwise-broken lesson "ready."
+  const passed = issues.length === 0;
+  return { qualityScore, issues, passed, publishReady: passed };
 }
 
 // Cheap word-overlap ratio — good enough to flag "slide text pasted into

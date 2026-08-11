@@ -5,7 +5,7 @@ import { contentFactoryAiLimiter } from "../middleware/contentFactoryAiLimiter.j
 import { getDashboardStats, getSettings, updateSettings, getUsage } from "../controllers/courseFactory/courseFactorySettings.controller.js";
 import { listCourses, generateBlueprint, approveBlueprint, getCourseProduction, publishCourse } from "../controllers/courseFactory/courseBlueprint.controller.js";
 import { generateLesson, getGenerationJob, listLessonJobs, retryGenerationJob, regenerateLessonComponent } from "../controllers/courseFactory/lessonGeneration.controller.js";
-import { getLesson, updateLesson, runQa, submitForReview, approveLesson, publishLesson } from "../controllers/courseFactory/lessonReview.controller.js";
+import { getLesson, updateLesson, runQa, submitForReview, approveLesson, publishLesson, verifySource, unverifySource } from "../controllers/courseFactory/lessonReview.controller.js";
 
 const router = express.Router();
 
@@ -40,5 +40,9 @@ router.post("/lessons/:id/qa", requireMarketing, runQa);
 router.post("/lessons/:id/submit-review", requireMarketing, submitForReview);
 router.post("/lessons/:id/approve", requireAdmin, approveLesson);
 router.post("/lessons/:id/publish", requireAdmin, publishLesson);
+
+// ── Lessons — source verification (admin-only; never AI-automated) ───────────
+router.post("/lessons/:id/sources/:sourceId/verify", requireAdmin, verifySource);
+router.post("/lessons/:id/sources/:sourceId/unverify", requireAdmin, unverifySource);
 
 export default router;

@@ -21,6 +21,27 @@ const EDITABLE_FIELDS = [
   "slides", "narration", "quiz", "exercise", "lab", "resources", "sources",
   "instructorNotes", "transcript",
 ];
+
+// Source verification must only ever change through the dedicated
+// verify/unverify route below (requireAdmin-gated, audit-stamped). If a
+// caller PATCHes a new `sources` array through this general-purpose route,
+// strip any verification fields from it and reattach whatever the lesson
+// already had for that source (matched by _id) — closes an otherwise-open
+// bypass where requireMarketing (broader-trust) callers could self-verify
+// sources through the generic edit endpoint.
+function preserveSourceVerification(existingSources, incomingSources) {
+  const existingById = new Map((existingSources || []).map((s) => [String(s._id), s]));
+  return (incomingSources || []).map((incoming) => {
+    const existing = incoming._id ? existingById.get(String(incoming._id)) : null;
+    return {
+      ...incoming,
+      verificationStatus: existing?.verificationStatus || "PENDING_VERIFICATION",
+      verifiedBy: existing?.verifiedBy || null,
+      verifiedAt: existing?.verifiedAt || null,
+    };
+  });
+}
+
 export const updateLesson = async (req, res) => {
   try {
     const lesson = await AcademyLesson.findById(req.params.id);
@@ -30,7 +51,12 @@ export const updateLesson = async (req, res) => {
     }
 
     for (const field of EDITABLE_FIELDS) {
-      if (req.body?.[field] !== undefined) lesson[field] = req.body[field];
+      if (req.body?.[field] === undefined) continue;
+      if (field === "sources") {
+        lesson.sources = preserveSourceVerification(lesson.sources, req.body.sources);
+        continue;
+      }
+      lesson[field] = req.body[field];
     }
     lesson.version += 1;
     await lesson.save();
@@ -40,6 +66,45 @@ export const updateLesson = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// POST /admin/course-factory/lessons/:id/sources/:sourceId/verify
+// POST /admin/course-factory/lessons/:id/sources/:sourceId/unverify
+// The only path that may ever set verificationStatus: VERIFIED — gated
+// requireAdmin at the route level (spec: "Only authorized Course Factory
+// administrators can change verification status"). Never marks a source
+// VERIFIED automatically; a human must click it. Re-runs QA immediately
+// afterward so publishReady reflects the change without a separate step.
+export const setSourceVerification = async (req, res, verified) => {
+  try {
+    const lesson = await AcademyLesson.findById(req.params.id);
+    if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
+
+    const source = lesson.sources.id(req.params.sourceId);
+    if (!source) return res.status(404).json({ success: false, message: "Source not found" });
+
+    if (verified) {
+      source.verificationStatus = "VERIFIED";
+      source.verifiedBy = req.admin?.email || req.admin?.uid || "unknown-admin";
+      source.verifiedAt = new Date();
+    } else {
+      source.verificationStatus = "PENDING_VERIFICATION";
+      source.verifiedBy = null;
+      source.verifiedAt = null;
+    }
+
+    const qa = runLessonQa(lesson.toObject());
+    lesson.qa = { qualityScore: qa.qualityScore, issues: qa.issues, publishReady: qa.publishReady, checkedAt: new Date() };
+    await lesson.save();
+
+    return res.json({ success: true, data: { source, qa: lesson.qa }, message: verified ? "Source marked verified" : "Source reverted to pending verification" });
+  } catch (err) {
+    console.error("[CourseFactory] setSourceVerification error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const verifySource = (req, res) => setSourceVerification(req, res, true);
+export const unverifySource = (req, res) => setSourceVerification(req, res, false);
 
 // POST /admin/course-factory/lessons/:id/qa
 // Runs the QA gate synchronously (pure function, no AI call) and persists it.

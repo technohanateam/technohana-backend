@@ -55,6 +55,15 @@ export const getPublishedLesson = async (req, res) => {
       .lean();
     if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
 
+    // sources carries verifiedBy (an admin's email/uid) — never send that (or
+    // the internal _id) to a public, unauthenticated endpoint. Learners only
+    // ever need the citation itself.
+    if (Array.isArray(lesson.sources)) {
+      lesson.sources = lesson.sources.map(({ title, url, publisher, type, verificationStatus, accessedAt }) => ({
+        title, url, publisher, type, verificationStatus, accessedAt,
+      }));
+    }
+
     const siblingLessons = await AcademyLesson.find({ moduleId: lesson.moduleId, status: "PUBLISHED" })
       .select("slug title order")
       .sort({ order: 1 })
