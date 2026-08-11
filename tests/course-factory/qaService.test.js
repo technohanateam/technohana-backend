@@ -5,10 +5,14 @@ import { runLessonQa } from "../../src/services/courseFactory/qaService.js";
 function baseLesson(overrides = {}) {
   return {
     title: "Intro to RAG",
-    durationMinutes: 15,
+    // Proportionate to the single ~13-word narration slide below (~0.1 min
+    // at the default 150wpm) so the deterministic word-count-based duration
+    // check doesn't flag these fixtures for an unrelated reason — real
+    // lessons have many slides worth of narration summing near the target.
+    durationMinutes: 0.1,
     learningObjectives: ["Explain RAG", "Identify when to use it"],
     slides: [
-      { type: "concept", title: "RAG", narration: "Retrieval-Augmented Generation lets a model use external documents to answer questions accurately.", estimatedSeconds: 900 },
+      { type: "concept", title: "RAG", narration: "Retrieval-Augmented Generation lets a model use external documents to answer questions accurately.", estimatedSeconds: 900, audio: { status: "DONE" } },
     ],
     quiz: [
       { question: "When is RAG useful?", type: "multiple-choice", options: ["a", "b"], correctAnswer: 0, explanation: "Because..." },
@@ -18,7 +22,7 @@ function baseLesson(overrides = {}) {
     transcript: "x".repeat(150),
     sources: [],
     assets: { pptxUrl: "https://res.cloudinary.com/x.pptx" },
-    narration: { audioUrl: "https://res.cloudinary.com/x.mp3" },
+    narration: {},
     ...overrides,
   };
 }
@@ -63,10 +67,13 @@ test("runLessonQa flags too few quiz questions", () => {
 });
 
 test("runLessonQa flags missing PPTX/audio assets", () => {
-  const lesson = baseLesson({ assets: {}, narration: {} });
+  const lesson = baseLesson({
+    assets: {},
+    slides: [{ type: "concept", title: "RAG", narration: "Retrieval-Augmented Generation lets a model use external documents to answer questions accurately.", estimatedSeconds: 900, audio: { status: "PENDING" } }],
+  });
   const result = runLessonQa(lesson);
   assert.ok(result.issues.some((i) => i.includes("PPTX")));
-  assert.ok(result.issues.some((i) => i.includes("Audio")));
+  assert.ok(result.issues.some((i) => i.includes("missing audio")));
 });
 
 test("runLessonQa flags a technical lesson (code/architecture slide) with no sources as not publish-ready", () => {
@@ -91,11 +98,10 @@ test("runLessonQa flags a technical lesson with only PENDING_VERIFICATION source
 
 test("runLessonQa marks a technical lesson publish-ready once all sources are VERIFIED", () => {
   const lesson = baseLesson({
-    durationMinutes: 1,
-    slides: [{ type: "code", title: "Minimal Agent Loop", narration: "Walkthrough of the loop.", estimatedSeconds: 60 }],
+    durationMinutes: 0.02,
+    slides: [{ type: "code", title: "Minimal Agent Loop", narration: "Walkthrough of the loop.", estimatedSeconds: 60, audio: { status: "DONE" } }],
     sources: [{ title: "LangChain Docs", url: "https://python.langchain.com/docs", verificationStatus: "VERIFIED" }],
     assets: { pptxUrl: "https://res.cloudinary.com/x.pptx" },
-    narration: { audioUrl: "https://res.cloudinary.com/x.mp3" },
   });
   const result = runLessonQa(lesson);
   assert.equal(result.publishReady, true, result.issues.join("; "));

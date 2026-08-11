@@ -16,9 +16,13 @@ import { requireAdmin } from "../../src/middleware/authenticateAdmin.js";
 function technicalLesson(sources) {
   return {
     title: "A Technical Lesson",
-    durationMinutes: 1,
+    // Short but non-zero so the deterministic word-count-based duration
+    // check (introduced alongside per-slide audio work) doesn't flag this
+    // fixture — "Explains the code." is ~3 words, so a tiny target keeps it
+    // within the existing 60% tolerance without inflating the fixture text.
+    durationMinutes: 0.02,
     learningObjectives: ["Do the thing"],
-    slides: [{ type: "code", title: "Code", narration: "Explains the code.", estimatedSeconds: 60 }],
+    slides: [{ type: "code", title: "Code", narration: "Explains the code.", estimatedSeconds: 60, audio: { status: "DONE" } }],
     quiz: [
       { question: "Q1", type: "multiple-choice", options: ["a", "b"], correctAnswer: 0, explanation: "x" },
       { question: "Q2", type: "multiple-choice", options: ["a", "b"], correctAnswer: 0, explanation: "x" },
@@ -27,7 +31,7 @@ function technicalLesson(sources) {
     transcript: "x".repeat(150),
     sources,
     assets: { pptxUrl: "https://res.cloudinary.com/x.pptx" },
-    narration: { audioUrl: "https://res.cloudinary.com/x.mp3" },
+    narration: {},
   };
 }
 

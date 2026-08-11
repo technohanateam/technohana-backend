@@ -26,7 +26,7 @@ export const listCourses = async (req, res) => {
           humanReview: courseLessons.filter((l) => l.status === "HUMAN_REVIEW").length,
           draft: courseLessons.filter((l) => l.status === "DRAFT").length,
           pptxReady: courseLessons.filter((l) => l.assets?.pptxUrl).length,
-          audioReady: courseLessons.filter((l) => l.narration?.audioUrl).length,
+          audioReady: courseLessons.filter((l) => l.narration?.audioSummary?.allComplete).length,
         },
       };
     });

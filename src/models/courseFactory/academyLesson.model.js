@@ -29,6 +29,24 @@ const diagramSchema = new Schema(
   { _id: false }
 );
 
+// Per-slide audio — each slide gets its own independent TTS call + Cloudinary
+// asset (not one stitched whole-lesson file; see plan §1/§2). `status` is the
+// single source of truth for idempotent "generate missing audio" (skip DONE,
+// retry PENDING/FAILED) and for what the admin Lesson Editor renders next to
+// each slide.
+const slideAudioSchema = new Schema(
+  {
+    audioUrl: { type: String, default: null },
+    audioPublicId: { type: String, default: null },
+    durationSeconds: { type: Number, default: 0 },
+    voice: { type: String, default: null },
+    status: { type: String, enum: ["PENDING", "DONE", "FAILED"], default: "PENDING" },
+    error: { type: String, default: null },
+    costUsd: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
 const slideSchema = new Schema(
   {
     order: { type: Number, required: true },
@@ -42,6 +60,7 @@ const slideSchema = new Schema(
     speakerNotes: { type: String, default: "" },
     narration: { type: String, default: "" }, // must NOT just repeat slide text — QA checks this
     estimatedSeconds: { type: Number, default: 30 },
+    audio: { type: slideAudioSchema, default: () => ({}) },
   },
   { _id: false }
 );
@@ -105,9 +124,18 @@ const academyLessonSchema = new Schema(
       script: { type: String, default: "" },
       voice: { type: String, default: null },
       language: { type: String, default: "en-IN" },
-      audioUrl: { type: String, default: null },
-      audioPublicId: { type: String, default: null },
-      durationSeconds: { type: Number, default: 0 },
+      // Per-slide audio replaced the old whole-lesson singleton audioUrl
+      // (clean breaking change — pre-launch, nothing published yet; audio
+      // now lives per-slide at slides[i].audio, see slideAudioSchema above).
+      // This is a computed rollup so the admin UI/QA don't need to iterate
+      // slides themselves — recomputed by the orchestrator after the AUDIO
+      // step runs.
+      audioSummary: {
+        totalSlides: { type: Number, default: 0 },
+        slidesWithAudio: { type: Number, default: 0 },
+        totalDurationSeconds: { type: Number, default: 0 },
+        allComplete: { type: Boolean, default: false },
+      },
     },
 
     quiz: { type: [quizQuestionSchema], default: [] },
@@ -160,6 +188,17 @@ const academyLessonSchema = new Schema(
       qualityScore: { type: Number, default: null },
       issues: { type: [String], default: [] },
       publishReady: { type: Boolean, default: false },
+      // Structured, deterministic (word-count based) duration report —
+      // always populated regardless of whether it breached tolerance, so
+      // admins can see real numbers even on a within-tolerance lesson.
+      durationReport: {
+        targetMinutes: { type: Number, default: null },
+        actualMinutes: { type: Number, default: null },
+        actualSource: { type: String, default: null },
+        differenceMinutes: { type: Number, default: null },
+        percentageDeviation: { type: Number, default: null },
+        withinTolerance: { type: Boolean, default: null },
+      },
       checkedAt: { type: Date, default: null },
     },
 

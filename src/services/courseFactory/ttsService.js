@@ -61,11 +61,27 @@ export function validateNarration(text, { context = "slide" } = {}) {
   return { valid: issues.length === 0, issues, termsUsed };
 }
 
-// Generates + uploads audio for one narration script. Provider selected via
-// CourseFactorySettings.ttsProvider (env-configurable default), abstracted so
-// a second provider can be added without touching call sites (spec §15).
-export async function generateLessonAudio({ text, lessonSlug }) {
-  const validation = validateNarration(text, { context: "lesson" });
+// Classifies a TTS provider error by its HTTP status so callers can decide
+// whether to fail-fast (AUTH_FAILURE — repeating a bad key across every
+// remaining slide wastes calls and is noisy) vs keep going per-slide
+// (RATE_LIMIT/TRANSIENT/UNKNOWN — worth isolating to just that slide).
+export function classifyTtsError(err) {
+  const status = err?.status || err?.response?.status || null;
+  if (status === 401 || status === 403) return "AUTH_FAILURE";
+  if (status === 429) return "RATE_LIMIT";
+  if (typeof status === "number" && status >= 500) return "TRANSIENT";
+  return "UNKNOWN";
+}
+
+// Generates + uploads audio for ONE slide's narration — replaced the old
+// whole-lesson generateLessonAudio (see plan §1/§4: a real lesson's full
+// transcript routinely exceeds OpenAI tts-1's 4096-char-per-request limit,
+// so per-slide is the only architecture that actually works). Provider
+// selected via CourseFactorySettings.ttsProvider (env-configurable default),
+// abstracted so a second provider can be added without touching call sites
+// (spec §15).
+export async function generateSlideAudio({ text, lessonSlug, slideOrder }) {
+  const validation = validateNarration(text, { context: "slide" });
   if (!validation.valid) {
     throw new Error(`Narration failed validation: ${validation.issues.join("; ")}`);
   }
@@ -84,7 +100,7 @@ export async function generateLessonAudio({ text, lessonSlug }) {
 
   const result = await new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
-      { folder: "technohana/academy/audio", resource_type: "video", public_id: `${lessonSlug}-${Date.now()}` },
+      { folder: "technohana/academy/audio", resource_type: "video", public_id: `${lessonSlug}-slide-${slideOrder}-${Date.now()}` },
       (err, r) => (err ? reject(err) : resolve(r))
     );
     stream.end(buffer);
