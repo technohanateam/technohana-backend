@@ -1,5 +1,18 @@
 import AcademyLesson from "../../models/courseFactory/academyLesson.model.js";
 import { runLessonQa } from "../../services/courseFactory/qaService.js";
+import { getOrCreateCourseFactorySettings } from "../../models/courseFactory/courseFactorySettings.model.js";
+
+// Non-blocking fetch — same philosophy as the orchestrator's own QA step; a
+// transient DB hiccup falls back to the default rather than failing the
+// admin's QA/verification action entirely.
+async function getNarrationWordsPerMinute() {
+  try {
+    return (await getOrCreateCourseFactorySettings()).narrationWordsPerMinute || 150;
+  } catch (err) {
+    console.error("[CourseFactory] could not load narrationWordsPerMinute setting, using default 150:", err.message);
+    return 150;
+  }
+}
 
 // GET /admin/course-factory/lessons/:id
 export const getLesson = async (req, res) => {
@@ -92,8 +105,8 @@ export const setSourceVerification = async (req, res, verified) => {
       source.verifiedAt = null;
     }
 
-    const qa = runLessonQa(lesson.toObject());
-    lesson.qa = { qualityScore: qa.qualityScore, issues: qa.issues, publishReady: qa.publishReady, checkedAt: new Date() };
+    const qa = runLessonQa(lesson.toObject(), { narrationWordsPerMinute: await getNarrationWordsPerMinute() });
+    lesson.qa = { qualityScore: qa.qualityScore, issues: qa.issues, publishReady: qa.publishReady, durationReport: qa.durationReport, checkedAt: new Date() };
     await lesson.save();
 
     return res.json({ success: true, data: { source, qa: lesson.qa }, message: verified ? "Source marked verified" : "Source reverted to pending verification" });
@@ -113,8 +126,8 @@ export const runQa = async (req, res) => {
     const lesson = await AcademyLesson.findById(req.params.id);
     if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
 
-    const qa = runLessonQa(lesson.toObject());
-    lesson.qa = { qualityScore: qa.qualityScore, issues: qa.issues, publishReady: qa.publishReady, checkedAt: new Date() };
+    const qa = runLessonQa(lesson.toObject(), { narrationWordsPerMinute: await getNarrationWordsPerMinute() });
+    lesson.qa = { qualityScore: qa.qualityScore, issues: qa.issues, publishReady: qa.publishReady, durationReport: qa.durationReport, checkedAt: new Date() };
     if (lesson.status === "DRAFT") lesson.status = "AI_REVIEWED";
     await lesson.save();
 

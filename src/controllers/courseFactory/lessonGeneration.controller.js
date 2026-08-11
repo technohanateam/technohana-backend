@@ -65,13 +65,42 @@ export const retryGenerationJob = async (req, res) => {
   }
 };
 
+// POST /admin/course-factory/lessons/:id/slides/:slideOrder/regenerate-audio
+// Force-regenerates ONE slide's audio even if it already succeeded — distinct
+// from the failure-driven "Generate Missing Assets" retry (which skips DONE
+// slides). :slideOrder is the slide's `order` field, not its array position.
+export const regenerateSlideAudio = async (req, res) => {
+  try {
+    const slideOrder = Number(req.params.slideOrder);
+    if (!Number.isInteger(slideOrder) || slideOrder < 0) {
+      return res.status(400).json({ success: false, message: "slideOrder must be a non-negative integer" });
+    }
+
+    const lesson = await AcademyLesson.findById(req.params.id).lean();
+    if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
+    const slide = (lesson.slides || []).find((s) => s.order === slideOrder);
+    if (!slide) return res.status(404).json({ success: false, message: `No slide with order ${slideOrder}` });
+    if (!(slide.narration || "").trim()) {
+      return res.status(409).json({ success: false, message: "This slide has no narration — nothing to generate audio for." });
+    }
+
+    const job = await LessonGenerationJob.create({ lessonId: lesson._id, status: "QUEUED" });
+    await enqueueLessonRetry(job._id.toString(), "AUDIO", { slideOrder, force: true });
+
+    return res.json({ success: true, data: { jobId: job._id, slideOrder }, message: `Regenerating audio for slide ${slideOrder}` });
+  } catch (err) {
+    console.error("[CourseFactory] regenerateSlideAudio error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // POST /admin/course-factory/lessons/:id/regenerate
 // Body: { step: "NARRATION" } — explicit single-component regenerate
 // (spec §28: regenerate narration without touching slides, etc).
 export const regenerateLessonComponent = async (req, res) => {
   try {
     const { step } = req.body || {};
-    const validSteps = ["CONTENT", "SLIDES", "NARRATION", "AUDIO", "QUIZ", "EXERCISE", "INSTRUCTOR_NOTES", "TRANSCRIPT", "QA"];
+    const validSteps = ["CONTENT", "SLIDES", "NARRATION", "PPTX", "AUDIO", "QUIZ", "EXERCISE", "INSTRUCTOR_NOTES", "TRANSCRIPT", "QA"];
     if (!step || !validSteps.includes(step)) {
       return res.status(400).json({ success: false, message: `step must be one of: ${validSteps.join(", ")}` });
     }

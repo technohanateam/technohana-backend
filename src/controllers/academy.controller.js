@@ -64,6 +64,16 @@ export const getPublishedLesson = async (req, res) => {
       }));
     }
 
+    // Same principle for per-slide audio: learners need the URL/duration to
+    // play it, never the raw provider error text or the per-slide cost.
+    if (Array.isArray(lesson.slides)) {
+      lesson.slides = lesson.slides.map((slide) => {
+        if (!slide.audio) return slide;
+        const { audioUrl, durationSeconds, status } = slide.audio;
+        return { ...slide, audio: { audioUrl, durationSeconds, status } };
+      });
+    }
+
     const siblingLessons = await AcademyLesson.find({ moduleId: lesson.moduleId, status: "PUBLISHED" })
       .select("slug title order")
       .sort({ order: 1 })

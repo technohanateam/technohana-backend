@@ -62,8 +62,8 @@ export const getDashboardStats = async (req, res) => {
         },
         media: {
           pptxReady: lessons.filter((l) => l.assets?.pptxUrl).length,
-          audioReady: lessons.filter((l) => l.narration?.audioUrl).length,
-          audioPending: lessons.filter((l) => !l.narration?.audioUrl).length,
+          audioReady: lessons.filter((l) => l.narration?.audioSummary?.allComplete).length,
+          audioPending: lessons.filter((l) => !l.narration?.audioSummary?.allComplete).length,
         },
         budget: {
           dailyAiBudgetUsd: settings.dailyAiBudgetUsd,

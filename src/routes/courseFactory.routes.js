@@ -4,7 +4,7 @@ import { contentFactoryAiLimiter } from "../middleware/contentFactoryAiLimiter.j
 
 import { getDashboardStats, getSettings, updateSettings, getUsage } from "../controllers/courseFactory/courseFactorySettings.controller.js";
 import { listCourses, generateBlueprint, approveBlueprint, getCourseProduction, publishCourse } from "../controllers/courseFactory/courseBlueprint.controller.js";
-import { generateLesson, getGenerationJob, listLessonJobs, retryGenerationJob, regenerateLessonComponent } from "../controllers/courseFactory/lessonGeneration.controller.js";
+import { generateLesson, getGenerationJob, listLessonJobs, retryGenerationJob, regenerateLessonComponent, regenerateSlideAudio } from "../controllers/courseFactory/lessonGeneration.controller.js";
 import { getLesson, updateLesson, runQa, submitForReview, approveLesson, publishLesson, verifySource, unverifySource } from "../controllers/courseFactory/lessonReview.controller.js";
 
 const router = express.Router();
@@ -29,6 +29,7 @@ router.post("/courses/:id/publish", requireAdmin, publishCourse);
 // ── Lessons — generation ──────────────────────────────────────────────────────
 router.post("/lessons/:id/generate", requireMarketing, contentFactoryAiLimiter, generateLesson);
 router.post("/lessons/:id/regenerate", requireMarketing, contentFactoryAiLimiter, regenerateLessonComponent);
+router.post("/lessons/:id/slides/:slideOrder/regenerate-audio", requireMarketing, contentFactoryAiLimiter, regenerateSlideAudio);
 router.get("/lessons/:id/jobs", requireMarketing, listLessonJobs);
 router.get("/jobs/:id", requireMarketing, getGenerationJob);
 router.post("/jobs/:id/retry", requireMarketing, contentFactoryAiLimiter, retryGenerationJob);

@@ -15,7 +15,11 @@ const TECHNICAL_SLIDE_TYPES = new Set(["code", "architecture"]);
 // Automated QA gate (spec §23) — schema/consistency checks that run before a
 // lesson can move from AI_REVIEWED to HUMAN_REVIEW. Pure function over the
 // lesson doc; no AI calls, no DB writes — caller persists qualityScore/issues.
-export function runLessonQa(lesson) {
+// `narrationWordsPerMinute` defaults to CourseFactorySettings' own default
+// (150) so this stays a plain, DB-free function testable without mocking —
+// callers that want the admin-configured value fetch it themselves and pass
+// it in (same non-blocking-fetch philosophy used elsewhere in this pipeline).
+export function runLessonQa(lesson, { narrationWordsPerMinute = 150 } = {}) {
   const issues = [];
 
   if (!lesson.title) issues.push("Missing lesson title");
@@ -27,10 +31,31 @@ export function runLessonQa(lesson) {
   if (slides.length === 0) issues.push("No slides generated");
   if (slides.length > 20) issues.push(`${slides.length} slides is likely over-generated for a single lesson`);
 
-  const expectedSeconds = (lesson.durationMinutes || 15) * 60;
-  const slideSeconds = slides.reduce((sum, s) => sum + (s.estimatedSeconds || 0), 0);
-  if (slideSeconds > 0 && Math.abs(slideSeconds - expectedSeconds) / expectedSeconds > 0.6) {
-    issues.push(`Slide timing (${Math.round(slideSeconds / 60)} min) is far off the target duration (${lesson.durationMinutes} min)`);
+  // Deterministic duration check — word-count based, NOT the AI's own
+  // per-slide `estimatedSeconds` guess (that field is an independent LLM
+  // guess from the content-generation prompt, not derived from the actual
+  // narration text, and diverged badly on a real run: 31 min actual vs an
+  // 18 min target). Counts real narration text across all slides, converts
+  // via a configurable speaking-rate constant.
+  const targetMinutes = lesson.durationMinutes || 15;
+  const totalNarrationWords = slides.reduce((sum, s) => {
+    const text = (s.narration || "").trim();
+    return sum + (text ? text.split(/\s+/).length : 0);
+  }, 0);
+  const actualMinutes = totalNarrationWords / narrationWordsPerMinute;
+  const differenceMinutes = actualMinutes - targetMinutes;
+  const percentageDeviation = targetMinutes > 0 ? (Math.abs(differenceMinutes) / targetMinutes) * 100 : 0;
+  const withinTolerance = percentageDeviation <= 60; // same 60% threshold the old check used
+  const durationReport = {
+    targetMinutes,
+    actualMinutes: Math.round(actualMinutes * 10) / 10,
+    actualSource: "narration-word-count",
+    differenceMinutes: Math.round(differenceMinutes * 10) / 10,
+    percentageDeviation: Math.round(percentageDeviation),
+    withinTolerance,
+  };
+  if (totalNarrationWords > 0 && !withinTolerance) {
+    issues.push(`Narration duration (${durationReport.actualMinutes} min, word-count based) is far off the target duration (${targetMinutes} min) — ${durationReport.percentageDeviation}% deviation`);
   }
 
   slides.forEach((slide, i) => {
@@ -75,7 +100,15 @@ export function runLessonQa(lesson) {
   }
 
   if (!lesson.assets?.pptxUrl) issues.push("PPTX asset not yet generated");
-  if (!lesson.narration?.audioUrl) issues.push("Audio asset not yet generated");
+  // Audio is now per-slide (slides[i].audio), not a single lesson-level
+  // file — a slide only needs audio if it's a narration-required type (same
+  // set QA already uses above); title/quiz/transition slides are legitimately
+  // silent and shouldn't block on missing audio.
+  const slidesNeedingAudio = slides.filter((s) => NARRATION_REQUIRED_TYPES.has(s.type) && (s.narration || "").trim());
+  const slidesMissingAudio = slidesNeedingAudio.filter((s) => s.audio?.status !== "DONE");
+  if (slidesNeedingAudio.length > 0 && slidesMissingAudio.length > 0) {
+    issues.push(`${slidesMissingAudio.length} of ${slidesNeedingAudio.length} slide(s) missing audio`);
+  }
 
   // Simple 0-100 score: start at 100, subtract per issue, floor at 0.
   const qualityScore = Math.max(0, 100 - issues.length * 8);
@@ -87,7 +120,7 @@ export function runLessonQa(lesson) {
   // unverified source does. There is no special carve-out where fixing
   // sources alone can make an otherwise-broken lesson "ready."
   const passed = issues.length === 0;
-  return { qualityScore, issues, passed, publishReady: passed };
+  return { qualityScore, issues, passed, publishReady: passed, durationReport };
 }
 
 // Cheap word-overlap ratio — good enough to flag "slide text pasted into

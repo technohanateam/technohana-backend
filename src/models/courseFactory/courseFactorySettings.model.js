@@ -33,6 +33,12 @@ const courseFactorySettingsSchema = new Schema(
     // caveat as the Claude COST_PER_1K_TOKENS tables elsewhere in the
     // codebase). $ per character of narration text sent to the TTS provider.
     ttsCostPerCharUsd: { type: Number, default: 0.000015 },
+
+    // Standard clear-narration speaking pace, used by qaService.js's
+    // deterministic duration report (word count / this rate) instead of
+    // trusting the AI's own estimatedSeconds-per-slide guess. 150 wpm is a
+    // commonly cited rate for clear e-learning/audiobook narration.
+    narrationWordsPerMinute: { type: Number, default: 150 },
   },
   { timestamps: true }
 );

@@ -51,6 +51,42 @@ export async function enforceBudgetOrPause(settingsIn = null) {
   return { paused: true, settings, alreadyPaused: false, reason };
 }
 
+// Mirrors enforceBudgetOrPause's auto-pause pattern exactly, for a different
+// trigger: a classified AUTH_FAILURE from the TTS provider (bad/expired key)
+// rather than budget exhaustion. Without this, a bad key would silently keep
+// failing on every subsequent lesson/course generation attempt instead of
+// surfacing once and stopping.
+export async function pauseForTtsAuthFailure(reasonDetail) {
+  const settings = await getOrCreateCourseFactorySettings();
+
+  if (settings.automationStatus === "PAUSED" && settings.pausedReason === "TTS_AUTH_FAILURE") {
+    return { paused: true, settings, alreadyPaused: true };
+  }
+
+  settings.automationStatus = "PAUSED";
+  settings.pausedReason = "TTS_AUTH_FAILURE";
+  settings.pausedAt = new Date();
+  await settings.save();
+
+  try {
+    if (process.env.MAIL_TO) {
+      await sendEmail({
+        from: "Course Factory <corporate@technohana.in>",
+        to: process.env.MAIL_TO,
+        subject: "[Course Factory] Generation paused — TTS authentication failure",
+        html: `<p>The AI Course Factory has automatically paused itself.</p>
+<p><strong>Reason:</strong> The configured TTS provider rejected the API key (authentication failure).</p>
+<p>${reasonDetail || ""}</p>
+<p>Check the TTS provider API key, then re-enable from the Course Factory dashboard.</p>`,
+      });
+    }
+  } catch (err) {
+    console.error("[CourseFactory] TTS-auth-failure admin email failed (non-blocking):", err.message);
+  }
+
+  return { paused: true, settings, alreadyPaused: false };
+}
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
