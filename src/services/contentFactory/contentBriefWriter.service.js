@@ -1,16 +1,14 @@
-import { trackedCallClaude } from "./aiUsageTracker.service.js";
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import ContentBrief from "../../models/contentBrief.model.js";
 import { buildContentBriefPrompt } from "../../prompts/contentFactory/contentBrief.prompt.js";
 
 const VALID_DEPTHS = ["SHORT", "STANDARD", "COMPREHENSIVE"];
 
-// Does one AI thing (write a brief) and persists it. Status transitions on
-// the opportunity belong to the orchestrator, not here.
-export async function generateContentBrief(opportunity) {
-  const { system, prompt } = buildContentBriefPrompt(opportunity);
-  const { text, usage, model } = await trackedCallClaude({ system, prompt, maxTokens: 2048, tier: "standard", callType: "brief", opportunityId: opportunity?._id || null });
+export { buildContentBriefPrompt };
 
+// Parses a manually-pasted Claude Pro response and persists the brief.
+// Status transitions on the opportunity belong to the orchestrator, not here.
+export async function parseContentBriefResponse(text, opportunity, model = null) {
   let parsed;
   try {
     parsed = parseModelJson(text);
@@ -47,5 +45,5 @@ export async function generateContentBrief(opportunity) {
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
 
-  return { brief: briefDoc, usage, model };
+  return { brief: briefDoc, model };
 }

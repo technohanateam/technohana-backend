@@ -6,13 +6,14 @@ import { getSettings, updateSettings, toggleAutomation } from "../controllers/co
 import { listCourses, updateCourseSettings, recomputePriority } from "../controllers/contentFactory/courseIntelligence.controller.js";
 import { listClusters, createCluster, updateCluster, deleteCluster, proposeMapping, applyMapping } from "../controllers/contentFactory/topicCluster.controller.js";
 import { listOpportunities, getOpportunity, runDryRunPlan, listRuns, rejectOpportunity, overrideScore } from "../controllers/contentFactory/contentOpportunity.controller.js";
-import { generateOpportunityArticle, getGenerationJob, retryGenerationJob } from "../controllers/contentFactory/contentGeneration.controller.js";
+import { generateOpportunityArticle, getGenerationJob, retryGenerationJob, submitStepResponse } from "../controllers/contentFactory/contentGeneration.controller.js";
 import {
   listReviewItems,
   getReviewItem,
   updateReviewDraft,
   regenerateReview,
   requestRevision,
+  submitRevisionResponse,
   rejectReviewItem,
   approveReviewItem,
   bulkApproveReview,
@@ -59,13 +60,15 @@ router.get("/runs", requireMarketing, listRuns);
 router.post("/opportunities/:id/generate", requireMarketing, contentFactoryAiLimiter, generateOpportunityArticle);
 router.get("/jobs/:id", requireMarketing, getGenerationJob);
 router.post("/jobs/:id/retry", requireMarketing, contentFactoryAiLimiter, retryGenerationJob);
+router.post("/jobs/:id/submit-step", requireMarketing, submitStepResponse);
 
 // ── Milestone 2: Human Review ────────────────────────────────────────────────
 router.get("/review", requireMarketing, listReviewItems);
 router.get("/review/:opportunityId", requireMarketing, getReviewItem);
 router.patch("/review/:opportunityId", requireMarketing, updateReviewDraft);
 router.post("/review/:opportunityId/regenerate", requireMarketing, contentFactoryAiLimiter, regenerateReview);
-router.post("/review/:opportunityId/request-revision", requireMarketing, contentFactoryAiLimiter, requestRevision);
+router.post("/review/:opportunityId/request-revision", requireMarketing, requestRevision);
+router.post("/review/:opportunityId/request-revision/submit", requireMarketing, submitRevisionResponse);
 router.post("/review/:opportunityId/reject", requireMarketing, rejectReviewItem);
 router.post("/review/:opportunityId/approve", requireMarketing, approveReviewItem);
 

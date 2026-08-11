@@ -1,32 +1,19 @@
 import ContentOpportunity from "../../models/contentOpportunity.model.js";
 import ContentGenerationJob from "../../models/contentGenerationJob.model.js";
 import ContentBrief from "../../models/contentBrief.model.js";
-import { generateContentBrief } from "./contentBriefWriter.service.js";
-import { writeArticle } from "./articleWriter.service.js";
-import { writeSeoFields } from "./seoFieldWriter.service.js";
-import { generateInternalLinks } from "./internalLinker.service.js";
-import { generateImageConcept } from "./imagePromptWriter.service.js";
-import { runQualityGate } from "./qualityGate.service.js";
-import { reviseArticle } from "./revisionAgent.service.js";
-import { enforceBudgetOrPause } from "./budgetGuard.service.js";
+import { buildContentBriefPrompt, parseContentBriefResponse } from "./contentBriefWriter.service.js";
+import { buildArticleWriterPrompt, parseArticleResponse } from "./articleWriter.service.js";
+import { buildSeoFieldWriterPrompt, parseSeoFieldsResponse } from "./seoFieldWriter.service.js";
+import { buildInternalLinkerPromptForOpportunity, parseInternalLinksResponse } from "./internalLinker.service.js";
+import { buildImagePromptWriterPrompt, parseImageConceptResponse } from "./imagePromptWriter.service.js";
+import { buildQualityGatePrompts, resolveQualityGate } from "./qualityGate.service.js";
+import { buildRevisionPrompt, parseRevisionResponse } from "./revisionAgent.service.js";
 
 // M3: QUALITY_GATE runs after IMAGE_PROMPT. It may internally trigger ONE
 // automatic REVISION pass (tracked via opportunity.autoRevisionCount, capped
 // at 1 here) — that sub-step isn't in STEP_ORDER since it's conditional, but
 // gets its own entry appended to job.steps when it runs (see runSteps below).
 const STEP_ORDER = ["BRIEF", "ARTICLE", "SEO", "LINKS", "IMAGE_PROMPT", "QUALITY_GATE"];
-
-// Rough $/1K-token estimate table — public approximate pricing, NOT exact
-// billing. Good enough for the budget-tracking UI (M4), not for invoicing.
-const COST_PER_1K_TOKENS = {
-  "claude-sonnet-4-6": { in: 0.003, out: 0.015 },
-  "claude-haiku-4-5-20251001": { in: 0.0008, out: 0.004 },
-  "claude-sonnet-5": { in: 0.003, out: 0.015 },
-};
-function estimateCostUsd(model, tokensIn, tokensOut) {
-  const rates = COST_PER_1K_TOKENS[model] || COST_PER_1K_TOKENS["claude-sonnet-4-6"];
-  return (tokensIn / 1000) * rates.in + (tokensOut / 1000) * rates.out;
-}
 
 function ensureSteps(job) {
   if (!job.steps || job.steps.length === 0) {
@@ -47,18 +34,10 @@ async function markStepRunning(job, name) {
   await job.save();
 }
 
-async function markStepDone(job, name, { model, usage } = {}) {
+async function markStepDone(job, name) {
   const step = getStep(job, name);
   step.status = "DONE";
   step.finishedAt = new Date();
-  step.model = model || null;
-  const tokensIn = usage?.input_tokens || 0;
-  const tokensOut = usage?.output_tokens || 0;
-  step.tokensIn = tokensIn;
-  step.tokensOut = tokensOut;
-  step.estimatedCostUsd = model ? estimateCostUsd(model, tokensIn, tokensOut) : 0;
-  job.totalTokens += tokensIn + tokensOut;
-  job.totalCostUsd += step.estimatedCostUsd;
   await job.save();
 }
 
@@ -70,116 +49,200 @@ async function markStepFailed(job, name, error) {
   await job.save();
 }
 
-function sumUsage(...usages) {
-  return usages.reduce(
-    (acc, u) => ({
-      input_tokens: acc.input_tokens + (u?.input_tokens || 0),
-      output_tokens: acc.output_tokens + (u?.output_tokens || 0),
-    }),
-    { input_tokens: 0, output_tokens: 0 }
-  );
-}
-
 // Appends a new step entry to job.steps (used for REVISION, which isn't part
 // of the fixed STEP_ORDER since it's conditional on the quality gate flagging
 // the draft) and persists it.
-async function appendStep(job, { name, model, usage, error, startedAt }) {
-  const tokensIn = usage?.input_tokens || 0;
-  const tokensOut = usage?.output_tokens || 0;
-  const estimatedCostUsd = model ? estimateCostUsd(model, tokensIn, tokensOut) : 0;
+async function appendStep(job, { name, error, startedAt }) {
   job.steps.push({
     name,
     status: error ? "FAILED" : "DONE",
     startedAt: startedAt || new Date(),
     finishedAt: new Date(),
-    model: model || null,
-    tokensIn,
-    tokensOut,
-    estimatedCostUsd,
     error: error || null,
   });
-  job.totalTokens += tokensIn + tokensOut;
-  job.totalCostUsd += estimatedCostUsd;
   await job.save();
+}
+
+// Pauses the job/opportunity at `stepName`, storing the prompt(s) the admin
+// needs to run manually in Claude Pro and paste responses back for. Never a
+// failure — job.status becomes AWAITING_INPUT, not FAILED. `kind` disambiguates
+// QUALITY_GATE's two different pause reasons (see job model comment); null
+// for every other step, which only ever pauses one way.
+async function pauseForInput(job, opportunity, stepName, prompts, kind = null) {
+  job.pendingStep = stepName;
+  job.pendingPrompts = prompts;
+  job.pendingKind = kind;
+  job.status = "AWAITING_INPUT";
+  await markStepRunning(job, stepName);
+  await job.save();
+
+  opportunity.status = "AWAITING_INPUT";
+  await opportunity.save();
+
+  return { success: true, awaitingInput: true, pendingStep: stepName, job, opportunity };
 }
 
 // Runs STEP_ORDER starting at `fromIndex`, reusing already-persisted data for
 // earlier steps (brief / articleDraft / imageConcept passed in) rather than
 // regenerating them. Mutates and saves `job` and `opportunity` as it goes.
 // Never throws — always returns a result object so callers can respond
-// gracefully.
-async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imageConcept }) {
-  const startedAt = Date.now();
+// gracefully. When a step needs a manual Claude Pro round trip and no
+// response has been submitted yet, this PAUSES (returns awaitingInput:true)
+// rather than continuing — resumeStep() below re-enters here once the admin
+// submits a response.
+async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imageConcept, resume }) {
   // Set inside the QUALITY_GATE branch, consumed after the loop to decide the
   // final opportunity status (NEEDS_REVISION vs HUMAN_REVIEW).
   let qualityGateOutcome = null;
 
   for (let i = fromIndex; i < STEP_ORDER.length; i++) {
     const stepName = STEP_ORDER[i];
-    try {
-      await markStepRunning(job, stepName);
+    // `resume` carries the admin's pasted response(s) for exactly one step
+    // (the one the job was paused on) — only applies on the first loop
+    // iteration; every step after that starts fresh (Phase A: build & pause).
+    const resumeForThisStep = resume && resume.stepName === stepName ? resume : null;
 
+    try {
       if (stepName === "BRIEF") {
-        const result = await generateContentBrief(opportunity);
+        if (!resumeForThisStep) {
+          const { system, prompt } = await buildContentBriefPrompt(opportunity);
+          return pauseForInput(job, opportunity, stepName, [{ label: "Content brief", system, prompt }]);
+        }
+        const result = await parseContentBriefResponse(resumeForThisStep.responses[0]?.text, opportunity);
         brief = result.brief;
         job.briefId = brief._id;
-        await markStepDone(job, stepName, result);
+        await markStepDone(job, stepName);
       } else if (stepName === "ARTICLE") {
-        const result = await writeArticle(brief, opportunity);
+        if (!resumeForThisStep) {
+          const { system, prompt } = await buildArticleWriterPrompt(brief, opportunity);
+          return pauseForInput(job, opportunity, stepName, [{ label: "Article draft", system, prompt }]);
+        }
+        const result = parseArticleResponse(resumeForThisStep.responses[0]?.text, brief, opportunity);
         articleDraft = result.articleDraft;
-        await markStepDone(job, stepName, result);
+        await markStepDone(job, stepName);
       } else if (stepName === "SEO") {
-        const result = await writeSeoFields(articleDraft, brief);
+        if (!resumeForThisStep) {
+          const { system, prompt } = buildSeoFieldWriterPrompt({ articleDraft, brief });
+          return pauseForInput(job, opportunity, stepName, [{ label: "SEO fields", system, prompt }]);
+        }
+        const result = parseSeoFieldsResponse(resumeForThisStep.responses[0]?.text, articleDraft, brief);
         articleDraft = { ...articleDraft, ...result.seoFields };
-        await markStepDone(job, stepName, result);
+        await markStepDone(job, stepName);
       } else if (stepName === "LINKS") {
-        const result = await generateInternalLinks(articleDraft, brief, opportunity);
-        articleDraft = { ...articleDraft, content: result.content, suggestedInternalLinks: result.suggestedInternalLinks };
-        await markStepDone(job, stepName, result);
+        if (!resumeForThisStep) {
+          const { prompt, candidateCourses, candidateBlogs } = await buildInternalLinkerPromptForOpportunity(articleDraft, brief, opportunity);
+          if (!prompt) {
+            // No candidates to choose from — nothing to ask the admin, skip
+            // straight through with empty links (mirrors prior behavior).
+            const result = parseInternalLinksResponse(null, articleDraft, candidateCourses, candidateBlogs);
+            articleDraft = { ...articleDraft, content: result.content, suggestedInternalLinks: result.suggestedInternalLinks };
+            await markStepDone(job, stepName);
+          } else {
+            job.pendingLinkCandidates = { candidateCourses, candidateBlogs };
+            return pauseForInput(job, opportunity, stepName, [{ label: "Internal link selection", system: prompt.system, prompt: prompt.prompt }]);
+          }
+        } else {
+          const { candidateCourses, candidateBlogs } = resumeForThisStep.linkCandidates || { candidateCourses: [], candidateBlogs: [] };
+          const result = parseInternalLinksResponse(resumeForThisStep.responses[0]?.text, articleDraft, candidateCourses, candidateBlogs);
+          articleDraft = { ...articleDraft, content: result.content, suggestedInternalLinks: result.suggestedInternalLinks };
+          job.pendingLinkCandidates = null;
+          await markStepDone(job, stepName);
+        }
       } else if (stepName === "IMAGE_PROMPT") {
-        const result = await generateImageConcept(articleDraft, opportunity);
+        if (!resumeForThisStep) {
+          const { system, prompt } = buildImagePromptWriterPrompt({ articleDraft, opportunity });
+          return pauseForInput(job, opportunity, stepName, [{ label: "Cover image concept", system, prompt }]);
+        }
+        const result = parseImageConceptResponse(resumeForThisStep.responses[0]?.text, articleDraft, opportunity);
         imageConcept = result.imageConcept;
-        await markStepDone(job, stepName, result);
+        await markStepDone(job, stepName);
       } else if (stepName === "QUALITY_GATE") {
-        let gateResult = await runQualityGate(opportunity._id, articleDraft);
+        if (!resumeForThisStep) {
+          const prompts = await buildQualityGatePrompts(opportunity._id, articleDraft);
+          return pauseForInput(
+            job,
+            opportunity,
+            stepName,
+            [
+              { label: "Fact-check", system: prompts.factCheck.system, prompt: prompts.factCheck.prompt },
+              { label: "AI-style evaluation", system: prompts.aiStyle.system, prompt: prompts.aiStyle.prompt },
+              { label: "Quality evaluation", system: prompts.qualityEval.system, prompt: prompts.qualityEval.prompt },
+            ],
+            "CHECKS"
+          );
+        }
 
-        // Automatic revision pass — capped at exactly 1 (guaranteed by the
-        // `autoRevisionCount === 0` guard, never re-entered for this
-        // opportunity's automatic pipeline again after this point).
-        if (gateResult.flaggedForRevision && (opportunity.autoRevisionCount || 0) === 0) {
+        // A QUALITY_GATE pause happens for one of three distinct reasons —
+        // dispatch on `kind` (persisted on the job at pause time) rather than
+        // guessing from which optional fields are set, since the initial
+        // 3-prompt trio and the 1-prompt revision rewrite are structurally
+        // different requests that both resolve to this same step name.
+        if (resumeForThisStep.kind === "REVISION" || resumeForThisStep.kind === "REVISION_STRONGER") {
           const revisionStartedAt = new Date();
-          const revisionResult = await reviseArticle(articleDraft, gateResult, brief);
-          articleDraft = revisionResult.articleDraft;
+          const priorGateResult = job.pendingQualityGateResult;
+          const revisionText = resumeForThisStep.responses[0]?.text;
+          if (resumeForThisStep.kind === "REVISION") {
+            const first = parseRevisionResponse(revisionText, articleDraft);
+            if (first.tooSimilar) {
+              // First pasted revision read as near-identical — ask for a
+              // stronger one instead of silently accepting a synonym-swap.
+              const { system, prompt } = buildRevisionPrompt({ articleDraft, qualityScoreResult: priorGateResult, brief, humanNote: null, stronger: true });
+              job.pendingFirstRevision = { revised: first.revised, similarity: first.similarity };
+              return pauseForInput(job, opportunity, stepName, [{ label: "Automatic revision (stronger rewrite requested)", system, prompt }], "REVISION_STRONGER");
+            }
+            articleDraft = first.revised;
+          } else {
+            const first = job.pendingFirstRevision;
+            const second = parseRevisionResponse(revisionText, articleDraft);
+            // Compare against the first attempt's similarity too — pick
+            // whichever diverged more from the original, never silently
+            // discard a better first attempt just because a second was requested.
+            articleDraft = first && second.similarity > first.similarity ? first.revised : second.revised;
+            job.pendingFirstRevision = null;
+          }
+
           opportunity.autoRevisionCount = (opportunity.autoRevisionCount || 0) + 1;
           opportunity.articleDraft = articleDraft;
           await opportunity.save();
 
-          await appendStep(job, {
-            name: "REVISION",
-            model: revisionResult.model,
-            usage: revisionResult.usage,
-            error: revisionResult.gaveUp ? revisionResult.note : null,
-            startedAt: revisionStartedAt,
-          });
+          await appendStep(job, { name: "REVISION", error: null, startedAt: revisionStartedAt });
 
+          job.pendingQualityGateResult = null;
           // Re-run the gate on the revised draft — this produces a SECOND
           // ContentQualityScore doc (generationAttempt auto-incremented
-          // inside runQualityGate), so both attempts' flag history stays
-          // visible to the review UI.
-          gateResult = await runQualityGate(opportunity._id, articleDraft);
+          // inside resolveQualityGate), so both attempts' flag history stays
+          // visible to the review UI. This needs its own fresh 3-prompt pause.
+          const prompts = await buildQualityGatePrompts(opportunity._id, articleDraft);
+          return pauseForInput(
+            job,
+            opportunity,
+            stepName,
+            [
+              { label: "Fact-check (post-revision)", system: prompts.factCheck.system, prompt: prompts.factCheck.prompt },
+              { label: "AI-style evaluation (post-revision)", system: prompts.aiStyle.system, prompt: prompts.aiStyle.prompt },
+              { label: "Quality evaluation (post-revision)", system: prompts.qualityEval.system, prompt: prompts.qualityEval.prompt },
+            ],
+            "CHECKS"
+          );
+        }
+
+        const [factCheckText, aiStyleText, qualityEvalText] = resumeForThisStep.responses.map((r) => r.text);
+        const gateResult = await resolveQualityGate(opportunity._id, articleDraft, { factCheckText, aiStyleText, qualityEvalText });
+
+        // Automatic revision pass — capped at exactly 1 (guaranteed by the
+        // `autoRevisionCount === 0` guard, never re-entered for this
+        // opportunity's automatic pipeline again after this point). In the
+        // manual-paste flow this needs its own pause: pause QUALITY_GATE
+        // again (job.pendingStep stays QUALITY_GATE) with a REVISION prompt.
+        if (gateResult.flaggedForRevision && (opportunity.autoRevisionCount || 0) === 0) {
+          const { system, prompt } = buildRevisionPrompt({ articleDraft, qualityScoreResult: gateResult, brief, humanNote: null, stronger: false });
+          job.pendingQualityGateResult = gateResult;
+          return pauseForInput(job, opportunity, stepName, [{ label: "Automatic revision (flagged draft)", system, prompt }], "REVISION");
         }
 
         qualityGateOutcome = gateResult;
-
-        const combinedUsage = sumUsage(
-          gateResult.usage?.factChecker,
-          gateResult.usage?.aiStyle,
-          gateResult.usage?.qualityEvaluator
-        );
-        await markStepDone(job, stepName, {
-          model: gateResult.models?.qualityEvaluator || gateResult.models?.factChecker || null,
-          usage: combinedUsage,
-        });
+        job.pendingQualityGateResult = null;
+        await markStepDone(job, stepName);
       }
 
       // Persist progress after each step so partial work is never lost even
@@ -192,9 +255,10 @@ async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imag
       await markStepFailed(job, stepName, err);
 
       job.status = "FAILED";
+      job.pendingStep = null;
+      job.pendingPrompts = [];
       job.retryCount += 1;
       job.lastAttemptAt = new Date();
-      job.durationMs = Date.now() - startedAt;
       await job.save();
 
       opportunity.status = "FAILED";
@@ -208,7 +272,8 @@ async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imag
   }
 
   job.status = "DONE";
-  job.durationMs = Date.now() - startedAt;
+  job.pendingStep = null;
+  job.pendingPrompts = [];
   await job.save();
 
   // M3: if the quality gate is still flagged after the one automatic
@@ -231,21 +296,6 @@ async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imag
   return { success: true, job, opportunity };
 }
 
-// Marks a job (and, where given, its target step) FAILED with `reason`
-// without touching the opportunity's status — used when the pipeline is
-// blocked before it ever starts (daily AI budget exceeded), so the
-// opportunity stays in its current generatable/review status rather than
-// being reported as if generation itself failed.
-async function failJobForBudget(jobId, reason, stepName) {
-  if (!jobId) return;
-  const job = await ContentGenerationJob.findById(jobId);
-  if (!job) return;
-  ensureSteps(job);
-  if (stepName) await markStepFailed(job, stepName, new Error(reason));
-  job.status = "FAILED";
-  await job.save();
-}
-
 // Creates/loads a ContentGenerationJob and runs the full pipeline from the
 // start. Never throws further up — returns a result object. `jobId`, when
 // given, is the caller's already-created ContentGenerationJob._id — using it
@@ -255,14 +305,6 @@ async function failJobForBudget(jobId, reason, stepName) {
 export async function runGenerationPipeline(opportunityId, jobId) {
   const opportunity = await ContentOpportunity.findById(opportunityId);
   if (!opportunity) return { success: false, error: "Opportunity not found" };
-
-  const budgetCheck = await enforceBudgetOrPause();
-  if (budgetCheck.paused) {
-    const reason = budgetCheck.reason || "Daily AI budget exceeded — automation is paused.";
-    console.warn(`[content-factory] generation blocked for opportunity ${opportunity._id}: ${reason}`);
-    await failJobForBudget(jobId, reason, STEP_ORDER[0]);
-    return { success: false, failedStep: "BUDGET", error: reason, opportunity };
-  }
 
   try {
     opportunity.status = "GENERATING";
@@ -301,6 +343,50 @@ export async function runGenerationPipeline(opportunityId, jobId) {
   }
 }
 
+// Resumes a paused (AWAITING_INPUT) job with the admin's pasted response(s)
+// for job.pendingStep. `responses` must be an array aligned with
+// job.pendingPrompts (same order/length) — [{ label, text }]. Which pause
+// this actually was (the initial 3-prompt QUALITY_GATE trio vs. a 1-prompt
+// REVISION rewrite) is read from job.pendingKind, set at pause time — never
+// inferred from which optional request fields the caller happened to send.
+export async function resumeStep(jobId, { responses }) {
+  const job = await ContentGenerationJob.findById(jobId);
+  if (!job) return { success: false, error: "Job not found" };
+  if (job.status !== "AWAITING_INPUT" || !job.pendingStep) {
+    return { success: false, error: `Job is not awaiting input (status: ${job.status})` };
+  }
+
+  const expectedCount = job.pendingPrompts.length;
+  const providedResponses = Array.isArray(responses) ? responses : [];
+  if (providedResponses.length !== expectedCount || providedResponses.some((r) => !r?.text || !String(r.text).trim())) {
+    return { success: false, error: `Expected ${expectedCount} non-empty response(s), got ${providedResponses.length}.` };
+  }
+
+  const opportunity = await ContentOpportunity.findById(job.opportunityId);
+  if (!opportunity) return { success: false, error: "Opportunity not found" };
+
+  const stepName = job.pendingStep;
+  const fromIndex = STEP_ORDER.indexOf(stepName);
+
+  const brief = fromIndex > 0 ? await ContentBrief.findOne({ opportunityId: opportunity._id }) : null;
+  const articleDraft = opportunity.articleDraft?.toObject ? opportunity.articleDraft.toObject() : opportunity.articleDraft;
+  const imageConcept = opportunity.imageConcept?.toObject ? opportunity.imageConcept.toObject() : opportunity.imageConcept;
+
+  const resume = {
+    stepName,
+    kind: job.pendingKind,
+    responses: providedResponses,
+    linkCandidates: job.pendingLinkCandidates,
+  };
+
+  job.status = "RUNNING";
+  job.pendingPrompts = [];
+  job.pendingKind = null;
+  await job.save();
+
+  return runSteps({ opportunity, job, fromIndex, brief, articleDraft, imageConcept, resume });
+}
+
 // Re-runs only from the failed step onward, reusing already-persisted
 // brief/articleDraft where available — never regenerates steps that already
 // succeeded, unless the step being retried is what's requested.
@@ -316,14 +402,6 @@ export async function retryFromStep(jobId, stepName) {
   const targetName = stepName || job.steps.find((s) => s.status === "FAILED")?.name || STEP_ORDER[0];
   const fromIndex = STEP_ORDER.indexOf(targetName);
   if (fromIndex === -1) return { success: false, error: `Unknown step: ${targetName}` };
-
-  const budgetCheck = await enforceBudgetOrPause();
-  if (budgetCheck.paused) {
-    const reason = budgetCheck.reason || "Daily AI budget exceeded — automation is paused.";
-    console.warn(`[content-factory] retry blocked for opportunity ${opportunity._id}: ${reason}`);
-    await failJobForBudget(jobId, reason, targetName);
-    return { success: false, failedStep: "BUDGET", error: reason, opportunity };
-  }
 
   try {
     const articleIndex = STEP_ORDER.indexOf("ARTICLE");
@@ -343,6 +421,12 @@ export async function retryFromStep(jobId, stepName) {
       }
     });
     job.status = "RUNNING";
+    job.pendingStep = null;
+    job.pendingPrompts = [];
+    job.pendingKind = null;
+    job.pendingLinkCandidates = null;
+    job.pendingQualityGateResult = null;
+    job.pendingFirstRevision = null;
     await job.save();
 
     opportunity.status = "GENERATING";

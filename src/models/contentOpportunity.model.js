@@ -85,6 +85,7 @@ const contentOpportunitySchema = new Schema(
         "PLANNED",
         "SELECTED",
         "GENERATING",
+        "AWAITING_INPUT",
         "AI_REVIEW",
         "HUMAN_REVIEW",
         "NEEDS_REVISION",

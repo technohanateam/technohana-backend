@@ -5,7 +5,7 @@ import ContentQualityScore from "../../models/contentQualityScore.model.js";
 import { Blogs } from "../../models/blogs.model.js";
 import { createBlogFromPayload } from "../../services/blogCreation.service.js";
 import { enqueueGeneration } from "../../services/contentFactory/contentGenerationQueue.js";
-import { reviseArticle } from "../../services/contentFactory/revisionAgent.service.js";
+import { buildRevisionPrompt, parseRevisionResponse } from "../../services/contentFactory/revisionAgent.service.js";
 
 // GET /admin/content-factory/review/:opportunityId
 // M3: includes the latest ContentQualityScore plus full attempt history
@@ -41,7 +41,7 @@ export const getReviewItem = async (req, res) => {
 // GET /admin/content-factory/review — list opportunities awaiting/in review
 export const listReviewItems = async (req, res) => {
   try {
-    const statuses = ["GENERATING", "AI_REVIEW", "HUMAN_REVIEW", "NEEDS_REVISION", "FAILED"];
+    const statuses = ["GENERATING", "AWAITING_INPUT", "AI_REVIEW", "HUMAN_REVIEW", "NEEDS_REVISION", "FAILED"];
     const status = req.query.status && statuses.includes(req.query.status) ? [req.query.status] : statuses;
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Number(req.query.limit) || 25);
@@ -126,12 +126,13 @@ export const regenerateReview = async (req, res) => {
 };
 
 // POST /admin/content-factory/review/:opportunityId/request-revision
-// M3: real Revision Agent wiring — calls revisionAgent.service.js with the
-// human's note merged alongside any existing quality-gate flag reasons. This
-// is a human-requested revision, NOT the automatic pipeline pass, so it is
-// NOT limited by opportunity.autoRevisionCount — a human can ask again as
-// many times as needed. After revision, status goes back to HUMAN_REVIEW
-// (never auto-approved) so the human re-checks the result.
+// Manual Claude Pro workflow — builds the revision prompt (human note merged
+// alongside any existing quality-gate flag reasons) for the admin to copy
+// into Claude Pro chat; does NOT apply anything yet. This is a
+// human-requested revision, NOT the automatic pipeline pass, so it is NOT
+// limited by opportunity.autoRevisionCount — a human can ask again as many
+// times as needed. Submit the pasted response via
+// POST .../request-revision/submit.
 export const requestRevision = async (req, res) => {
   try {
     const opportunity = await ContentOpportunity.findById(req.params.opportunityId);
@@ -156,21 +157,51 @@ export const requestRevision = async (req, res) => {
       factCheckFindings: latestScore?.factCheckFindings || [],
     };
 
-    const revisionResult = await reviseArticle(draft, qualityScoreResult, brief, { humanNote: note });
+    const { system, prompt } = buildRevisionPrompt({ articleDraft: draft, qualityScoreResult, brief, humanNote: note, stronger: false });
 
-    opportunity.articleDraft = revisionResult.articleDraft;
+    return res.json({
+      success: true,
+      data: { prompt: { label: "Requested revision", system, prompt } },
+      message: "Copy this prompt into Claude Pro, then submit the response.",
+    });
+  } catch (err) {
+    console.error("[ContentFactory] requestRevision error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /admin/content-factory/review/:opportunityId/request-revision/submit
+// body: { text } — the admin's pasted Claude Pro response to the prompt from
+// requestRevision above. Applies it (with the same too-similar sanity check
+// as the automatic pipeline pass) and returns to HUMAN_REVIEW.
+export const submitRevisionResponse = async (req, res) => {
+  try {
+    const opportunity = await ContentOpportunity.findById(req.params.opportunityId);
+    if (!opportunity) return res.status(404).json({ success: false, message: "Opportunity not found" });
+
+    const draft = opportunity.articleDraft?.toObject ? opportunity.articleDraft.toObject() : opportunity.articleDraft;
+    if (!draft?.content) {
+      return res.status(400).json({ success: false, message: "No article draft to revise yet." });
+    }
+
+    const text = req.body?.text;
+    if (!text) return res.status(400).json({ success: false, message: "text is required" });
+
+    const { revised, tooSimilar } = parseRevisionResponse(text, draft);
+
+    opportunity.articleDraft = revised;
     opportunity.status = "HUMAN_REVIEW";
     await opportunity.save();
 
     return res.json({
       success: true,
-      data: { opportunity, gaveUp: revisionResult.gaveUp, note: revisionResult.note },
-      message: revisionResult.gaveUp
-        ? "Revision applied, but the automatic rewrite could not substantially change the flagged sections — please review closely."
+      data: { opportunity, tooSimilar },
+      message: tooSimilar
+        ? "Revision applied, but it reads very close to the original — consider asking Claude Pro for a stronger rewrite and resubmitting."
         : "Revision applied — back in human review",
     });
   } catch (err) {
-    console.error("[ContentFactory] requestRevision error:", err);
+    console.error("[ContentFactory] submitRevisionResponse error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
