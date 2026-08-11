@@ -1,3 +1,5 @@
+import { logoPath, logoSize } from "./brand/technohanaBrand.js";
+
 // Technohana brand tokens (frontend CLAUDE.md brand palette) + shared layout
 // constants. One place to tune "does this look like Technohana" without
 // touching every renderer — enterprise-learning aesthetic, not "AI neon":
@@ -22,9 +24,24 @@ export const LAYOUT = {
   contentBottom: 5.3,
 };
 
+// Single reusable placement helper (brand integration §12) — every renderer
+// that wants a Technohana mark calls this instead of hand-rolling its own
+// addImage call. Width is always the caller's only size input; height is
+// always derived from the source asset's real aspect ratio (technohanaBrand.js)
+// so the logo can never be stretched independently in X/Y.
+export function addTechnohanaLogo(slide, { variant, x, y, width }) {
+  const { w, h } = logoSize(variant, width);
+  slide.addImage({ path: logoPath(variant), x, y, w, h });
+  return { w, h };
+}
+
 // Every non-title slide shares this chrome: title bar + footer page number +
-// optional Technohana wordmark tick — keeps layout decisions out of the AI's
-// hands (spec Priority 4: "the renderer decides HOW the slide looks").
+// a small, subtle Technohana identity mark — keeps layout decisions out of
+// the AI's hands (spec Priority 4: "the renderer decides HOW the slide
+// looks") and out of individual renderers' hands too (brand integration
+// §14: content renderers never specify a logo themselves). The mark sits at
+// the far left of the footer, small enough to never compete with a
+// diagram/code/table area that can run right up to ~y=5.05.
 export function addSlideChrome(slide, { title, subtitle, pageNumber, kicker }) {
   slide.background = { color: BRAND.white };
 
@@ -49,6 +66,8 @@ export function addSlideChrome(slide, { title, subtitle, pageNumber, kicker }) {
       fontSize: 15, italic: true, color: BRAND.slate, fontFace: "Arial",
     });
   }
+
+  addTechnohanaLogo(slide, { variant: "icon", x: LAYOUT.marginX, y: LAYOUT.height - 0.36, width: 0.24 });
 
   if (pageNumber != null) {
     slide.addText(String(pageNumber), {

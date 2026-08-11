@@ -181,6 +181,26 @@ export function drawDiagram(slide, diagram, area) {
   }
 }
 
+// Splits a code string into page-sized chunks by line count, so a long
+// function never gets crushed into an unreadably small font or silently
+// clipped — the box height/font size stay fixed (readability stays
+// constant); the code splits across additional slides instead. Heuristic,
+// line-count based (pptxgenjs exposes no text-measurement API to do this
+// pixel-exactly), calibrated to the renderer's actual fontSize/lineSpacing/
+// box height so it tracks if those ever change.
+export function splitCodeIntoPages(code, { h = 3.2, fontSize = 12, lineSpacing = 16 } = {}) {
+  if (!code) return [""];
+  const lines = code.split("\n");
+  const interiorHeightPt = (h - 0.55) * 72;
+  const maxLines = Math.max(4, Math.floor(interiorHeightPt / lineSpacing) - 1); // 1-line buffer
+  if (lines.length <= maxLines) return [code];
+  const pages = [];
+  for (let i = 0; i < lines.length; i += maxLines) {
+    pages.push(lines.slice(i, i + maxLines).join("\n"));
+  }
+  return pages;
+}
+
 // CODE — a single dark, monospace code block with an optional language chip.
 export function drawCodeBlock(slide, code, { x = 0.5, y = 1.75, w = 9, h = 3.3, language } = {}) {
   slide.addShape("roundRect", { x, y, w, h, fill: { color: BRAND.ink }, line: { color: BRAND.ink }, rectRadius: 0.08 });

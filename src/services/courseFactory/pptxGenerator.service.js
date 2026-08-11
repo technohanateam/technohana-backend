@@ -15,10 +15,16 @@ export function buildLessonPptx(lesson) {
   pptx.author = "Technohana AI Academy";
   pptx.title = lesson.title;
 
+  // A running physical page counter, not the JSON slide index — a single
+  // JSON slide (e.g. a long CODE block) can render as more than one actual
+  // pptx slide (see renderCodeSlide's auto-pagination), so page numbers must
+  // track actual output slides or two pages end up sharing one number.
   const slides = [...(lesson.slides || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
-  slides.forEach((slide, i) => {
+  let pageCounter = 0;
+  slides.forEach((slide) => {
     const renderer = SLIDE_RENDERERS[slide.type] || renderConceptSlide;
-    renderer(pptx, slide, { pageNumber: i + 1, lessonTitle: lesson.title });
+    const result = renderer(pptx, slide, { pageNumber: pageCounter + 1, lessonTitle: lesson.title });
+    pageCounter += Array.isArray(result) ? result.length : 1;
   });
 
   return pptx.write({ outputType: "nodebuffer" });
