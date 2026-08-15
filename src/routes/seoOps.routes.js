@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { authenticateAdmin, requirePage, requireMarketing } from "../middleware/authenticateAdmin.js";
 
 import { getSeoDashboard, getBacklinkAnalytics } from "../controllers/seoDashboard.controller.js";
@@ -39,6 +40,28 @@ import { importCompetitorCsv } from "../controllers/seoBacklinkCompetitorGap.con
 
 const router = express.Router();
 
+// Full-collection scans and CSV imports (which do a findOne + create per row,
+// up to 2000 rows) — throttled per-admin so a scripted loop can't pin the DB.
+const seoOpsHeavyLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.admin?.uid || ipKeyGenerator(req.ip),
+  message: "Too many bulk/script requests. Please wait a moment before trying again.",
+});
+
+// AI generation and outbound email get their own hourly budget so routine
+// bulk work can't starve them — and so a loop can't repeatedly mail a contact.
+const seoOpsAiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.admin?.uid || ipKeyGenerator(req.ip),
+  message: "AI outreach rate limit reached. Please try again later.",
+});
+
 // All /admin/seo/* routes require an authenticated admin plus the relevant page grant.
 router.use(authenticateAdmin);
 
@@ -53,18 +76,18 @@ router.get("/analytics", requirePage("seo-ops-analytics"), getBacklinkAnalytics)
 // Express matches the wildcard route first (id="bulk"/"import") and the
 // specific routes below become unreachable.
 router.get("/opportunities", requirePage("seo-ops-opportunities"), getAllOpportunities);
-router.patch("/opportunities/bulk", requirePage("seo-ops-opportunities"), requireMarketing, bulkUpdateOpportunities);
-router.post("/opportunities/import", requirePage("seo-ops-opportunities"), requireMarketing, importOpportunities);
-router.post("/discovery/run", requirePage("seo-ops-opportunities"), requireMarketing, runDiscovery);
+router.patch("/opportunities/bulk", requirePage("seo-ops-opportunities"), requireMarketing, seoOpsHeavyLimiter, bulkUpdateOpportunities);
+router.post("/opportunities/import", requirePage("seo-ops-opportunities"), requireMarketing, seoOpsHeavyLimiter, importOpportunities);
+router.post("/discovery/run", requirePage("seo-ops-opportunities"), requireMarketing, seoOpsAiLimiter, runDiscovery);
 router.get("/discovery/status/:jobId", requirePage("seo-ops-opportunities"), getDiscoveryStatus);
-router.post("/discovery/manual/start", requirePage("seo-ops-opportunities"), requireMarketing, startManualDiscovery);
-router.post("/discovery/manual/step", requirePage("seo-ops-opportunities"), requireMarketing, submitManualDiscoveryStep);
+router.post("/discovery/manual/start", requirePage("seo-ops-opportunities"), requireMarketing, seoOpsAiLimiter, startManualDiscovery);
+router.post("/discovery/manual/step", requirePage("seo-ops-opportunities"), requireMarketing, seoOpsAiLimiter, submitManualDiscoveryStep);
 router.get("/opportunities/:id", requirePage("seo-ops-opportunities"), getOpportunity);
 router.patch("/opportunities/:id", requirePage("seo-ops-opportunities"), requireMarketing, updateOpportunity);
 
 // ── Competitors (filtered opportunities view) ───────────────────────────
 router.get("/competitors", requirePage("seo-ops-competitors"), getCompetitorGap);
-router.post("/competitors/import", requirePage("seo-ops-competitors"), requireMarketing, importCompetitorCsv);
+router.post("/competitors/import", requirePage("seo-ops-competitors"), requireMarketing, seoOpsHeavyLimiter, importCompetitorCsv);
 
 // ── Resource Pages (filtered opportunities view) ────────────────────────
 router.get("/resource-pages", requirePage("seo-ops-resource-pages"), getResourcePages);
@@ -78,9 +101,9 @@ router.patch("/outreach/contacts/:id", requirePage("seo-ops-outreach"), requireM
 router.patch("/outreach/contacts/:id/archive", requirePage("seo-ops-outreach"), requireMarketing, archiveContact);
 router.post("/outreach/contacts/:id/followups", requirePage("seo-ops-outreach"), requireMarketing, addFollowUp);
 router.post("/outreach/contacts/:id/responses", requirePage("seo-ops-outreach"), requireMarketing, addResponse);
-router.post("/outreach/contacts/import", requirePage("seo-ops-outreach"), requireMarketing, importContacts);
-router.post("/outreach/contacts/:id/ai-draft", requirePage("seo-ops-outreach"), requireMarketing, generateAiDraft);
-router.post("/outreach/contacts/:id/ai-draft/:draftIndex/send", requirePage("seo-ops-outreach"), requireMarketing, sendAiDraft);
+router.post("/outreach/contacts/import", requirePage("seo-ops-outreach"), requireMarketing, seoOpsHeavyLimiter, importContacts);
+router.post("/outreach/contacts/:id/ai-draft", requirePage("seo-ops-outreach"), requireMarketing, seoOpsAiLimiter, generateAiDraft);
+router.post("/outreach/contacts/:id/ai-draft/:draftIndex/send", requirePage("seo-ops-outreach"), requireMarketing, seoOpsAiLimiter, sendAiDraft);
 router.patch("/outreach/contacts/:id/ai-draft/:draftIndex/discard", requirePage("seo-ops-outreach"), requireMarketing, discardAiDraft);
 
 router.get("/outreach/campaigns", requirePage("seo-ops-outreach"), getCampaigns);
@@ -110,9 +133,9 @@ router.get("/settings", requirePage("seo-ops-settings"), getSettings);
 router.patch("/settings", requirePage("seo-ops-settings"), requireMarketing, updateSettings);
 
 // ── Script actions (run against MongoDB — see seoOpsScripts.service.js) ────
-router.post("/scripts/validate", requirePage("seo-ops-settings"), requireMarketing, validateCsv);
-router.post("/scripts/duplicates", requirePage("seo-ops-settings"), requireMarketing, checkDuplicates);
-router.post("/scripts/score", requirePage("seo-ops-settings"), requireMarketing, scoreOpportunities);
-router.post("/scripts/generate-report", requirePage("seo-ops-reports"), requireMarketing, generateMonthlyReport);
+router.post("/scripts/validate", requirePage("seo-ops-settings"), requireMarketing, seoOpsHeavyLimiter, validateCsv);
+router.post("/scripts/duplicates", requirePage("seo-ops-settings"), requireMarketing, seoOpsHeavyLimiter, checkDuplicates);
+router.post("/scripts/score", requirePage("seo-ops-settings"), requireMarketing, seoOpsHeavyLimiter, scoreOpportunities);
+router.post("/scripts/generate-report", requirePage("seo-ops-reports"), requireMarketing, seoOpsHeavyLimiter, generateMonthlyReport);
 
 export default router;

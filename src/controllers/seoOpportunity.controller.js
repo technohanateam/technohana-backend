@@ -26,9 +26,8 @@ const buildFilter = (query, recordTypeFilter) => {
 
 const listOpportunities = (recordTypeFilter) => async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
+    const pageNum = Math.max(1, Number(req.query.page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const skip = (pageNum - 1) * limitNum;
 
     const filter = buildFilter(req.query, recordTypeFilter);

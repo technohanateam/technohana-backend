@@ -4,7 +4,7 @@ import { Order } from "../models/order.model.js";
 import Enquiry from "../models/enquiry.model.js";
 import { Blogs } from "../models/blogs.model.js";
 import { CourseView } from "../models/courseView.model.js";
-import { authenticateAdmin, requirePage } from "../middleware/authenticateAdmin.js";
+import { authenticateAdmin, requirePage, requireMarketing } from "../middleware/authenticateAdmin.js";
 import { getGA4AdminClient, getGA4PropertyPath } from "../config/googleAnalytics.js";
 
 const router = express.Router();
@@ -347,7 +347,7 @@ router.get("/ga4-key-events", authenticateAdmin, requirePage("seo-analysis"), as
   }
 });
 
-router.post("/ga4-key-events", authenticateAdmin, requirePage("seo-analysis"), async (req, res) => {
+router.post("/ga4-key-events", authenticateAdmin, requirePage("seo-analysis"), requireMarketing, async (req, res) => {
   const { eventName, countingMethod = "ONCE_PER_EVENT" } = req.body;
   if (!eventName) {
     return res.status(400).json({ success: false, message: "eventName is required." });
@@ -368,7 +368,7 @@ router.post("/ga4-key-events", authenticateAdmin, requirePage("seo-analysis"), a
   }
 });
 
-router.delete("/ga4-key-events/:keyEventId", authenticateAdmin, requirePage("seo-analysis"), async (req, res) => {
+router.delete("/ga4-key-events/:keyEventId", authenticateAdmin, requirePage("seo-analysis"), requireMarketing, async (req, res) => {
   try {
     const client = getGA4AdminClient();
     await client.deleteKeyEvent({ name: `${getGA4PropertyPath()}/keyEvents/${req.params.keyEventId}` });
