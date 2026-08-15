@@ -1,7 +1,7 @@
 import AcademyCourse from "../../models/courseFactory/academyCourse.model.js";
 import AcademyModule from "../../models/courseFactory/academyModule.model.js";
 import AcademyLesson from "../../models/courseFactory/academyLesson.model.js";
-import { generateCourseBlueprint } from "../../services/courseFactory/blueprintGenerator.service.js";
+import { buildBlueprintPrompt, parseBlueprintResponse } from "../../services/courseFactory/blueprintGenerator.service.js";
 
 function slugify(s) {
   return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -38,22 +38,44 @@ export const listCourses = async (req, res) => {
 };
 
 // POST /admin/course-factory/blueprint/generate
-// Generates a draft blueprint only — does NOT persist Course/Module/Lesson
-// docs yet. The admin reviews/edits, then POSTs it to /blueprint/approve.
+// Manual Claude Pro workflow (see blueprintGenerator.service.js — the
+// Anthropic API key has no working billing, same issue Content Factory hit
+// and fixed in fda0261): builds the prompt for the admin to run manually
+// through Claude Pro and returns it, rather than calling the API directly.
+// Submit the pasted response via POST /blueprint/parse.
 export const generateBlueprint = async (req, res) => {
   try {
     const { title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle } = req.body || {};
     if (!title || !audience || !level) {
       return res.status(400).json({ success: false, message: "title, audience, and level are required" });
     }
-    const { blueprint, costUsd } = await generateCourseBlueprint({ title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle });
+    const { system, prompt } = await buildBlueprintPrompt({ title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle });
     return res.json({
       success: true,
-      data: { title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle, blueprint, costUsd },
+      data: { title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle, prompt: { label: "Course blueprint", system, prompt } },
+      message: "Copy this prompt into Claude Pro, then submit the response.",
     });
   } catch (err) {
     console.error("[CourseFactory] generateBlueprint error:", err);
-    return res.status(500).json({ success: false, message: err.message || "Blueprint generation failed" });
+    return res.status(500).json({ success: false, message: err.message || "Blueprint prompt generation failed" });
+  }
+};
+
+// POST /admin/course-factory/blueprint/parse
+// body: { moduleCount, text } — the admin's pasted Claude Pro response to
+// the prompt from generateBlueprint above. Parses and validates it into the
+// same { blueprint, costUsd } shape the frontend previously got directly
+// from generateBlueprint, so CourseBlueprintBuilder's downstream edit/approve
+// flow is unchanged. costUsd is always 0 — manual Claude Pro usage isn't
+// billed through our API key, so there's nothing to track.
+export const parseBlueprint = async (req, res) => {
+  try {
+    const { moduleCount, text } = req.body || {};
+    const { blueprint } = parseBlueprintResponse(text, { moduleCount });
+    return res.json({ success: true, data: { blueprint, costUsd: 0 } });
+  } catch (err) {
+    console.error("[CourseFactory] parseBlueprint error:", err);
+    return res.status(400).json({ success: false, message: err.message || "Failed to parse blueprint response" });
   }
 };
 

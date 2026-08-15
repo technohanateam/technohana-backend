@@ -1,20 +1,13 @@
-import { callClaude, extractJson } from "../aiAgent.service.js";
-import { recordCourseFactorySpend, estimateCostUsd } from "./budgetGuard.service.js";
-import { getOrCreateCourseFactorySettings } from "../../models/courseFactory/courseFactorySettings.model.js";
+import { extractJson } from "../aiAgent.service.js";
 
-export class BlueprintTruncatedError extends Error {
-  constructor(maxTokens) {
-    super(`Course blueprint generation was truncated at maxTokens=${maxTokens} (stop_reason: max_tokens) — response is incomplete. Raise CourseFactorySettings.blueprintMaxTokens (or reduce moduleCount/lessonsPerModule) and retry.`);
-    this.name = "BlueprintTruncatedError";
-    this.maxTokens = maxTokens;
-  }
-}
-
-// Turns admin-supplied course inputs into an editable course + module + lesson
-// title skeleton. No lesson content is generated here — the admin reviews and
-// edits this blueprint before any lesson-level generation is triggered
-// (spec §9: "the administrator MUST be able to edit the blueprint").
-export async function generateCourseBlueprint({ title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle }) {
+// Builds the blueprint prompt for the admin to run manually through Claude
+// Pro (see aiAgent.service.js — ANTHROPIC_API_KEY has no working billing, so
+// this pipeline no longer calls the API directly; mirrors Content Factory's
+// manual workflow, see contentFactory/*WriterPrompt functions). No lesson
+// content is generated here — the admin reviews and edits the parsed
+// blueprint before any lesson-level generation is triggered (spec §9: "the
+// administrator MUST be able to edit the blueprint").
+export async function buildBlueprintPrompt({ title, audience, level, durationHours, moduleCount, lessonsPerModule, technology, teachingStyle }) {
   const system = `You are an instructional designer building a course syllabus for Technohana, an enterprise AI training company. Output ONLY a single JSON object, no prose, no markdown fences.`;
 
   const prompt = `Design a course blueprint.
@@ -53,27 +46,18 @@ Return JSON exactly in this shape:
   ]
 }`;
 
-  // Non-blocking fetch — see lessonContentGenerator.service.js for rationale.
-  let maxTokens = 8000;
-  try {
-    const settings = await getOrCreateCourseFactorySettings();
-    maxTokens = settings.blueprintMaxTokens || 8000;
-  } catch (err) {
-    console.error("[CourseFactory] could not load blueprintMaxTokens setting, using default 8000:", err.message);
-  }
-  const result = await callClaude({ system, prompt, maxTokens, tier: "standard" });
-  const tokensIn = result.usage?.input_tokens || 0;
-  const tokensOut = result.usage?.output_tokens || 0;
-  const costUsd = estimateCostUsd(result.model, tokensIn, tokensOut);
-  await recordCourseFactorySpend(costUsd);
+  return { system, prompt };
+}
 
-  if (result.stopReason === "max_tokens") {
-    throw new BlueprintTruncatedError(maxTokens);
-  }
-
-  const parsed = extractJson(result.text);
+// Parses the admin's pasted Claude Pro response into a validated blueprint.
+// No cost tracking here — manual Claude Pro usage isn't billed per-call
+// through our API key, so there's nothing to record (mirrors Content
+// Factory's parse* functions after fda0261).
+export function parseBlueprintResponse(text, { moduleCount } = {}) {
+  if (!text || !String(text).trim()) throw new Error("No blueprint response provided.");
+  const parsed = extractJson(text);
   validateBlueprint(parsed, { moduleCount });
-  return { blueprint: parsed, model: result.model, usage: result.usage, costUsd };
+  return { blueprint: parsed };
 }
 
 function validateBlueprint(blueprint, { moduleCount }) {

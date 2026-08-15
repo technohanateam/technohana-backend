@@ -1,28 +1,16 @@
-import { callClaude, extractJson } from "../aiAgent.service.js";
-import { recordCourseFactorySpend, estimateCostUsd } from "./budgetGuard.service.js";
+import { extractJson } from "../aiAgent.service.js";
 import { SLIDE_TYPES, DIAGRAM_TYPES } from "../../models/courseFactory/academyLesson.model.js";
-import { getOrCreateCourseFactorySettings } from "../../models/courseFactory/courseFactorySettings.model.js";
 
-// Thrown when Claude's response was cut off by the token limit rather than
-// finishing naturally — the JSON is genuinely incomplete, not just malformed,
-// so parseModelJson's repair heuristics are never even attempted (they can't
-// recover missing content, only fix formatting). The orchestrator must not
-// persist partial content or generate downstream assets (PPTX/audio) from it.
-export class LessonContentTruncatedError extends Error {
-  constructor(maxTokens) {
-    super(`Lesson content generation was truncated at maxTokens=${maxTokens} (stop_reason: max_tokens) — response is incomplete, not malformed. Raise CourseFactorySettings.lessonContentMaxTokens and retry.`);
-    this.name = "LessonContentTruncatedError";
-    this.maxTokens = maxTokens;
-  }
-}
-
-// Generates the full canonical lesson in one strict-JSON Claude call: sections,
-// slides (concise, per spec §7 — narration carries the explanation, slides
-// stay terse), quiz, exercise, lab, instructor notes, transcript. Validates
-// every field before it's allowed to reach the database (spec §8): on
-// invalid/incomplete JSON, the caller (orchestrator) retries once, then marks
-// the step FAILED with the recorded error rather than persisting partial junk.
-export async function generateLessonContent({ course, module, lesson }) {
+// Builds the prompt for the full canonical lesson (sections, slides — concise
+// per spec §7, narration carries the explanation — quiz, exercise, lab,
+// instructor notes, transcript) for the admin to run manually through Claude
+// Pro (see aiAgent.service.js — ANTHROPIC_API_KEY has no working billing,
+// same issue Content Factory hit and fixed in fda0261). Parsing/validation
+// happens in parseLessonContentResponse below once the admin pastes the
+// response back — validation still runs before anything reaches the database
+// (spec §8): on invalid/incomplete JSON, the caller (orchestrator) surfaces
+// the error and the admin retries the paste, rather than persisting partial junk.
+export function buildLessonContentPrompt({ course, module, lesson }) {
   const system = `You are a senior instructional designer and technical writer producing a lesson for Technohana's AI Academy. Output ONLY a single JSON object, no prose, no markdown fences.
 
 Critical rule: slide text and narration text must NEVER be near-duplicates. Slides are terse (a heading, a few words, a short bullet). Narration is what an instructor would actually say out loud to explain that slide — a full explanatory sentence or two, in a natural teaching voice.
@@ -114,41 +102,17 @@ Return JSON exactly in this shape:
 
 If a hands-on exercise genuinely doesn't fit this topic, set "exercise" to null rather than inventing a fake one. Same for "lab" — only include it for hands-on technical lessons, and only reference real, generally available tools (e.g. Google Colab, GitHub, a browser sandbox) as an "externalResourceUrl" placeholder description, never invent infrastructure Technohana doesn't have.`;
 
-  // A full lesson payload (8-15 slides + narration + quiz + exercise +
-  // instructor notes + transcript, all in one JSON response) routinely runs
-  // 7-8k output tokens — 8192 was measured truncating mid-JSON on a real
-  // pilot run (stop_reason: "max_tokens"), which parseModelJson's repair
-  // heuristics cannot recover from since the JSON is genuinely incomplete,
-  // not just malformed. Configurable so an admin can raise it (or a future
-  // section-by-section generation strategy can lower it) without a deploy.
-  // Non-blocking fetch (same philosophy as aiUsageTracker's spend recording)
-  // — a transient DB hiccup shouldn't prevent generation from even starting;
-  // it just falls back to the schema default for this one call.
-  let maxTokens = 16000;
-  try {
-    const settings = await getOrCreateCourseFactorySettings();
-    maxTokens = settings.lessonContentMaxTokens || 16000;
-  } catch (err) {
-    console.error("[CourseFactory] could not load lessonContentMaxTokens setting, using default 16000:", err.message);
-  }
-  const result = await callClaude({ system, prompt, maxTokens, tier: "standard" });
-  const tokensIn = result.usage?.input_tokens || 0;
-  const tokensOut = result.usage?.output_tokens || 0;
-  const costUsd = estimateCostUsd(result.model, tokensIn, tokensOut);
-  await recordCourseFactorySpend(costUsd);
+  return { system, prompt };
+}
 
-  // Truncation is detected and rejected BEFORE attempting to parse — a
-  // truncated response is incomplete, not malformed, so no amount of JSON
-  // repair can recover it. Spend is still recorded above (tokens were
-  // genuinely consumed) but nothing incomplete is ever parsed, validated, or
-  // returned to the caller for persistence.
-  if (result.stopReason === "max_tokens") {
-    throw new LessonContentTruncatedError(maxTokens);
-  }
-
-  const parsed = extractJson(result.text);
+// Parses the admin's pasted Claude Pro response into a validated lesson
+// content payload. No cost tracking here — manual Claude Pro usage isn't
+// billed through our API key, so there's nothing to record.
+export function parseLessonContentResponse(text) {
+  if (!text || !String(text).trim()) throw new Error("No lesson content response provided.");
+  const parsed = extractJson(text);
   validateLessonContent(parsed);
-  return { content: parsed, model: result.model, usage: result.usage, costUsd };
+  return { content: parsed };
 }
 
 export function validateLessonContent(content) {

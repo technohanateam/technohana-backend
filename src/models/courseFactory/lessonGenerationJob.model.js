@@ -23,9 +23,20 @@ const lessonGenerationJobSchema = new Schema(
   {
     lessonId: { type: Schema.Types.ObjectId, ref: "AcademyLesson", required: true, index: true },
 
-    status: { type: String, enum: ["QUEUED", "RUNNING", "AI_REVIEW", "DONE", "FAILED"], default: "QUEUED", index: true },
+    status: { type: String, enum: ["QUEUED", "RUNNING", "AWAITING_INPUT", "AI_REVIEW", "DONE", "FAILED"], default: "QUEUED", index: true },
 
     steps: { type: [stepSchema], default: [] },
+
+    // Manual Claude Pro workflow (mirrors contentGenerationJob.model.js's
+    // pendingStep/pendingPrompts after fda0261 — ANTHROPIC_API_KEY has no
+    // working billing). Set while status is AWAITING_INPUT; holds the CONTENT
+    // step's prompt so the admin can copy it into Claude Pro and paste the
+    // response back via /lessons/:id/resume-content.
+    pendingStep: { type: String, enum: STEP_NAMES, default: null },
+    pendingPrompts: {
+      type: [{ label: { type: String, required: true }, system: { type: String, default: "" }, prompt: { type: String, required: true }, _id: false }],
+      default: [],
+    },
 
     retryCount: { type: Number, default: 0 },
     lastAttemptAt: { type: Date, default: null },
