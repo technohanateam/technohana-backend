@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node src/index.js",
     "seed": "node src/blogSeed.js",
+    "add-blog-ai-engineering-skills-2026": "node src/addBlogAiEngineeringSkills2026.js",
     "sync-prices": "node -e \"import('fs').then(fs=>{ fs.default.copyFileSync('../technohana-frontend-master/public/data/courses.json','src/data/courses.json'); console.log('Prices synced from frontend'); })\"",
     "sync-seo-data": "node sync-seo-data.js",
     "reseed": "node seed-courses.js",
