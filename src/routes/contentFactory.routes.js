@@ -24,6 +24,7 @@ import { getCalendarHandler, scheduleHandler, rescheduleHandler, unscheduleHandl
 import { getBacklogHandler } from "../controllers/contentFactory/contentBacklog.controller.js";
 import { getUsage } from "../controllers/contentFactory/costControls.controller.js";
 import { runPlanningNow } from "../controllers/contentFactory/planning.controller.js";
+import { startManualTrendResearch, submitManualTrendResearchStep } from "../controllers/contentFactory/trendResearch.controller.js";
 
 const router = express.Router();
 
@@ -91,5 +92,9 @@ router.get("/usage", requireAdmin, getUsage);
 
 // ── Milestone 4: Manual planning trigger ─────────────────────────────────────
 router.post("/plan/run-now", requireAdmin, runPlanningNow);
+
+// ── Manual trend research (admin-triggered, manual Claude Pro workflow) ─────
+router.post("/trend-research/start", requireAdmin, startManualTrendResearch);
+router.post("/trend-research/step", requireAdmin, submitManualTrendResearchStep);
 
 export default router;

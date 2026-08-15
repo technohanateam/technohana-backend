@@ -34,7 +34,7 @@ import { getReports, previewReport, downloadReport, downloadReportPdf, downloadR
 import { getSettings, updateSettings } from "../controllers/seoSettings.controller.js";
 import { validateCsv, checkDuplicates, scoreOpportunities, generateMonthlyReport } from "../controllers/seoScripts.controller.js";
 import { runVerification, getVerificationStatus } from "../controllers/seoBacklinkVerification.controller.js";
-import { runDiscovery, getDiscoveryStatus, generateAiDraft, sendAiDraft, discardAiDraft } from "../controllers/seoBacklinkAi.controller.js";
+import { runDiscovery, getDiscoveryStatus, generateAiDraft, sendAiDraft, discardAiDraft, startManualDiscovery, submitManualDiscoveryStep } from "../controllers/seoBacklinkAi.controller.js";
 import { importCompetitorCsv } from "../controllers/seoBacklinkCompetitorGap.controller.js";
 
 const router = express.Router();
@@ -57,6 +57,8 @@ router.patch("/opportunities/bulk", requirePage("seo-ops-opportunities"), requir
 router.post("/opportunities/import", requirePage("seo-ops-opportunities"), requireMarketing, importOpportunities);
 router.post("/discovery/run", requirePage("seo-ops-opportunities"), requireMarketing, runDiscovery);
 router.get("/discovery/status/:jobId", requirePage("seo-ops-opportunities"), getDiscoveryStatus);
+router.post("/discovery/manual/start", requirePage("seo-ops-opportunities"), requireMarketing, startManualDiscovery);
+router.post("/discovery/manual/step", requirePage("seo-ops-opportunities"), requireMarketing, submitManualDiscoveryStep);
 router.get("/opportunities/:id", requirePage("seo-ops-opportunities"), getOpportunity);
 router.patch("/opportunities/:id", requirePage("seo-ops-opportunities"), requireMarketing, updateOpportunity);
 
