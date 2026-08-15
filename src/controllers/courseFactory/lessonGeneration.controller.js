@@ -1,6 +1,7 @@
 import AcademyLesson from "../../models/courseFactory/academyLesson.model.js";
 import LessonGenerationJob from "../../models/courseFactory/lessonGenerationJob.model.js";
 import { enqueueLessonGeneration, enqueueLessonRetry } from "../../services/courseFactory/courseFactoryQueue.js";
+import { resumeLessonContent } from "../../services/courseFactory/lessonGenerationOrchestrator.service.js";
 
 // POST /admin/course-factory/lessons/:id/generate
 // Enqueues the full generation pipeline for one lesson. Frontend polls
@@ -16,6 +17,32 @@ export const generateLesson = async (req, res) => {
     return res.json({ success: true, data: { jobId: job._id }, message: "Lesson generation queued" });
   } catch (err) {
     console.error("[CourseFactory] generateLesson error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /admin/course-factory/jobs/:id/resume-content
+// body: { text } — the admin's pasted Claude Pro response to the CONTENT
+// step's prompt (job.pendingPrompts, set while job.status === AWAITING_INPUT).
+// Manual Claude Pro workflow — mirrors Content Factory's
+// POST /jobs/:id/submit-step after fda0261 (ANTHROPIC_API_KEY has no working
+// billing, so this pipeline no longer calls the API directly).
+export const resumeContentStep = async (req, res) => {
+  try {
+    const job = await LessonGenerationJob.findById(req.params.id).lean();
+    if (!job) return res.status(404).json({ success: false, message: "Job not found" });
+    if (job.status !== "AWAITING_INPUT") {
+      return res.status(409).json({ success: false, message: `Job is not awaiting input (status: ${job.status})` });
+    }
+
+    const result = await resumeLessonContent(job._id.toString(), req.body?.text);
+    if (!result.success && !result.awaitingInput) {
+      return res.status(400).json({ success: false, message: result.error || "Failed to resume step" });
+    }
+
+    return res.json({ success: true, data: { job: result.job, lesson: result.lesson }, message: result.awaitingInput ? "Awaiting next input" : "Step resumed" });
+  } catch (err) {
+    console.error("[CourseFactory] resumeContentStep error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };

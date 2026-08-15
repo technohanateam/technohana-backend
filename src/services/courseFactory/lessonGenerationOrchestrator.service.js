@@ -2,7 +2,7 @@ import AcademyLesson from "../../models/courseFactory/academyLesson.model.js";
 import AcademyCourse from "../../models/courseFactory/academyCourse.model.js";
 import AcademyModule from "../../models/courseFactory/academyModule.model.js";
 import LessonGenerationJob from "../../models/courseFactory/lessonGenerationJob.model.js";
-import { generateLessonContent } from "./lessonContentGenerator.service.js";
+import { buildLessonContentPrompt, parseLessonContentResponse } from "./lessonContentGenerator.service.js";
 import { generateAndUploadPptx } from "./pptxGenerator.service.js";
 import { generateSlideAudio, classifyTtsError } from "./ttsService.js";
 import { runLessonQa } from "./qaService.js";
@@ -98,6 +98,19 @@ async function markStepFailed(job, name, error) {
   await job.save();
 }
 
+// Pauses the job at `stepName` for the manual Claude Pro workflow (mirrors
+// contentGenerationOrchestrator.service.js's pauseForInput after fda0261),
+// storing the prompt the admin needs to run manually and paste a response
+// for. Never a failure — job.status becomes AWAITING_INPUT, not FAILED.
+async function pauseForInput(job, stepName, prompts) {
+  job.pendingStep = stepName;
+  job.pendingPrompts = prompts;
+  job.status = "AWAITING_INPUT";
+  await markStepRunning(job, stepName);
+  await job.save();
+  return { success: true, awaitingInput: true, pendingStep: stepName, job };
+}
+
 // Content generation produces sections/slides/quiz/exercise/instructorNotes/
 // transcript in ONE Claude call (spec doesn't require separate calls per
 // field, just separate regeneration entry points — which retryFromStep
@@ -106,18 +119,27 @@ async function markStepFailed(job, name, error) {
 // populates them together on first generation). SLIDES/QUIZ/EXERCISE/
 // INSTRUCTOR_NOTES/TRANSCRIPT steps are marked DONE alongside CONTENT unless
 // individually regenerated later via regenerateLessonComponent().
-async function runSteps({ lesson, job, fromIndex, stepOptions = null }) {
+async function runSteps({ lesson, job, fromIndex, stepOptions = null, resume = null }) {
   const startedAt = Date.now();
 
   for (let i = fromIndex; i < STEP_ORDER.length; i++) {
     const stepName = STEP_ORDER[i];
+    // `resume` carries the admin's pasted CONTENT response — only applies on
+    // the first loop iteration; every step after that runs normally.
+    const resumeForThisStep = resume && resume.stepName === stepName ? resume : null;
     try {
-      await markStepRunning(job, stepName);
+      if (stepName !== "CONTENT" || resumeForThisStep) {
+        await markStepRunning(job, stepName);
+      }
 
       if (stepName === "CONTENT") {
-        const course = await AcademyCourse.findById(lesson.courseId).lean();
-        const module = await AcademyModule.findById(lesson.moduleId).lean();
-        const result = await generateLessonContent({ course, module, lesson });
+        if (!resumeForThisStep) {
+          const course = await AcademyCourse.findById(lesson.courseId).lean();
+          const module = await AcademyModule.findById(lesson.moduleId).lean();
+          const { system, prompt } = buildLessonContentPrompt({ course, module, lesson });
+          return pauseForInput(job, stepName, [{ label: "Lesson content", system, prompt }]);
+        }
+        const result = parseLessonContentResponse(resumeForThisStep.responses[0]?.text);
         const c = result.content;
         lesson.learningObjectives = c.learningObjectives || [];
         lesson.sections = c.sections || [];
@@ -129,10 +151,12 @@ async function runSteps({ lesson, job, fromIndex, stepOptions = null }) {
         lesson.transcript = c.transcript || "";
         lesson.narration.script = c.transcript || "";
         lesson.sources = c.sources || [];
-        lesson.costUsd.contentUsd = result.costUsd || 0;
+        lesson.costUsd.contentUsd = 0;
         lesson.costUsd.totalUsd = (lesson.costUsd.contentUsd || 0) + (lesson.costUsd.audioUsd || 0);
         await lesson.save();
-        await markStepDone(job, stepName, result);
+        job.pendingStep = null;
+        job.pendingPrompts = [];
+        await markStepDone(job, stepName, {});
         // These are facets of the SAME CONTENT call, not independent API
         // calls — mark them done so the admin UI's per-asset status reflects
         // reality immediately, but with an empty result (like NARRATION
@@ -275,6 +299,8 @@ async function runSteps({ lesson, job, fromIndex, stepOptions = null }) {
       console.error(`[course-factory] lesson generation step ${stepName} failed for lesson ${lesson._id}:`, err.message);
       await markStepFailed(job, stepName, err);
       job.status = "FAILED";
+      job.pendingStep = null;
+      job.pendingPrompts = [];
       job.retryCount += 1;
       job.lastAttemptAt = new Date();
       job.durationMs = Date.now() - startedAt;
@@ -284,6 +310,8 @@ async function runSteps({ lesson, job, fromIndex, stepOptions = null }) {
   }
 
   job.status = "DONE";
+  job.pendingStep = null;
+  job.pendingPrompts = [];
   job.durationMs = Date.now() - startedAt;
   await job.save();
   return { success: true, job, lesson };
@@ -366,7 +394,36 @@ export async function retryLessonFromStep(jobId, stepName, stepOptions = null) {
     }
   });
   job.status = "RUNNING";
+  job.pendingStep = null;
+  job.pendingPrompts = [];
   await job.save();
 
   return runSteps({ lesson, job, fromIndex, stepOptions });
+}
+
+// Resumes a paused (AWAITING_INPUT) job with the admin's pasted CONTENT
+// response — mirrors contentGenerationOrchestrator.service.js's resumeStep
+// after fda0261. `text` is the raw pasted Claude Pro response.
+export async function resumeLessonContent(jobId, text) {
+  const job = await LessonGenerationJob.findById(jobId);
+  if (!job) return { success: false, error: "Job not found" };
+  if (job.status !== "AWAITING_INPUT" || !job.pendingStep) {
+    return { success: false, error: `Job is not awaiting input (status: ${job.status})` };
+  }
+  if (!text || !String(text).trim()) {
+    return { success: false, error: "A non-empty response is required." };
+  }
+
+  const lesson = await AcademyLesson.findById(job.lessonId);
+  if (!lesson) return { success: false, error: "Lesson not found" };
+
+  const stepName = job.pendingStep;
+  const fromIndex = STEP_ORDER.indexOf(stepName);
+  const resume = { stepName, responses: [{ text }] };
+
+  job.status = "RUNNING";
+  job.pendingPrompts = [];
+  await job.save();
+
+  return runSteps({ lesson, job, fromIndex, resume });
 }

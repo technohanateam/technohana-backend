@@ -3,8 +3,8 @@ import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "
 import { contentFactoryAiLimiter } from "../middleware/contentFactoryAiLimiter.js";
 
 import { getDashboardStats, getSettings, updateSettings, getUsage } from "../controllers/courseFactory/courseFactorySettings.controller.js";
-import { listCourses, generateBlueprint, approveBlueprint, getCourseProduction, publishCourse } from "../controllers/courseFactory/courseBlueprint.controller.js";
-import { generateLesson, getGenerationJob, listLessonJobs, retryGenerationJob, regenerateLessonComponent, regenerateSlideAudio } from "../controllers/courseFactory/lessonGeneration.controller.js";
+import { listCourses, generateBlueprint, parseBlueprint, approveBlueprint, getCourseProduction, publishCourse } from "../controllers/courseFactory/courseBlueprint.controller.js";
+import { generateLesson, getGenerationJob, listLessonJobs, retryGenerationJob, regenerateLessonComponent, regenerateSlideAudio, resumeContentStep } from "../controllers/courseFactory/lessonGeneration.controller.js";
 import { getLesson, updateLesson, runQa, submitForReview, approveLesson, publishLesson, verifySource, unverifySource } from "../controllers/courseFactory/lessonReview.controller.js";
 
 const router = express.Router();
@@ -23,6 +23,7 @@ router.get("/usage", requireAdmin, getUsage);
 router.get("/courses", requireMarketing, listCourses);
 router.get("/courses/:id", requireMarketing, getCourseProduction);
 router.post("/blueprint/generate", requireMarketing, contentFactoryAiLimiter, generateBlueprint);
+router.post("/blueprint/parse", requireMarketing, parseBlueprint);
 router.post("/blueprint/approve", requireAdmin, approveBlueprint);
 router.post("/courses/:id/publish", requireAdmin, publishCourse);
 
@@ -33,6 +34,7 @@ router.post("/lessons/:id/slides/:slideOrder/regenerate-audio", requireMarketing
 router.get("/lessons/:id/jobs", requireMarketing, listLessonJobs);
 router.get("/jobs/:id", requireMarketing, getGenerationJob);
 router.post("/jobs/:id/retry", requireMarketing, contentFactoryAiLimiter, retryGenerationJob);
+router.post("/jobs/:id/resume-content", requireMarketing, resumeContentStep);
 
 // ── Lessons — review & publish ────────────────────────────────────────────────
 router.get("/lessons/:id", requireMarketing, getLesson);
