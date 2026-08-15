@@ -1,6 +1,6 @@
 import SeoContact from "../models/seoContact.model.js";
 import SeoOpportunity from "../models/seoOpportunity.model.js";
-import { callClaude, extractJson } from "./aiAgent.service.js";
+import { extractJson } from "./aiAgent.service.js";
 
 const REQUIRED_KEYS = [
   "subject",
@@ -12,10 +12,10 @@ const REQUIRED_KEYS = [
   "followUp2",
 ];
 
-// Generates an AI outreach draft for a contact and appends it to
-// SeoContact.aiDrafts[]. Never sends anything — a human must call the
-// separate "send" endpoint for an email to actually leave the system.
-export async function generateOutreachDraft({ contactId, callClaudeFn = callClaude, extractJsonFn = extractJson }) {
+// Builds the outreach-draft prompt for the admin to run manually through
+// Claude Pro (ANTHROPIC_API_KEY has no working billing — mirrors the Content
+// Factory / Course Factory manual workflow). No AI call here.
+export async function buildOutreachDraftPrompt({ contactId }) {
   const contact = await SeoContact.findById(contactId);
   if (!contact) throw new Error("Contact not found");
 
@@ -47,7 +47,17 @@ export async function generateOutreachDraft({ contactId, callClaudeFn = callClau
     `suggestedAnchorText, followUp1 (a short follow-up email if there's no reply after ~1 week), ` +
     `followUp2 (a final short follow-up after ~2 more weeks).`;
 
-  const text = await callClaudeFn({ system, prompt, maxTokens: 2048 });
+  return { system, prompt };
+}
+
+// Parses the admin's pasted Claude Pro response and appends it to
+// SeoContact.aiDrafts[]. Never sends anything — a human must call the
+// separate "send" endpoint for an email to actually leave the system.
+export async function parseOutreachDraftResponse({ contactId, text, extractJsonFn = extractJson }) {
+  const contact = await SeoContact.findById(contactId);
+  if (!contact) throw new Error("Contact not found");
+  if (!text || !String(text).trim()) throw new Error("No response provided.");
+
   const parsed = extractJsonFn(text);
 
   for (const key of REQUIRED_KEYS) {

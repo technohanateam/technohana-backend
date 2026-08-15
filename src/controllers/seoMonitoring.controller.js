@@ -12,9 +12,9 @@ const sanitizeDates = (body, dateFields) => {
 
 export const getMonitoring = async (req, res) => {
   try {
-    const { search, linkStatus, page = 1, limit = 20 } = req.query;
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
+    const { search, linkStatus } = req.query;
+    const pageNum = Math.max(1, Number(req.query.page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const skip = (pageNum - 1) * limitNum;
 
     const filter = {};
@@ -41,6 +41,9 @@ export const createMonitoringRecord = async (req, res) => {
     const record = await SeoMonitoring.create(sanitizeDates(req.body, ["publishedDate", "lastChecked"]));
     return res.status(201).json({ success: true, message: "Record created", data: record });
   } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     console.error("Error creating SEO monitoring record:", error);
     return res.status(500).json({ success: false, message: "Error creating SEO monitoring record" });
   }
@@ -71,6 +74,9 @@ export const updateMonitoringRecord = async (req, res) => {
     await record.save();
     return res.json({ success: true, message: "Record updated", data: record });
   } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     console.error("Error updating SEO monitoring record:", error);
     return res.status(500).json({ success: false, message: "Error updating SEO monitoring record" });
   }

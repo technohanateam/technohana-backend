@@ -3,9 +3,8 @@ import SeoCampaign from "../models/seoCampaign.model.js";
 import { buildMultiFieldRegexQuery } from "../utils/escapeRegex.js";
 
 const paginate = (query) => {
-  const { page = 1, limit = 20 } = query;
-  const pageNum = parseInt(page);
-  const limitNum = parseInt(limit);
+  const pageNum = Math.max(1, Number(query.page) || 1);
+  const limitNum = Math.min(100, Math.max(1, Number(query.limit) || 20));
   return { pageNum, limitNum, skip: (pageNum - 1) * limitNum };
 };
 
@@ -105,6 +104,9 @@ export const addFollowUp = async (req, res) => {
     await contact.save();
     return res.json({ success: true, message: "Follow-up added", data: contact });
   } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     console.error("Error adding follow-up:", error);
     return res.status(500).json({ success: false, message: "Error adding follow-up" });
   }
@@ -123,6 +125,9 @@ export const addResponse = async (req, res) => {
     await contact.save();
     return res.json({ success: true, message: "Response added", data: contact });
   } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     console.error("Error adding response:", error);
     return res.status(500).json({ success: false, message: "Error adding response" });
   }

@@ -72,7 +72,7 @@ router.get("/gsc/pages", requirePage(GSC_PAGE), getGscPages);
 router.get("/gsc/countries", requirePage(GSC_PAGE), getGscCountries);
 router.get("/gsc/devices", requirePage(GSC_PAGE), getGscDevices);
 router.get("/gsc/sitemaps", requirePage(GSC_PAGE), getGscSitemaps);
-router.post("/gsc/inspect-url", requirePage(GSC_PAGE), requireMarketing, inspectGscUrl);
+router.post("/gsc/inspect-url", requirePage(GSC_PAGE), requireMarketing, seoTriggerLimiter, inspectGscUrl);
 router.post("/sync/gsc", requirePage(GSC_PAGE), requireMarketing, seoTriggerLimiter, triggerGscSync);
 
 // ── Google Analytics 4 ──────────────────────────────────────────────────

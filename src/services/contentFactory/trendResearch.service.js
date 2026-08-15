@@ -118,7 +118,14 @@ function selectClustersForResearch(clusters, maxCalls) {
 }
 
 // Real Milestone 5 implementation. Same export name/signature as the M4
-// stub so dailyPlanningJob.processor.js's call site doesn't change.
+// stub so dailyPlanningJob.processor.js's call site doesn't change. Left
+// calling the live API on purpose — ANTHROPIC_API_KEY has no working billing
+// right now, so this just skips with a warning during the daily cron
+// (matches every other "no key configured" path in this pipeline); it is
+// NOT converted to the manual Claude Pro workflow because a cron job has no
+// human present to paste a response back mid-run. Manual trend research is
+// instead a separate, admin-triggered action — see runManualTrendResearch*
+// below — kept intentionally independent of this cron path.
 export async function researchTrends() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const settings = await getOrCreateContentFactorySettings();
@@ -208,5 +215,74 @@ export async function researchTrends() {
     }
   }
 
+  return { trends };
+}
+
+// ── Manual Claude Pro workflow (admin-triggered, not cron) ──────────────────
+//
+// Trend research normally runs unattended inside the daily planning cron
+// job (researchTrends() above), which has nobody present to paste a
+// Claude Pro response mid-run — so that path is intentionally left calling
+// the live API and just skips gracefully without a key. This is the
+// separate, admin-triggered alternative: "Research Trends Now" in the
+// Content Factory dashboard walks the same per-cluster prompt one cluster
+// at a time, pausing for the admin to paste each cluster's Claude Pro
+// response back before moving to the next — same shape as the bulk
+// auto-SEO queue in AdminBlogs.jsx. No budget/cost tracking here (manual
+// usage isn't billed through the API key, mirrors every other manual-workflow
+// conversion in this pipeline).
+//
+// Returns the list of clusters selected for this run (same priority/
+// recency selection as the cron path, just without the API-key gate).
+export async function selectManualTrendResearchClusters() {
+  const settings = await getOrCreateContentFactorySettings();
+  const maxCalls = settings.maxDailyResearchCalls || 15;
+  const clusters = await TopicCluster.find().lean();
+  return selectClustersForResearch(clusters, maxCalls);
+}
+
+// Builds the prompt for one cluster (by _id, from the selected list) — the
+// admin UI calls this once per cluster as it advances through the queue.
+export async function buildManualTrendResearchPromptForCluster(clusterId) {
+  const cluster = await TopicCluster.findById(clusterId).lean();
+  if (!cluster) throw new Error("Cluster not found");
+  const { system, prompt } = buildTrendResearchPrompt({ cluster });
+  return { cluster, system, prompt };
+}
+
+// Parses the admin's pasted response for one cluster, matches its trends
+// against the course catalog, and stamps lastResearchedAt — mirrors the
+// per-cluster body of researchTrends()'s loop above, minus the AI call and
+// cost tracking. Returns the trends found for this one cluster; the caller
+// (controller) accumulates these across the queue.
+export async function parseManualTrendResearchResponse(clusterId, text) {
+  const cluster = await TopicCluster.findById(clusterId).lean();
+  if (!cluster) throw new Error("Cluster not found");
+  if (!text || !String(text).trim()) throw new Error("No response provided.");
+
+  const parsed = parseModelJson(text);
+  const courseCatalogSummary = await loadCourseCatalogSummary();
+
+  const trends = [];
+  const clusterTrends = Array.isArray(parsed.trends) ? parsed.trends : [];
+  for (const t of clusterTrends) {
+    if (!t?.topic) continue;
+    const sourceUrls = Array.isArray(t.sourceUrls) ? t.sourceUrls.filter((u) => typeof u === "string" && u.startsWith("http")) : [];
+    if (sourceUrls.length === 0) continue; // no fabricated sources, mirrors researchTrends()
+
+    const trendForMatching = { topic: t.topic, summary: t.summary || "", clusterCategories: cluster.categories || [] };
+    const matchedCourses = matchTrendToCourses(trendForMatching, courseCatalogSummary, DEFAULT_MATCH_THRESHOLD);
+
+    trends.push({
+      topic: String(t.topic).slice(0, 200),
+      summary: String(t.summary || "").slice(0, 1000),
+      sourceUrls,
+      cluster: cluster.name,
+      clusterId: cluster._id,
+      matchedCourses,
+    });
+  }
+
+  await TopicCluster.updateOne({ _id: cluster._id }, { $set: { lastResearchedAt: new Date() } });
   return { trends };
 }

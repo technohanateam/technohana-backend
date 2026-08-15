@@ -27,18 +27,20 @@ export const getCrawlRun = async (req, res) => {
 export const getCrawlRunPages = async (req, res) => {
   try {
     const { id } = req.params;
-    const { issue, page = 1, limit = 50 } = req.query;
+    const { issue } = req.query;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
     const query = { crawlRunId: id };
     if (issue) query.issues = issue;
 
     const pages = await SeoCrawlPage.find(query)
       .sort({ url: 1 })
-      .skip((Number(page) - 1) * Number(limit))
-      .limit(Number(limit))
+      .skip((page - 1) * limit)
+      .limit(limit)
       .lean();
     const total = await SeoCrawlPage.countDocuments(query);
 
-    return res.json({ success: true, data: pages, meta: { total, page: Number(page), limit: Number(limit) } });
+    return res.json({ success: true, data: pages, meta: { total, page, limit } });
   } catch (error) {
     console.error("Error fetching crawl pages:", error);
     return res.status(500).json({ success: false, message: "Error fetching crawl pages" });

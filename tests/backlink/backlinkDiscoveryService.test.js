@@ -26,7 +26,7 @@ test("proposeDiscoveryCandidates parses and caps the AI response", async () => {
     opportunityType: "resource page",
     rationale: "test",
   }));
-  const callClaudeFn = mock.fn(async () => JSON.stringify(fakeCandidates));
+  const callClaudeFn = mock.fn(async () => ({ text: JSON.stringify(fakeCandidates) }));
   const extractJsonFn = mock.fn((text) => JSON.parse(text));
 
   const result = await proposeDiscoveryCandidates({ category: "education-directories", count: 5, callClaudeFn, extractJsonFn });
@@ -36,14 +36,14 @@ test("proposeDiscoveryCandidates parses and caps the AI response", async () => {
 });
 
 test("proposeDiscoveryCandidates throws on a non-array AI response", async () => {
-  const callClaudeFn = async () => "not json array";
+  const callClaudeFn = async () => ({ text: "not json array" });
   const extractJsonFn = () => ({ not: "an array" });
 
   await assert.rejects(() => proposeDiscoveryCandidates({ category: "x", callClaudeFn, extractJsonFn }));
 });
 
 test("proposeDiscoveryCandidates drops malformed candidates missing a domain", async () => {
-  const callClaudeFn = async () => "[]";
+  const callClaudeFn = async () => ({ text: "[]" });
   const extractJsonFn = () => [{ organizationName: "No domain here" }, { domain: "good.com" }];
 
   const result = await proposeDiscoveryCandidates({ category: "x", callClaudeFn, extractJsonFn });

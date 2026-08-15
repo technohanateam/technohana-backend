@@ -1,7 +1,6 @@
 import express from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import mongoose from "mongoose";
-import axios from "axios";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
@@ -10,7 +9,6 @@ import { v2 as cloudinary } from "cloudinary";
 import { fileURLToPath } from "url";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
 import { parseModelJson } from "../utils/parseModelJson.js";
-import { runClaudeWebSearchLoop } from "../utils/claudeWebSearchLoop.js";
 import { User } from "../models/user.model.js";
 import { Order } from "../models/order.model.js";
 import Enquiry from "../models/enquiry.model.js";
@@ -708,15 +706,18 @@ router.post("/blogs/seed-static", authenticateAdmin, requirePage("blogs"), requi
 });
 
 // POST /admin/blogs/generate-from-course — AI-generate a blog post for a course
-// Uses Claude's built-in web_search tool so no external search API key is needed.
-// Claude searches the web autonomously, then writes the post grounded in current data.
+//
+// Manual Claude Pro workflow (mirrors Content Factory / Course Factory —
+// ANTHROPIC_API_KEY has no working billing): first call (no pastedResponse)
+// returns the prompt for the admin to run in Claude Pro chat themselves,
+// including its own web search where the prompt asks for one; second call
+// (with pastedResponse) parses what they paste back and finishes exactly as
+// the old live-API path did. No cost tracking — manual usage isn't billed
+// through our API key.
 router.post("/blogs/generate-from-course", authenticateAdmin, requirePage("blogs"), requireAdmin, adminAiLimiter, async (req, res) => {
   try {
-    const { courseId, courseTitle, category, description, relatedCourses = [] } = req.body;
+    const { courseId, courseTitle, category, description, relatedCourses = [], pastedResponse } = req.body;
     if (!courseTitle) return res.status(400).json({ message: "courseTitle is required." });
-
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(503).json({ success: false, message: "AI generation not configured. Add ANTHROPIC_API_KEY to .env" });
 
     const year = new Date().getFullYear();
 
@@ -801,33 +802,23 @@ SEO — generate: title, slug, excerpt, meta title (50–60 chars), meta descrip
 Return ONLY this JSON object:
 {"title":"","slug":"","excerpt":"","content":"","metaTitle":"","metaDescription":"","focusKeyword":"","tags":[],"readTimeMin":0,"author":"","category":"","sources":[],"faqs":[{"question":"","answer":""}]}
 
-Sources: only URLs returned by web search. Never invent URLs.`;
+Sources: only URLs returned by web search. Never invent URLs.
 
-    // Agentic loop: Claude may call web_search multiple times before producing the final text.
-    // Milestone 3: extracted into utils/claudeWebSearchLoop.js (shared with factChecker.service.js)
-    // — same request shape/turn limit/stop-reason handling as before, so this route's behavior is
-    // unchanged.
-    const { finalText } = await runClaudeWebSearchLoop({
-      apiKey,
-      system: systemPrompt,
-      prompt: userPrompt,
-      model: "claude-sonnet-5",
-      maxTokens: 8192,
-      maxTurns: 5,
-      timeout: 120000,
-    });
+If you have web search available, search the web before writing (queries like "${courseTitle} trends ${year}", "${courseTitle} jobs salary demand ${year}", "${courseTitle} certifications ${year}", "${courseTitle} enterprise adoption ${year}") and ground the article in what you find.`;
 
-    if (!finalText) return res.status(500).json({ message: "Claude did not produce a final response." });
+    if (!pastedResponse) {
+      return res.json({ success: true, awaitingInput: true, prompts: [{ label: "Blog post", system: systemPrompt, prompt: userPrompt }] });
+    }
 
     let generated;
     try {
-      generated = parseModelJson(finalText);
+      generated = parseModelJson(pastedResponse);
     } catch {
       generated = null;
     }
     if (!generated) {
-      console.error("generate-from-course: failed to parse AI response. Raw:", finalText?.slice(0, 500));
-      return res.status(500).json({ success: false, message: "Failed to parse AI response. Please try again." });
+      console.error("generate-from-course: failed to parse pasted response. Raw:", String(pastedResponse).slice(0, 500));
+      return res.status(500).json({ success: false, message: "Failed to parse the pasted response. Make sure it's the full JSON reply." });
     }
     return res.json({ success: true, data: generated });
   } catch (err) {
@@ -837,11 +828,14 @@ Sources: only URLs returned by web search. Never invent URLs.`;
 });
 
 // POST /admin/blogs/generate-from-urls — AI-generate a blog post from live URLs
+//
+// Manual Claude Pro workflow: first call fetches+extracts the URLs (needed
+// either way) and returns the built prompt; second call (pastedResponse set)
+// re-fetches the same URLs (cheap, deterministic, avoids round-tripping
+// scraped page text through the client) to rebuild sourcesList, then parses
+// the pasted JSON. Mirrors generate-from-course above.
 router.post("/blogs/generate-from-urls", authenticateAdmin, requirePage("blogs"), requireAdmin, adminAiLimiter, async (req, res) => {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(503).json({ success: false, message: "ANTHROPIC_API_KEY not configured." });
-
-  const { urls, topic, category, focusKeyword, relatedCourses = [] } = req.body;
+  const { urls, topic, category, focusKeyword, relatedCourses = [], pastedResponse } = req.body;
   if (!Array.isArray(urls) || urls.length === 0) {
     return res.status(400).json({ success: false, message: "Provide at least one URL." });
   }
@@ -945,57 +939,42 @@ ${courseLinkInstruction}
 Return this JSON only:
 {"title":"","slug":"","excerpt":"","content":"","metaTitle":"","metaDescription":"","focusKeyword":"","tags":[],"readTimeMin":0,"author":"","category":"","faqs":[]}`;
 
-  try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-5",
-        max_tokens: 8192,
-        system: systemPromptUrls,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-      signal: AbortSignal.timeout(120000),
-    });
-
-    const data = await response.json();
-    const finalText = data.content?.find((b) => b.type === "text")?.text || "";
-    let generated;
-    try {
-      generated = parseModelJson(finalText);
-    } catch {
-      generated = null;
-    }
-    if (!generated) {
-      console.error("generate-from-urls: failed to parse AI response. Raw:", finalText?.slice(0, 500));
-      return res.status(500).json({ success: false, message: "Failed to parse AI response. Please try again." });
-    }
-    // sources are deterministic from the input URLs (with titles fetched server-side)
-    // rather than trusted to the model, which could otherwise invent or drop entries.
-    generated.sources = sourcesList;
+  if (!pastedResponse) {
     return res.json({
       success: true,
-      data: generated,
+      awaitingInput: true,
+      prompts: [{ label: "Blog post", system: systemPromptUrls, prompt: userPrompt }],
       ...(failedUrls.length ? { warnings: failedUrls } : {}),
     });
-  } catch (err) {
-    console.error("Blog generate-from-urls error:", err?.message);
-    return res.status(500).json({ success: false, message: "Failed to generate blog from URLs." });
   }
+
+  let generated;
+  try {
+    generated = parseModelJson(pastedResponse);
+  } catch {
+    generated = null;
+  }
+  if (!generated) {
+    console.error("generate-from-urls: failed to parse pasted response. Raw:", String(pastedResponse).slice(0, 500));
+    return res.status(500).json({ success: false, message: "Failed to parse the pasted response. Make sure it's the full JSON reply." });
+  }
+  // sources are deterministic from the input URLs (with titles fetched server-side)
+  // rather than trusted to the model, which could otherwise invent or drop entries.
+  generated.sources = sourcesList;
+  return res.json({
+    success: true,
+    data: generated,
+    ...(failedUrls.length ? { warnings: failedUrls } : {}),
+  });
 });
 
 // POST /admin/blogs/rewrite — AI-rewrite and improve an existing blog post
+//
+// Manual Claude Pro workflow, mirrors generate-from-course above.
 router.post("/blogs/rewrite", authenticateAdmin, requirePage("blogs"), requireAdmin, adminAiLimiter, async (req, res) => {
   try {
-    const { title, content, excerpt, category, focusKeyword, author, sources, faqs } = req.body;
+    const { title, content, excerpt, category, focusKeyword, author, sources, faqs, pastedResponse } = req.body;
     if (!title || !content) return res.status(400).json({ message: "title and content are required." });
-
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(503).json({ success: false, message: "AI rewrite not configured. Add ANTHROPIC_API_KEY to .env" });
 
     const rewriteSystemPrompt = `You are Technohana's Senior Content Editor.
 
@@ -1030,34 +1009,19 @@ Do not remove existing meaning. Do not modify FAQs. Do not modify sources.
 Return only:
 {"title":"","slug":"","excerpt":"","content":"","metaTitle":"","metaDescription":"","focusKeyword":"","tags":[],"readTimeMin":0,"author":"${author || "Technohana Team"}","category":"${category || "Technology"}"}`;
 
-    const response = await axios.post(
-      "https://api.anthropic.com/v1/messages",
-      {
-        model: "claude-sonnet-5",
-        max_tokens: 8192,
-        system: rewriteSystemPrompt,
-        messages: [{ role: "user", content: prompt }],
-      },
-      {
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-        },
-        timeout: 120000,
-      }
-    );
+    if (!pastedResponse) {
+      return res.json({ success: true, awaitingInput: true, prompts: [{ label: "Rewritten blog", system: rewriteSystemPrompt, prompt }] });
+    }
 
-    const raw = response.data.content?.[0]?.text?.trim() || "";
     let generated;
     try {
-      generated = parseModelJson(raw);
+      generated = parseModelJson(pastedResponse);
     } catch {
       generated = null;
     }
     if (!generated) {
-      console.error("blogs/rewrite: failed to parse AI response. Raw:", raw?.slice(0, 500));
-      return res.status(500).json({ success: false, message: "Failed to parse AI response. Please try again." });
+      console.error("blogs/rewrite: failed to parse pasted response. Raw:", String(pastedResponse).slice(0, 500));
+      return res.status(500).json({ success: false, message: "Failed to parse the pasted response. Make sure it's the full JSON reply." });
     }
     // Rewrite only touches prose/SEO fields — carry the original post's
     // sources and FAQs through unchanged rather than asking the model to
@@ -1099,13 +1063,15 @@ router.post("/blogs/bulk-delete", authenticateAdmin, requirePage("blogs"), requi
 });
 
 // POST /admin/blogs/auto-seo — AI-fill SEO fields for a single blog
+//
+// Manual Claude Pro workflow, mirrors generate-from-course above. The DB
+// write only happens on the resume call (pastedResponse set) — the client
+// resends the same _id/title/content/category/estimateValueScores it sent
+// on the first call, plus pastedResponse.
 router.post("/blogs/auto-seo", authenticateAdmin, requirePage("blogs"), requireMarketing, adminAiLimiter, async (req, res) => {
   try {
-    const { _id, title, content, category, estimateValueScores } = req.body;
+    const { _id, title, content, category, estimateValueScores, pastedResponse } = req.body;
     if (!_id || !title) return res.status(400).json({ message: "_id and title are required." });
-
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(503).json({ success: false, message: "ANTHROPIC_API_KEY not configured." });
 
     const plainText = (content || "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -1146,20 +1112,11 @@ ${valueScorePrompt}
 Return only:
 {"metaTitle":"","metaDescription":"","excerpt":"","focusKeyword":""}`;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 512,
-        system: seoSystemPrompt,
-        messages: [{ role: "user", content: prompt }],
-      }),
-      signal: AbortSignal.timeout(25000),
-    });
+    if (!pastedResponse) {
+      return res.json({ success: true, awaitingInput: true, prompts: [{ label: "SEO fields", system: seoSystemPrompt, prompt }] });
+    }
 
-    const data = await response.json();
-    const raw = data.content?.find((b) => b.type === "text")?.text?.trim() || "";
+    const raw = String(pastedResponse).trim();
     let seoFields;
     try {
       seoFields = JSON.parse(raw);
@@ -1167,7 +1124,7 @@ Return only:
       const match = raw.match(/\{[\s\S]*\}/);
       seoFields = match ? JSON.parse(match[0]) : null;
     }
-    if (!seoFields) return res.status(500).json({ message: "Failed to parse AI SEO response.", raw });
+    if (!seoFields) return res.status(500).json({ message: "Failed to parse the pasted response. Make sure it's the full JSON reply.", raw });
 
     const setFields = { metaTitle: seoFields.metaTitle || "", metaDescription: seoFields.metaDescription || "", excerpt: seoFields.excerpt || "", focusKeyword: seoFields.focusKeyword || "" };
     if (estimateValueScores && seoFields.valueScores && typeof seoFields.valueScores === "object") {
