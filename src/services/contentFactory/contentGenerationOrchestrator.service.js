@@ -1,7 +1,7 @@
 import ContentOpportunity from "../../models/contentOpportunity.model.js";
 import ContentGenerationJob from "../../models/contentGenerationJob.model.js";
 import ContentBrief from "../../models/contentBrief.model.js";
-import { buildContentBriefPrompt, parseContentBriefResponse } from "./contentBriefWriter.service.js";
+import { buildContentBriefPrompt, parseContentBriefResponse, generateContentBriefViaApi } from "./contentBriefWriter.service.js";
 import { buildArticleWriterPrompt, parseArticleResponse } from "./articleWriter.service.js";
 import { buildSeoFieldWriterPrompt, parseSeoFieldsResponse } from "./seoFieldWriter.service.js";
 import { buildInternalLinkerPromptForOpportunity, parseInternalLinksResponse } from "./internalLinker.service.js";
@@ -90,7 +90,7 @@ async function pauseForInput(job, opportunity, stepName, prompts, kind = null) {
 // response has been submitted yet, this PAUSES (returns awaitingInput:true)
 // rather than continuing — resumeStep() below re-enters here once the admin
 // submits a response.
-async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imageConcept, resume }) {
+async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imageConcept, resume, briefMode }) {
   // Set inside the QUALITY_GATE branch, consumed after the loop to decide the
   // final opportunity status (NEEDS_REVISION vs HUMAN_REVIEW).
   let qualityGateOutcome = null;
@@ -105,13 +105,40 @@ async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imag
     try {
       if (stepName === "BRIEF") {
         if (!resumeForThisStep) {
-          const { system, prompt } = await buildContentBriefPrompt(opportunity);
-          return pauseForInput(job, opportunity, stepName, [{ label: "Content brief", system, prompt }]);
+          if (briefMode === "api") {
+            await markStepRunning(job, stepName);
+            try {
+              const apiResult = await generateContentBriefViaApi({ opportunity });
+              brief = apiResult.brief;
+              job.briefId = brief._id;
+              const step = getStep(job, stepName);
+              step.model = apiResult.model || null;
+              step.tokensIn = apiResult.usage?.input_tokens || 0;
+              step.tokensOut = apiResult.usage?.output_tokens || 0;
+              const INPUT_COST = 3 / 1_000_000;
+              const OUTPUT_COST = 15 / 1_000_000;
+              step.estimatedCostUsd = +(step.tokensIn * INPUT_COST + step.tokensOut * OUTPUT_COST).toFixed(6);
+              await markStepDone(job, stepName);
+            } catch (apiBriefErr) {
+              console.warn(`[content-factory] API brief failed for ${opportunity._id}, falling back to manual:`, apiBriefErr.message);
+              const step = getStep(job, stepName);
+              step.status = "PENDING";
+              step.startedAt = null;
+              step.error = null;
+              await job.save();
+              const { system, prompt } = buildContentBriefPrompt(opportunity);
+              return pauseForInput(job, opportunity, stepName, [{ label: "Content brief", system, prompt }]);
+            }
+          } else {
+            const { system, prompt } = buildContentBriefPrompt(opportunity);
+            return pauseForInput(job, opportunity, stepName, [{ label: "Content brief", system, prompt }]);
+          }
+        } else {
+          const result = await parseContentBriefResponse(resumeForThisStep.responses[0]?.text, opportunity);
+          brief = result.brief;
+          job.briefId = brief._id;
+          await markStepDone(job, stepName);
         }
-        const result = await parseContentBriefResponse(resumeForThisStep.responses[0]?.text, opportunity);
-        brief = result.brief;
-        job.briefId = brief._id;
-        await markStepDone(job, stepName);
       } else if (stepName === "ARTICLE") {
         if (!resumeForThisStep) {
           const { system, prompt } = await buildArticleWriterPrompt(brief, opportunity);
@@ -302,7 +329,7 @@ async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imag
 // directly (instead of re-deriving "the most recent QUEUED/RUNNING job for
 // this opportunity") avoids updating the wrong doc if a double-submit ever
 // creates two job docs for the same opportunity.
-export async function runGenerationPipeline(opportunityId, jobId) {
+export async function runGenerationPipeline(opportunityId, jobId, { briefMode } = {}) {
   const opportunity = await ContentOpportunity.findById(opportunityId);
   if (!opportunity) return { success: false, error: "Opportunity not found" };
 
@@ -327,7 +354,7 @@ export async function runGenerationPipeline(opportunityId, jobId) {
     ensureSteps(job);
     await job.save();
 
-    return runSteps({ opportunity, job, fromIndex: 0 });
+    return runSteps({ opportunity, job, fromIndex: 0, briefMode });
   } catch (err) {
     // Setup before runSteps() has its own step-level try/catch, so a failure
     // here (e.g. the opportunity/job save) would otherwise escape uncaught,
