@@ -20,8 +20,9 @@ export const generateOpportunityArticle = async (req, res) => {
       });
     }
 
+    const briefMode = req.body?.briefMode === "api" ? "api" : undefined;
     const job = await ContentGenerationJob.create({ opportunityId: opportunity._id, status: "QUEUED" });
-    await enqueueGeneration(opportunity._id.toString(), job._id.toString());
+    await enqueueGeneration(opportunity._id.toString(), job._id.toString(), { briefMode });
 
     return res.json({ success: true, data: { jobId: job._id }, message: "Generation queued" });
   } catch (err) {

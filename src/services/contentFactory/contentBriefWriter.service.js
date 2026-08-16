@@ -1,10 +1,18 @@
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import ContentBrief from "../../models/contentBrief.model.js";
 import { buildContentBriefPrompt } from "../../prompts/contentFactory/contentBrief.prompt.js";
+import { callClaude, extractJson } from "../aiAgent.service.js";
 
 const VALID_DEPTHS = ["SHORT", "STANDARD", "COMPREHENSIVE"];
 
 export { buildContentBriefPrompt };
+
+export async function generateContentBriefViaApi({ opportunity, callClaudeFn = callClaude, extractJsonFn = extractJson }) {
+  const { system, prompt } = buildContentBriefPrompt(opportunity);
+  const { text, usage, model } = await callClaudeFn({ system, prompt, maxTokens: 2048, tier: "standard" });
+  const result = await parseContentBriefResponse(text, opportunity, model);
+  return { brief: result.brief, model, usage };
+}
 
 // Parses a manually-pasted Claude Pro response and persists the brief.
 // Status transitions on the opportunity belong to the orchestrator, not here.
