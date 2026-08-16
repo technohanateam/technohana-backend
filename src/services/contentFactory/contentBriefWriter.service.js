@@ -1,22 +1,23 @@
 import { parseModelJson } from "../../utils/parseModelJson.js";
 import ContentBrief from "../../models/contentBrief.model.js";
 import { buildContentBriefPrompt } from "../../prompts/contentFactory/contentBrief.prompt.js";
-import { callClaude, extractJson } from "../aiAgent.service.js";
+import { callClaude } from "../aiAgent.service.js";
 
 const VALID_DEPTHS = ["SHORT", "STANDARD", "COMPREHENSIVE"];
 
 export { buildContentBriefPrompt };
 
-export async function generateContentBriefViaApi({ opportunity, callClaudeFn = callClaude, extractJsonFn = extractJson }) {
+export async function generateContentBriefViaApi({ opportunity, callClaudeFn = callClaude }) {
   const { system, prompt } = buildContentBriefPrompt(opportunity);
   const { text, usage, model } = await callClaudeFn({ system, prompt, maxTokens: 2048, tier: "standard" });
   const result = await parseContentBriefResponse(text, opportunity, model);
   return { brief: result.brief, model, usage };
 }
 
-// Parses a manually-pasted Claude Pro response and persists the brief.
-// Status transitions on the opportunity belong to the orchestrator, not here.
-export async function parseContentBriefResponse(text, opportunity, model = null) {
+// Pure transform: AI JSON text → brief document fields. No DB, no side
+// effects — extracted so the parsing+validation logic is unit-testable
+// without Mongoose.
+export function buildBriefFields(text, opportunity, model = null) {
   let parsed;
   try {
     parsed = parseModelJson(text);
@@ -26,30 +27,38 @@ export async function parseContentBriefResponse(text, opportunity, model = null)
 
   const depthGuidance = VALID_DEPTHS.includes(parsed.depthGuidance) ? parsed.depthGuidance : "STANDARD";
 
+  return {
+    opportunityId: opportunity._id,
+    title: parsed.title || opportunity.title,
+    searchIntent: parsed.searchIntent || opportunity.searchIntent || null,
+    targetAudience: parsed.targetAudience || null,
+    primaryKeyword: parsed.primaryKeyword || opportunity.focusKeyword || null,
+    secondaryKeywords: Array.isArray(parsed.secondaryKeywords) ? parsed.secondaryKeywords : [],
+    topicAngle: parsed.topicAngle || opportunity.topicAngle || null,
+    headings: Array.isArray(parsed.headings) ? parsed.headings : [],
+    questionsToAnswer: Array.isArray(parsed.questionsToAnswer) ? parsed.questionsToAnswer : [],
+    suggestedExamples: Array.isArray(parsed.suggestedExamples) ? parsed.suggestedExamples : [],
+    contentGaps: Array.isArray(parsed.contentGaps) ? parsed.contentGaps : [],
+    internalLinkTargets: {
+      courses: Array.isArray(parsed.internalLinkTargets?.courses) ? parsed.internalLinkTargets.courses : [],
+      blogs: Array.isArray(parsed.internalLinkTargets?.blogs) ? parsed.internalLinkTargets.blogs : [],
+    },
+    courseId: opportunity.courseId || null,
+    ctaRecommendation: parsed.ctaRecommendation || null,
+    sourceRecommendations: Array.isArray(parsed.sourceRecommendations) ? parsed.sourceRecommendations : [],
+    depthGuidance,
+    generatedByModel: model,
+  };
+}
+
+// Parses a manually-pasted Claude Pro response and persists the brief.
+// Status transitions on the opportunity belong to the orchestrator, not here.
+export async function parseContentBriefResponse(text, opportunity, model = null) {
+  const fields = buildBriefFields(text, opportunity, model);
+
   const briefDoc = await ContentBrief.findOneAndUpdate(
     { opportunityId: opportunity._id },
-    {
-      opportunityId: opportunity._id,
-      title: parsed.title || opportunity.title,
-      searchIntent: parsed.searchIntent || opportunity.searchIntent || null,
-      targetAudience: parsed.targetAudience || null,
-      primaryKeyword: parsed.primaryKeyword || opportunity.focusKeyword || null,
-      secondaryKeywords: Array.isArray(parsed.secondaryKeywords) ? parsed.secondaryKeywords : [],
-      topicAngle: parsed.topicAngle || opportunity.topicAngle || null,
-      headings: Array.isArray(parsed.headings) ? parsed.headings : [],
-      questionsToAnswer: Array.isArray(parsed.questionsToAnswer) ? parsed.questionsToAnswer : [],
-      suggestedExamples: Array.isArray(parsed.suggestedExamples) ? parsed.suggestedExamples : [],
-      contentGaps: Array.isArray(parsed.contentGaps) ? parsed.contentGaps : [],
-      internalLinkTargets: {
-        courses: Array.isArray(parsed.internalLinkTargets?.courses) ? parsed.internalLinkTargets.courses : [],
-        blogs: Array.isArray(parsed.internalLinkTargets?.blogs) ? parsed.internalLinkTargets.blogs : [],
-      },
-      courseId: opportunity.courseId || null,
-      ctaRecommendation: parsed.ctaRecommendation || null,
-      sourceRecommendations: Array.isArray(parsed.sourceRecommendations) ? parsed.sourceRecommendations : [],
-      depthGuidance,
-      generatedByModel: model,
-    },
+    fields,
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
 
