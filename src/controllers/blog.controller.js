@@ -25,7 +25,7 @@ export function isPubliclyVisible(blog, now = new Date()) {
 
 export const getAllBlogs = async (req, res) => {
   try {
-    const blogs = await Blogs.find(buildPublicBlogFilter(), LIST_PROJECTION).sort({ createdAt: -1 });
+    const blogs = await Blogs.find(buildPublicBlogFilter(), LIST_PROJECTION).sort({ createdAt: -1 }).lean();
     return res.json(blogs);
   } catch (error) {
     console.error("Error fetching all blogs:", error);
