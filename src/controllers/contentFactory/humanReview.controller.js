@@ -95,7 +95,7 @@ export const updateReviewDraft = async (req, res) => {
 // covers the "not yet generated" side (PLANNED/SELECTED/NEEDS_REVISION).
 // Deliberately excludes GENERATING (a job is already in flight — see the
 // double-job-doc race this guards against) and terminal states
-// (APPROVED/SCHEDULED/PUBLISHED/REJECTED), which have their own workflows.
+// (APPROVED/SCHEDULED/REJECTED), which have their own workflows.
 const REGENERATABLE_STATUSES = ["HUMAN_REVIEW", "AI_REVIEW", "NEEDS_REVISION", "FAILED"];
 
 // POST /admin/content-factory/review/:opportunityId/regenerate
