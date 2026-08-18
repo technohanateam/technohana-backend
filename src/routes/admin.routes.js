@@ -608,7 +608,10 @@ router.get("/subscribers", authenticateAdmin, requirePage("subscribers"), adminD
 });
 
 // GET /admin/blogs
-router.get("/blogs", authenticateAdmin, requirePage("blogs"), async (req, res) => {
+// Read access also accepts the additive "content-factory-blogs" child key
+// (Phase 3) so an admin granted only that key can view Blogs from within the
+// Content Factory experience — write routes below still require "blogs" only.
+router.get("/blogs", authenticateAdmin, requirePage("blogs", "content-factory-blogs"), async (req, res) => {
   try {
     const data = await Blogs.find().sort({ _id: -1 }).lean();
     return res.json({ data });

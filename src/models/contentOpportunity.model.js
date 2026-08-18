@@ -92,7 +92,6 @@ const contentOpportunitySchema = new Schema(
         "APPROVED",
         "REJECTED",
         "SCHEDULED",
-        "PUBLISHED",
         "FAILED",
       ],
       default: "PLANNED",

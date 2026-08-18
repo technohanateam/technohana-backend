@@ -50,6 +50,13 @@ export const ADMIN_PAGES = [
   "seo-internal-links",
   "authors",
   "course-factory",
+  // Additive child permission (Phase 3): read-only access to the Blogs list
+  // from within the Content Factory experience. Deliberately NOT added to
+  // any DEFAULT_PAGES_BY_ROLE entry below — must be granted explicitly via
+  // an admin's extraPages, never implied by "content-factory" alone. Only
+  // GET /admin/blogs accepts this key (via requirePage OR-logic); every
+  // Blog write route still requires "blogs".
+  "content-factory-blogs",
 ];
 
 export const ADMIN_ROLES = [
