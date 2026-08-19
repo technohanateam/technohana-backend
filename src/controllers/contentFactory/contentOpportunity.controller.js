@@ -9,7 +9,12 @@ export const listOpportunities = async (req, res) => {
     const { status, courseSlug, clusterId, contentType, minScore } = req.query;
 
     const query = {};
-    if (status) query.status = status;
+    // status may be a single value or a comma-joined list (e.g. the opportunity
+    // picker sends "PLANNED,SELECTED,NEEDS_REVISION") — match any of them.
+    if (status) {
+      const statuses = String(status).split(",").map((s) => s.trim()).filter(Boolean);
+      if (statuses.length) query.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
+    }
     if (courseSlug) query.courseSlug = courseSlug;
     if (clusterId) query.clusterId = clusterId;
     if (contentType) query.contentType = contentType;
