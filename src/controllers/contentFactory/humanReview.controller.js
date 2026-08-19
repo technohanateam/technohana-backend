@@ -298,7 +298,10 @@ async function approveOpportunityCore(opportunity, { scheduledAt, reviewerName }
   opportunity.reviewedAt = new Date();
   await opportunity.save();
 
-  return { ok: true, blogId: blog._id };
+  // slug is the authoritative, collision-resolved value (uniqueSlug may have
+  // suffixed it) — surface it so the frontend can build a "View Blog" link to
+  // /blog/:slug without re-deriving (and possibly mismatching) it.
+  return { ok: true, blogId: blog._id, slug: blog.slug };
 }
 
 // Server-side re-validation that an opportunity is actually safe to approve —
@@ -337,7 +340,7 @@ export const approveReviewItem = async (req, res) => {
     const result = await approveOpportunityCore(opportunity, { scheduledAt: req.body?.scheduledAt, reviewerName });
     if (!result.ok) return res.status(result.statusCode).json({ success: false, message: result.message });
 
-    return res.json({ success: true, data: { blogId: result.blogId }, message: "Approved — draft created in Blogs" });
+    return res.json({ success: true, data: { blogId: result.blogId, slug: result.slug }, message: "Approved — draft created in Blogs" });
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ success: false, message: err.message });
     console.error("[ContentFactory] approveReviewItem error:", err);
@@ -370,7 +373,7 @@ export const bulkApproveReview = async (req, res) => {
       try {
         // eslint-disable-next-line no-await-in-loop
         const result = await approveOpportunityCore(opportunity, { scheduledAt: null, reviewerName });
-        if (result.ok) approved.push({ id, blogId: result.blogId });
+        if (result.ok) approved.push({ id, blogId: result.blogId, slug: result.slug });
         else skipped.push({ id, reason: result.message });
       } catch (err) {
         skipped.push({ id, reason: err.message });
