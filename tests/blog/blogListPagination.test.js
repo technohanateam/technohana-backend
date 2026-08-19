@@ -13,15 +13,26 @@ import {
 // without needing a live MongoDB.
 
 // ── parseBlogListParams: opt-in detection + safe bounds ─────────────────────
-test("no page/limit params -> not paginated (bare-array contract preserved)", () => {
+test("no params at all -> not paginated (bare-array contract preserved)", () => {
   assert.equal(parseBlogListParams({}).paginated, false);
-  // category/tag/search alone must NOT flip into the envelope branch.
-  assert.equal(parseBlogListParams({ category: "AI", tag: "x", search: "y" }).paginated, false);
 });
 
 test("page or limit opts into pagination", () => {
   assert.equal(parseBlogListParams({ page: "2" }).paginated, true);
   assert.equal(parseBlogListParams({ limit: "10" }).paginated, true);
+});
+
+test("category, tag, or search ALONE also opts into pagination — a filter must never be silently dropped", () => {
+  assert.equal(parseBlogListParams({ category: "AI" }).paginated, true);
+  assert.equal(parseBlogListParams({ tag: "azure" }).paginated, true);
+  assert.equal(parseBlogListParams({ search: "cloud" }).paginated, true);
+  assert.equal(parseBlogListParams({ category: "AI", tag: "x", search: "y" }).paginated, true);
+});
+
+test("blank/whitespace-only category, tag, or search does NOT opt in on its own", () => {
+  assert.equal(parseBlogListParams({ category: "" }).paginated, false);
+  assert.equal(parseBlogListParams({ tag: "   " }).paginated, false);
+  assert.equal(parseBlogListParams({ search: "" }).paginated, false);
 });
 
 test("page/limit defaults when paginated without explicit values", () => {

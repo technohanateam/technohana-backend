@@ -37,12 +37,15 @@ function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Pure param parser (unit-testable without Mongo). `paginated` is true only
-// when the caller opted in via page or limit — that alone selects the
-// envelope branch; category/tag/search are additive filters that only take
-// effect inside it.
+// Pure param parser (unit-testable without Mongo). `paginated` is true when
+// the caller opts in via page/limit OR any filter param — a category/tag/
+// search alone must still be applied, not silently dropped by falling
+// through to the legacy bare-array path.
 export function parseBlogListParams(query = {}) {
-  const paginated = query.page !== undefined || query.limit !== undefined;
+  const hasCategory = typeof query.category === "string" && query.category.trim() !== "";
+  const hasTag = typeof query.tag === "string" && query.tag.trim() !== "";
+  const hasSearch = typeof query.search === "string" && query.search.trim() !== "";
+  const paginated = query.page !== undefined || query.limit !== undefined || hasCategory || hasTag || hasSearch;
   const page = Math.max(1, parseInt(query.page, 10) || 1);
   const limit = Math.min(MAX_BLOG_LIMIT, Math.max(1, parseInt(query.limit, 10) || DEFAULT_BLOG_LIMIT));
   const category = typeof query.category === "string" && query.category.trim() ? query.category.trim() : null;
