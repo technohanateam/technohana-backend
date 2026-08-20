@@ -21,6 +21,13 @@ const MODELS_BY_TIER = {
   standard: "claude-sonnet-4-6",
 };
 
+// Bounds every Claude call so a network/provider stall can never hang a
+// caller (e.g. content-factory generation steps) indefinitely — an unbounded
+// await here left generation jobs wedged at status "RUNNING" forever with no
+// error ever recorded, since the step-level catch that marks a job FAILED
+// only runs once the awaited call actually rejects.
+const REQUEST_TIMEOUT_MS = 90_000;
+
 // tier: "cheap" (Haiku, for cheap/high-volume calls) or "standard" (Sonnet,
 // default). Returns { text, usage, model } instead of a bare string so
 // callers can track token usage/cost (needed for AI Content Factory
@@ -28,12 +35,15 @@ const MODELS_BY_TIER = {
 // return; all existing callers have been updated to destructure `.text`.
 export async function callClaude({ system, prompt, maxTokens = 1024, tier = "standard" }) {
   const model = MODELS_BY_TIER[tier] || MODELS_BY_TIER.standard;
-  const response = await getClient().messages.create({
-    model,
-    max_tokens: maxTokens,
-    system,
-    messages: [{ role: "user", content: prompt }],
-  });
+  const response = await getClient().messages.create(
+    {
+      model,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: "user", content: prompt }],
+    },
+    { timeout: REQUEST_TIMEOUT_MS }
+  );
   const text = response.content.find((b) => b.type === "text")?.text ?? "";
   // stopReason additive to the existing {text, usage, model} shape — existing
   // callers that don't destructure it are unaffected. "max_tokens" means the
