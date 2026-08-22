@@ -3,7 +3,7 @@ import ContentGenerationJob from "../../models/contentGenerationJob.model.js";
 import { enqueueGeneration, enqueueRetry } from "../../services/contentFactory/contentGenerationQueue.js";
 import { resumeStep } from "../../services/contentFactory/contentGenerationOrchestrator.service.js";
 
-const GENERATABLE_STATUSES = ["PLANNED", "SELECTED", "NEEDS_REVISION"];
+const GENERATABLE_STATUSES = ["PLANNED", "SELECTED", "NEEDS_REVISION", "FAILED"];
 
 // POST /admin/content-factory/opportunities/:id/generate
 // Enqueues the generation pipeline and returns immediately — the frontend
@@ -16,7 +16,7 @@ export const generateOpportunityArticle = async (req, res) => {
     if (!GENERATABLE_STATUSES.includes(opportunity.status)) {
       return res.status(409).json({
         success: false,
-        message: `Cannot generate from status ${opportunity.status}. Must be PLANNED, SELECTED, or NEEDS_REVISION.`,
+        message: `Cannot generate from status ${opportunity.status}. Must be PLANNED, SELECTED, NEEDS_REVISION, or FAILED.`,
       });
     }
 
