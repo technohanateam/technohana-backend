@@ -47,7 +47,11 @@ export function parseArticleResponse(finalText, brief, opportunity) {
     metaDescription: generated.metaDescription || "",
     tags: Array.isArray(generated.tags) ? generated.tags : [],
     readTimeMin,
-    sources: Array.isArray(generated.sources) ? generated.sources : [],
+    // Schema wants [{ title, url }], but the prompt asks the model for plain
+    // URL strings — normalize either shape rather than crash on a mismatch.
+    sources: Array.isArray(generated.sources)
+      ? generated.sources.map((s) => (typeof s === "string" ? { title: "", url: s } : s)).filter((s) => s?.url)
+      : [],
     faqs: Array.isArray(generated.faqs) ? generated.faqs : [],
     suggestedInternalLinks: { courses: [], blogs: [] },
     // Non-Blogs-schema fields the SEO/link steps still need downstream.

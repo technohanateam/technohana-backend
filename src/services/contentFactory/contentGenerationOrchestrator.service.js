@@ -289,13 +289,33 @@ async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imag
       job.lastAttemptAt = new Date();
       await job.save();
 
-      opportunity.status = "FAILED";
-      opportunity.errorMessage = err.message;
-      opportunity.retryCount += 1;
-      opportunity.lastAttemptAt = new Date();
-      await opportunity.save();
+      // Re-fetch rather than reuse the in-memory `opportunity` doc: if the
+      // failure came from a bad field assignment above (e.g. a schema cast
+      // error on articleDraft/imageConcept), that doc can be left in an
+      // invalid in-memory state whose own .save() throws a second time —
+      // which would escape uncaught here and leave the opportunity stuck
+      // showing its pre-failure status (e.g. AWAITING_INPUT) with no job
+      // able to resume it. A fresh doc only touches the status fields below.
+      let failedOpportunity = opportunity;
+      try {
+        opportunity.status = "FAILED";
+        opportunity.errorMessage = err.message;
+        opportunity.retryCount += 1;
+        opportunity.lastAttemptAt = new Date();
+        await opportunity.save();
+      } catch (saveErr) {
+        console.error(`[content-factory] failed to persist FAILED status for opportunity ${opportunity._id} after step error, retrying with a fresh doc:`, saveErr.message);
+        failedOpportunity = await ContentOpportunity.findById(opportunity._id);
+        if (failedOpportunity) {
+          failedOpportunity.status = "FAILED";
+          failedOpportunity.errorMessage = err.message;
+          failedOpportunity.retryCount += 1;
+          failedOpportunity.lastAttemptAt = new Date();
+          await failedOpportunity.save();
+        }
+      }
 
-      return { success: false, failedStep: stepName, error: err.message, job, opportunity };
+      return { success: false, failedStep: stepName, error: err.message, job, opportunity: failedOpportunity };
     }
   }
 
