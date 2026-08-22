@@ -1439,7 +1439,12 @@ setInterval(async () => {
 // Safety net for any route/middleware that throws without its own try/catch —
 // never leak stack traces to the client.
 app.use((err, req, res, next) => {
-  logger.error('Unhandled error:', err);
+  const isCorsRejection = err?.message === 'Origin required in production' || err?.message === 'Not allowed by CORS';
+  if (isCorsRejection) {
+    logger.warn(`CORS rejected request: ${err.message} (path: ${req.path})`);
+  } else {
+    logger.error('Unhandled error:', err);
+  }
   if (res.headersSent) return next(err);
   res.status(500).json({ success: false, message: 'Server error' });
 });
