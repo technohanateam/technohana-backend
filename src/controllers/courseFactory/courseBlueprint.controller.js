@@ -2,6 +2,7 @@ import AcademyCourse from "../../models/courseFactory/academyCourse.model.js";
 import AcademyModule from "../../models/courseFactory/academyModule.model.js";
 import AcademyLesson from "../../models/courseFactory/academyLesson.model.js";
 import { buildBlueprintPrompt, parseBlueprintResponse } from "../../services/courseFactory/blueprintGenerator.service.js";
+import { enqueueSitemapSubmit } from "../../services/seoIntelQueue.js";
 
 function slugify(s) {
   return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -200,6 +201,7 @@ export const publishCourse = async (req, res) => {
     course.status = "PUBLISHED";
     course.publishedAt = new Date();
     await course.save();
+    enqueueSitemapSubmit();
     return res.json({ success: true, message: "Course published" });
   } catch (err) {
     console.error("[CourseFactory] publishCourse error:", err);
