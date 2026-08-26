@@ -97,6 +97,45 @@ const campaignSchema = new Schema({
   pausedAt: Date,
   resumedAt: Date,
 
+  // AI copy review state — gates whether a campaign can be scheduled/sent
+  // when its copy was AI-generated. "draft"-status campaigns written by hand
+  // never enter this state machine (reviewState stays null).
+  reviewState: {
+    type: String,
+    enum: [null, "PENDING_REVIEW", "NEEDS_REVISION", "APPROVED"],
+    default: null,
+  },
+  reviewFlagReasons: { type: [String], default: [] },
+  reviewedBy: { type: String, default: null },
+  reviewedAt: { type: Date, default: null },
+  autoRevisionCount: { type: Number, default: 0 },
+
+  // Opportunity engine linkage — set when this campaign was created by
+  // approving a CampaignOpportunity, so the two stay traceable to each other.
+  sourceOpportunityId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignOpportunity", default: null },
+
+  // Per-recipient AI personalization (campaignPersonalizer.js) — off by
+  // default so existing campaigns keep sending the static htmlContent/variant
+  // exactly as before.
+  personalize: { type: Boolean, default: false },
+
+  // Step-orchestrated copy generation audit trail (campaignCopywriterAgent.js
+  // steps/ pipeline). Unlike the blog factory this runs fully via API with no
+  // pause/resume, so this is a simple ledger rather than a job document.
+  copyBrief: { type: String, default: null },
+  copySteps: {
+    type: [
+      {
+        name: { type: String, enum: ["SUBJECT", "PREVIEW", "BODY", "CTA", "VARIANTS", "COMPLIANCE_CHECK"], required: true },
+        status: { type: String, enum: ["PENDING", "RUNNING", "DONE", "FAILED"], default: "PENDING" },
+        error: { type: String, default: null },
+        finishedAt: { type: Date, default: null },
+        _id: false,
+      },
+    ],
+    default: [],
+  },
+
   // Resend Integration
   resendCampaignId: String, // ID returned by Resend for tracking
 

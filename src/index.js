@@ -1329,6 +1329,12 @@ import("./services/contentFactory/contentFactoryQueue.js")
   .then(({ scheduleContentFactoryRepeatables }) => scheduleContentFactoryRepeatables())
   .catch((err) => console.error("[Content Factory Queue] failed to schedule repeatables:", err.message));
 
+// Schedule Campaign Opportunity Engine background job (daily scan at 6am).
+// Same dedupe-safe pattern as the content factory's planning queue.
+import("./services/emailMarketing/campaignOpportunityQueue.js")
+  .then(({ scheduleCampaignOpportunityRepeatable }) => scheduleCampaignOpportunityRepeatable())
+  .catch((err) => console.error("[Campaign Opportunity Queue] failed to schedule repeatables:", err.message));
+
 // ─── Automated Email Sequences ────────────────────────────────────────────────
 
 // Abandoned cart: check every 30 minutes, send re-engagement email after 2h

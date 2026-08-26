@@ -25,7 +25,7 @@ export const getEnrolledUsers = async (options = {}) => {
     const skip = options.skip || 0;
 
     const users = await User.find(query)
-      .select("email name courseTitle enrolledAt status")
+      .select("email name courseTitle enrolledAt status city referralCode")
       .limit(limit)
       .skip(skip)
       .lean();
@@ -55,7 +55,7 @@ export const getUsersByCourses = async (courseIds = [], options = {}) => {
     const skip = options.skip || 0;
 
     const users = await User.find(query)
-      .select("email name courseTitle enrolledAt status")
+      .select("email name courseTitle enrolledAt status city referralCode")
       .limit(limit)
       .skip(skip)
       .lean();
