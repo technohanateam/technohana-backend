@@ -26,7 +26,8 @@ import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, res
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
-import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy } from "../controllers/campaign.controller.js";
+import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy, approveCampaignReview, rejectCampaignReview, regenerateCampaignCopy, rerunCampaignQualityGate } from "../controllers/campaign.controller.js";
+import { getAllOpportunities, runOpportunityScanNow, approveOpportunity, dismissOpportunity } from "../controllers/campaignOpportunity.controller.js";
 import { getAllDripSequences, getDripSequence, createDripSequence, updateDripSequence, deleteDripSequence, activateDripSequence, deactivateDripSequence } from "../controllers/dripSequence.controller.js";
 import Campaign from "../models/campaign.model.js";
 import Lead from "../models/lead.model.js";
@@ -1420,7 +1421,35 @@ router.post("/campaigns/estimate-segment", authenticateAdmin, requirePage("campa
 router.get("/campaigns/queue/stats", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignQueueStats);
 
 // POST /admin/campaigns/:id/ai-copy - Generate AI copy for a campaign
-router.post("/campaigns/:id/ai-copy", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, generateAICopy);
+router.post("/campaigns/:id/ai-copy", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, adminAiLimiter, generateAICopy);
+
+// ─── Campaign Copy Review (Quality Gate + Human Review) ───────────────────────
+
+// POST /admin/campaigns/:id/review/approve - Approve AI copy despite outstanding flags
+router.post("/campaigns/:id/review/approve", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, approveCampaignReview);
+
+// POST /admin/campaigns/:id/review/reject - Reject AI copy, keep in NEEDS_REVISION
+router.post("/campaigns/:id/review/reject", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, rejectCampaignReview);
+
+// POST /admin/campaigns/:id/review/regenerate - Re-run the full copy pipeline
+router.post("/campaigns/:id/review/regenerate", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, adminAiLimiter, regenerateCampaignCopy);
+
+// POST /admin/campaigns/:id/review/rerun-gate - Re-run just the compliance/style gate
+router.post("/campaigns/:id/review/rerun-gate", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, adminAiLimiter, rerunCampaignQualityGate);
+
+// ─── Campaign Opportunity Engine ───────────────────────────────────────────────
+
+// GET /admin/campaigns/opportunities - List proposed/approved/dismissed opportunities
+router.get("/campaigns/opportunities", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getAllOpportunities);
+
+// POST /admin/campaigns/opportunities/run-now - Trigger an opportunity scan immediately
+router.post("/campaigns/opportunities/run-now", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, adminAiLimiter, runOpportunityScanNow);
+
+// POST /admin/campaigns/opportunities/:id/approve - Create a draft campaign from an opportunity
+router.post("/campaigns/opportunities/:id/approve", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, approveOpportunity);
+
+// POST /admin/campaigns/opportunities/:id/dismiss - Dismiss an opportunity
+router.post("/campaigns/opportunities/:id/dismiss", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, dismissOpportunity);
 
 // ─── Drip Sequences ───────────────────────────────────────────────────────────
 

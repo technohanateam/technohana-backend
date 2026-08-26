@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { getSegmentedUsers } from "../utils/segmentationEngine.js";
 import { scheduleCampaignJob, getQueueStats } from "../services/campaignQueue.js";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
+import { personalizeForRecipient } from "../services/emailMarketing/campaignPersonalizer.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -234,6 +235,13 @@ export const sendCampaignNow = async (req, res) => {
       });
     }
 
+    if (campaign.reviewState === "PENDING_REVIEW" || campaign.reviewState === "NEEDS_REVISION") {
+      return res.status(400).json({
+        success: false,
+        message: `Campaign copy has not cleared review (reviewState: ${campaign.reviewState}). Approve it first.`,
+      });
+    }
+
     // Get all segmented users (no limit cap for actual send)
     const { users, total } = await getSegmentedUsers(campaign.segments, {
       limit: 50000,
@@ -261,11 +269,23 @@ export const sendCampaignNow = async (req, res) => {
       await Promise.all(
         batch.map(async (user) => {
           try {
+            let emailSubject = campaign.subject;
+            let emailContent = campaign.htmlContent;
+            if (campaign.personalize) {
+              const personalized = await personalizeForRecipient({
+                subject: emailSubject,
+                htmlContent: emailContent,
+                recipient: user,
+              });
+              emailSubject = personalized.subject;
+              emailContent = personalized.htmlContent;
+            }
+
             const response = await resend.emails.send({
               from: `${campaign.fromName} <${campaign.fromEmail}>`,
               to: user.email,
-              subject: campaign.subject,
-              html: campaign.htmlContent,
+              subject: emailSubject,
+              html: emailContent,
               headers: {
                 "X-Campaign-ID": campaign._id.toString(),
                 "X-User-ID": user._id?.toString() || user.email,
@@ -335,6 +355,13 @@ export const scheduleCampaign = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Campaign not found",
+      });
+    }
+
+    if (campaign.reviewState === "PENDING_REVIEW" || campaign.reviewState === "NEEDS_REVISION") {
+      return res.status(400).json({
+        success: false,
+        message: `Campaign copy has not cleared review (reviewState: ${campaign.reviewState}). Approve it first.`,
       });
     }
 
@@ -537,12 +564,93 @@ export const generateAICopy = async (req, res) => {
       return res.status(400).json({ success: false, message: "Brief must be at least 10 characters" });
     }
 
-    const { generateCampaignCopy } = await import("../services/campaignCopywriterAgent.js");
+    const { generateCampaignCopy } = await import("../services/emailMarketing/campaignCopyOrchestrator.js");
     const result = await generateCampaignCopy(req.params.id, brief);
-    res.json({ success: true, data: result, message: "AI copy generated and saved to campaign" });
+    res.json({
+      success: result.success,
+      data: result.campaign,
+      message: result.success
+        ? `AI copy generated — review state: ${result.reviewState}`
+        : "AI copy generation failed partway through the pipeline",
+    });
   } catch (err) {
     console.error("generateAICopy error:", err);
     res.status(500).json({ success: false, message: "AI copy generation failed" });
+  }
+};
+
+// Human review — approve a campaign whose AI copy is in PENDING_REVIEW or
+// NEEDS_REVISION, allowing it to be scheduled/sent despite outstanding flags
+// (an explicit human override of the quality gate).
+export const approveCampaignReview = async (req, res) => {
+  try {
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
+
+    campaign.reviewState = "APPROVED";
+    campaign.reviewedBy = req.admin?.email || req.admin?._id?.toString() || "admin";
+    campaign.reviewedAt = new Date();
+    await campaign.save();
+
+    res.json({ success: true, message: "Campaign approved", data: campaign });
+  } catch (err) {
+    console.error("approveCampaignReview error:", err);
+    res.status(500).json({ success: false, message: "Error approving campaign" });
+  }
+};
+
+// Reject — leaves the campaign in NEEDS_REVISION with a human-supplied reason
+// appended, so it cannot be scheduled/sent until edited and re-approved.
+export const rejectCampaignReview = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
+
+    campaign.reviewState = "NEEDS_REVISION";
+    campaign.reviewFlagReasons = reason ? [...campaign.reviewFlagReasons, reason] : campaign.reviewFlagReasons;
+    campaign.reviewedBy = req.admin?.email || req.admin?._id?.toString() || "admin";
+    campaign.reviewedAt = new Date();
+    await campaign.save();
+
+    res.json({ success: true, message: "Campaign rejected", data: campaign });
+  } catch (err) {
+    console.error("rejectCampaignReview error:", err);
+    res.status(500).json({ success: false, message: "Error rejecting campaign" });
+  }
+};
+
+// Regenerate — re-runs the full copy pipeline from a (possibly edited) brief.
+export const regenerateCampaignCopy = async (req, res) => {
+  try {
+    const { brief } = req.body;
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
+
+    const { generateCampaignCopy } = await import("../services/emailMarketing/campaignCopyOrchestrator.js");
+    const result = await generateCampaignCopy(campaign._id, brief || campaign.copyBrief);
+
+    res.json({
+      success: result.success,
+      data: result.campaign,
+      message: result.success ? `Regenerated — review state: ${result.reviewState}` : "Regeneration failed",
+    });
+  } catch (err) {
+    console.error("regenerateCampaignCopy error:", err);
+    res.status(500).json({ success: false, message: "Error regenerating campaign copy" });
+  }
+};
+
+// Re-runs just the automated compliance/style gate (e.g. after a human
+// hand-edits flagged copy) without regenerating the whole email.
+export const rerunCampaignQualityGate = async (req, res) => {
+  try {
+    const { rerunComplianceCheck } = await import("../services/emailMarketing/campaignCopyOrchestrator.js");
+    const result = await rerunComplianceCheck(req.params.id);
+    res.json({ success: true, data: result.campaign, message: `Quality gate re-run — review state: ${result.reviewState}` });
+  } catch (err) {
+    console.error("rerunCampaignQualityGate error:", err);
+    res.status(500).json({ success: false, message: "Error re-running quality gate" });
   }
 };
 
@@ -560,4 +668,8 @@ export default {
   estimateSegmentSize,
   getCampaignQueueStats,
   generateAICopy,
+  approveCampaignReview,
+  rejectCampaignReview,
+  regenerateCampaignCopy,
+  rerunCampaignQualityGate,
 };

@@ -12,7 +12,7 @@
     "sync-prices": "node -e \"import('fs').then(fs=>{ fs.default.copyFileSync('../technohana-frontend-master/public/data/courses.json','src/data/courses.json'); console.log('Prices synced from frontend'); })\"",
     "sync-seo-data": "node sync-seo-data.js",
     "reseed": "node seed-courses.js",
-    "test": "node --test tests/seo-intel/**/*.test.js tests/backlink/**/*.test.js tests/content-factory/**/*.test.js tests/blog/**/*.test.js tests/seo-authority/**/*.test.js tests/course-factory/**/*.test.js"
+    "test": "node --test tests/seo-intel/**/*.test.js tests/backlink/**/*.test.js tests/content-factory/**/*.test.js tests/blog/**/*.test.js tests/seo-authority/**/*.test.js tests/course-factory/**/*.test.js tests/ad-creative-factory/**/*.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.0",

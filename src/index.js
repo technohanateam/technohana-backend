@@ -63,6 +63,7 @@ import seoOpsRoutes from "./routes/seoOps.routes.js";
 import seoIntelRoutes from "./routes/seoIntel.routes.js";
 import contentFactoryRoutes from "./routes/contentFactory.routes.js";
 import courseFactoryRoutes from "./routes/courseFactory.routes.js";
+import adCreativeFactoryRoutes from "./routes/adCreativeFactory.routes.js";
 import academyRoutes from "./routes/academy.routes.js";
 import seoTopicClusterRoutes from "./routes/seoTopicCluster.routes.js";
 import internalLinkRecommendationRoutes from "./routes/internalLinkRecommendation.routes.js";
@@ -1290,6 +1291,7 @@ app.use("/admin/seo", seoOpsRoutes);
 app.use("/admin/seo-intel", seoIntelRoutes);
 app.use("/admin/content-factory", contentFactoryRoutes);
 app.use("/admin/course-factory", courseFactoryRoutes);
+app.use("/admin/ad-creative-factory", adCreativeFactoryRoutes);
 app.use("/academy", academyRoutes);
 app.use("/admin/seo/topic-clusters", seoTopicClusterRoutes);
 app.use("/admin/seo/internal-links", internalLinkRecommendationRoutes);
@@ -1326,6 +1328,12 @@ import("./services/backlinkQueue.js")
 import("./services/contentFactory/contentFactoryQueue.js")
   .then(({ scheduleContentFactoryRepeatables }) => scheduleContentFactoryRepeatables())
   .catch((err) => console.error("[Content Factory Queue] failed to schedule repeatables:", err.message));
+
+// Schedule Campaign Opportunity Engine background job (daily scan at 6am).
+// Same dedupe-safe pattern as the content factory's planning queue.
+import("./services/emailMarketing/campaignOpportunityQueue.js")
+  .then(({ scheduleCampaignOpportunityRepeatable }) => scheduleCampaignOpportunityRepeatable())
+  .catch((err) => console.error("[Campaign Opportunity Queue] failed to schedule repeatables:", err.message));
 
 // ─── Automated Email Sequences ────────────────────────────────────────────────
 
