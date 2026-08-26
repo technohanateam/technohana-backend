@@ -48,10 +48,15 @@ export const resumeContentStep = async (req, res) => {
 };
 
 // GET /admin/course-factory/jobs/:id
+// Polled every 3s by the admin UI while a job is QUEUED/RUNNING/AWAITING_INPUT
+// (LessonJobPanel) — must never be served from the browser's HTTP cache, or a
+// stale 304 response leaves the panel showing "Queuing…" forever even after
+// the job has actually moved to AWAITING_INPUT server-side.
 export const getGenerationJob = async (req, res) => {
   try {
     const job = await LessonGenerationJob.findById(req.params.id).lean();
     if (!job) return res.status(404).json({ success: false, message: "Job not found" });
+    res.set("Cache-Control", "no-store");
     return res.json({ success: true, data: job });
   } catch (err) {
     console.error("[CourseFactory] getGenerationJob error:", err);
