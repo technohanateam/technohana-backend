@@ -3,7 +3,7 @@ import SeoConnection from "../models/seoConnection.model.js";
 import SeoIntelligenceSettings from "../models/seoIntelligenceSettings.model.js";
 import SeoCrawlRun from "../models/seoCrawlRun.model.js";
 import { getAuthedClientForConnection } from "../config/googleSeoOAuth.js";
-import { syncGscProperty } from "./gscSyncService.js";
+import { syncGscProperty, submitSitemap } from "./gscSyncService.js";
 import { syncGa4Property } from "./ga4SyncService.js";
 import { runCrawl } from "./seoCrawler.js";
 import { generateRecommendationsFromCrawl, generateRecommendationsFromGsc, generateRecommendationsFromGa4 } from "./recommendationEngine.js";
@@ -22,6 +22,9 @@ export const ga4SyncQueue = new Bull("seo-ga4-sync", { redis: redisConfig, ...QU
 export const crawlQueue = new Bull("seo-crawl", { redis: redisConfig, ...QUEUE_SETTINGS });
 export const execReportQueue = new Bull("seo-exec-report", { redis: redisConfig, ...QUEUE_SETTINGS });
 export const scoreRecalcQueue = new Bull("seo-score-recalc", { redis: redisConfig, ...QUEUE_SETTINGS });
+export const sitemapSubmitQueue = new Bull("seo-sitemap-submit", { redis: redisConfig, ...QUEUE_SETTINGS });
+
+const SITEMAP_URL = "https://technohana.in/sitemap.xml";
 
 async function getSettings() {
   let settings = await SeoIntelligenceSettings.findOne();
@@ -143,7 +146,26 @@ scoreRecalcQueue.process(async () => {
   return { recalculated: true };
 });
 
-for (const [name, queue] of Object.entries({ gscSyncQueue, ga4SyncQueue, crawlQueue, execReportQueue, scoreRecalcQueue })) {
+sitemapSubmitQueue.process(async () => {
+  const connections = await SeoConnection.find({ provider: "gsc", isActive: true });
+  const failedPropertyIds = [];
+
+  for (const connection of connections) {
+    try {
+      const client = await getAuthedClientForConnection(connection);
+      await submitSitemap({ propertyId: connection.propertyId, sitemapUrl: SITEMAP_URL, authedClient: client });
+    } catch (err) {
+      console.error(`[Sitemap Submit] failed for ${connection.propertyId}:`, err.message);
+      failedPropertyIds.push(connection.propertyId);
+    }
+  }
+
+  if (failedPropertyIds.length) {
+    throw new Error(`Sitemap submit failed for: ${failedPropertyIds.join(", ")}`);
+  }
+});
+
+for (const [name, queue] of Object.entries({ gscSyncQueue, ga4SyncQueue, crawlQueue, execReportQueue, scoreRecalcQueue, sitemapSubmitQueue })) {
   queue.on("completed", (job) => console.log(`[${name}] job ${job.id} completed`));
   queue.on("failed", (job, err) => console.error(`[${name}] job ${job.id} failed:`, err.message));
   queue.on("stalled", (job) => console.warn(`[${name}] job ${job.id} stalled, will be reclaimed`));
@@ -157,6 +179,14 @@ export const SYNC_RETRY_CONFIG = { attempts: 3, backoff: { type: "exponential", 
 // loops), so a retry just re-does the whole thing — still worth one retry
 // in case of a transient DB/network blip, but with a longer backoff.
 export const SINGLE_RUN_RETRY_CONFIG = { attempts: 2, backoff: { type: "exponential", delay: 5 * 60000 }, ...JOB_CLEANUP };
+
+// Fire-and-forget enqueue for publish-time callers — errors are logged by
+// the queue's own "failed" listener, so callers don't need to await/catch.
+export function enqueueSitemapSubmit() {
+  sitemapSubmitQueue.add({}, SINGLE_RUN_RETRY_CONFIG).catch((err) =>
+    console.error("[Sitemap Submit] failed to enqueue:", err.message)
+  );
+}
 
 export async function scheduleSeoIntelRepeatables() {
   await gscSyncQueue.add({}, { repeat: { cron: "0 3 * * *" }, ...SYNC_RETRY_CONFIG });

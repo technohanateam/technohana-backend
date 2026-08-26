@@ -18,6 +18,7 @@ import Testimonial from "../models/testimonial.model.js";
 import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
 import { createBlogFromPayload } from "../services/blogCreation.service.js";
+import { enqueueSitemapSubmit } from "../services/seoIntelQueue.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
@@ -679,6 +680,11 @@ router.patch("/blogs/:id/publish", authenticateAdmin, requirePage("blogs"), requ
     blog.published = typeof published === "boolean" ? published : !blog.published;
     blog.scheduledAt = scheduledAt !== undefined ? (scheduledAt ? new Date(scheduledAt) : null) : blog.scheduledAt;
     await blog.save();
+    // Only ping Google when the post is immediately live — a future
+    // scheduledAt means the post isn't actually reachable yet.
+    if (blog.published && (!blog.scheduledAt || blog.scheduledAt <= new Date())) {
+      enqueueSitemapSubmit();
+    }
     return res.json({ published: blog.published, scheduledAt: blog.scheduledAt });
   } catch (err) {
     console.error("Admin toggle publish error:", err);

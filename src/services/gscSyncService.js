@@ -121,6 +121,11 @@ export async function inspectUrl({ propertyId, url, authedClient }) {
   return data;
 }
 
+export async function submitSitemap({ propertyId, sitemapUrl, authedClient }) {
+  const searchconsole = google.searchconsole({ version: "v1", auth: authedClient });
+  await searchconsole.sitemaps.submit({ siteUrl: propertyId, feedpath: sitemapUrl });
+}
+
 export async function listVerifiedSites(authedClient) {
   const searchconsole = google.searchconsole({ version: "v1", auth: authedClient });
   const { data } = await searchconsole.sites.list();
