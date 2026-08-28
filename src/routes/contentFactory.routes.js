@@ -6,6 +6,7 @@ import { getSettings, updateSettings, toggleAutomation } from "../controllers/co
 import { listCourses, updateCourseSettings, recomputePriority } from "../controllers/contentFactory/courseIntelligence.controller.js";
 import { listClusters, createCluster, updateCluster, deleteCluster, proposeMapping, applyMapping } from "../controllers/contentFactory/topicCluster.controller.js";
 import { listOpportunities, getOpportunity, runDryRunPlan, listRuns, rejectOpportunity, overrideScore } from "../controllers/contentFactory/contentOpportunity.controller.js";
+import { importArticle } from "../controllers/contentFactory/articleImport.controller.js";
 import { generateOpportunityArticle, getGenerationJob, retryGenerationJob, submitStepResponse } from "../controllers/contentFactory/contentGeneration.controller.js";
 import {
   listReviewItems,
@@ -56,6 +57,7 @@ router.patch("/opportunities/:id/reject", requireMarketing, rejectOpportunity);
 router.patch("/opportunities/:id/score", requireAdmin, overrideScore);
 router.post("/plan/dry-run", requireAdmin, contentFactoryAiLimiter, runDryRunPlan);
 router.get("/runs", requireMarketing, listRuns);
+router.post("/import", requireAdmin, importArticle);
 
 // ── Milestone 2: Content Generation ─────────────────────────────────────────
 router.post("/opportunities/:id/generate", requireMarketing, contentFactoryAiLimiter, generateOpportunityArticle);
