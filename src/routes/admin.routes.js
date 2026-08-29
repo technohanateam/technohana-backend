@@ -21,6 +21,7 @@ import { createBlogFromPayload } from "../services/blogCreation.service.js";
 import { enqueueSitemapSubmit } from "../services/seoIntelQueue.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
+import { refreshPriceCatalog } from "../utils/pricing.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
 import { adminLogin, setupAdmin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive, deleteAdminUser, forgotAdminPassword, resetAdminPasswordViaToken } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
@@ -1200,6 +1201,28 @@ router.post("/blogs/auto-schedule", authenticateAdmin, requirePage("blogs"), req
 
 // ─── Courses ──────────────────────────────────────────────────────────────────
 
+// Refreshes the in-memory checkout price catalog from Mongo, and triggers a
+// Vercel rebuild so the frontend's public/data/courses.json fallback (and
+// prerendered course pages) pick up the edit too. Fire-and-forget — an admin
+// write should not fail or slow down because the deploy hook is unreachable.
+function syncCourseCatalog() {
+  refreshPriceCatalog().catch((err) => console.error("Price catalog refresh failed:", err));
+
+  const hookUrl = process.env.VERCEL_DEPLOY_HOOK_URL;
+  if (hookUrl) {
+    fetch(hookUrl, { method: "POST" }).catch((err) => console.error("Vercel deploy hook failed:", err));
+  }
+
+  const chatApiUrl = process.env.CHAT_API_URL;
+  const hanaAdminToken = process.env.HANA_ADMIN_TOKEN;
+  if (chatApiUrl && hanaAdminToken) {
+    fetch(`${chatApiUrl.replace(/\/$/, "")}/admin/refresh-courses`, {
+      method: "POST",
+      headers: { "x-admin-token": hanaAdminToken },
+    }).catch((err) => console.error("Hana course refresh failed:", err));
+  }
+}
+
 // GET /admin/courses?category=&search=&page=1&limit=20
 router.get("/courses", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), async (req, res) => {
   try {
@@ -1246,6 +1269,7 @@ router.post("/courses", authenticateAdmin, requirePage("courses", "quote-generat
 
     const course = new Course(pickCourseFields(req.body));
     await course.save();
+    syncCourseCatalog();
     return res.status(201).json({ data: course });
   } catch (err) {
     console.error("Admin create course error:", err);
@@ -1258,6 +1282,7 @@ router.put("/courses/:id", authenticateAdmin, requirePage("courses", "quote-gene
   try {
     const updated = await Course.findByIdAndUpdate(req.params.id, pickCourseFields(req.body), { new: true });
     if (!updated) return res.status(404).json({ message: "Course not found." });
+    syncCourseCatalog();
     return res.json({ data: updated });
   } catch (err) {
     console.error("Admin update course error:", err);
@@ -1270,6 +1295,7 @@ router.delete("/courses/:id", authenticateAdmin, requirePage("courses", "quote-g
   try {
     const deleted = await Course.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Course not found." });
+    syncCourseCatalog();
     return res.json({ message: "Course deleted." });
   } catch (err) {
     console.error("Admin delete course error:", err);
@@ -1281,6 +1307,7 @@ router.delete("/courses/:id", authenticateAdmin, requirePage("courses", "quote-g
 router.delete("/courses/clear", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, async (req, res) => {
   try {
     const result = await Course.deleteMany({});
+    syncCourseCatalog();
     return res.json({ message: "Cleared all courses", deleted: result.deletedCount });
   } catch (err) {
     console.error("Admin clear courses error:", err);
@@ -1311,6 +1338,7 @@ router.post("/courses/seed", authenticateAdmin, requirePage("courses", "quote-ge
         }));
       const result = await Course.bulkWrite(ops, { ordered: false });
       const total = await Course.countDocuments();
+      syncCourseCatalog();
       return res.json({
         message: `Reseeded ${ops.length} courses (upsert)`,
         upserted: result.upsertedCount,
@@ -1331,6 +1359,7 @@ router.post("/courses/seed", authenticateAdmin, requirePage("courses", "quote-ge
 
     const result = await Course.insertMany(toInsert, { ordered: false });
     const total = await Course.countDocuments();
+    syncCourseCatalog();
     return res.status(201).json({
       message: `Seeded ${result.length} new courses successfully`,
       inserted: result.length,
