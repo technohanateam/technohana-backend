@@ -1,6 +1,4 @@
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import Course from '../models/course.model.js';
 
 export const allowedCurrencies = ['usd', 'inr', 'aed', 'eur', 'gbp', 'sar', 'qar', 'omr', 'bhd', 'kwd'];
 
@@ -48,23 +46,7 @@ export const validCoupons = {
   'B2B20':          { rate: 0.20, currencies: null },          // Corporate / B2B deals — activate per deal
 };
 
-const _priceCatalogPath = resolve(dirname(fileURLToPath(import.meta.url)), '../data/courses.json');
-const _playbookCatalogPath = resolve(dirname(fileURLToPath(import.meta.url)), '../data/playbook-courses.json');
-const _rawCourses = JSON.parse(fs.readFileSync(_priceCatalogPath, 'utf-8'))
-  .concat(JSON.parse(fs.readFileSync(_playbookCatalogPath, 'utf-8')));
-const priceCatalog = {};
-for (const c of _rawCourses) {
-  if (c.id && c.prices) {
-    priceCatalog[c.id] = {
-      inr: Math.round((c.prices.inr ?? c.price ?? 0) * 100),
-      usd: Math.round((c.prices.usd ?? 0) * 100),
-      aed: Math.round((c.prices.aed ?? 0) * 100),
-      gbp: Math.round((c.prices.gbp ?? 0) * 100),
-      eur: Math.round((c.prices.eur ?? 0) * 100),
-    };
-  }
-}
-priceCatalog.default = {
+const DEFAULT_PRICES = {
   inr: 1599900,
   usd: 14900,
   aed: 59900,
@@ -77,14 +59,38 @@ priceCatalog.default = {
   kwd: 45900,
 };
 
+// In-memory mirror of Course.prices, rebuilt from MongoDB so checkout pricing
+// reflects admin edits immediately instead of a stale file read at process
+// startup. Refreshed at boot and again whenever an admin create/update/delete
+// touches the Course collection (see refreshPriceCatalog callers).
+let priceCatalog = { default: DEFAULT_PRICES };
+
+export async function refreshPriceCatalog() {
+  const courses = await Course.find({}, 'id price prices').lean();
+  const next = { default: DEFAULT_PRICES };
+  for (const c of courses) {
+    if (c.id && c.prices) {
+      next[c.id] = {
+        inr: Math.round((c.prices.inr ?? c.price ?? 0) * 100),
+        usd: Math.round((c.prices.usd ?? 0) * 100),
+        aed: Math.round((c.prices.aed ?? 0) * 100),
+        gbp: Math.round((c.prices.gbp ?? 0) * 100),
+        eur: Math.round((c.prices.eur ?? 0) * 100),
+      };
+    }
+  }
+  priceCatalog = next;
+  return priceCatalog;
+}
+
 export function getBasePriceMinor(courseId, currency) {
   const id = String(courseId);
   const curr = String(currency).toLowerCase();
   // An unrecognised courseId must not resolve to the default price: that turns a
-  // stale catalog (frontend courses.json not yet synced) into a silently
-  // undercharged payment rather than a visible error. A *known* course still
-  // falls back per-currency — no course carries sar/qar/omr/bhd/kwd prices, so
-  // the Gulf currencies are served entirely by the default block.
+  // stale catalog (priceCatalog not yet refreshed for a brand-new course) into a
+  // silently undercharged payment rather than a visible error. A *known* course
+  // still falls back per-currency — no course carries sar/qar/omr/bhd/kwd prices,
+  // so the Gulf currencies are served entirely by the default block.
   if (id === 'default' || !priceCatalog[id]) return null;
   const val = priceCatalog[id][curr] ?? priceCatalog.default?.[curr] ?? null;
   return typeof val === 'number' ? val : null;

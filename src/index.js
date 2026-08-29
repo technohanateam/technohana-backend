@@ -83,7 +83,7 @@ import Enquiry from "./models/enquiry.model.js";
 import { authenticateAdmin, requirePage } from "./middleware/authenticateAdmin.js";
 import { authenticateJWT } from "./middleware/authenticateJWT.js";
 import { Order } from "./models/order.model.js";
-import { computeQuote } from './utils/pricing.js';
+import { computeQuote, refreshPriceCatalog } from './utils/pricing.js';
 
 const app = express();
 app.set('trust proxy', 1); // trust first proxy (Render/Railway/Vercel reverse proxy)
@@ -186,7 +186,7 @@ const generateOrderId = () => `ord_${Math.random().toString(36).slice(2, 10)}`;
 app.use(passport.initialize());
 
 // Connect to the database
-connectDb();
+connectDb().then(() => refreshPriceCatalog().catch((err) => console.error("Price catalog refresh failed:", err)));
 
 
 app.get('/api/ping', (req, res) => {
