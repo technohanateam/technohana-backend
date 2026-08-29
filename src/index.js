@@ -76,7 +76,7 @@ import careerRoutes from "./routes/career.routes.js";
 import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
 import { handleResendWebhook } from "./services/resendWebhook.js";
-import { registerCampaignEventListeners, emitCampaignEvent } from "./services/campaignEventTrigger.js";
+import { registerCampaignEventListeners, emitCampaignEvent, CAMPAIGN_EVENTS } from "./services/campaignEventTrigger.js";
 import { generateRecoveryEmail } from "./services/recoveryEmailAgent.js";
 import { runAtRiskScan } from "./services/atRiskLearnerAgent.js";
 import Enquiry from "./models/enquiry.model.js";
@@ -849,7 +849,7 @@ app.post('/razorpay/verify', async (req, res) => {
 
       // Emit campaign event for automation (welcome emails, etc.)
       try {
-        emitCampaignEvent('PAYMENT_RECEIVED', {
+        emitCampaignEvent(CAMPAIGN_EVENTS.PAYMENT_RECEIVED, {
           email: order.learner.email,
           name: order.learner.fullName,
           courseTitle: order.courseInfo?.title,
@@ -857,7 +857,7 @@ app.post('/razorpay/verify', async (req, res) => {
           currency: order.currency,
         });
         // Also emit enrollment complete event
-        emitCampaignEvent('ENROLLMENT_COMPLETE', {
+        emitCampaignEvent(CAMPAIGN_EVENTS.ENROLLMENT_COMPLETE, {
           email: order.learner.email,
           name: order.learner.fullName,
           courseTitle: order.courseInfo?.title,
@@ -1035,7 +1035,7 @@ app.post('/payments/confirm', async (req, res) => {
 
     // Emit campaign event for automation (welcome emails, etc.)
     try {
-      emitCampaignEvent('PAYMENT_RECEIVED', {
+      emitCampaignEvent(CAMPAIGN_EVENTS.PAYMENT_RECEIVED, {
         email: order.learner.email,
         name: order.learner.fullName,
         courseTitle: order.courseInfo?.title,
@@ -1043,7 +1043,7 @@ app.post('/payments/confirm', async (req, res) => {
         currency,
       });
       // Also emit enrollment complete event
-      emitCampaignEvent('ENROLLMENT_COMPLETE', {
+      emitCampaignEvent(CAMPAIGN_EVENTS.ENROLLMENT_COMPLETE, {
         email: order.learner.email,
         name: order.learner.fullName,
         courseTitle: order.courseInfo?.title,
