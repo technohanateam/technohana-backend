@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 // --- LOAD ENV BEFORE OTHER IMPORTS ---
 dotenv.config();
 
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import mongoose from "mongoose";
 
 import express from "express";
@@ -211,6 +211,17 @@ app.get('/api/ping', (req, res) => {
 
 const couponLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
 
+// Public, unauthenticated checkout endpoints (guest checkout must stay public) —
+// IP-keyed rate limit to blunt abuse of Stripe/Razorpay order creation and
+// pricing-quote calls without blocking legitimate multi-item/retry checkout flows.
+const checkoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+});
+
 // Use the new database-backed coupon validation from controller
 app.post('/api/coupons/validate', couponLimiter, validateCoupon);
 
@@ -280,7 +291,7 @@ app.get('/api/coupons/public', async (req, res) => {
   }
 });
 
-app.post('/pricing/quote', async (req, res) => {
+app.post('/pricing/quote', checkoutLimiter, async (req, res) => {
   try {
     const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, referralCode } = req.body || {};
     if (!courseId || !enrollmentType) {
@@ -304,7 +315,7 @@ app.post('/pricing/quote', async (req, res) => {
   }
 });
 
-app.post('/stripe/checkout', async (req, res) => {
+app.post('/stripe/checkout', checkoutLimiter, async (req, res) => {
   try {
     const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode, utm } = req.body || {};
 
@@ -447,7 +458,7 @@ app.post('/stripe/checkout', async (req, res) => {
 });
 
 // Razorpay - Create order
-app.post('/razorpay/checkout', async (req, res) => {
+app.post('/razorpay/checkout', checkoutLimiter, async (req, res) => {
   try {
     const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode, utm } = req.body || {};
 
@@ -565,7 +576,7 @@ app.post('/razorpay/checkout', async (req, res) => {
 // ---- CART CHECKOUT ENDPOINTS ----
 
 // Stripe: multi-course cart checkout
-app.post('/stripe/cart-checkout', async (req, res) => {
+app.post('/stripe/cart-checkout', checkoutLimiter, async (req, res) => {
   try {
     const { items, enrollmentType, participants, couponCode, referralCode, currency, learner, utm } = req.body || {};
     if (!items?.length || !enrollmentType) {
@@ -630,7 +641,7 @@ app.post('/stripe/cart-checkout', async (req, res) => {
 });
 
 // Razorpay: multi-course cart checkout (single Razorpay order for combined total)
-app.post('/razorpay/cart-checkout', async (req, res) => {
+app.post('/razorpay/cart-checkout', checkoutLimiter, async (req, res) => {
   try {
     const { items, enrollmentType, participants, couponCode, referralCode, currency, learner, utm } = req.body || {};
     if (!items?.length || !enrollmentType) {
@@ -695,7 +706,7 @@ app.post('/razorpay/cart-checkout', async (req, res) => {
 });
 
 // Razorpay: verify cart payment — marks all cart orders paid
-app.post('/razorpay/cart-verify', async (req, res) => {
+app.post('/razorpay/cart-verify', checkoutLimiter, async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderIds, primaryOrderId } = req.body || {};
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !orderIds?.length) {
@@ -744,7 +755,7 @@ app.post('/razorpay/cart-verify', async (req, res) => {
 // ---- END CART CHECKOUT ENDPOINTS ----
 
 // Razorpay - Verify payment signature and mark paid
-app.post('/razorpay/verify', async (req, res) => {
+app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body || {};
 
@@ -882,7 +893,7 @@ app.post('/razorpay/verify', async (req, res) => {
 });
 
 // Payment-confirm endpoint: verify session and send emails
-app.post('/payments/confirm', async (req, res) => {
+app.post('/payments/confirm', checkoutLimiter, async (req, res) => {
   try {
     const { session_id: sessionId } = req.body || {};
     if (!sessionId) {

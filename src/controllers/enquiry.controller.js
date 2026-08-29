@@ -3,6 +3,7 @@ import AiRiskReport from "../models/aiRiskReport.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContactUsEmail, generateAiRiskReportEmail, generateMasterclassConfirmationEmail } from "../utils/emailTemplate.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
+import { validateEmail, validateName } from "../utils/inputValidator.js";
 
 export const createEnquiry = async (req, res) => {
   try {
@@ -14,6 +15,15 @@ export const createEnquiry = async (req, res) => {
     delete body.message; delete body.type; delete body.organization; delete body.courseInterest;
 
     const { name, email, courseTitle, enquiryType, selectedPackage, timeline, nextDate, agenda } = body;
+
+    // Format-only checks — some enquiry types (e.g. "Request a Callback")
+    // legitimately omit an email, so absence is not rejected here.
+    if (name && !validateName(name)) {
+      return res.status(400).json({ message: "Invalid name format" });
+    }
+    if (email && !validateEmail(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
 
     const enquiry = new Enquiry(body);
     await enquiry.save();
@@ -86,7 +96,7 @@ export const contactUs = async (req, res) => {
   try {
     const { name, email, phone, subject, message } = req.body;
 
-    if (!name || !email || !subject || !message) {
+    if (!name || !email || !subject || !message || !validateEmail(email)) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -113,7 +123,7 @@ export const handleAIRiskReportRequest = async (req, res) => {
   const { name, email, phone, jobRole, experience, industry, source, score, band, explanation, answers } = req.body;
 
   // Validate required fields (use != null to safely handle score = 0)
-  if (!name || !email || !source || score == null || !band || !explanation || !answers) {
+  if (!name || !email || !source || score == null || !band || !explanation || !answers || !validateEmail(email)) {
     return res.status(400).json({ error: "All fields are required." });
   }
 
