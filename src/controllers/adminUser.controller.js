@@ -16,8 +16,9 @@ const CRM_ROLES = ["super_admin", "admin", "sales", "marketing", "trainer", "acc
 
 // Legacy admin-panel role field (adminUser.model.js `role` enum) — "admin" for
 // full admin-panel access, "sales" for CRM-only accounts, "analyst" for the
-// Phase 6 read-only admin-panel persona (see adminPages.js DEFAULT_PAGES_BY_ROLE.analyst).
-const LEGACY_ROLES = ["admin", "sales", "analyst"];
+// Phase 6 read-only admin-panel persona (see adminPages.js DEFAULT_PAGES_BY_ROLE.analyst),
+// "marketing" for admin-panel marketing/content/SEO access (see DEFAULT_PAGES_BY_ROLE.marketing).
+const LEGACY_ROLES = ["admin", "sales", "analyst", "marketing"];
 
 const signAdminToken = (payload) =>
   jwt.sign(payload, process.env.ADMIN_JWT_SECRET, { expiresIn: TOKEN_EXPIRY });

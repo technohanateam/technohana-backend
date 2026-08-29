@@ -1,8 +1,10 @@
+import { Webhook } from "svix";
 import Campaign from "../models/campaign.model.js";
 
 /**
  * Handle Resend webhook events
  * https://resend.com/docs/api-reference/emails/get-email
+ * https://resend.com/docs/dashboard/webhooks/verify-webhooks-requests
  */
 
 /**
@@ -10,7 +12,24 @@ import Campaign from "../models/campaign.model.js";
  */
 export const handleResendWebhook = async (req, res) => {
   try {
-    const event = req.body;
+    const secret = process.env.RESEND_WEBHOOK_SECRET;
+    if (!secret) {
+      console.error("[Webhook] RESEND_WEBHOOK_SECRET is not configured — rejecting event");
+      return res.status(500).json({ success: false, error: "Webhook not configured" });
+    }
+
+    let event;
+    try {
+      const wh = new Webhook(secret);
+      event = wh.verify(req.body, {
+        "svix-id": req.headers["svix-id"],
+        "svix-timestamp": req.headers["svix-timestamp"],
+        "svix-signature": req.headers["svix-signature"],
+      });
+    } catch (err) {
+      console.warn("[Webhook] Signature verification failed:", err.message);
+      return res.status(401).json({ success: false, error: "Invalid signature" });
+    }
 
     // Event structure from Resend:
     // {

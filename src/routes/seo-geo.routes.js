@@ -259,13 +259,13 @@ router.get("/seo-analytics", authenticateAdmin, requirePage("seo-analysis"), asy
     const enquiryDateFilter = makeDateFilter("createdAt");
 
     const [organic, paid, social, total] = await Promise.all([
-      Enquiry.countDocuments({ "utm.medium": "organic", ...enquiryDateFilter }),
+      Enquiry.countDocuments({ "utm.utm_medium": "organic", ...enquiryDateFilter }),
       Enquiry.countDocuments({
-        "utm.medium": { $in: ["cpc", "paid", "ppc", "paidsearch"] },
+        "utm.utm_medium": { $in: ["cpc", "paid", "ppc", "paidsearch"] },
         ...enquiryDateFilter,
       }),
       Enquiry.countDocuments({
-        "utm.medium": { $in: ["social", "social-media", "referral"] },
+        "utm.utm_medium": { $in: ["social", "social-media", "referral"] },
         ...enquiryDateFilter,
       }),
       Enquiry.countDocuments({ ...enquiryDateFilter }),
@@ -275,10 +275,10 @@ router.get("/seo-analytics", authenticateAdmin, requirePage("seo-analysis"), asy
     const trafficSplit = { organic, paid, social, other, total };
 
     const organicSources = await Enquiry.aggregate([
-      { $match: { "utm.medium": "organic", ...enquiryDateFilter } },
+      { $match: { "utm.utm_medium": "organic", ...enquiryDateFilter } },
       {
         $group: {
-          _id: { $ifNull: ["$utm.source", "(unknown)"] },
+          _id: { $ifNull: ["$utm.utm_source", "(unknown)"] },
           count: { $sum: 1 },
         },
       },

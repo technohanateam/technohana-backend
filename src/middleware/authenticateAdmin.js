@@ -12,7 +12,7 @@ const CRM_ONLY_ROLES = ["super_admin", "trainer", "accounts", "hr", "student_sup
 // Phase 6 read-only persona — it gets in here, then is naturally blocked from
 // every write route by requireAdmin/requireMarketing (which only ever match
 // "admin"/"marketing"), so no separate requireReadOnly middleware is needed.
-const ADMIN_PANEL_ROLES = ["admin", "analyst"];
+const ADMIN_PANEL_ROLES = ["admin", "analyst", "marketing"];
 
 export const authenticateAdmin = async (req, res, next) => {
   const authHeader = req.headers.authorization;
