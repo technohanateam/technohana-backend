@@ -1305,7 +1305,8 @@ app.use("/api/crm", authenticateAdmin, crmRoutes);
 // ─── Campaign Automation ───────────────────────────────────────────────────────
 
 // POST /webhooks/resend - Webhook for Resend email events (opened, clicked, bounced, etc.)
-app.post("/webhooks/resend", handleResendWebhook);
+// Raw body required for svix signature verification inside handleResendWebhook.
+app.post("/webhooks/resend", express.raw({ type: "application/json" }), handleResendWebhook);
 
 // Register campaign event listeners (enrollment, referral, payment, etc.)
 registerCampaignEventListeners();
