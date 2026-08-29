@@ -14,9 +14,9 @@ function emailShell({ label, title = 'Technohana', body }) {
 
           <!-- Header -->
           <tr>
-            <td style="background:#153C85;padding:28px 32px;text-align:center;">
-              <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:2px;color:#93c5fd;text-transform:uppercase;">${label}</p>
-              <p style="margin:0;font-size:22px;font-weight:700;"><span style="color:#8B5CF6;">Techno</span><span style="color:#FFC107;">hana</span></p>
+            <td style="background:#ffffff;border-bottom:1px solid #f3f4f6;padding:28px 32px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:2px;color:#8B5CF6;text-transform:uppercase;">${label}</p>
+              <p style="margin:0;font-size:22px;font-weight:800;font-family:'Plus Jakarta Sans',Arial,sans-serif;"><span style="color:#8B5CF6;">Techno</span><span style="color:#FFC107;">hana</span></p>
             </td>
           </tr>
 
