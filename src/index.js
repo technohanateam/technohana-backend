@@ -103,12 +103,17 @@ const allowedOrigins = process.env.WHITELISTED_URLS
 // Origin-required-in-production check below (same reasoning as /health).
 // The Google OAuth routes are hit via top-level browser navigation/redirect
 // (not fetch/XHR), so they never carry an Origin header either.
+// The Stripe and Resend webhooks are server-to-server deliveries from those
+// providers — they never carry a browser Origin header, and rejecting them
+// here would block the request before it ever reaches signature verification.
 const noOriginRequiredPaths = [
   '/enquiry',
   '/skills-gap/email-plan',
   '/api/auth/google',
   '/api/auth/google/callback',
   '/admin/seo-intel/oauth/callback',
+  '/stripe/webhook',
+  '/webhooks/resend',
 ];
 
 const corsOptionsDelegate = function (req, callback) {
