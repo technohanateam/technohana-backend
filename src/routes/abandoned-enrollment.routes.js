@@ -1,4 +1,5 @@
 import express from "express"
+import rateLimit, { ipKeyGenerator } from "express-rate-limit"
 import { authenticateJWT } from "../middleware/authenticateJWT.js"
 import { authenticateAdmin, requirePage } from "../middleware/authenticateAdmin.js"
 import {
@@ -12,6 +13,15 @@ import {
 
 const router = express.Router()
 
+// Public, unauthenticated (fires for anonymous visitors who haven't logged in yet)
+const markAbandonedLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+})
+
 // Save/update enrollment form progress (called on every field change)
 router.post("/save-progress", authenticateJWT, saveEnrollmentFormProgress)
 
@@ -19,7 +29,7 @@ router.post("/save-progress", authenticateJWT, saveEnrollmentFormProgress)
 router.get("/progress", authenticateJWT, getEnrollmentFormProgress)
 
 // Mark form as abandoned (called when user leaves without enrolling — intentionally public)
-router.post("/mark-abandoned", markFormAbandoned)
+router.post("/mark-abandoned", markAbandonedLimiter, markFormAbandoned)
 
 // Send reminder email for abandoned enrollments (manual trigger or scheduled job)
 router.post("/send-reminder", authenticateJWT, sendEnrollmentReminder)
