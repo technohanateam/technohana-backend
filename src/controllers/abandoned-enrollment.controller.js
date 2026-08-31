@@ -2,6 +2,7 @@ import { User } from "../models/user.model.js"
 import { sendEmail } from "../config/emailService.js"
 import { emitCampaignEvent, CAMPAIGN_EVENTS } from "../services/campaignEventTrigger.js"
 import { generateRecoveryEmail } from "../services/recoveryEmailAgent.js"
+import { validateEmail } from "../utils/inputValidator.js"
 
 // Save enrollment form progress (called on every field change)
 export const saveEnrollmentFormProgress = async (req, res) => {
@@ -41,7 +42,7 @@ export const saveEnrollmentFormProgress = async (req, res) => {
 export const markFormAbandoned = async (req, res) => {
   try {
     const { email } = req.body
-    if (!email) {
+    if (!email || !validateEmail(email)) {
       return res.status(400).json({ message: "Email is required" })
     }
 

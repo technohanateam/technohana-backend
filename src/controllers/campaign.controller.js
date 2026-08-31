@@ -1,12 +1,9 @@
 import Campaign from "../models/campaign.model.js";
-import CampaignOpportunity from "../models/campaignOpportunity.model.js";
 import { Resend } from "resend";
 import { getSegmentedUsers } from "../utils/segmentationEngine.js";
 import { scheduleCampaignJob, getQueueStats } from "../services/campaignQueue.js";
-import { personalizeHtmlForRecipient } from "../services/emailMarketing/campaignPersonalizer.js";
-import { runCampaignOpportunityScan } from "../services/emailMarketing/campaignOpportunityJob.js";
-import { generateAndGateCampaignCopy } from "../services/emailMarketing/campaignGenerationOrchestrator.js";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
+import { personalizeForRecipient } from "../services/emailMarketing/campaignPersonalizer.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -154,20 +151,10 @@ export const createCampaign = async (req, res) => {
 };
 
 // Update campaign
-// Fields an admin may edit directly. Deliberately excludes reviewStatus,
-// copyGeneration, status, metrics, recipientMetrics, personalize, and
-// sourceOpportunityId — those are only ever written by the AI factory
-// (copywriter/quality gate/queue) or the dedicated status-transition
-// endpoints, never by a raw PUT, so this update path can't be used to
-// bypass the quality-gate review requirement enforced before send/schedule.
-const EDITABLE_CAMPAIGN_FIELDS = [
-  "name", "description", "subject", "htmlContent", "previewText",
-  "segments", "triggerType", "schedule", "eventTrigger", "variants",
-];
-
 export const updateCampaign = async (req, res) => {
   try {
     const { id } = req.params;
+    const updates = req.body;
 
     const campaign = await Campaign.findById(id);
     if (!campaign) {
@@ -185,19 +172,7 @@ export const updateCampaign = async (req, res) => {
       });
     }
 
-    const COPY_FIELDS = new Set(["subject", "htmlContent", "previewText", "variants"]);
-    let copyFieldEdited = false;
-    for (const field of EDITABLE_CAMPAIGN_FIELDS) {
-      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
-        campaign[field] = req.body[field];
-        if (COPY_FIELDS.has(field)) copyFieldEdited = true;
-      }
-    }
-    // A hand-edit after approval invalidates the quality gate's sign-off —
-    // require it to go through review again rather than leaving a stale approval.
-    if (copyFieldEdited && campaign.reviewStatus === "approved") {
-      campaign.reviewStatus = "needs_revision";
-    }
+    Object.assign(campaign, updates);
     await campaign.save();
 
     return res.json({
@@ -260,10 +235,10 @@ export const sendCampaignNow = async (req, res) => {
       });
     }
 
-    if (["pending_review", "needs_revision"].includes(campaign.reviewStatus)) {
+    if (campaign.reviewState === "PENDING_REVIEW" || campaign.reviewState === "NEEDS_REVISION") {
       return res.status(400).json({
         success: false,
-        message: `Campaign copy is ${campaign.reviewStatus.replace("_", " ")} — approve it before sending`,
+        message: `Campaign copy has not cleared review (reviewState: ${campaign.reviewState}). Approve it first.`,
       });
     }
 
@@ -294,14 +269,23 @@ export const sendCampaignNow = async (req, res) => {
       await Promise.all(
         batch.map(async (user) => {
           try {
-            const html = campaign.personalize
-              ? await personalizeHtmlForRecipient(campaign.htmlContent, user)
-              : campaign.htmlContent;
+            let emailSubject = campaign.subject;
+            let emailContent = campaign.htmlContent;
+            if (campaign.personalize) {
+              const personalized = await personalizeForRecipient({
+                subject: emailSubject,
+                htmlContent: emailContent,
+                recipient: user,
+              });
+              emailSubject = personalized.subject;
+              emailContent = personalized.htmlContent;
+            }
+
             const response = await resend.emails.send({
               from: `${campaign.fromName} <${campaign.fromEmail}>`,
               to: user.email,
-              subject: campaign.subject,
-              html,
+              subject: emailSubject,
+              html: emailContent,
               headers: {
                 "X-Campaign-ID": campaign._id.toString(),
                 "X-User-ID": user._id?.toString() || user.email,
@@ -348,6 +332,7 @@ export const sendCampaignNow = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Error sending campaign",
+      error: error.message,
     });
   }
 };
@@ -373,10 +358,10 @@ export const scheduleCampaign = async (req, res) => {
       });
     }
 
-    if (["pending_review", "needs_revision"].includes(campaign.reviewStatus)) {
+    if (campaign.reviewState === "PENDING_REVIEW" || campaign.reviewState === "NEEDS_REVISION") {
       return res.status(400).json({
         success: false,
-        message: `Campaign copy is ${campaign.reviewStatus.replace("_", " ")} — approve it before scheduling`,
+        message: `Campaign copy has not cleared review (reviewState: ${campaign.reviewState}). Approve it first.`,
       });
     }
 
@@ -572,8 +557,6 @@ export const getCampaignQueueStats = async (req, res) => {
   }
 };
 
-// Generates AI copy for a campaign and runs it through the quality gate
-// before it's sendable — replaces the old "generate and trust it" flow.
 export const generateAICopy = async (req, res) => {
   try {
     const { brief } = req.body;
@@ -581,14 +564,14 @@ export const generateAICopy = async (req, res) => {
       return res.status(400).json({ success: false, message: "Brief must be at least 10 characters" });
     }
 
-    const gateResult = await generateAndGateCampaignCopy(req.params.id, brief);
-    const campaign = await Campaign.findById(req.params.id);
+    const { generateCampaignCopy } = await import("../services/emailMarketing/campaignCopyOrchestrator.js");
+    const result = await generateCampaignCopy(req.params.id, brief);
     res.json({
-      success: true,
-      data: { copy: campaign, qualityGate: gateResult },
-      message: gateResult.passed
-        ? "AI copy generated, passed the quality gate, and is ready to send"
-        : "AI copy generated but needs human review before it can be sent",
+      success: result.success,
+      data: result.campaign,
+      message: result.success
+        ? `AI copy generated — review state: ${result.reviewState}`
+        : "AI copy generation failed partway through the pipeline",
     });
   } catch (err) {
     console.error("generateAICopy error:", err);
@@ -596,120 +579,78 @@ export const generateAICopy = async (req, res) => {
   }
 };
 
-// Human review — approve AI-drafted copy that needs a second look before sending
-export const approveCampaignCopy = async (req, res) => {
+// Human review — approve a campaign whose AI copy is in PENDING_REVIEW or
+// NEEDS_REVISION, allowing it to be scheduled/sent despite outstanding flags
+// (an explicit human override of the quality gate).
+export const approveCampaignReview = async (req, res) => {
   try {
     const campaign = await Campaign.findById(req.params.id);
     if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
-    if (!["pending_review", "needs_revision"].includes(campaign.reviewStatus)) {
-      return res.status(400).json({ success: false, message: `Nothing to approve — campaign copy is "${campaign.reviewStatus}"` });
-    }
-    campaign.reviewStatus = "approved";
+
+    campaign.reviewState = "APPROVED";
+    campaign.reviewedBy = req.admin?.email || req.admin?._id?.toString() || "admin";
+    campaign.reviewedAt = new Date();
     await campaign.save();
-    res.json({ success: true, data: campaign, message: "Campaign copy approved" });
+
+    res.json({ success: true, message: "Campaign approved", data: campaign });
   } catch (err) {
-    console.error("approveCampaignCopy error:", err);
-    res.status(500).json({ success: false, message: "Error approving campaign copy" });
+    console.error("approveCampaignReview error:", err);
+    res.status(500).json({ success: false, message: "Error approving campaign" });
   }
 };
 
-// Human review — reject and require a fresh brief before re-generating
-export const rejectCampaignCopy = async (req, res) => {
+// Reject — leaves the campaign in NEEDS_REVISION with a human-supplied reason
+// appended, so it cannot be scheduled/sent until edited and re-approved.
+export const rejectCampaignReview = async (req, res) => {
   try {
+    const { reason } = req.body;
     const campaign = await Campaign.findById(req.params.id);
     if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
-    if (!["pending_review", "approved"].includes(campaign.reviewStatus)) {
-      return res.status(400).json({ success: false, message: `Nothing to reject — campaign copy is "${campaign.reviewStatus}"` });
-    }
-    campaign.reviewStatus = "needs_revision";
+
+    campaign.reviewState = "NEEDS_REVISION";
+    campaign.reviewFlagReasons = reason ? [...campaign.reviewFlagReasons, reason] : campaign.reviewFlagReasons;
+    campaign.reviewedBy = req.admin?.email || req.admin?._id?.toString() || "admin";
+    campaign.reviewedAt = new Date();
     await campaign.save();
-    res.json({ success: true, data: campaign, message: "Campaign copy marked as needing revision" });
+
+    res.json({ success: true, message: "Campaign rejected", data: campaign });
   } catch (err) {
-    console.error("rejectCampaignCopy error:", err);
-    res.status(500).json({ success: false, message: "Error rejecting campaign copy" });
+    console.error("rejectCampaignReview error:", err);
+    res.status(500).json({ success: false, message: "Error rejecting campaign" });
   }
 };
 
-// Runs a fresh opportunity scan on demand (also runs automatically on a
-// daily interval — see src/index.js)
-export const runOpportunityScan = async (req, res) => {
+// Regenerate — re-runs the full copy pipeline from a (possibly edited) brief.
+export const regenerateCampaignCopy = async (req, res) => {
   try {
-    const result = await runCampaignOpportunityScan();
-    res.json({ success: true, data: result, message: `Scan complete — ${result.created} new opportunity(ies) proposed` });
-  } catch (err) {
-    console.error("runOpportunityScan error:", err);
-    res.status(500).json({ success: false, message: "Opportunity scan failed" });
-  }
-};
+    const { brief } = req.body;
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
 
-const OPPORTUNITY_STATUSES = new Set(["proposed", "approved", "dismissed"]);
+    const { generateCampaignCopy } = await import("../services/emailMarketing/campaignCopyOrchestrator.js");
+    const result = await generateCampaignCopy(campaign._id, brief || campaign.copyBrief);
 
-export const getCampaignOpportunities = async (req, res) => {
-  try {
-    const { status = "proposed" } = req.query;
-    if (!OPPORTUNITY_STATUSES.has(status)) {
-      return res.status(400).json({ success: false, message: "Invalid status filter" });
-    }
-    const opportunities = await CampaignOpportunity.find({ status })
-      .sort({ priorityScore: -1, createdAt: -1 })
-      .limit(200)
-      .lean();
-    res.json({ success: true, data: opportunities });
-  } catch (err) {
-    console.error("getCampaignOpportunities error:", err);
-    res.status(500).json({ success: false, message: "Error fetching campaign opportunities" });
-  }
-};
-
-// Approving an opportunity creates a draft Campaign pre-filled with the
-// opportunity's segment + brief, ready to run through AI copy generation.
-export const approveCampaignOpportunity = async (req, res) => {
-  try {
-    const opportunity = await CampaignOpportunity.findById(req.params.id);
-    if (!opportunity) return res.status(404).json({ success: false, message: "Opportunity not found" });
-    if (opportunity.status !== "proposed") {
-      return res.status(400).json({ success: false, message: `Opportunity already ${opportunity.status}` });
-    }
-
-    const campaign = await Campaign.create({
-      name: opportunity.title,
-      description: opportunity.rationale,
-      subject: "(pending AI copy generation)",
-      htmlContent: "<p>(pending AI copy generation)</p>",
-      segments: opportunity.segmentFilter || {},
-      triggerType: "manual",
-      status: "draft",
-      reviewStatus: "not_applicable",
-      sourceOpportunityId: opportunity._id,
-      createdBy: req.admin?._id,
-      createdByRole: req.admin?.role,
+    res.json({
+      success: result.success,
+      data: result.campaign,
+      message: result.success ? `Regenerated — review state: ${result.reviewState}` : "Regeneration failed",
     });
-
-    opportunity.status = "approved";
-    opportunity.resultingCampaignId = campaign._id;
-    opportunity.resolvedBy = req.admin?._id;
-    opportunity.resolvedAt = new Date();
-    await opportunity.save();
-
-    res.json({ success: true, data: { campaign, opportunity }, message: "Draft campaign created from opportunity" });
   } catch (err) {
-    console.error("approveCampaignOpportunity error:", err);
-    res.status(500).json({ success: false, message: "Error approving opportunity" });
+    console.error("regenerateCampaignCopy error:", err);
+    res.status(500).json({ success: false, message: "Error regenerating campaign copy" });
   }
 };
 
-export const dismissCampaignOpportunity = async (req, res) => {
+// Re-runs just the automated compliance/style gate (e.g. after a human
+// hand-edits flagged copy) without regenerating the whole email.
+export const rerunCampaignQualityGate = async (req, res) => {
   try {
-    const opportunity = await CampaignOpportunity.findById(req.params.id);
-    if (!opportunity) return res.status(404).json({ success: false, message: "Opportunity not found" });
-    opportunity.status = "dismissed";
-    opportunity.resolvedBy = req.admin?._id;
-    opportunity.resolvedAt = new Date();
-    await opportunity.save();
-    res.json({ success: true, data: opportunity, message: "Opportunity dismissed" });
+    const { rerunComplianceCheck } = await import("../services/emailMarketing/campaignCopyOrchestrator.js");
+    const result = await rerunComplianceCheck(req.params.id);
+    res.json({ success: true, data: result.campaign, message: `Quality gate re-run — review state: ${result.reviewState}` });
   } catch (err) {
-    console.error("dismissCampaignOpportunity error:", err);
-    res.status(500).json({ success: false, message: "Error dismissing opportunity" });
+    console.error("rerunCampaignQualityGate error:", err);
+    res.status(500).json({ success: false, message: "Error re-running quality gate" });
   }
 };
 
@@ -727,10 +668,8 @@ export default {
   estimateSegmentSize,
   getCampaignQueueStats,
   generateAICopy,
-  approveCampaignCopy,
-  rejectCampaignCopy,
-  runOpportunityScan,
-  getCampaignOpportunities,
-  approveCampaignOpportunity,
-  dismissCampaignOpportunity,
+  approveCampaignReview,
+  rejectCampaignReview,
+  regenerateCampaignCopy,
+  rerunCampaignQualityGate,
 };

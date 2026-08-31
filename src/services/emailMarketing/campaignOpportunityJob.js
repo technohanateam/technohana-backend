@@ -1,153 +1,163 @@
-import { User } from "../../models/user.model.js";
+import CampaignOpportunity from "../../models/campaignOpportunity.model.js";
 import Enquiry from "../../models/enquiry.model.js";
 import Coupon from "../../models/coupon.model.js";
-import CampaignOpportunity from "../../models/campaignOpportunity.model.js";
-import {
-  getInactiveUsers,
-  getAbandonedEnrollmentUsers,
-} from "../../utils/segmentationEngine.js";
+import { User } from "../../models/user.model.js";
 
-// Campaign Opportunity Engine (analog of the blog Content Factory's daily
-// planning job): scans existing signals — at-risk learners, abandoned
-// enrollments, hot leads, expiring coupons, inactive users — and proposes
-// campaigns for an admin to review, instead of sending anything itself.
+// Campaign Opportunity Engine — analog of contentFactory's
+// dailyPlanningJob.processor.js. Scans signals already computed elsewhere in
+// the codebase (lead scores, abandoned enrollments, inactive users, expiring
+// coupons) and proposes CampaignOpportunity candidates for an admin to review
+// and approve into a draft Campaign. Never sends anything itself.
 
-const AT_RISK_INACTIVE_DAYS = 14;
-const MIN_MATCH_TO_PROPOSE = 3;
-const RESCAN_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // don't re-propose the same type within 7 days
+const HOT_LEAD_FOLLOWUP_STALE_DAYS = 2; // hot leads with no follow-up scheduled/overdue
+const INACTIVE_WINBACK_DAYS = 30; // mirrors segmentationEngine's inactiveUsers threshold
+const ABANDONED_ENROLLMENT_DAYS = 3; // mirrors segmentationEngine's abandonedEnrollments threshold
+const COUPON_EXPIRING_WITHIN_DAYS = 7;
 
-async function upsertOpportunity({ type, title, rationale, segmentFilter, suggestedBrief, suggestedSendWindow, matchedCount }) {
-  const recent = await CampaignOpportunity.findOne({
-    type,
-    status: "proposed",
-    createdAt: { $gte: new Date(Date.now() - RESCAN_COOLDOWN_MS) },
-  });
-
-  if (recent) {
-    recent.matchedCount = matchedCount;
-    recent.priorityScore = scorePriority(type, matchedCount);
-    await recent.save();
-    return { created: false };
-  }
-
-  await CampaignOpportunity.create({
-    type,
-    title,
-    rationale,
-    segmentFilter,
-    suggestedBrief,
-    suggestedSendWindow,
-    matchedCount,
-    priorityScore: scorePriority(type, matchedCount),
-  });
-  return { created: true };
+// Skip proposing a new opportunity of the same type if one is already
+// PROPOSED and less than a day old — avoids spamming duplicate suggestions
+// on every run of a daily/weekly cron.
+async function hasRecentProposal(type) {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const existing = await CampaignOpportunity.findOne({ type, status: "PROPOSED", createdAt: { $gte: cutoff } });
+  return Boolean(existing);
 }
 
-function scorePriority(type, count) {
-  const urgencyWeight = { hot_leads: 1.5, expiring_coupon: 1.3, abandoned_enrollment: 1.2, at_risk_learners: 1, inactive_users: 0.8 };
-  return Math.min(100, Math.round(count * (urgencyWeight[type] || 1) * 2));
+async function findHotLeadFollowupOpportunity() {
+  if (await hasRecentProposal("HOT_LEAD_FOLLOWUP")) return null;
+
+  const cutoff = new Date(Date.now() - HOT_LEAD_FOLLOWUP_STALE_DAYS * 24 * 60 * 60 * 1000);
+  const count = await Enquiry.countDocuments({
+    aiScoreBand: "hot",
+    email: { $exists: true, $ne: null },
+    $or: [{ aiSuggestedFollowUp: { $lt: new Date() } }, { aiSuggestedFollowUp: null, aiScoredAt: { $lt: cutoff } }],
+  });
+  if (count === 0) return null;
+
+  return {
+    type: "HOT_LEAD_FOLLOWUP",
+    rationale: `${count} hot-scored enquiries are past their AI-suggested follow-up window with no recent outreach.`,
+    suggestedBrief: "A prompt, personal follow-up for a hot corporate/group training enquiry that has gone quiet — reiterate we're ready to help and ask what would move things forward.",
+    segmentFilter: { customFilters: [{ field: "type", operator: "in", value: ["prospect"] }, { field: "aiScoreBand", operator: "in", value: ["hot"] }] },
+    audienceSize: count,
+    priorityScore: Math.min(100, 60 + count),
+    sourceInfo: { staleDays: HOT_LEAD_FOLLOWUP_STALE_DAYS },
+  };
 }
 
-export async function runCampaignOpportunityScan() {
-  let created = 0;
-  const scanned = { at_risk_learners: 0, abandoned_enrollment: 0, hot_leads: 0, expiring_coupon: 0, inactive_users: 0 };
+async function findAtRiskLearnerOpportunity() {
+  if (await hasRecentProposal("AT_RISK_LEARNER")) return null;
 
-  try {
-    // At-risk learners
-    const cutoff = new Date(Date.now() - AT_RISK_INACTIVE_DAYS * 24 * 60 * 60 * 1000);
-    const atRiskCount = await User.countDocuments({
-      enrollmentStatus: { $in: ["active", "enrolled"] },
-      lastAccessedAt: { $lt: cutoff, $exists: true },
-    });
-    scanned.at_risk_learners = atRiskCount;
-    if (atRiskCount >= MIN_MATCH_TO_PROPOSE) {
-      const r = await upsertOpportunity({
-        type: "at_risk_learners",
-        title: `${atRiskCount} learners inactive ${AT_RISK_INACTIVE_DAYS}+ days`,
-        rationale: `${atRiskCount} enrolled learners haven't logged in for ${AT_RISK_INACTIVE_DAYS}+ days. A re-engagement campaign (distinct from the individual daily at-risk nudges) could recover more of this segment.`,
-        segmentFilter: { inactiveUsers: true },
-        suggestedBrief: "Re-engage learners who have gone quiet on their course. Warm, no-pressure tone, remind them of the progress they've already made and what they'll gain by continuing.",
-        suggestedSendWindow: "Within 3 days",
-        matchedCount: atRiskCount,
-      });
-      if (r.created) created++;
+  const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const count = await User.countDocuments({
+    enrollmentStatus: { $in: ["active", "enrolled"] },
+    lastAccessedAt: { $lt: cutoff, $exists: true },
+  });
+  if (count === 0) return null;
+
+  return {
+    type: "AT_RISK_LEARNER",
+    rationale: `${count} enrolled learners have been inactive for 14+ days (churn risk).`,
+    suggestedBrief: "A warm, encouraging nudge to re-engage learners who have paused their course — focus on the progress they've already made and what's left to unlock.",
+    segmentFilter: { inactiveUsers: true },
+    audienceSize: count,
+    priorityScore: Math.min(100, 50 + count),
+    sourceInfo: { inactiveDays: 14 },
+  };
+}
+
+async function findAbandonedEnrollmentOpportunity() {
+  if (await hasRecentProposal("ABANDONED_ENROLLMENT")) return null;
+
+  const cutoff = new Date(Date.now() - ABANDONED_ENROLLMENT_DAYS * 24 * 60 * 60 * 1000);
+  const count = await User.countDocuments({
+    status: "pending-payment",
+    createdAt: { $lt: cutoff },
+    email: { $exists: true, $ne: null },
+  });
+  if (count === 0) return null;
+
+  return {
+    type: "ABANDONED_ENROLLMENT",
+    rationale: `${count} enrollment forms have been abandoned for ${ABANDONED_ENROLLMENT_DAYS}+ days without completing payment.`,
+    suggestedBrief: "A no-pressure nudge to finish an enrollment that was started but not completed, referencing progress made without inventing details.",
+    segmentFilter: { abandonedEnrollments: true },
+    audienceSize: count,
+    priorityScore: Math.min(100, 55 + count),
+    sourceInfo: { abandonedDays: ABANDONED_ENROLLMENT_DAYS },
+  };
+}
+
+async function findInactiveWinbackOpportunity() {
+  if (await hasRecentProposal("INACTIVE_WINBACK")) return null;
+
+  const cutoff = new Date(Date.now() - INACTIVE_WINBACK_DAYS * 24 * 60 * 60 * 1000);
+  const count = await User.countDocuments({
+    status: { $in: ["enrolled", "in-progress"] },
+    lastAccessedAt: { $lt: cutoff },
+    email: { $exists: true, $ne: null },
+  });
+  if (count === 0) return null;
+
+  return {
+    type: "INACTIVE_WINBACK",
+    rationale: `${count} users have had no login activity in ${INACTIVE_WINBACK_DAYS}+ days.`,
+    suggestedBrief: "A friendly check-in email reminding a dormant user what they signed up for and inviting them back, without pressure.",
+    segmentFilter: { inactiveUsers: true },
+    audienceSize: count,
+    priorityScore: Math.min(100, 40 + Math.floor(count / 2)),
+    sourceInfo: { inactiveDays: INACTIVE_WINBACK_DAYS },
+  };
+}
+
+async function findCouponExpiringOpportunity() {
+  if (await hasRecentProposal("COUPON_EXPIRING")) return null;
+
+  const windowEnd = new Date(Date.now() + COUPON_EXPIRING_WITHIN_DAYS * 24 * 60 * 60 * 1000);
+  const coupons = await Coupon.find({
+    isActive: true,
+    expiryDate: { $ne: null, $gte: new Date(), $lte: windowEnd },
+  }).select("code discountPercent expiryDate validCurrencies");
+  if (coupons.length === 0) return null;
+
+  return {
+    type: "COUPON_EXPIRING",
+    rationale: `${coupons.length} active coupon(s) expire within ${COUPON_EXPIRING_WITHIN_DAYS} days: ${coupons.map((c) => c.code).join(", ")}.`,
+    suggestedBrief: "A timely reminder that a limited-time offer is ending soon — mention urgency honestly without fake countdowns. Do not state the exact code or percentage in the brief; the copy pipeline strips those and the send template inserts the real code.",
+    segmentFilter: { enrolledUsers: false, customFilters: [] },
+    audienceSize: 0, // depends on which segment an admin picks when approving — not resolvable from the coupon alone
+    priorityScore: 65,
+    sourceInfo: { coupons: coupons.map((c) => ({ code: c.code, expiryDate: c.expiryDate })) },
+  };
+}
+
+// Runs all signal scans and persists any new opportunities found. Never
+// throws — a failed scan for one signal shouldn't block the others.
+export async function runCampaignOpportunityScan({ triggeredBy = "CRON" } = {}) {
+  const finders = [
+    findHotLeadFollowupOpportunity,
+    findAtRiskLearnerOpportunity,
+    findAbandonedEnrollmentOpportunity,
+    findInactiveWinbackOpportunity,
+    findCouponExpiringOpportunity,
+  ];
+
+  const created = [];
+  const errors = [];
+
+  for (const find of finders) {
+    try {
+      const candidate = await find();
+      if (candidate) {
+        const doc = await CampaignOpportunity.create(candidate);
+        created.push(doc);
+      }
+    } catch (err) {
+      console.error(`[campaignOpportunityJob] ${find.name} failed:`, err.message);
+      errors.push(`${find.name}: ${err.message}`);
     }
-
-    // Abandoned enrollments (3+ days pending payment)
-    const { total: abandonedCount } = await getAbandonedEnrollmentUsers(3, { limit: 1 });
-    scanned.abandoned_enrollment = abandonedCount;
-    if (abandonedCount >= MIN_MATCH_TO_PROPOSE) {
-      const r = await upsertOpportunity({
-        type: "abandoned_enrollment",
-        title: `${abandonedCount} abandoned enrollments 3+ days old`,
-        rationale: `${abandonedCount} users started enrollment but didn't complete payment 3+ days ago. Beyond the individual per-user recovery emails, a segment-wide campaign could reach anyone who didn't get one.`,
-        segmentFilter: { abandonedEnrollments: true },
-        suggestedBrief: "Nudge users who started but didn't finish their enrollment. Friendly, zero pressure, remind them what they were signing up for.",
-        suggestedSendWindow: "Immediately",
-        matchedCount: abandonedCount,
-      });
-      if (r.created) created++;
-    }
-
-    // Hot leads awaiting follow-up
-    const hotLeadCount = await Enquiry.countDocuments({
-      aiScoreBand: "hot",
-      aiSuggestedFollowUp: { $lte: new Date() },
-    });
-    scanned.hot_leads = hotLeadCount;
-    if (hotLeadCount >= MIN_MATCH_TO_PROPOSE) {
-      const r = await upsertOpportunity({
-        type: "hot_leads",
-        title: `${hotLeadCount} hot leads past their follow-up date`,
-        rationale: `${hotLeadCount} enquiries scored "hot" by lead scoring have passed their suggested follow-up date without a campaign touch.`,
-        segmentFilter: { customFilters: [{ field: "type", operator: "in", value: ["prospect"] }, { field: "aiScoreBand", operator: "in", value: ["hot"] }] },
-        suggestedBrief: "Follow up with high-intent prospects who requested training info. Direct, helpful, offer to answer questions or set up a call.",
-        suggestedSendWindow: "Within 24 hours",
-        matchedCount: hotLeadCount,
-      });
-      if (r.created) created++;
-    }
-
-    // Coupons expiring within the next 7 days
-    const soon = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const expiringCoupons = await Coupon.find({
-      isActive: true,
-      expiryDate: { $gte: new Date(), $lte: soon },
-    }).select("code discountPercent expiryDate").lean();
-    scanned.expiring_coupon = expiringCoupons.length;
-    if (expiringCoupons.length > 0) {
-      const r = await upsertOpportunity({
-        type: "expiring_coupon",
-        title: `${expiringCoupons.length} coupon(s) expiring within 7 days`,
-        rationale: `Active coupon(s) expiring soon: ${expiringCoupons.map((c) => c.code).join(", ")}. A reminder campaign could lift redemptions before they lapse. The campaign copy itself must not hardcode the code or discount — the coupon controller resolves it server-side per CLAUDE.md.`,
-        segmentFilter: { enrolledUsers: false, inactiveUsers: true, abandonedEnrollments: true },
-        suggestedBrief: "Remind prospects that a limited-time offer is ending soon. Do not state the discount percentage or code directly — reference 'a special offer' and let the enrollment page surface the exact terms.",
-        suggestedSendWindow: "2-3 days before expiry",
-        matchedCount: expiringCoupons.length,
-      });
-      if (r.created) created++;
-    }
-
-    // Inactive users, 30+ days no login
-    const { total: inactiveCount } = await getInactiveUsers(30, { limit: 1 });
-    scanned.inactive_users = inactiveCount;
-    if (inactiveCount >= MIN_MATCH_TO_PROPOSE * 3) {
-      const r = await upsertOpportunity({
-        type: "inactive_users",
-        title: `${inactiveCount} users inactive 30+ days`,
-        rationale: `${inactiveCount} users haven't logged in for 30+ days — broader than the at-risk (14-day) segment.`,
-        segmentFilter: { inactiveUsers: true },
-        suggestedBrief: "Win back long-inactive users with a light-touch check-in. Curious, not pushy — ask what would help them come back.",
-        suggestedSendWindow: "Within a week",
-        matchedCount: inactiveCount,
-      });
-      if (r.created) created++;
-    }
-
-    console.log(`[CampaignOpportunityJob] Scan complete — created ${created} new opportunities`, scanned);
-    return { created, scanned };
-  } catch (err) {
-    console.error("[CampaignOpportunityJob] Scan failed:", err.message);
-    return { created, scanned, error: err.message };
   }
+
+  console.log(`[campaignOpportunityJob] (${triggeredBy}) created ${created.length} opportunit${created.length === 1 ? "y" : "ies"}${errors.length ? `, ${errors.length} error(s)` : ""}`);
+  return { created, errors };
 }

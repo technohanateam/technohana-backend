@@ -1,9 +1,9 @@
 import Bull from "bull";
 import Campaign from "../models/campaign.model.js";
 import { getSegmentedUsers } from "../utils/segmentationEngine.js";
-import { personalizeHtmlForRecipient } from "./emailMarketing/campaignPersonalizer.js";
 import { Resend } from "resend";
 import { redisConfig } from "../config/redis.js";
+import { personalizeForRecipient } from "./emailMarketing/campaignPersonalizer.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -82,7 +82,13 @@ campaignQueue.process(async (job) => {
             }
 
             if (campaign.personalize) {
-              emailContent = await personalizeHtmlForRecipient(emailContent, user);
+              const personalized = await personalizeForRecipient({
+                subject: emailSubject,
+                htmlContent: emailContent,
+                recipient: user,
+              });
+              emailSubject = personalized.subject;
+              emailContent = personalized.htmlContent;
             }
 
             // Send via Resend

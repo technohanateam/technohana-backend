@@ -1,58 +1,46 @@
 import { callClaude } from "../aiAgent.service.js";
+import { stripUnsafe, extractFirstJsonObject } from "./steps/shared.js";
 
-// Per-recipient personalization at scale (generalizes the pattern already
-// proven in recoveryEmailAgent.js — per-user AI copy with a hard fallback —
-// beyond the single abandoned-cart flow to any campaign that opts in).
-//
-// Rather than regenerating the whole approved email per recipient (slow,
-// costly, and it would bypass the human-approved copy), this fills in a
-// single marked block using attributes already available from
-// segmentationEngine/User, and falls back to the block being removed
-// (never left as raw markup) on any failure.
+// Per-recipient personalization at send time — generalizes the pattern in
+// recoveryEmailAgent.js (which only personalizes abandoned-cart emails) to
+// any campaign flagged `personalize: true`. Runs a cheap-tier merge-fill pass
+// that lightly adapts the human-approved htmlContent using attributes already
+// available on the recipient, rather than regenerating the email from
+// scratch — keeps cost/latency bounded and keeps the approved copy as the
+// source of truth. Falls back to the static approved content on any failure,
+// same discipline as recoveryEmailAgent.js.
+const SYSTEM_PROMPT = `You lightly personalize a pre-approved marketing email for one recipient.
+Rules:
+- Keep the HTML structure and tags exactly as given.
+- Only adjust wording to naturally reference the recipient's course/city/status where it fits — do not invent facts not present in the recipient info.
+- Do not add, remove, or reorder sections. Do not change length by more than ~15%.
+- Never include prices, coupon codes, or URLs.
+Respond ONLY with JSON: {"htmlContent": "..."}`;
 
-const PERSONALIZE_MARKER = /<!--\s*PERSONALIZE\s*-->/i;
-
-const SYSTEM_PROMPT = `You write one short, warm sentence (under 25 words) personalizing a marketing email intro for a specific recipient, using only the attributes given. No prices, coupon codes, or links. Output ONLY the sentence as plain text, no quotes.`;
-
-async function generatePersonalizedLine(user) {
-  const attrs = {
-    courseTitle: user.courseTitle || user.enrollmentFormData?.courseTitle || null,
-    city: user.city || null,
-    trainingType: user.enrollmentFormData?.trainingType || user.trainingType || null,
-    aiScoreBand: user.aiScoreBand || null,
-    isReferralPartner: !!(user.referralCode && user.referralCount > 0),
-  };
-  if (!attrs.courseTitle && !attrs.city && !attrs.trainingType && !attrs.isReferralPartner) return null;
-
-  const { text } = await callClaude({
-    system: SYSTEM_PROMPT,
-    prompt: JSON.stringify(attrs),
-    maxTokens: 100,
-    tier: "cheap",
-  });
-  // Strip any HTML the model might emit despite the plain-text instruction
-  // (prompt-injection risk via a crafted opportunity brief) before it's ever
-  // treated as safe to interpolate into the trusted email shell.
-  const line = text.trim().replace(/^["']|["']$/g, "").replace(/<[^>]*>/g, "");
-  return line.length > 0 && line.length < 300 ? line : null;
-}
-
-function escapeHtml(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-// Returns HTML with the PERSONALIZE marker filled in for this recipient, or
-// the original HTML unchanged if there's no marker, no usable attributes, or
-// the AI call fails for any reason — sending never blocks on this.
-export async function personalizeHtmlForRecipient(htmlContent, user) {
-  if (!htmlContent || !PERSONALIZE_MARKER.test(htmlContent)) return htmlContent;
-
+export async function personalizeForRecipient({ subject, htmlContent, recipient }) {
   try {
-    const line = await generatePersonalizedLine(user);
-    if (!line) return htmlContent.replace(PERSONALIZE_MARKER, "");
-    return htmlContent.replace(PERSONALIZE_MARKER, `<p>${escapeHtml(line)}</p>`);
+    const recipientInfo = {
+      name: recipient.name || null,
+      courseTitle: recipient.courseTitle || null,
+      city: recipient.city || null,
+      aiScoreBand: recipient.aiScoreBand || null,
+      isReferralPartner: Boolean(recipient.referralCode),
+    };
+
+    // Nothing to personalize against — skip the AI call entirely rather than
+    // spending a request to produce a no-op rewrite.
+    if (!recipientInfo.name && !recipientInfo.courseTitle && !recipientInfo.city) {
+      return { subject, htmlContent };
+    }
+
+    const prompt = JSON.stringify({ subject, htmlContent, recipient: recipientInfo });
+    const { text } = await callClaude({ system: SYSTEM_PROMPT, prompt, maxTokens: 700, tier: "cheap" });
+    const parsed = extractFirstJsonObject(text);
+    if (!parsed?.htmlContent) return { subject, htmlContent };
+
+    return { subject, htmlContent: stripUnsafe(parsed.htmlContent) };
   } catch (err) {
-    console.error(`[Personalizer] Failed for ${user.email}, sending unpersonalized:`, err.message);
-    return htmlContent.replace(PERSONALIZE_MARKER, "");
+    console.error(`[campaignPersonalizer] Falling back to static content for ${recipient.email}:`, err.message);
+    return { subject, htmlContent };
   }
 }

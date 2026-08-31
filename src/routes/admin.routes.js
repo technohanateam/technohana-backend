@@ -18,15 +18,18 @@ import Testimonial from "../models/testimonial.model.js";
 import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
 import { createBlogFromPayload } from "../services/blogCreation.service.js";
+import { enqueueSitemapSubmit } from "../services/seoIntelQueue.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
+import { refreshPriceCatalog } from "../utils/pricing.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
 import { adminLogin, setupAdmin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive, deleteAdminUser, forgotAdminPassword, resetAdminPasswordViaToken } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
-import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy, approveCampaignCopy, rejectCampaignCopy, runOpportunityScan, getCampaignOpportunities, approveCampaignOpportunity, dismissCampaignOpportunity } from "../controllers/campaign.controller.js";
+import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy, approveCampaignReview, rejectCampaignReview, regenerateCampaignCopy, rerunCampaignQualityGate } from "../controllers/campaign.controller.js";
+import { getAllOpportunities, runOpportunityScanNow, approveOpportunity, dismissOpportunity } from "../controllers/campaignOpportunity.controller.js";
 import { getAllDripSequences, getDripSequence, createDripSequence, updateDripSequence, deleteDripSequence, activateDripSequence, deactivateDripSequence } from "../controllers/dripSequence.controller.js";
 import Campaign from "../models/campaign.model.js";
 import Lead from "../models/lead.model.js";
@@ -678,6 +681,11 @@ router.patch("/blogs/:id/publish", authenticateAdmin, requirePage("blogs"), requ
     blog.published = typeof published === "boolean" ? published : !blog.published;
     blog.scheduledAt = scheduledAt !== undefined ? (scheduledAt ? new Date(scheduledAt) : null) : blog.scheduledAt;
     await blog.save();
+    // Only ping Google when the post is immediately live — a future
+    // scheduledAt means the post isn't actually reachable yet.
+    if (blog.published && (!blog.scheduledAt || blog.scheduledAt <= new Date())) {
+      enqueueSitemapSubmit();
+    }
     return res.json({ published: blog.published, scheduledAt: blog.scheduledAt });
   } catch (err) {
     console.error("Admin toggle publish error:", err);
@@ -1193,6 +1201,28 @@ router.post("/blogs/auto-schedule", authenticateAdmin, requirePage("blogs"), req
 
 // ─── Courses ──────────────────────────────────────────────────────────────────
 
+// Refreshes the in-memory checkout price catalog from Mongo, and triggers a
+// Vercel rebuild so the frontend's public/data/courses.json fallback (and
+// prerendered course pages) pick up the edit too. Fire-and-forget — an admin
+// write should not fail or slow down because the deploy hook is unreachable.
+function syncCourseCatalog() {
+  refreshPriceCatalog().catch((err) => console.error("Price catalog refresh failed:", err));
+
+  const hookUrl = process.env.VERCEL_DEPLOY_HOOK_URL;
+  if (hookUrl) {
+    fetch(hookUrl, { method: "POST" }).catch((err) => console.error("Vercel deploy hook failed:", err));
+  }
+
+  const chatApiUrl = process.env.CHAT_API_URL;
+  const hanaAdminToken = process.env.HANA_ADMIN_TOKEN;
+  if (chatApiUrl && hanaAdminToken) {
+    fetch(`${chatApiUrl.replace(/\/$/, "")}/admin/refresh-courses`, {
+      method: "POST",
+      headers: { "x-admin-token": hanaAdminToken },
+    }).catch((err) => console.error("Hana course refresh failed:", err));
+  }
+}
+
 // GET /admin/courses?category=&search=&page=1&limit=20
 router.get("/courses", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), async (req, res) => {
   try {
@@ -1239,6 +1269,7 @@ router.post("/courses", authenticateAdmin, requirePage("courses", "quote-generat
 
     const course = new Course(pickCourseFields(req.body));
     await course.save();
+    syncCourseCatalog();
     return res.status(201).json({ data: course });
   } catch (err) {
     console.error("Admin create course error:", err);
@@ -1251,6 +1282,7 @@ router.put("/courses/:id", authenticateAdmin, requirePage("courses", "quote-gene
   try {
     const updated = await Course.findByIdAndUpdate(req.params.id, pickCourseFields(req.body), { new: true });
     if (!updated) return res.status(404).json({ message: "Course not found." });
+    syncCourseCatalog();
     return res.json({ data: updated });
   } catch (err) {
     console.error("Admin update course error:", err);
@@ -1263,6 +1295,7 @@ router.delete("/courses/:id", authenticateAdmin, requirePage("courses", "quote-g
   try {
     const deleted = await Course.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Course not found." });
+    syncCourseCatalog();
     return res.json({ message: "Course deleted." });
   } catch (err) {
     console.error("Admin delete course error:", err);
@@ -1274,6 +1307,7 @@ router.delete("/courses/:id", authenticateAdmin, requirePage("courses", "quote-g
 router.delete("/courses/clear", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, async (req, res) => {
   try {
     const result = await Course.deleteMany({});
+    syncCourseCatalog();
     return res.json({ message: "Cleared all courses", deleted: result.deletedCount });
   } catch (err) {
     console.error("Admin clear courses error:", err);
@@ -1304,6 +1338,7 @@ router.post("/courses/seed", authenticateAdmin, requirePage("courses", "quote-ge
         }));
       const result = await Course.bulkWrite(ops, { ordered: false });
       const total = await Course.countDocuments();
+      syncCourseCatalog();
       return res.json({
         message: `Reseeded ${ops.length} courses (upsert)`,
         upserted: result.upsertedCount,
@@ -1324,6 +1359,7 @@ router.post("/courses/seed", authenticateAdmin, requirePage("courses", "quote-ge
 
     const result = await Course.insertMany(toInsert, { ordered: false });
     const total = await Course.countDocuments();
+    syncCourseCatalog();
     return res.status(201).json({
       message: `Seeded ${result.length} new courses successfully`,
       inserted: result.length,
@@ -1389,26 +1425,6 @@ router.get("/campaigns", authenticateAdmin, requirePage("campaigns", "marketing-
 // POST /admin/campaigns - Create new campaign
 router.post("/campaigns", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, createCampaign);
 
-// ─── Static /campaigns/* routes (must precede /campaigns/:id below) ───────────
-
-// POST /admin/campaigns/estimate-segment - Preview segment size
-router.post("/campaigns/estimate-segment", authenticateAdmin, requirePage("campaigns", "marketing-overview"), estimateSegmentSize);
-
-// GET /admin/campaigns/queue/stats - Get Bull queue stats
-router.get("/campaigns/queue/stats", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignQueueStats);
-
-// GET /admin/campaigns/opportunities - List proposed campaign opportunities
-router.get("/campaigns/opportunities", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignOpportunities);
-
-// POST /admin/campaigns/opportunities/run-now - Trigger an opportunity scan manually
-router.post("/campaigns/opportunities/run-now", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, runOpportunityScan);
-
-// POST /admin/campaigns/opportunities/:id/approve - Create a draft campaign from an opportunity
-router.post("/campaigns/opportunities/:id/approve", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, approveCampaignOpportunity);
-
-// POST /admin/campaigns/opportunities/:id/dismiss - Dismiss a proposed opportunity
-router.post("/campaigns/opportunities/:id/dismiss", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, dismissCampaignOpportunity);
-
 // GET /admin/campaigns/:id - Get single campaign
 router.get("/campaigns/:id", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaign);
 
@@ -1433,14 +1449,42 @@ router.post("/campaigns/:id/resume", authenticateAdmin, requirePage("campaigns",
 // GET /admin/campaigns/:id/analytics - Get campaign metrics
 router.get("/campaigns/:id/analytics", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignAnalytics);
 
-// POST /admin/campaigns/:id/ai-copy - Generate AI copy for a campaign (runs the quality gate)
-router.post("/campaigns/:id/ai-copy", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, generateAICopy);
+// POST /admin/campaigns/estimate-segment - Preview segment size
+router.post("/campaigns/estimate-segment", authenticateAdmin, requirePage("campaigns", "marketing-overview"), estimateSegmentSize);
 
-// POST /admin/campaigns/:id/copy/approve - Human review: approve AI-drafted copy
-router.post("/campaigns/:id/copy/approve", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, approveCampaignCopy);
+// GET /admin/campaigns/queue/stats - Get Bull queue stats
+router.get("/campaigns/queue/stats", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignQueueStats);
 
-// POST /admin/campaigns/:id/copy/reject - Human review: send AI-drafted copy back for revision
-router.post("/campaigns/:id/copy/reject", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, rejectCampaignCopy);
+// POST /admin/campaigns/:id/ai-copy - Generate AI copy for a campaign
+router.post("/campaigns/:id/ai-copy", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, adminAiLimiter, generateAICopy);
+
+// ─── Campaign Copy Review (Quality Gate + Human Review) ───────────────────────
+
+// POST /admin/campaigns/:id/review/approve - Approve AI copy despite outstanding flags
+router.post("/campaigns/:id/review/approve", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, approveCampaignReview);
+
+// POST /admin/campaigns/:id/review/reject - Reject AI copy, keep in NEEDS_REVISION
+router.post("/campaigns/:id/review/reject", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, rejectCampaignReview);
+
+// POST /admin/campaigns/:id/review/regenerate - Re-run the full copy pipeline
+router.post("/campaigns/:id/review/regenerate", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, adminAiLimiter, regenerateCampaignCopy);
+
+// POST /admin/campaigns/:id/review/rerun-gate - Re-run just the compliance/style gate
+router.post("/campaigns/:id/review/rerun-gate", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, adminAiLimiter, rerunCampaignQualityGate);
+
+// ─── Campaign Opportunity Engine ───────────────────────────────────────────────
+
+// GET /admin/campaigns/opportunities - List proposed/approved/dismissed opportunities
+router.get("/campaigns/opportunities", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getAllOpportunities);
+
+// POST /admin/campaigns/opportunities/run-now - Trigger an opportunity scan immediately
+router.post("/campaigns/opportunities/run-now", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, adminAiLimiter, runOpportunityScanNow);
+
+// POST /admin/campaigns/opportunities/:id/approve - Create a draft campaign from an opportunity
+router.post("/campaigns/opportunities/:id/approve", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, approveOpportunity);
+
+// POST /admin/campaigns/opportunities/:id/dismiss - Dismiss an opportunity
+router.post("/campaigns/opportunities/:id/dismiss", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, dismissOpportunity);
 
 // ─── Drip Sequences ───────────────────────────────────────────────────────────
 

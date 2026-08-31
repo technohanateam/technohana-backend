@@ -26,7 +26,7 @@ const diskStorage = multer.diskStorage({
     }
 });
 
-const upload = multer({ 
+const upload = multer({
     storage: diskStorage,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     fileFilter: function(req, file, cb) {
@@ -42,6 +42,22 @@ const upload = multer({
             return cb(null, true);
         } else {
             cb(new Error("Invalid file type. Only PDF, DOC, and DOCX files are allowed."));
+        }
+    }
+});
+
+// Memory-storage, PDF-only variant for handlers that need the file buffer
+// in-process (e.g. pdf-parse) rather than a path on disk.
+export const uploadPdfMemory = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    fileFilter: function(req, file, cb) {
+        const extname = /\.pdf$/i.test(path.extname(file.originalname));
+        const mimeType = file.mimetype === "application/pdf";
+        if (extname && mimeType) {
+            return cb(null, true);
+        } else {
+            cb(new Error("Invalid file type. Only PDF files are allowed."));
         }
     }
 });

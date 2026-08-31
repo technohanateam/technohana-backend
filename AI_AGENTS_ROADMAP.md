@@ -60,32 +60,40 @@ Daily scan (see `setInterval` in `src/index.js`) of learners inactive 14+ days; 
 personalized nudge per user via Resend, referencing their course and progress. No discounts
 or prices mentioned. Never throws — logs and continues on a per-user failure.
 
-### 4. Campaign Copywriter Agent ✅
-**File:** `src/services/campaignCopywriterAgent.js`, orchestrated by
-`src/services/emailMarketing/campaignGenerationOrchestrator.js`
+### 4. Campaign Copywriter — step-orchestrated generation ✅
+**File:** `src/services/emailMarketing/campaignCopyOrchestrator.js`, steps in
+`src/services/emailMarketing/steps/` (subjectStep, previewStep, bodyStep, ctaStep, variantsStep)
 
-Brief → subject line, preview text, HTML body, and 2 A/B variant subjects, written into the
-Campaign model. Strips any URL/price/coupon-code-like pattern the model emits. Generation now
-runs through the Quality Gate (below) before a campaign is sendable.
+Analog of the blog Content Factory's `contentGenerationOrchestrator.service.js` STEP_ORDER
+pattern. `generateCampaignCopy(campaignId, brief)` runs a brief through SUBJECT → PREVIEW →
+BODY → CTA → VARIANTS → COMPLIANCE_CHECK, writing intermediate results and per-step status
+(`campaign.copySteps`) onto the Campaign doc after every step so partial progress survives a
+failure. Replaces the old single-shot `campaignCopywriterAgent.js`.
 
 ### 5. Campaign Quality Gate & Human Review ✅
-**File:** `src/services/emailMarketing/campaignQualityGate.js`
+**File:** `src/services/emailMarketing/campaignQualityGate.js`,
+`src/services/emailMarketing/campaignRevisionAgent.js`
 
-Analog of the blog Content Factory's quality gate. After copy generation, runs a hard
-compliance check (no raw URLs/prices/coupon codes, subject/body present and sized sanely) and
-an AI style check (flags generic-sounding or manipulative-urgency copy). On failure, triggers
-one automatic revision pass (capped) via the copywriter agent, then routes the campaign to
-`reviewStatus: "needs_revision"` for a human, or `"approved"` if clean. `sendCampaignNow` and
-`scheduleCampaign` both refuse to run a campaign still in `pending_review`/`needs_revision`.
-Admin endpoints: `POST /admin/campaigns/:id/copy/approve`, `POST /admin/campaigns/:id/copy/reject`.
+Analog of the blog Content Factory's quality gate. After copy generation, runs a deterministic
+compliance check (no raw URLs/hardcoded prices/coupon-code-like patterns) and an AI style check
+(`aiStyleRiskScore` for generic/AI-sounding copy). On failure, triggers one automatic revision
+pass (`campaignRevisionAgent.js`, capped via `campaign.autoRevisionCount`) and re-gates, then
+routes the campaign to `reviewState: "NEEDS_REVISION"` for a human, or `"APPROVED"` if clean.
+`sendCampaignNow`/`scheduleCampaign` refuse to run a campaign still in
+`PENDING_REVIEW`/`NEEDS_REVISION`. Admin endpoints: `POST /admin/campaigns/:id/review/approve`,
+`POST /admin/campaigns/:id/review/reject`, `POST /admin/campaigns/:id/review/regenerate`,
+`POST /admin/campaigns/:id/review/rerun-gate`.
 
 ### 6. Campaign Opportunity Engine ✅
-**File:** `src/services/emailMarketing/campaignOpportunityJob.js`, model
-`src/models/campaignOpportunity.model.js`
+**File:** `src/services/emailMarketing/campaignOpportunityJob.js`,
+`src/services/emailMarketing/campaignOpportunityQueue.js`, model
+`src/models/campaignOpportunity.model.js`, controller
+`src/controllers/campaignOpportunity.controller.js`
 
-Analog of the blog Content Factory's daily planning job. Runs once daily (`setInterval` in
-`src/index.js`, also triggerable via `POST /admin/campaigns/opportunities/run-now`) and scans
-existing signals — at-risk learners, abandoned enrollments (3+ days), hot leads past their
+Analog of the blog Content Factory's daily planning job. Runs once daily via Bull
+(`campaignOpportunityQueue.js`, 6am, after the content factory's 5am planning run so the two
+AI-spend jobs don't contend), also triggerable via `POST /admin/campaigns/opportunities/run-now`.
+Scans existing signals — at-risk learners, abandoned enrollments (3+ days), hot leads past their
 follow-up date, coupons expiring within 7 days, users inactive 30+ days — to propose campaigns
 rather than sending anything itself. An admin reviews proposals at
 `GET /admin/campaigns/opportunities` and approves one (`POST .../:id/approve`) to create a
@@ -96,10 +104,11 @@ draft Campaign pre-filled with the suggested segment + brief, ready for AI copy 
 
 Generalizes the recovery-email agent's per-user personalization pattern to any campaign that
 opts in (`campaign.personalize: true`). At send time (`campaignQueue.js` and
-`sendCampaignNow`), fills a `<!-- PERSONALIZE -->` marker in the approved HTML with one
-AI-written sentence using the recipient's segmentation attributes (course, city, training
-type, referral status). Never regenerates the human-approved copy wholesale, and falls back to
-the marker being silently removed on any failure — sends never block on this.
+`sendCampaignNow`), `personalizeForRecipient()` runs a cheap-tier merge-fill pass that lightly
+adapts the human-approved `htmlContent` wording to the recipient's segmentation attributes
+(course, city, referral status) while preserving structure/tags and length (~15% cap). Never
+regenerates the copy wholesale, and falls back to the static approved subject/htmlContent
+unchanged on any failure — sends never block on this.
 
 ### Shared infrastructure
 `src/services/aiAgent.service.js` — lazy singleton Anthropic client (`claude-sonnet-4-6`
@@ -115,8 +124,8 @@ Requires `ANTHROPIC_API_KEY` (already used by `src/routes/chat.routes.js`).
 | 10 | **Adaptive Assessment Feedback** | Turns AssessmentResult answers into a personalized study plan | AssessmentResult model, Python roadmap agent |
 | 11 | **Progress Coach** | Dashboard check-ins ("you're 60% through, here's what's next") | User progress fields, dashboard components |
 | 12 | **A/B Winner Auto-Promotion** | Uses `Campaign.recipientMetrics` open/click data to auto-promote a variant instead of a fixed 50/50 split | Campaign variants, Resend webhook metrics |
-| 9 | **Coupon / Pricing Analyst** | Reviews coupon usage + order discount data, recommends festival calendar changes | Coupon usage counters, Order discount fields |
-| 10 | **Support Deflection in Hana** | Extends the course advisor with tools for order status, certificates, refunds | Python Hana service + Node API endpoints |
+| 13 | **Coupon / Pricing Analyst** | Reviews coupon usage + order discount data, recommends festival calendar changes | Coupon usage counters, Order discount fields |
+| 14 | **Support Deflection in Hana** | Extends the course advisor with tools for order status, certificates, refunds | Python Hana service + Node API endpoints |
 
 ## Guardrails (apply to every agent)
 

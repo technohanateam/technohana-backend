@@ -11,8 +11,11 @@ export class SeoGoogleNotConfiguredError extends Error {
   }
 }
 
+// webmasters (read-write, not .readonly) is required for sitemaps.submit —
+// existing connections consented under the old readonly-only scope list
+// must be reconnected before a sitemap-submit call will succeed for them.
 export const SEO_OAUTH_SCOPES = [
-  "https://www.googleapis.com/auth/webmasters.readonly",
+  "https://www.googleapis.com/auth/webmasters",
   "https://www.googleapis.com/auth/analytics.readonly",
 ];
 

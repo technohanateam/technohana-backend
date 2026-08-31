@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 // --- LOAD ENV BEFORE OTHER IMPORTS ---
 dotenv.config();
 
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import mongoose from "mongoose";
 
 import express from "express";
@@ -63,6 +63,7 @@ import seoOpsRoutes from "./routes/seoOps.routes.js";
 import seoIntelRoutes from "./routes/seoIntel.routes.js";
 import contentFactoryRoutes from "./routes/contentFactory.routes.js";
 import courseFactoryRoutes from "./routes/courseFactory.routes.js";
+import adCreativeFactoryRoutes from "./routes/adCreativeFactory.routes.js";
 import academyRoutes from "./routes/academy.routes.js";
 import seoTopicClusterRoutes from "./routes/seoTopicCluster.routes.js";
 import internalLinkRecommendationRoutes from "./routes/internalLinkRecommendation.routes.js";
@@ -75,15 +76,14 @@ import careerRoutes from "./routes/career.routes.js";
 import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
 import { handleResendWebhook } from "./services/resendWebhook.js";
-import { registerCampaignEventListeners, emitCampaignEvent } from "./services/campaignEventTrigger.js";
+import { registerCampaignEventListeners, emitCampaignEvent, CAMPAIGN_EVENTS } from "./services/campaignEventTrigger.js";
 import { generateRecoveryEmail } from "./services/recoveryEmailAgent.js";
 import { runAtRiskScan } from "./services/atRiskLearnerAgent.js";
-import { runCampaignOpportunityScan } from "./services/emailMarketing/campaignOpportunityJob.js";
 import Enquiry from "./models/enquiry.model.js";
 import { authenticateAdmin, requirePage } from "./middleware/authenticateAdmin.js";
 import { authenticateJWT } from "./middleware/authenticateJWT.js";
 import { Order } from "./models/order.model.js";
-import { computeQuote } from './utils/pricing.js';
+import { computeQuote, refreshPriceCatalog } from './utils/pricing.js';
 
 const app = express();
 app.set('trust proxy', 1); // trust first proxy (Render/Railway/Vercel reverse proxy)
@@ -103,12 +103,17 @@ const allowedOrigins = process.env.WHITELISTED_URLS
 // Origin-required-in-production check below (same reasoning as /health).
 // The Google OAuth routes are hit via top-level browser navigation/redirect
 // (not fetch/XHR), so they never carry an Origin header either.
+// The Stripe and Resend webhooks are server-to-server deliveries from those
+// providers — they never carry a browser Origin header, and rejecting them
+// here would block the request before it ever reaches signature verification.
 const noOriginRequiredPaths = [
   '/enquiry',
   '/skills-gap/email-plan',
   '/api/auth/google',
   '/api/auth/google/callback',
   '/admin/seo-intel/oauth/callback',
+  '/stripe/webhook',
+  '/webhooks/resend',
 ];
 
 const corsOptionsDelegate = function (req, callback) {
@@ -186,7 +191,7 @@ const generateOrderId = () => `ord_${Math.random().toString(36).slice(2, 10)}`;
 app.use(passport.initialize());
 
 // Connect to the database
-connectDb();
+connectDb().then(() => refreshPriceCatalog().catch((err) => console.error("Price catalog refresh failed:", err)));
 
 
 app.get('/api/ping', (req, res) => {
@@ -205,6 +210,17 @@ app.get('/api/ping', (req, res) => {
 });
 
 const couponLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
+
+// Public, unauthenticated checkout endpoints (guest checkout must stay public) —
+// IP-keyed rate limit to blunt abuse of Stripe/Razorpay order creation and
+// pricing-quote calls without blocking legitimate multi-item/retry checkout flows.
+const checkoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+});
 
 // Use the new database-backed coupon validation from controller
 app.post('/api/coupons/validate', couponLimiter, validateCoupon);
@@ -275,7 +291,7 @@ app.get('/api/coupons/public', async (req, res) => {
   }
 });
 
-app.post('/pricing/quote', async (req, res) => {
+app.post('/pricing/quote', checkoutLimiter, async (req, res) => {
   try {
     const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, referralCode } = req.body || {};
     if (!courseId || !enrollmentType) {
@@ -299,7 +315,7 @@ app.post('/pricing/quote', async (req, res) => {
   }
 });
 
-app.post('/stripe/checkout', async (req, res) => {
+app.post('/stripe/checkout', checkoutLimiter, async (req, res) => {
   try {
     const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode, utm } = req.body || {};
 
@@ -442,7 +458,7 @@ app.post('/stripe/checkout', async (req, res) => {
 });
 
 // Razorpay - Create order
-app.post('/razorpay/checkout', async (req, res) => {
+app.post('/razorpay/checkout', checkoutLimiter, async (req, res) => {
   try {
     const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode, utm } = req.body || {};
 
@@ -560,7 +576,7 @@ app.post('/razorpay/checkout', async (req, res) => {
 // ---- CART CHECKOUT ENDPOINTS ----
 
 // Stripe: multi-course cart checkout
-app.post('/stripe/cart-checkout', async (req, res) => {
+app.post('/stripe/cart-checkout', checkoutLimiter, async (req, res) => {
   try {
     const { items, enrollmentType, participants, couponCode, referralCode, currency, learner, utm } = req.body || {};
     if (!items?.length || !enrollmentType) {
@@ -625,7 +641,7 @@ app.post('/stripe/cart-checkout', async (req, res) => {
 });
 
 // Razorpay: multi-course cart checkout (single Razorpay order for combined total)
-app.post('/razorpay/cart-checkout', async (req, res) => {
+app.post('/razorpay/cart-checkout', checkoutLimiter, async (req, res) => {
   try {
     const { items, enrollmentType, participants, couponCode, referralCode, currency, learner, utm } = req.body || {};
     if (!items?.length || !enrollmentType) {
@@ -690,7 +706,7 @@ app.post('/razorpay/cart-checkout', async (req, res) => {
 });
 
 // Razorpay: verify cart payment — marks all cart orders paid
-app.post('/razorpay/cart-verify', async (req, res) => {
+app.post('/razorpay/cart-verify', checkoutLimiter, async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderIds, primaryOrderId } = req.body || {};
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !orderIds?.length) {
@@ -739,7 +755,7 @@ app.post('/razorpay/cart-verify', async (req, res) => {
 // ---- END CART CHECKOUT ENDPOINTS ----
 
 // Razorpay - Verify payment signature and mark paid
-app.post('/razorpay/verify', async (req, res) => {
+app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body || {};
 
@@ -849,7 +865,7 @@ app.post('/razorpay/verify', async (req, res) => {
 
       // Emit campaign event for automation (welcome emails, etc.)
       try {
-        emitCampaignEvent('PAYMENT_RECEIVED', {
+        emitCampaignEvent(CAMPAIGN_EVENTS.PAYMENT_RECEIVED, {
           email: order.learner.email,
           name: order.learner.fullName,
           courseTitle: order.courseInfo?.title,
@@ -857,7 +873,7 @@ app.post('/razorpay/verify', async (req, res) => {
           currency: order.currency,
         });
         // Also emit enrollment complete event
-        emitCampaignEvent('ENROLLMENT_COMPLETE', {
+        emitCampaignEvent(CAMPAIGN_EVENTS.ENROLLMENT_COMPLETE, {
           email: order.learner.email,
           name: order.learner.fullName,
           courseTitle: order.courseInfo?.title,
@@ -877,7 +893,7 @@ app.post('/razorpay/verify', async (req, res) => {
 });
 
 // Payment-confirm endpoint: verify session and send emails
-app.post('/payments/confirm', async (req, res) => {
+app.post('/payments/confirm', checkoutLimiter, async (req, res) => {
   try {
     const { session_id: sessionId } = req.body || {};
     if (!sessionId) {
@@ -1035,7 +1051,7 @@ app.post('/payments/confirm', async (req, res) => {
 
     // Emit campaign event for automation (welcome emails, etc.)
     try {
-      emitCampaignEvent('PAYMENT_RECEIVED', {
+      emitCampaignEvent(CAMPAIGN_EVENTS.PAYMENT_RECEIVED, {
         email: order.learner.email,
         name: order.learner.fullName,
         courseTitle: order.courseInfo?.title,
@@ -1043,7 +1059,7 @@ app.post('/payments/confirm', async (req, res) => {
         currency,
       });
       // Also emit enrollment complete event
-      emitCampaignEvent('ENROLLMENT_COMPLETE', {
+      emitCampaignEvent(CAMPAIGN_EVENTS.ENROLLMENT_COMPLETE, {
         email: order.learner.email,
         name: order.learner.fullName,
         courseTitle: order.courseInfo?.title,
@@ -1291,6 +1307,7 @@ app.use("/admin/seo", seoOpsRoutes);
 app.use("/admin/seo-intel", seoIntelRoutes);
 app.use("/admin/content-factory", contentFactoryRoutes);
 app.use("/admin/course-factory", courseFactoryRoutes);
+app.use("/admin/ad-creative-factory", adCreativeFactoryRoutes);
 app.use("/academy", academyRoutes);
 app.use("/admin/seo/topic-clusters", seoTopicClusterRoutes);
 app.use("/admin/seo/internal-links", internalLinkRecommendationRoutes);
@@ -1304,7 +1321,8 @@ app.use("/api/crm", authenticateAdmin, crmRoutes);
 // ─── Campaign Automation ───────────────────────────────────────────────────────
 
 // POST /webhooks/resend - Webhook for Resend email events (opened, clicked, bounced, etc.)
-app.post("/webhooks/resend", handleResendWebhook);
+// Raw body required for svix signature verification inside handleResendWebhook.
+app.post("/webhooks/resend", express.raw({ type: "application/json" }), handleResendWebhook);
 
 // Register campaign event listeners (enrollment, referral, payment, etc.)
 registerCampaignEventListeners();
@@ -1327,6 +1345,12 @@ import("./services/backlinkQueue.js")
 import("./services/contentFactory/contentFactoryQueue.js")
   .then(({ scheduleContentFactoryRepeatables }) => scheduleContentFactoryRepeatables())
   .catch((err) => console.error("[Content Factory Queue] failed to schedule repeatables:", err.message));
+
+// Schedule Campaign Opportunity Engine background job (daily scan at 6am).
+// Same dedupe-safe pattern as the content factory's planning queue.
+import("./services/emailMarketing/campaignOpportunityQueue.js")
+  .then(({ scheduleCampaignOpportunityRepeatable }) => scheduleCampaignOpportunityRepeatable())
+  .catch((err) => console.error("[Campaign Opportunity Queue] failed to schedule repeatables:", err.message));
 
 // ─── Automated Email Sequences ────────────────────────────────────────────────
 
@@ -1436,15 +1460,9 @@ setInterval(async () => {
   }
 }, DAILY_MS);
 
-// Campaign Opportunity Engine scan: run once daily (every 24h) — proposes
-// campaigns for an admin to review, never sends anything itself
-setInterval(async () => {
-  try {
-    await runCampaignOpportunityScan();
-  } catch (e) {
-    console.error('[CampaignOpportunityJob] Scan error:', e.message);
-  }
-}, DAILY_MS);
+// Campaign Opportunity Engine scan is scheduled via Bull
+// (services/emailMarketing/campaignOpportunityQueue.js, daily at 6am) rather
+// than setInterval, so it isn't duplicated here.
 
 // ─── Global Error Handler ──────────────────────────────────────────────────────
 // Safety net for any route/middleware that throws without its own try/catch —

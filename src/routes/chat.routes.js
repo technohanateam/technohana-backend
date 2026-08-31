@@ -8,6 +8,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
+import { publicChatLimiter, publicAiGeneratorLimiter } from "../middleware/publicChatLimiter.js";
+import { uploadPdfMemory } from "../middleware/upload.js";
 
 const router = express.Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -131,7 +133,7 @@ router.get("/api/chat/greet", (req, res) => {
 });
 
 // POST /api/chat
-router.post("/api/chat", async (req, res) => {
+router.post("/api/chat", publicChatLimiter, async (req, res) => {
   const { session_id, message } = req.body || {};
   if (!session_id || !message?.trim()) {
     return res.status(400).json({ error: "session_id and message are required" });
@@ -290,7 +292,7 @@ async function llmOneShot(prompt) {
 }
 
 // POST /api/interview/start
-router.post("/api/interview/start", async (req, res) => {
+router.post("/api/interview/start", publicChatLimiter, async (req, res) => {
   const { role, course_title, mode = "mixed", num_questions = 5 } = req.body || {};
   if (!role?.trim()) return res.status(422).json({ error: "role is required." });
 
@@ -332,7 +334,7 @@ router.post("/api/interview/start", async (req, res) => {
 });
 
 // POST /api/interview/answer
-router.post("/api/interview/answer", async (req, res) => {
+router.post("/api/interview/answer", publicChatLimiter, async (req, res) => {
   const { session_id, answer } = req.body || {};
   const session = interviewSessions.get(session_id);
   if (!session) return res.status(404).json({ error: "Session not found. Please start a new interview." });
@@ -367,7 +369,7 @@ router.post("/api/interview/answer", async (req, res) => {
 });
 
 // POST /api/interview/feedback
-router.post("/api/interview/feedback", async (req, res) => {
+router.post("/api/interview/feedback", publicChatLimiter, async (req, res) => {
   const { session_id } = req.body || {};
   const session = interviewSessions.get(session_id);
   if (!session) return res.status(404).json({ error: "Session not found." });
@@ -452,7 +454,7 @@ function roadmapFallback(courseTitle, learnerName, startDate) {
 }
 
 // POST /api/roadmap/generate
-router.post("/api/roadmap/generate", async (req, res) => {
+router.post("/api/roadmap/generate", publicAiGeneratorLimiter, async (req, res) => {
   const { course_id, course_title, learner_name = "Learner", start_date } = req.body || {};
   if (!course_id && !course_title) return res.status(422).json({ error: "course_id or course_title is required." });
 
@@ -499,7 +501,7 @@ RESPONSE FORMAT — valid JSON only, no extra text:
 // ---------------------------------------------------------------------------
 
 // POST /api/linkedin/optimize
-router.post("/api/linkedin/optimize", async (req, res) => {
+router.post("/api/linkedin/optimize", publicAiGeneratorLimiter, async (req, res) => {
   const { course_id, course_title, learner_name = "Professional", current_role = "", current_headline = "" } = req.body || {};
   if (!course_id && !course_title) return res.status(422).json({ error: "course_id or course_title is required." });
 
@@ -602,7 +604,7 @@ function contentCalendarFallback(courseTitle, learnerName, startDate) {
 }
 
 // POST /api/content-calendar/generate
-router.post("/api/content-calendar/generate", async (req, res) => {
+router.post("/api/content-calendar/generate", publicAiGeneratorLimiter, async (req, res) => {
   const { course_id, course_title, learner_name = "Professional", current_role = "", start_date } = req.body || {};
   if (!course_id && !course_title) return res.status(422).json({ error: "course_id or course_title is required." });
 
@@ -654,14 +656,20 @@ Return ONLY valid JSON:
 // Parse Course PDF API
 // ---------------------------------------------------------------------------
 
-import multer from "multer";
 const pdfParse = require("pdf-parse");
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+function handlePdfUpload(req, res, next) {
+  uploadPdfMemory.single("file")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || "Invalid file upload" });
+    }
+    next();
+  });
+}
 
 // POST /api/parse-course-pdf
-router.post("/api/parse-course-pdf", upload.single("file"), async (req, res) => {
-  if (!req.file || !req.file.originalname.toLowerCase().endsWith(".pdf")) {
+router.post("/api/parse-course-pdf", publicAiGeneratorLimiter, handlePdfUpload, async (req, res) => {
+  if (!req.file) {
     return res.status(400).json({ error: "Only PDF files are accepted" });
   }
 
@@ -795,7 +803,7 @@ router.get("/api/chat/corporate/greet", (req, res) => {
 });
 
 // POST /api/chat/corporate
-router.post("/api/chat/corporate", async (req, res) => {
+router.post("/api/chat/corporate", publicChatLimiter, async (req, res) => {
   const { session_id, message } = req.body || {};
   if (!session_id || !message?.trim()) {
     return res.status(400).json({ error: "session_id and message are required" });

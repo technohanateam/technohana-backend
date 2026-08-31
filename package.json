@@ -9,10 +9,11 @@
     "start": "node src/index.js",
     "seed": "node src/blogSeed.js",
     "add-blog-ai-engineering-skills-2026": "node src/addBlogAiEngineeringSkills2026.js",
+    "import-article": "node src/importArticleFromMarkdown.js",
     "sync-prices": "node -e \"import('fs').then(fs=>{ fs.default.copyFileSync('../technohana-frontend-master/public/data/courses.json','src/data/courses.json'); console.log('Prices synced from frontend'); })\"",
     "sync-seo-data": "node sync-seo-data.js",
     "reseed": "node seed-courses.js",
-    "test": "node --test tests/seo-intel/**/*.test.js tests/backlink/**/*.test.js tests/content-factory/**/*.test.js tests/blog/**/*.test.js tests/seo-authority/**/*.test.js tests/course-factory/**/*.test.js"
+    "test": "node --test tests/seo-intel/**/*.test.js tests/backlink/**/*.test.js tests/content-factory/**/*.test.js tests/blog/**/*.test.js tests/seo-authority/**/*.test.js tests/course-factory/**/*.test.js tests/ad-creative-factory/**/*.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.0",
@@ -27,7 +28,9 @@
     "express": "^4.21.2",
     "express-rate-limit": "^8.2.1",
     "googleapis": "^173.0.0",
+    "gray-matter": "^4.0.3",
     "jsonwebtoken": "^9.0.2",
+    "marked": "^15.0.12",
     "mongoose": "^8.9.5",
     "multer": "^1.4.5-lts.1",
     "openai": "^6.22.0",
@@ -41,6 +44,7 @@
     "resend": "^4.1.2",
     "robots-parser": "^3.0.1",
     "stripe": "^17.5.0",
+    "svix": "^1.99.1",
     "xss": "^1.0.15"
   }
 }

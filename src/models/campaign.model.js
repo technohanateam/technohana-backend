@@ -97,32 +97,44 @@ const campaignSchema = new Schema({
   pausedAt: Date,
   resumedAt: Date,
 
-  // AI copy generation + quality-gate review state (mirrors the blog
-  // Content Factory's generation/review pipeline). A campaign with AI-drafted
-  // copy cannot be sent until reviewStatus is "approved".
-  reviewStatus: {
+  // AI copy review state — gates whether a campaign can be scheduled/sent
+  // when its copy was AI-generated. "draft"-status campaigns written by hand
+  // never enter this state machine (reviewState stays null).
+  reviewState: {
     type: String,
-    enum: ["not_applicable", "pending_review", "needs_revision", "approved"],
-    default: "not_applicable",
+    enum: [null, "PENDING_REVIEW", "NEEDS_REVISION", "APPROVED"],
+    default: null,
   },
-  copyGeneration: {
-    step: {
-      type: String,
-      enum: ["NONE", "GENERATE", "COMPLIANCE_CHECK", "DONE"],
-      default: "NONE",
-    },
-    brief: String,
-    qualityIssues: [String],
-    revisionCount: { type: Number, default: 0 },
-    lastRunAt: Date,
-  },
+  reviewFlagReasons: { type: [String], default: [] },
+  reviewedBy: { type: String, default: null },
+  reviewedAt: { type: Date, default: null },
+  autoRevisionCount: { type: Number, default: 0 },
 
-  // When true, campaignQueue personalizes htmlContent per recipient at send
-  // time using their segmentation attributes, instead of sending one static body.
+  // Opportunity engine linkage — set when this campaign was created by
+  // approving a CampaignOpportunity, so the two stay traceable to each other.
+  sourceOpportunityId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignOpportunity", default: null },
+
+  // Per-recipient AI personalization (campaignPersonalizer.js) — off by
+  // default so existing campaigns keep sending the static htmlContent/variant
+  // exactly as before.
   personalize: { type: Boolean, default: false },
 
-  // Set when this campaign was created from an approved CampaignOpportunity
-  sourceOpportunityId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignOpportunity" },
+  // Step-orchestrated copy generation audit trail (campaignCopywriterAgent.js
+  // steps/ pipeline). Unlike the blog factory this runs fully via API with no
+  // pause/resume, so this is a simple ledger rather than a job document.
+  copyBrief: { type: String, default: null },
+  copySteps: {
+    type: [
+      {
+        name: { type: String, enum: ["SUBJECT", "PREVIEW", "BODY", "CTA", "VARIANTS", "COMPLIANCE_CHECK"], required: true },
+        status: { type: String, enum: ["PENDING", "RUNNING", "DONE", "FAILED"], default: "PENDING" },
+        error: { type: String, default: null },
+        finishedAt: { type: Date, default: null },
+        _id: false,
+      },
+    ],
+    default: [],
+  },
 
   // Resend Integration
   resendCampaignId: String, // ID returned by Resend for tracking

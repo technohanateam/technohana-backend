@@ -1,11 +1,12 @@
 import Lead from "../models/lead.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateLeadMagnetEmail, generateLeadAdminEmail } from "../utils/emailTemplate.js";
+import { validateEmail, validateName } from "../utils/inputValidator.js";
 
 export const capturePersonaLead = async (req, res) => {
   const { name, email, persona, phone, jobTitle, downloadUrl, utm = {} } = req.body;
 
-  if (!name || !email || !persona) {
+  if (!name || !email || !persona || !validateName(name) || !validateEmail(email)) {
     return res.status(400).json({ success: false, message: "Name, email, and persona are required." });
   }
 

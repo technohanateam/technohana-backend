@@ -102,8 +102,8 @@ export const validateAndApplyReferralCode = async (req, res) => {
 
     // Emit campaign event for referral automation
     try {
-      const { emitCampaignEvent } = await import("../services/campaignEventTrigger.js");
-      emitCampaignEvent('REFERRAL_MADE', {
+      const { emitCampaignEvent, CAMPAIGN_EVENTS } = await import("../services/campaignEventTrigger.js");
+      emitCampaignEvent(CAMPAIGN_EVENTS.REFERRAL_MADE, {
         email: referrer.email,
         name: referrer.name,
         referredUserEmail: newUser.email,
