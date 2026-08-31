@@ -30,8 +30,15 @@ async function generatePersonalizedLine(user) {
     maxTokens: 100,
     tier: "cheap",
   });
-  const line = text.trim().replace(/^["']|["']$/g, "");
+  // Strip any HTML the model might emit despite the plain-text instruction
+  // (prompt-injection risk via a crafted opportunity brief) before it's ever
+  // treated as safe to interpolate into the trusted email shell.
+  const line = text.trim().replace(/^["']|["']$/g, "").replace(/<[^>]*>/g, "");
   return line.length > 0 && line.length < 300 ? line : null;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 // Returns HTML with the PERSONALIZE marker filled in for this recipient, or
@@ -43,7 +50,7 @@ export async function personalizeHtmlForRecipient(htmlContent, user) {
   try {
     const line = await generatePersonalizedLine(user);
     if (!line) return htmlContent.replace(PERSONALIZE_MARKER, "");
-    return htmlContent.replace(PERSONALIZE_MARKER, `<p>${line}</p>`);
+    return htmlContent.replace(PERSONALIZE_MARKER, `<p>${escapeHtml(line)}</p>`);
   } catch (err) {
     console.error(`[Personalizer] Failed for ${user.email}, sending unpersonalized:`, err.message);
     return htmlContent.replace(PERSONALIZE_MARKER, "");

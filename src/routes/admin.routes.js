@@ -1389,7 +1389,13 @@ router.get("/campaigns", authenticateAdmin, requirePage("campaigns", "marketing-
 // POST /admin/campaigns - Create new campaign
 router.post("/campaigns", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, createCampaign);
 
-// ─── Campaign Opportunity Engine (must precede /campaigns/:id) ────────────────
+// ─── Static /campaigns/* routes (must precede /campaigns/:id below) ───────────
+
+// POST /admin/campaigns/estimate-segment - Preview segment size
+router.post("/campaigns/estimate-segment", authenticateAdmin, requirePage("campaigns", "marketing-overview"), estimateSegmentSize);
+
+// GET /admin/campaigns/queue/stats - Get Bull queue stats
+router.get("/campaigns/queue/stats", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignQueueStats);
 
 // GET /admin/campaigns/opportunities - List proposed campaign opportunities
 router.get("/campaigns/opportunities", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignOpportunities);
@@ -1426,12 +1432,6 @@ router.post("/campaigns/:id/resume", authenticateAdmin, requirePage("campaigns",
 
 // GET /admin/campaigns/:id/analytics - Get campaign metrics
 router.get("/campaigns/:id/analytics", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignAnalytics);
-
-// POST /admin/campaigns/estimate-segment - Preview segment size
-router.post("/campaigns/estimate-segment", authenticateAdmin, requirePage("campaigns", "marketing-overview"), estimateSegmentSize);
-
-// GET /admin/campaigns/queue/stats - Get Bull queue stats
-router.get("/campaigns/queue/stats", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignQueueStats);
 
 // POST /admin/campaigns/:id/ai-copy - Generate AI copy for a campaign (runs the quality gate)
 router.post("/campaigns/:id/ai-copy", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, generateAICopy);

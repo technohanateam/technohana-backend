@@ -154,10 +154,20 @@ export const createCampaign = async (req, res) => {
 };
 
 // Update campaign
+// Fields an admin may edit directly. Deliberately excludes reviewStatus,
+// copyGeneration, status, metrics, recipientMetrics, personalize, and
+// sourceOpportunityId — those are only ever written by the AI factory
+// (copywriter/quality gate/queue) or the dedicated status-transition
+// endpoints, never by a raw PUT, so this update path can't be used to
+// bypass the quality-gate review requirement enforced before send/schedule.
+const EDITABLE_CAMPAIGN_FIELDS = [
+  "name", "description", "subject", "htmlContent", "previewText",
+  "segments", "triggerType", "schedule", "eventTrigger", "variants",
+];
+
 export const updateCampaign = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
 
     const campaign = await Campaign.findById(id);
     if (!campaign) {
@@ -175,7 +185,19 @@ export const updateCampaign = async (req, res) => {
       });
     }
 
-    Object.assign(campaign, updates);
+    const COPY_FIELDS = new Set(["subject", "htmlContent", "previewText", "variants"]);
+    let copyFieldEdited = false;
+    for (const field of EDITABLE_CAMPAIGN_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        campaign[field] = req.body[field];
+        if (COPY_FIELDS.has(field)) copyFieldEdited = true;
+      }
+    }
+    // A hand-edit after approval invalidates the quality gate's sign-off —
+    // require it to go through review again rather than leaving a stale approval.
+    if (copyFieldEdited && campaign.reviewStatus === "approved") {
+      campaign.reviewStatus = "needs_revision";
+    }
     await campaign.save();
 
     return res.json({
@@ -326,7 +348,6 @@ export const sendCampaignNow = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Error sending campaign",
-      error: error.message,
     });
   }
 };
@@ -580,6 +601,9 @@ export const approveCampaignCopy = async (req, res) => {
   try {
     const campaign = await Campaign.findById(req.params.id);
     if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
+    if (!["pending_review", "needs_revision"].includes(campaign.reviewStatus)) {
+      return res.status(400).json({ success: false, message: `Nothing to approve — campaign copy is "${campaign.reviewStatus}"` });
+    }
     campaign.reviewStatus = "approved";
     await campaign.save();
     res.json({ success: true, data: campaign, message: "Campaign copy approved" });
@@ -594,6 +618,9 @@ export const rejectCampaignCopy = async (req, res) => {
   try {
     const campaign = await Campaign.findById(req.params.id);
     if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
+    if (!["pending_review", "approved"].includes(campaign.reviewStatus)) {
+      return res.status(400).json({ success: false, message: `Nothing to reject — campaign copy is "${campaign.reviewStatus}"` });
+    }
     campaign.reviewStatus = "needs_revision";
     await campaign.save();
     res.json({ success: true, data: campaign, message: "Campaign copy marked as needing revision" });
@@ -615,10 +642,18 @@ export const runOpportunityScan = async (req, res) => {
   }
 };
 
+const OPPORTUNITY_STATUSES = new Set(["proposed", "approved", "dismissed"]);
+
 export const getCampaignOpportunities = async (req, res) => {
   try {
     const { status = "proposed" } = req.query;
-    const opportunities = await CampaignOpportunity.find({ status }).sort({ priorityScore: -1, createdAt: -1 }).lean();
+    if (!OPPORTUNITY_STATUSES.has(status)) {
+      return res.status(400).json({ success: false, message: "Invalid status filter" });
+    }
+    const opportunities = await CampaignOpportunity.find({ status })
+      .sort({ priorityScore: -1, createdAt: -1 })
+      .limit(200)
+      .lean();
     res.json({ success: true, data: opportunities });
   } catch (err) {
     console.error("getCampaignOpportunities error:", err);

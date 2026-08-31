@@ -58,29 +58,29 @@ async function runStyleCheck(campaign) {
 // re-checks compliance only (not the AI style check, to bound cost). Sets
 // campaign.reviewStatus to "approved" or "needs_revision".
 export async function runCampaignQualityGate(campaignId) {
-  const campaign = await Campaign.findById(campaignId);
+  let campaign = await Campaign.findById(campaignId);
   if (!campaign) throw new Error("Campaign not found");
 
   campaign.copyGeneration.step = "COMPLIANCE_CHECK";
+  await campaign.save();
 
   let complianceIssues = findComplianceIssues(campaign);
   const styleResult = complianceIssues.length === 0 ? await runStyleCheck(campaign) : { passed: true, issues: [] };
   let allIssues = [...complianceIssues, ...(styleResult.passed ? [] : styleResult.issues)];
+  const revisionCountBefore = campaign.copyGeneration.revisionCount;
 
-  if (allIssues.length > 0 && campaign.copyGeneration.revisionCount < MAX_AUTO_REVISIONS) {
+  if (allIssues.length > 0 && revisionCountBefore < MAX_AUTO_REVISIONS) {
     try {
       const { generateCampaignCopy } = await import("../campaignCopywriterAgent.js");
       const revisionBrief = `${campaign.copyGeneration.brief || campaign.description || campaign.name}\n\nRevision required — fix these issues from the last draft: ${allIssues.join("; ")}`;
       await generateCampaignCopy(campaignId, revisionBrief);
-      campaign.copyGeneration.revisionCount += 1;
 
-      const revised = await Campaign.findById(campaignId);
-      complianceIssues = findComplianceIssues(revised);
-      allIssues = complianceIssues; // second pass: compliance only, no AI style re-check
-      campaign.subject = revised.subject;
-      campaign.previewText = revised.previewText;
-      campaign.htmlContent = revised.htmlContent;
-      campaign.variants = revised.variants;
+      // generateCampaignCopy wrote directly to the DB (subject/htmlContent/etc,
+      // and reset copyGeneration.brief/step) — re-fetch instead of patching the
+      // stale in-memory doc, so nothing gets silently overwritten on save below.
+      campaign = await Campaign.findById(campaignId);
+      campaign.copyGeneration.revisionCount = revisionCountBefore + 1;
+      allIssues = findComplianceIssues(campaign); // second pass: compliance only, no AI style re-check
     } catch (err) {
       console.error(`[QualityGate] Auto-revision failed for campaign ${campaignId}:`, err.message);
     }
