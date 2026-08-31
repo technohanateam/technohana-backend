@@ -1,6 +1,7 @@
 import Bull from "bull";
 import Campaign from "../models/campaign.model.js";
 import { getSegmentedUsers } from "../utils/segmentationEngine.js";
+import { personalizeHtmlForRecipient } from "./emailMarketing/campaignPersonalizer.js";
 import { Resend } from "resend";
 import { redisConfig } from "../config/redis.js";
 
@@ -78,6 +79,10 @@ campaignQueue.process(async (job) => {
               emailSubject = randomVariant.subject || campaign.subject;
               emailContent = randomVariant.htmlContent || campaign.htmlContent;
               variantName = randomVariant.name || "variant";
+            }
+
+            if (campaign.personalize) {
+              emailContent = await personalizeHtmlForRecipient(emailContent, user);
             }
 
             // Send via Resend

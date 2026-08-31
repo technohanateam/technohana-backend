@@ -26,7 +26,7 @@ import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, res
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
-import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy } from "../controllers/campaign.controller.js";
+import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy, approveCampaignCopy, rejectCampaignCopy, runOpportunityScan, getCampaignOpportunities, approveCampaignOpportunity, dismissCampaignOpportunity } from "../controllers/campaign.controller.js";
 import { getAllDripSequences, getDripSequence, createDripSequence, updateDripSequence, deleteDripSequence, activateDripSequence, deactivateDripSequence } from "../controllers/dripSequence.controller.js";
 import Campaign from "../models/campaign.model.js";
 import Lead from "../models/lead.model.js";
@@ -1389,6 +1389,20 @@ router.get("/campaigns", authenticateAdmin, requirePage("campaigns", "marketing-
 // POST /admin/campaigns - Create new campaign
 router.post("/campaigns", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, createCampaign);
 
+// ─── Campaign Opportunity Engine (must precede /campaigns/:id) ────────────────
+
+// GET /admin/campaigns/opportunities - List proposed campaign opportunities
+router.get("/campaigns/opportunities", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignOpportunities);
+
+// POST /admin/campaigns/opportunities/run-now - Trigger an opportunity scan manually
+router.post("/campaigns/opportunities/run-now", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, runOpportunityScan);
+
+// POST /admin/campaigns/opportunities/:id/approve - Create a draft campaign from an opportunity
+router.post("/campaigns/opportunities/:id/approve", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, approveCampaignOpportunity);
+
+// POST /admin/campaigns/opportunities/:id/dismiss - Dismiss a proposed opportunity
+router.post("/campaigns/opportunities/:id/dismiss", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, dismissCampaignOpportunity);
+
 // GET /admin/campaigns/:id - Get single campaign
 router.get("/campaigns/:id", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaign);
 
@@ -1419,8 +1433,14 @@ router.post("/campaigns/estimate-segment", authenticateAdmin, requirePage("campa
 // GET /admin/campaigns/queue/stats - Get Bull queue stats
 router.get("/campaigns/queue/stats", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignQueueStats);
 
-// POST /admin/campaigns/:id/ai-copy - Generate AI copy for a campaign
+// POST /admin/campaigns/:id/ai-copy - Generate AI copy for a campaign (runs the quality gate)
 router.post("/campaigns/:id/ai-copy", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, generateAICopy);
+
+// POST /admin/campaigns/:id/copy/approve - Human review: approve AI-drafted copy
+router.post("/campaigns/:id/copy/approve", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, approveCampaignCopy);
+
+// POST /admin/campaigns/:id/copy/reject - Human review: send AI-drafted copy back for revision
+router.post("/campaigns/:id/copy/reject", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, rejectCampaignCopy);
 
 // ─── Drip Sequences ───────────────────────────────────────────────────────────
 

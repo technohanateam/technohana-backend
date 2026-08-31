@@ -97,6 +97,33 @@ const campaignSchema = new Schema({
   pausedAt: Date,
   resumedAt: Date,
 
+  // AI copy generation + quality-gate review state (mirrors the blog
+  // Content Factory's generation/review pipeline). A campaign with AI-drafted
+  // copy cannot be sent until reviewStatus is "approved".
+  reviewStatus: {
+    type: String,
+    enum: ["not_applicable", "pending_review", "needs_revision", "approved"],
+    default: "not_applicable",
+  },
+  copyGeneration: {
+    step: {
+      type: String,
+      enum: ["NONE", "GENERATE", "COMPLIANCE_CHECK", "DONE"],
+      default: "NONE",
+    },
+    brief: String,
+    qualityIssues: [String],
+    revisionCount: { type: Number, default: 0 },
+    lastRunAt: Date,
+  },
+
+  // When true, campaignQueue personalizes htmlContent per recipient at send
+  // time using their segmentation attributes, instead of sending one static body.
+  personalize: { type: Boolean, default: false },
+
+  // Set when this campaign was created from an approved CampaignOpportunity
+  sourceOpportunityId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignOpportunity" },
+
   // Resend Integration
   resendCampaignId: String, // ID returned by Resend for tracking
 

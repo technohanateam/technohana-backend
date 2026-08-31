@@ -78,6 +78,7 @@ import { handleResendWebhook } from "./services/resendWebhook.js";
 import { registerCampaignEventListeners, emitCampaignEvent } from "./services/campaignEventTrigger.js";
 import { generateRecoveryEmail } from "./services/recoveryEmailAgent.js";
 import { runAtRiskScan } from "./services/atRiskLearnerAgent.js";
+import { runCampaignOpportunityScan } from "./services/emailMarketing/campaignOpportunityJob.js";
 import Enquiry from "./models/enquiry.model.js";
 import { authenticateAdmin, requirePage } from "./middleware/authenticateAdmin.js";
 import { authenticateJWT } from "./middleware/authenticateJWT.js";
@@ -1432,6 +1433,16 @@ setInterval(async () => {
     console.log(`[AtRisk] Scan complete — processed: ${result.processed}, nudged: ${result.nudged}`);
   } catch (e) {
     console.error('[AtRisk] Scan error:', e.message);
+  }
+}, DAILY_MS);
+
+// Campaign Opportunity Engine scan: run once daily (every 24h) — proposes
+// campaigns for an admin to review, never sends anything itself
+setInterval(async () => {
+  try {
+    await runCampaignOpportunityScan();
+  } catch (e) {
+    console.error('[CampaignOpportunityJob] Scan error:', e.message);
   }
 }, DAILY_MS);
 

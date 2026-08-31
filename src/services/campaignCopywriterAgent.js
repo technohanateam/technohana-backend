@@ -13,6 +13,10 @@ export async function generateCampaignCopy(campaignId, brief) {
   const campaign = await Campaign.findById(campaignId);
   if (!campaign) throw new Error("Campaign not found");
 
+  campaign.copyGeneration.step = "GENERATE";
+  campaign.copyGeneration.brief = brief.trim();
+  await campaign.save();
+
   const prompt = `You are a B2B email marketer for TechnoHana, an AI Training & Corporate Learning company.
 Generate professional marketing email copy based on this brief:
 
@@ -79,6 +83,7 @@ Respond ONLY with valid JSON:
           htmlContent: result.htmlContent,
           weight:      50,
         })).slice(0, 2),
+        reviewStatus: "pending_review",
       },
     }
   );

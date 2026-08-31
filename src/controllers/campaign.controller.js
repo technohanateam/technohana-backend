@@ -1,7 +1,11 @@
 import Campaign from "../models/campaign.model.js";
+import CampaignOpportunity from "../models/campaignOpportunity.model.js";
 import { Resend } from "resend";
 import { getSegmentedUsers } from "../utils/segmentationEngine.js";
 import { scheduleCampaignJob, getQueueStats } from "../services/campaignQueue.js";
+import { personalizeHtmlForRecipient } from "../services/emailMarketing/campaignPersonalizer.js";
+import { runCampaignOpportunityScan } from "../services/emailMarketing/campaignOpportunityJob.js";
+import { generateAndGateCampaignCopy } from "../services/emailMarketing/campaignGenerationOrchestrator.js";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -234,6 +238,13 @@ export const sendCampaignNow = async (req, res) => {
       });
     }
 
+    if (["pending_review", "needs_revision"].includes(campaign.reviewStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Campaign copy is ${campaign.reviewStatus.replace("_", " ")} — approve it before sending`,
+      });
+    }
+
     // Get all segmented users (no limit cap for actual send)
     const { users, total } = await getSegmentedUsers(campaign.segments, {
       limit: 50000,
@@ -261,11 +272,14 @@ export const sendCampaignNow = async (req, res) => {
       await Promise.all(
         batch.map(async (user) => {
           try {
+            const html = campaign.personalize
+              ? await personalizeHtmlForRecipient(campaign.htmlContent, user)
+              : campaign.htmlContent;
             const response = await resend.emails.send({
               from: `${campaign.fromName} <${campaign.fromEmail}>`,
               to: user.email,
               subject: campaign.subject,
-              html: campaign.htmlContent,
+              html,
               headers: {
                 "X-Campaign-ID": campaign._id.toString(),
                 "X-User-ID": user._id?.toString() || user.email,
@@ -335,6 +349,13 @@ export const scheduleCampaign = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Campaign not found",
+      });
+    }
+
+    if (["pending_review", "needs_revision"].includes(campaign.reviewStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Campaign copy is ${campaign.reviewStatus.replace("_", " ")} — approve it before scheduling`,
       });
     }
 
@@ -530,6 +551,8 @@ export const getCampaignQueueStats = async (req, res) => {
   }
 };
 
+// Generates AI copy for a campaign and runs it through the quality gate
+// before it's sendable — replaces the old "generate and trust it" flow.
 export const generateAICopy = async (req, res) => {
   try {
     const { brief } = req.body;
@@ -537,12 +560,121 @@ export const generateAICopy = async (req, res) => {
       return res.status(400).json({ success: false, message: "Brief must be at least 10 characters" });
     }
 
-    const { generateCampaignCopy } = await import("../services/campaignCopywriterAgent.js");
-    const result = await generateCampaignCopy(req.params.id, brief);
-    res.json({ success: true, data: result, message: "AI copy generated and saved to campaign" });
+    const gateResult = await generateAndGateCampaignCopy(req.params.id, brief);
+    const campaign = await Campaign.findById(req.params.id);
+    res.json({
+      success: true,
+      data: { copy: campaign, qualityGate: gateResult },
+      message: gateResult.passed
+        ? "AI copy generated, passed the quality gate, and is ready to send"
+        : "AI copy generated but needs human review before it can be sent",
+    });
   } catch (err) {
     console.error("generateAICopy error:", err);
     res.status(500).json({ success: false, message: "AI copy generation failed" });
+  }
+};
+
+// Human review — approve AI-drafted copy that needs a second look before sending
+export const approveCampaignCopy = async (req, res) => {
+  try {
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
+    campaign.reviewStatus = "approved";
+    await campaign.save();
+    res.json({ success: true, data: campaign, message: "Campaign copy approved" });
+  } catch (err) {
+    console.error("approveCampaignCopy error:", err);
+    res.status(500).json({ success: false, message: "Error approving campaign copy" });
+  }
+};
+
+// Human review — reject and require a fresh brief before re-generating
+export const rejectCampaignCopy = async (req, res) => {
+  try {
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
+    campaign.reviewStatus = "needs_revision";
+    await campaign.save();
+    res.json({ success: true, data: campaign, message: "Campaign copy marked as needing revision" });
+  } catch (err) {
+    console.error("rejectCampaignCopy error:", err);
+    res.status(500).json({ success: false, message: "Error rejecting campaign copy" });
+  }
+};
+
+// Runs a fresh opportunity scan on demand (also runs automatically on a
+// daily interval — see src/index.js)
+export const runOpportunityScan = async (req, res) => {
+  try {
+    const result = await runCampaignOpportunityScan();
+    res.json({ success: true, data: result, message: `Scan complete — ${result.created} new opportunity(ies) proposed` });
+  } catch (err) {
+    console.error("runOpportunityScan error:", err);
+    res.status(500).json({ success: false, message: "Opportunity scan failed" });
+  }
+};
+
+export const getCampaignOpportunities = async (req, res) => {
+  try {
+    const { status = "proposed" } = req.query;
+    const opportunities = await CampaignOpportunity.find({ status }).sort({ priorityScore: -1, createdAt: -1 }).lean();
+    res.json({ success: true, data: opportunities });
+  } catch (err) {
+    console.error("getCampaignOpportunities error:", err);
+    res.status(500).json({ success: false, message: "Error fetching campaign opportunities" });
+  }
+};
+
+// Approving an opportunity creates a draft Campaign pre-filled with the
+// opportunity's segment + brief, ready to run through AI copy generation.
+export const approveCampaignOpportunity = async (req, res) => {
+  try {
+    const opportunity = await CampaignOpportunity.findById(req.params.id);
+    if (!opportunity) return res.status(404).json({ success: false, message: "Opportunity not found" });
+    if (opportunity.status !== "proposed") {
+      return res.status(400).json({ success: false, message: `Opportunity already ${opportunity.status}` });
+    }
+
+    const campaign = await Campaign.create({
+      name: opportunity.title,
+      description: opportunity.rationale,
+      subject: "(pending AI copy generation)",
+      htmlContent: "<p>(pending AI copy generation)</p>",
+      segments: opportunity.segmentFilter || {},
+      triggerType: "manual",
+      status: "draft",
+      reviewStatus: "not_applicable",
+      sourceOpportunityId: opportunity._id,
+      createdBy: req.admin?._id,
+      createdByRole: req.admin?.role,
+    });
+
+    opportunity.status = "approved";
+    opportunity.resultingCampaignId = campaign._id;
+    opportunity.resolvedBy = req.admin?._id;
+    opportunity.resolvedAt = new Date();
+    await opportunity.save();
+
+    res.json({ success: true, data: { campaign, opportunity }, message: "Draft campaign created from opportunity" });
+  } catch (err) {
+    console.error("approveCampaignOpportunity error:", err);
+    res.status(500).json({ success: false, message: "Error approving opportunity" });
+  }
+};
+
+export const dismissCampaignOpportunity = async (req, res) => {
+  try {
+    const opportunity = await CampaignOpportunity.findById(req.params.id);
+    if (!opportunity) return res.status(404).json({ success: false, message: "Opportunity not found" });
+    opportunity.status = "dismissed";
+    opportunity.resolvedBy = req.admin?._id;
+    opportunity.resolvedAt = new Date();
+    await opportunity.save();
+    res.json({ success: true, data: opportunity, message: "Opportunity dismissed" });
+  } catch (err) {
+    console.error("dismissCampaignOpportunity error:", err);
+    res.status(500).json({ success: false, message: "Error dismissing opportunity" });
   }
 };
 
@@ -560,4 +692,10 @@ export default {
   estimateSegmentSize,
   getCampaignQueueStats,
   generateAICopy,
+  approveCampaignCopy,
+  rejectCampaignCopy,
+  runOpportunityScan,
+  getCampaignOpportunities,
+  approveCampaignOpportunity,
+  dismissCampaignOpportunity,
 };
