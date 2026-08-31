@@ -1460,6 +1460,10 @@ setInterval(async () => {
   }
 }, DAILY_MS);
 
+// Campaign Opportunity Engine scan is scheduled via Bull
+// (services/emailMarketing/campaignOpportunityQueue.js, daily at 6am) rather
+// than setInterval, so it isn't duplicated here.
+
 // ─── Global Error Handler ──────────────────────────────────────────────────────
 // Safety net for any route/middleware that throws without its own try/catch —
 // never leak stack traces to the client.
