@@ -50,6 +50,17 @@ const enquirySchema = new mongoose.Schema({
   },
   lostReason: { type: String, default: "" },
   notes: { type: String, default: "" },
+  activities: {
+    type: [{
+      type: { type: String, enum: ["status_change", "note_added", "assigned", "followup_set", "created"], required: true },
+      actor: { type: String, default: "Admin" },
+      note: { type: String },
+      from: { type: String },
+      to: { type: String },
+      at: { type: Date, default: Date.now },
+    }],
+    default: [],
+  },
   assignedTo: { type: String, default: "" },
   nextFollowUp: { type: Date, default: null },
   aiScore: { type: Number, default: null, min: 0, max: 100 },
