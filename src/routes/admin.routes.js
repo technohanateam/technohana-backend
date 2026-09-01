@@ -412,6 +412,30 @@ router.delete("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sal
   }
 });
 
+// POST /admin/enquiries/:id/note — append a note to the activity timeline
+router.post("/enquiries/:id/note", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid id" });
+    }
+    const note = req.body?.note?.trim();
+    if (!note) return res.status(400).json({ success: false, message: "Note is required" });
+    const enquiry = await Enquiry.findById(req.params.id);
+    if (!enquiry) return res.status(404).json({ success: false, message: "Enquiry not found" });
+    enquiry.activities.push({
+      type: "note_added",
+      actor: req.admin?.name || req.admin?.email || "Admin",
+      note,
+      at: new Date(),
+    });
+    await enquiry.save();
+    return res.json({ success: true, data: enquiry, message: "Note added." });
+  } catch (err) {
+    console.error("Admin add enquiry note error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 // PATCH /admin/enquiries/:id — update status, notes, assignedTo, nextFollowUp, lostReason
 router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
   try {
@@ -419,13 +443,30 @@ router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sale
       return res.status(400).json({ success: false, message: "Invalid id" });
     }
     const { status, notes, assignedTo, nextFollowUp, lostReason } = req.body;
-    const allowed = {};
-    if (status !== undefined) allowed.status = status;
-    if (notes !== undefined) allowed.notes = notes;
-    if (assignedTo !== undefined) allowed.assignedTo = assignedTo;
-    if (nextFollowUp !== undefined) allowed.nextFollowUp = nextFollowUp || null;
-    if (lostReason !== undefined) allowed.lostReason = lostReason;
-    const updated = await Enquiry.findByIdAndUpdate(req.params.id, allowed, { new: true });
+    const enquiry = await Enquiry.findById(req.params.id);
+    if (!enquiry) return res.status(404).json({ message: "Enquiry not found." });
+
+    const actor = req.admin?.name || req.admin?.email || "Admin";
+    if (status !== undefined && status !== enquiry.status) {
+      enquiry.activities.push({ type: "status_change", actor, from: enquiry.status, to: status, at: new Date() });
+      enquiry.status = status;
+    }
+    if (notes !== undefined) enquiry.notes = notes;
+    if (assignedTo !== undefined && assignedTo !== enquiry.assignedTo) {
+      enquiry.activities.push({ type: "assigned", actor, from: enquiry.assignedTo, to: assignedTo, at: new Date() });
+      enquiry.assignedTo = assignedTo;
+    }
+    if (nextFollowUp !== undefined) {
+      const newFollowUp = nextFollowUp || null;
+      const prevFollowUp = enquiry.nextFollowUp ? enquiry.nextFollowUp.toISOString().split("T")[0] : null;
+      if (newFollowUp !== prevFollowUp) {
+        enquiry.activities.push({ type: "followup_set", actor, to: newFollowUp || "cleared", at: new Date() });
+        enquiry.nextFollowUp = newFollowUp;
+      }
+    }
+    if (lostReason !== undefined) enquiry.lostReason = lostReason;
+
+    const updated = await enquiry.save();
     if (!updated) return res.status(404).json({ message: "Enquiry not found." });
     return res.json(updated);
   } catch (err) {
