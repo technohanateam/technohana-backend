@@ -118,8 +118,17 @@ const noOriginRequiredPaths = [
   '/webhooks/resend',
 ];
 
+// GET /blog/:slug is the server-rendered OG-tag HTML crawled by social-media
+// link-preview bots (WhatsApp, Facebook, Twitter, LinkedIn, Slack) — those
+// crawlers never send a browser Origin header, so it needs prefix matching
+// rather than the exact-path check used above.
+const noOriginRequiredPrefixes = ['/blog/'];
+
 const corsOptionsDelegate = function (req, callback) {
-  const exemptFromOriginRequirement = !req.headers.origin && noOriginRequiredPaths.includes(req.path);
+  const exemptFromOriginRequirement = !req.headers.origin && (
+    noOriginRequiredPaths.includes(req.path) ||
+    noOriginRequiredPrefixes.some((prefix) => req.path.startsWith(prefix))
+  );
   callback(null, {
     origin: function (origin, cb) {
       if (!origin) {
