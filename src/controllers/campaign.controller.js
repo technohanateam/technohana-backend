@@ -1,9 +1,11 @@
 import Campaign from "../models/campaign.model.js";
+import { Blogs } from "../models/blogs.model.js";
 import { Resend } from "resend";
 import { getSegmentedUsers } from "../utils/segmentationEngine.js";
 import { scheduleCampaignJob, getQueueStats } from "../services/campaignQueue.js";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
 import { personalizeForRecipient } from "../services/emailMarketing/campaignPersonalizer.js";
+import { generateBlogPostEmail } from "../utils/emailTemplate.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -147,6 +149,51 @@ export const createCampaign = async (req, res) => {
       success: false,
       message: "Error creating campaign",
     });
+  }
+};
+
+// Create a draft campaign pre-filled from a published blog post
+export const createCampaignFromBlog = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const blog = await Blogs.findById(id);
+    if (!blog) {
+      return res.status(404).json({ success: false, message: "Blog not found" });
+    }
+    if (!blog.published) {
+      return res.status(400).json({ success: false, message: "Only published posts can be emailed" });
+    }
+
+    const campaign = new Campaign({
+      name: `Blog: ${blog.title}`,
+      subject: blog.title,
+      htmlContent: generateBlogPostEmail({
+        title: blog.title,
+        excerpt: blog.excerpt,
+        img: blog.img,
+        slug: blog.slug,
+      }),
+      previewText: blog.excerpt,
+      segments: {
+        enrolledUsers: true,
+        customFilters: [{ field: "type", operator: "in", value: ["subscriber"] }],
+      },
+      triggerType: "manual",
+      createdBy: req.admin?._id,
+      createdByRole: req.admin?.role,
+      status: "draft",
+    });
+
+    await campaign.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Campaign created from blog post",
+      data: campaign,
+    });
+  } catch (error) {
+    console.error("Error creating campaign from blog:", error);
+    return res.status(500).json({ success: false, message: "Error creating campaign from blog" });
   }
 };
 
@@ -658,6 +705,7 @@ export default {
   getAllCampaigns,
   getCampaign,
   createCampaign,
+  createCampaignFromBlog,
   updateCampaign,
   deleteCampaign,
   sendCampaignNow,
