@@ -98,6 +98,21 @@ export async function buildOpportunityFromImport({ articleDraft, courseSlug = nu
     throw err;
   }
 
+  // Pasted model JSON sometimes returns sources as plain URL strings instead
+  // of the {title, url} shape the schema requires — normalize both forms.
+  if (Array.isArray(articleDraft.sources)) {
+    articleDraft = {
+      ...articleDraft,
+      sources: articleDraft.sources
+        .map((s) => {
+          if (typeof s === "string") return { title: s, url: s };
+          if (s && typeof s === "object" && s.url) return { title: s.title || s.url, url: s.url };
+          return null;
+        })
+        .filter(Boolean),
+    };
+  }
+
   const corpus = await loadExistingCorpus();
   const { duplicateScore, cannibalizationRisk, signals } = scoreDuplicateRisk(
     { title: articleDraft.title, slug: articleDraft.slug, focusKeyword: articleDraft.focusKeyword, clusterId: null, searchIntent: null },

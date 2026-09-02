@@ -96,9 +96,9 @@ Do NOT create a "Recommended Courses" section. Integrate links naturally into pa
 SEO — generate: title, slug, excerpt, meta title (50–60 chars), meta description (140–160 chars), focus keyword, tags, read time, author, category.
 
 Return ONLY this JSON object:
-{"title":"","slug":"","excerpt":"","content":"","metaTitle":"","metaDescription":"","focusKeyword":"","tags":[],"readTimeMin":0,"author":"","category":"","sources":[],"faqs":[{"question":"","answer":""}]}
+{"title":"","slug":"","excerpt":"","content":"","metaTitle":"","metaDescription":"","focusKeyword":"","tags":[],"readTimeMin":0,"author":"","category":"","sources":[{"title":"","url":""}],"faqs":[{"question":"","answer":""}]}
 
-Sources: only URLs returned by web search. Never invent URLs.
+Sources: only URLs returned by web search, each as {"title": "<page title>", "url": "<url>"}. Never invent URLs.
 
 If you have web search available, search the web before writing (queries like "${courseTitle} trends ${year}", "${courseTitle} jobs salary demand ${year}", "${courseTitle} certifications ${year}", "${courseTitle} enterprise adoption ${year}") and ground the article in what you find.`;
 
