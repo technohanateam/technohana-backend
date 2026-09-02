@@ -28,7 +28,7 @@ import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, res
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
-import { getAllCampaigns, getCampaign, createCampaign, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy, approveCampaignReview, rejectCampaignReview, regenerateCampaignCopy, rerunCampaignQualityGate } from "../controllers/campaign.controller.js";
+import { getAllCampaigns, getCampaign, createCampaign, createCampaignFromBlog, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy, approveCampaignReview, rejectCampaignReview, regenerateCampaignCopy, rerunCampaignQualityGate } from "../controllers/campaign.controller.js";
 import { getAllOpportunities, runOpportunityScanNow, approveOpportunity, dismissOpportunity } from "../controllers/campaignOpportunity.controller.js";
 import { getAllDripSequences, getDripSequence, createDripSequence, updateDripSequence, deleteDripSequence, activateDripSequence, deactivateDripSequence } from "../controllers/dripSequence.controller.js";
 import Campaign from "../models/campaign.model.js";
@@ -712,6 +712,9 @@ router.delete("/blogs/:id", authenticateAdmin, requirePage("blogs"), requireAdmi
     return res.status(500).json({ message: "Server error" });
   }
 });
+
+// POST /admin/blogs/:id/email-campaign — create a draft Campaign pre-filled from a published blog post
+router.post("/blogs/:id/email-campaign", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, createCampaignFromBlog);
 
 // PATCH /admin/blogs/:id/publish — toggle published status (or schedule)
 router.patch("/blogs/:id/publish", authenticateAdmin, requirePage("blogs"), requireMarketing, async (req, res) => {

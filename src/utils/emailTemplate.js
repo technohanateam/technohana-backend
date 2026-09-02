@@ -888,3 +888,20 @@ export function generateBacklinkAlertEmail({ website, liveUrl, alertType, descri
 
   return emailShell({ label: 'Backlink Alert', body });
 }
+
+// ─── BLOG POST CAMPAIGN (published post → subscribers/enrolled users) ───────
+
+export function generateBlogPostEmail({ title, excerpt, img, slug }) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const safeTitle = escapeHtml(title);
+  const safeExcerpt = escapeHtml(excerpt);
+  const postUrl = `${frontendUrl}/blog/${slug}`;
+
+  const body = `
+    ${img ? `<img src="${img}" alt="${safeTitle}" style="width:100%;border-radius:8px;margin-bottom:20px;display:block;">` : ''}
+    <h2 style="margin:0 0 12px;font-size:22px;color:#0f172a;">${safeTitle}</h2>
+    ${safeExcerpt ? `<p style="margin:0 0 8px;font-size:14px;color:#475569;line-height:1.6;">${safeExcerpt}</p>` : ''}
+    ${ctaButton('Read the Full Post →', postUrl)}`;
+
+  return emailShell({ label: 'New from Technohana', body });
+}
