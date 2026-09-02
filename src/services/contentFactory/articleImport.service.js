@@ -80,15 +80,20 @@ async function loadExistingCorpus() {
 // have passed through GENERATING/AI_REVIEW first, so this surfaces in the
 // existing review queue with no further plumbing.
 //
+// Shared by every non-AI-planned entry point into the pipeline (markdown
+// import, "New Post", "Generate from Course", "Generate from URLs") — origin
+// distinguishes them in sourceInfo. content may be empty (e.g. a blank "New
+// Post" opportunity to be filled in during review); only title is required.
+//
 // Quality-gate scoring is intentionally skipped: qualityGate.service.js is a
 // human-paste-back flow built around AI-generated drafts (fact-check/style/
 // eval text pasted from Claude Pro) and has no automatic path for a
 // human-written draft. overallScore is left at 0 for the admin to set via the
 // existing PATCH /opportunities/:id/score (overrideScore) — the same escape
 // hatch already used for exactly this kind of manual judgment call.
-export async function buildOpportunityFromImport({ articleDraft, courseSlug = null, courseTitle = null, category = null, contentType, importedBy = null, sourceFile = null }) {
-  if (!articleDraft?.title || !articleDraft?.content) {
-    const err = new Error("Article draft is missing a title or content.");
+export async function buildOpportunityFromImport({ articleDraft, courseSlug = null, courseTitle = null, category = null, contentType, importedBy = null, sourceFile = null, origin = "MANUAL_IMPORT" }) {
+  if (!articleDraft?.title) {
+    const err = new Error("Article draft is missing a title.");
     err.statusCode = 400;
     throw err;
   }
@@ -111,7 +116,7 @@ export async function buildOpportunityFromImport({ articleDraft, courseSlug = nu
     cannibalizationRisk,
     duplicateSignals: signals,
     overallScore: 0,
-    sourceInfo: { origin: "MANUAL_IMPORT", importedBy, importedAt: new Date(), sourceFile },
+    sourceInfo: { origin, importedBy, importedAt: new Date(), sourceFile },
     status: "HUMAN_REVIEW",
     articleDraft,
   });
