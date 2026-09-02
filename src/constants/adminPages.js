@@ -51,6 +51,8 @@ export const ADMIN_PAGES = [
   "authors",
   "course-factory",
   "ad-creative-factory",
+  "social-factory",
+  "marketing-calendar",
   // Additive child permission (Phase 3): read-only access to the Blogs list
   // from within the Content Factory experience. Deliberately NOT added to
   // any DEFAULT_PAGES_BY_ROLE entry below — must be granted explicitly via
@@ -124,6 +126,8 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "authors",
     "course-factory",
     "ad-creative-factory",
+    "social-factory",
+    "marketing-calendar",
   ],
   // trainer/accounts/hr/student_support/readonly are CRM-only crmRoles — they
   // never get admin-panel pages (see authenticateAdmin.js CRM_ONLY_ROLES block),
