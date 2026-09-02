@@ -35,14 +35,15 @@ const RESPONSE_SHAPE = `{
 function buildSourceBrief(sourceType, source) {
   if (sourceType === "COURSE") {
     const lines = [
-      `Course title: ${source.title}`,
-      source.subtitle ? `Subtitle: ${source.subtitle}` : null,
-      source.description ? `Description: ${source.description}` : null,
-      source.audience ? `Target audience: ${source.audience}` : null,
-      Array.isArray(source.learningObjectives) && source.learningObjectives.length
-        ? `Learning objectives: ${source.learningObjectives.join("; ")}`
+      `Course title: ${source.courseTitle}`,
+      source.overview ? `Description: ${source.overview}` : null,
+      Array.isArray(source.targetAudience) && source.targetAudience.length
+        ? `Target audience: ${source.targetAudience.join("; ")}`
         : null,
-      Array.isArray(source.skills) && source.skills.length ? `Skills covered: ${source.skills.join(", ")}` : null,
+      Array.isArray(source.whatWillYouLearn) && source.whatWillYouLearn.length
+        ? `Learning objectives: ${source.whatWillYouLearn.join("; ")}`
+        : null,
+      source.category ? `Category: ${source.category}` : null,
     ].filter(Boolean);
     return lines.join("\n");
   }

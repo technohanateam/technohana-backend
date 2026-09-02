@@ -1,5 +1,5 @@
 import SocialPost from "../../models/socialFactory/socialPost.model.js";
-import AcademyCourse from "../../models/courseFactory/academyCourse.model.js";
+import Course from "../../models/course.model.js";
 import { Blogs } from "../../models/blogs.model.js";
 import { buildSocialPrompt, SOCIAL_PLATFORMS } from "../../services/socialFactory/socialPromptBuilder.service.js";
 import { parseSocialPostResponse } from "../../services/socialFactory/socialPostParser.service.js";
@@ -56,7 +56,7 @@ export const createPost = async (req, res) => {
     }
 
     const source =
-      sourceType === "COURSE" ? await AcademyCourse.findById(sourceId).lean() : await Blogs.findById(sourceId).lean();
+      sourceType === "COURSE" ? await Course.findById(sourceId).lean() : await Blogs.findById(sourceId).lean();
     if (!source) {
       return res.status(404).json({ success: false, message: `${sourceType} not found` });
     }
@@ -66,8 +66,8 @@ export const createPost = async (req, res) => {
     const post = await SocialPost.create({
       sourceType,
       sourceId,
-      sourceSlug: source.slug || null,
-      sourceTitle: source.title,
+      sourceSlug: sourceType === "COURSE" ? source.courseSlug || source.id || null : source.slug || null,
+      sourceTitle: sourceType === "COURSE" ? source.courseTitle : source.title,
       platform,
       status: "AWAITING_PASTE",
       generatedPrompt,
