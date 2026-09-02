@@ -203,3 +203,15 @@ export const schedulePost = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// DELETE /admin/social-factory/posts/:id
+export const deletePost = async (req, res) => {
+  try {
+    const post = await SocialPost.findByIdAndDelete(req.params.id);
+    if (!post) return res.status(404).json({ success: false, message: "Post not found" });
+    return res.json({ success: true, message: "Post deleted" });
+  } catch (err) {
+    console.error("[SocialFactory] deletePost error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
