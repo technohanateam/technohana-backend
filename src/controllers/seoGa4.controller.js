@@ -9,7 +9,7 @@ export const getGa4Summary = async (req, res) => {
     if (!isValidPropertyId(propertyId)) return res.status(400).json({ success: false, message: "propertyId is required" });
     const { from, to } = dateRange(req);
 
-    const rows = await SeoGa4Metric.find({ propertyId, dimensionType: "landingPage", date: { $gte: from, $lte: to } }).lean();
+    const rows = await SeoGa4Metric.find({ propertyId, dimensionType: "date", date: { $gte: from, $lte: to } }).lean();
     const totals = rows.reduce(
       (acc, r) => ({
         sessions: acc.sessions + r.sessions,

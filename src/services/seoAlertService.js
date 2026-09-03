@@ -69,8 +69,8 @@ export async function checkGa4Alerts(propertyId) {
   const recentStart = new Date(now - 7 * 86400000);
   const priorStart = new Date(now - 14 * 86400000);
 
-  const recent = await SeoGa4Metric.find({ propertyId, dimensionType: "landingPage", date: { $gte: recentStart } }).lean();
-  const prior = await SeoGa4Metric.find({ propertyId, dimensionType: "landingPage", date: { $gte: priorStart, $lt: recentStart } }).lean();
+  const recent = await SeoGa4Metric.find({ propertyId, dimensionType: "date", date: { $gte: recentStart } }).lean();
+  const prior = await SeoGa4Metric.find({ propertyId, dimensionType: "date", date: { $gte: priorStart, $lt: recentStart } }).lean();
 
   const recentSessions = sumMetric(recent, "sessions");
   const priorSessions = sumMetric(prior, "sessions");

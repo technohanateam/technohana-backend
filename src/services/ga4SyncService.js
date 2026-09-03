@@ -19,6 +19,7 @@ const DIMENSION_SETS = [
   { dimensionType: "trafficSource", apiDimension: "sessionDefaultChannelGroup" },
   { dimensionType: "device", apiDimension: "deviceCategory" },
   { dimensionType: "country", apiDimension: "country" },
+  { dimensionType: "date", apiDimension: "date" },
 ];
 
 const PAGE_SIZE = 5000;
@@ -30,6 +31,13 @@ function toDateStr(d) {
 function metricValue(metricHeaders, metricValues, name) {
   const idx = metricHeaders.findIndex((h) => h.name === name);
   return idx === -1 ? 0 : Number(metricValues[idx]?.value || 0);
+}
+
+// GA4's "date" dimension returns values as "YYYYMMDD" with no separators —
+// `new Date("20260902")` is not a format the Date constructor reliably
+// parses, so build the UTC date explicitly.
+function parseGa4Date(value) {
+  return new Date(Date.UTC(Number(value.slice(0, 4)), Number(value.slice(4, 6)) - 1, Number(value.slice(6, 8))));
 }
 
 // authedClient is injected so unit tests can pass a stub.
@@ -67,10 +75,11 @@ export async function syncGa4Property({ propertyId, authedClient, startDate, end
         // per-day history — key the upsert without `date` so each sync
         // updates the one current row for this dimension value instead of
         // inserting a new duplicate every day (see partial indexes on the
-        // model). "date" dimensionType rows (reserved for a future per-day
-        // GA4 trend) keep their real calendar date in the key.
+        // model). "date" dimensionType rows keep their real calendar date
+        // in the key, giving the per-day GA4 trend the summary/date-range
+        // queries rely on.
         const isDateDim = dimensionType === "date";
-        const rowDate = isDateDim ? new Date(dimensionValue) : new Date(end);
+        const rowDate = isDateDim ? parseGa4Date(dimensionValue) : new Date(end);
         const filter = isDateDim
           ? { propertyId, dimensionType, dimensionValue, date: rowDate }
           : { propertyId, dimensionType, dimensionValue };
