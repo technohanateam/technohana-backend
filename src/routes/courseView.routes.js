@@ -1,15 +1,24 @@
 import express from "express";
+import geoip from "geoip-lite";
 import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin, requirePage } from "../middleware/authenticateAdmin.js";
 
 const router = express.Router();
+
+function resolveCountryFromIp(req) {
+  const ip = req.ip?.replace(/^::ffff:/, "");
+  if (!ip || ip === "::1" || ip === "127.0.0.1") return null;
+  const geo = geoip.lookup(ip);
+  return geo?.country || null;
+}
 
 // POST /api/course-views — record a view (public, no auth)
 router.post("/course-views", async (req, res) => {
   try {
     const { courseId, courseTitle, userEmail, country, currency } = req.body;
     if (!courseId) return res.status(400).json({ success: false, message: "courseId is required" });
-    await CourseView.create({ courseId, courseTitle, userEmail, country, currency });
+    const resolvedCountry = country || resolveCountryFromIp(req);
+    await CourseView.create({ courseId, courseTitle, userEmail, country: resolvedCountry, currency });
     return res.status(201).json({ success: true });
   } catch (err) {
     console.error("CourseView track error:", err);
