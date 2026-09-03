@@ -109,6 +109,8 @@ const allowedOrigins = process.env.WHITELISTED_URLS
 // The Stripe and Resend webhooks are server-to-server deliveries from those
 // providers — they never carry a browser Origin header, and rejecting them
 // here would block the request before it ever reaches signature verification.
+// The Content Factory external-trend endpoint is hit by an unattended cloud
+// routine (server-to-server, service-key auth) — same reasoning.
 const noOriginRequiredPaths = [
   '/enquiry',
   '/skills-gap/email-plan',
@@ -117,6 +119,7 @@ const noOriginRequiredPaths = [
   '/admin/seo-intel/oauth/callback',
   '/stripe/webhook',
   '/webhooks/resend',
+  '/admin/content-factory-external/import/external-trend',
 ];
 
 // GET /blog/:slug is the server-rendered OG-tag HTML crawled by social-media
@@ -155,6 +158,7 @@ const corsOptionsDelegate = function (req, callback) {
       "Authorization",
       "x-timestamp",
       "x-checksum",
+      "x-service-key",
       "Access-Control-Allow-Origin",
     ],
     credentials: true,
