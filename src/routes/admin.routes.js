@@ -25,6 +25,7 @@ import { refreshPriceCatalog } from "../utils/pricing.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
 import { adminLogin, setupAdmin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive, deleteAdminUser, forgotAdminPassword, resetAdminPasswordViaToken } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
+import { getAllLeads, getLead, createLead, updateLead, deleteLead } from "../controllers/lead.controller.js";
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
@@ -32,7 +33,6 @@ import { getAllCampaigns, getCampaign, createCampaign, createCampaignFromBlog, u
 import { getAllOpportunities, runOpportunityScanNow, approveOpportunity, dismissOpportunity } from "../controllers/campaignOpportunity.controller.js";
 import { getAllDripSequences, getDripSequence, createDripSequence, updateDripSequence, deleteDripSequence, activateDripSequence, deactivateDripSequence } from "../controllers/dripSequence.controller.js";
 import Campaign from "../models/campaign.model.js";
-import Lead from "../models/lead.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
@@ -619,21 +619,11 @@ router.delete("/ai-risk-reports/:id", authenticateAdmin, requirePage("ai-risk-re
 });
 
 // GET /admin/leads?page=1&limit=20&persona=executives
-router.get("/leads", authenticateAdmin, requirePage("crm"), adminDataLimiter, async (req, res) => {
-  try {
-    const { page = 1, limit = 20, persona } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
-    const filter = persona ? { persona } : {};
-    const [data, total] = await Promise.all([
-      Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
-      Lead.countDocuments(filter),
-    ]);
-    return res.json({ success: true, data, total, page: Number(page), limit: Number(limit) });
-  } catch (err) {
-    console.error("Admin leads error:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-});
+router.get("/leads", authenticateAdmin, requirePage("crm"), adminDataLimiter, getAllLeads);
+router.get("/leads/:id", authenticateAdmin, requirePage("crm"), adminDataLimiter, getLead);
+router.post("/leads", authenticateAdmin, requirePage("crm"), requireAdmin, createLead);
+router.put("/leads/:id", authenticateAdmin, requirePage("crm"), requireAdmin, updateLead);
+router.delete("/leads/:id", authenticateAdmin, requirePage("crm"), requireAdmin, deleteLead);
 
 // GET /admin/subscribers?page=1&limit=20
 router.get("/subscribers", authenticateAdmin, requirePage("subscribers"), adminDataLimiter, async (req, res) => {

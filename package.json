@@ -27,6 +27,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^8.2.1",
+    "geoip-lite": "^1.4.10",
     "googleapis": "^173.0.0",
     "gray-matter": "^4.0.3",
     "jsonwebtoken": "^9.0.2",
