@@ -3,9 +3,11 @@ import ContentBrief from "../../models/contentBrief.model.js";
 import ContentGenerationJob from "../../models/contentGenerationJob.model.js";
 import ContentQualityScore from "../../models/contentQualityScore.model.js";
 import { Blogs } from "../../models/blogs.model.js";
+import SocialPost from "../../models/socialFactory/socialPost.model.js";
 import { createBlogFromPayload } from "../../services/blogCreation.service.js";
 import { enqueueGeneration } from "../../services/contentFactory/contentGenerationQueue.js";
 import { buildRevisionPrompt, parseRevisionResponse } from "../../services/contentFactory/revisionAgent.service.js";
+import { buildSocialPrompt, SOCIAL_PLATFORMS } from "../../services/socialFactory/socialPromptBuilder.service.js";
 
 // GET /admin/content-factory/review/:opportunityId
 // M3: includes the latest ContentQualityScore plus full attempt history
@@ -242,16 +244,54 @@ async function uniqueSlug(desiredSlug) {
   return candidate;
 }
 
+async function createSocialPostFromSource({ sourceType, source, sourceId, platform }) {
+  const generatedPrompt = buildSocialPrompt({ sourceType, source, platform });
+  return SocialPost.create({
+    sourceType,
+    sourceId,
+    sourceSlug: sourceType === "BLOG" ? source.slug || null : null,
+    sourceTitle: source.title,
+    platform,
+    status: "AWAITING_PASTE",
+    generatedPrompt,
+  });
+}
+
 // Shared approval logic — used by both the single approve endpoint and
 // bulk-approve, so there is exactly one place that creates a Blogs draft
-// from an opportunity. With no scheduledAt, the draft lands `published:false`
-// same as any manually created draft. With a scheduledAt, it matches the
-// existing auto-schedule convention (admin.routes.js `POST /blogs/auto-schedule`)
-// of `published:true` + a future `scheduledAt` — the public blog routes
+// and/or SocialPost from an opportunity.
+//
+// outputMode: "BLOG" (default, original behavior) | "SOCIAL_ONLY" | "BOTH".
+// SOCIAL_ONLY skips blog creation entirely and generates a SocialPost prompt
+// straight from the opportunity (sourceType: "OPPORTUNITY") — for a trend
+// that only warrants a quick platform post, not a full article. BOTH creates
+// the blog first (identical to the BLOG path), then generates a SocialPost
+// from that new blog (sourceType: "BLOG") — the normal, already-working path,
+// reused rather than re-deriving a brief from the opportunity a second way.
+//
+// With no scheduledAt, the blog draft lands `published:false` same as any
+// manually created draft. With a scheduledAt, it matches the existing
+// auto-schedule convention (admin.routes.js `POST /blogs/auto-schedule`) of
+// `published:true` + a future `scheduledAt` — the public blog routes
 // (blog.controller.js) gate visibility on `published:true AND scheduledAt
 // null-or-past`, so `published:false` with a scheduledAt would silently never
 // go live.
-async function approveOpportunityCore(opportunity, { scheduledAt, reviewerName }) {
+async function approveOpportunityCore(opportunity, { scheduledAt, reviewerName, outputMode = "BLOG", platform = "LINKEDIN" }) {
+  if (outputMode === "SOCIAL_ONLY") {
+    if (!SOCIAL_PLATFORMS.includes(platform)) {
+      return { ok: false, statusCode: 400, message: `platform must be one of ${SOCIAL_PLATFORMS.join(", ")}` };
+    }
+    const post = await createSocialPostFromSource({ sourceType: "OPPORTUNITY", source: opportunity, sourceId: opportunity._id, platform });
+
+    opportunity.status = "APPROVED";
+    opportunity.resultingSocialPostId = post._id;
+    opportunity.reviewedBy = reviewerName || null;
+    opportunity.reviewedAt = new Date();
+    await opportunity.save();
+
+    return { ok: true, socialPostId: post._id };
+  }
+
   const draft = opportunity.articleDraft?.toObject ? opportunity.articleDraft.toObject() : opportunity.articleDraft;
   if (!draft?.title || !draft?.content) {
     return { ok: false, statusCode: 400, message: "Article draft is missing a title or content." };
@@ -292,8 +332,18 @@ async function approveOpportunityCore(opportunity, { scheduledAt, reviewerName }
   }
   await blog.save();
 
+  let socialPostId = null;
+  if (outputMode === "BOTH") {
+    if (!SOCIAL_PLATFORMS.includes(platform)) {
+      return { ok: false, statusCode: 400, message: `platform must be one of ${SOCIAL_PLATFORMS.join(", ")}` };
+    }
+    const post = await createSocialPostFromSource({ sourceType: "BLOG", source: blog, sourceId: blog._id, platform });
+    socialPostId = post._id;
+  }
+
   opportunity.status = scheduledAt ? "SCHEDULED" : "APPROVED";
   opportunity.resultingBlogId = blog._id;
+  opportunity.resultingSocialPostId = socialPostId;
   opportunity.reviewedBy = reviewerName || null;
   opportunity.reviewedAt = new Date();
   await opportunity.save();
@@ -301,7 +351,7 @@ async function approveOpportunityCore(opportunity, { scheduledAt, reviewerName }
   // slug is the authoritative, collision-resolved value (uniqueSlug may have
   // suffixed it) — surface it so the frontend can build a "View Blog" link to
   // /blog/:slug without re-deriving (and possibly mismatching) it.
-  return { ok: true, blogId: blog._id, slug: blog.slug };
+  return { ok: true, blogId: blog._id, slug: blog.slug, socialPostId };
 }
 
 // Server-side re-validation that an opportunity is actually safe to approve —
@@ -337,10 +387,26 @@ export const approveReviewItem = async (req, res) => {
     }
 
     const reviewerName = req.admin?.name || req.admin?.email || req.admin?.uid || null;
-    const result = await approveOpportunityCore(opportunity, { scheduledAt: req.body?.scheduledAt, reviewerName });
+    const outputMode = ["BLOG", "SOCIAL_ONLY", "BOTH"].includes(req.body?.outputMode) ? req.body.outputMode : "BLOG";
+    const result = await approveOpportunityCore(opportunity, {
+      scheduledAt: req.body?.scheduledAt,
+      reviewerName,
+      outputMode,
+      platform: req.body?.platform,
+    });
     if (!result.ok) return res.status(result.statusCode).json({ success: false, message: result.message });
 
-    return res.json({ success: true, data: { blogId: result.blogId, slug: result.slug }, message: "Approved — draft created in Blogs" });
+    const message =
+      outputMode === "SOCIAL_ONLY"
+        ? "Approved — social post prompt generated"
+        : outputMode === "BOTH"
+        ? "Approved — draft created in Blogs and social post prompt generated"
+        : "Approved — draft created in Blogs";
+    return res.json({
+      success: true,
+      data: { blogId: result.blogId || null, slug: result.slug || null, socialPostId: result.socialPostId || null },
+      message,
+    });
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ success: false, message: err.message });
     console.error("[ContentFactory] approveReviewItem error:", err);

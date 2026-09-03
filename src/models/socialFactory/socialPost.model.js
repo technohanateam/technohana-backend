@@ -7,12 +7,16 @@ import mongoose, { Schema } from "mongoose";
 // and socialPostParser.service.js.
 const socialPostSchema = new Schema(
   {
-    sourceType: { type: String, enum: ["COURSE", "BLOG"], required: true },
+    sourceType: { type: String, enum: ["COURSE", "BLOG", "OPPORTUNITY"], required: true },
     sourceId: { type: Schema.Types.ObjectId, required: true },
     sourceSlug: { type: String, default: null },
     sourceTitle: { type: String, default: null },
 
-    platform: { type: String, enum: ["LINKEDIN", "INSTAGRAM", "X"], required: true },
+    platform: {
+      type: String,
+      enum: ["LINKEDIN", "INSTAGRAM", "X", "LINKEDIN_CAROUSEL", "INSTAGRAM_CAROUSEL", "WHATSAPP_STATUS"],
+      required: true,
+    },
 
     status: {
       type: String,
@@ -47,6 +51,12 @@ const socialPostSchema = new Schema(
       altText: { type: String, default: null },
       cta: { type: String, default: null },
       characterCount: { type: Number, default: 0 },
+      // Populated only for LINKEDIN_CAROUSEL / INSTAGRAM_CAROUSEL — empty
+      // array for every single-image platform.
+      slides: {
+        type: [{ heading: String, body: String, imagePromptSuggestion: String, _id: false }],
+        default: [],
+      },
     },
 
     reviewedBy: { type: String, default: null },
