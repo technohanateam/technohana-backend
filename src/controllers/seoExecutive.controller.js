@@ -58,8 +58,8 @@ async function ga4Trend() {
   const recentStart = new Date(now - 28 * 86400000);
   const priorStart = new Date(now - 56 * 86400000);
 
-  const recent = await SeoGa4Metric.find({ propertyId: { $in: propertyIds }, dimensionType: "landingPage", date: { $gte: recentStart } }).lean();
-  const prior = await SeoGa4Metric.find({ propertyId: { $in: propertyIds }, dimensionType: "landingPage", date: { $gte: priorStart, $lt: recentStart } }).lean();
+  const recent = await SeoGa4Metric.find({ propertyId: { $in: propertyIds }, dimensionType: "date", date: { $gte: recentStart } }).lean();
+  const prior = await SeoGa4Metric.find({ propertyId: { $in: propertyIds }, dimensionType: "date", date: { $gte: priorStart, $lt: recentStart } }).lean();
 
   const recentSessions = sumMetric(recent, "sessions");
   const priorSessions = sumMetric(prior, "sessions");
