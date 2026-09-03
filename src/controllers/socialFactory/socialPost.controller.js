@@ -1,7 +1,8 @@
 import SocialPost from "../../models/socialFactory/socialPost.model.js";
 import Course from "../../models/course.model.js";
 import { Blogs } from "../../models/blogs.model.js";
-import { buildSocialPrompt, SOCIAL_PLATFORMS } from "../../services/socialFactory/socialPromptBuilder.service.js";
+import ContentOpportunity from "../../models/contentOpportunity.model.js";
+import { buildSocialPrompt, SOCIAL_PLATFORMS, PLATFORM_RULES } from "../../services/socialFactory/socialPromptBuilder.service.js";
 import { parseSocialPostResponse } from "../../services/socialFactory/socialPostParser.service.js";
 
 // GET /admin/social-factory/posts
@@ -45,8 +46,8 @@ export const createPost = async (req, res) => {
   try {
     const { sourceType, sourceId, platform } = req.body || {};
 
-    if (!["COURSE", "BLOG"].includes(sourceType)) {
-      return res.status(400).json({ success: false, message: "sourceType must be COURSE or BLOG" });
+    if (!["COURSE", "BLOG", "OPPORTUNITY"].includes(sourceType)) {
+      return res.status(400).json({ success: false, message: "sourceType must be COURSE, BLOG, or OPPORTUNITY" });
     }
     if (!SOCIAL_PLATFORMS.includes(platform)) {
       return res.status(400).json({ success: false, message: `platform must be one of ${SOCIAL_PLATFORMS.join(", ")}` });
@@ -55,8 +56,10 @@ export const createPost = async (req, res) => {
       return res.status(400).json({ success: false, message: "sourceId is required" });
     }
 
-    const source =
-      sourceType === "COURSE" ? await Course.findById(sourceId).lean() : await Blogs.findById(sourceId).lean();
+    let source;
+    if (sourceType === "COURSE") source = await Course.findById(sourceId).lean();
+    else if (sourceType === "OPPORTUNITY") source = await ContentOpportunity.findById(sourceId).lean();
+    else source = await Blogs.findById(sourceId).lean();
     if (!source) {
       return res.status(404).json({ success: false, message: `${sourceType} not found` });
     }
@@ -98,7 +101,8 @@ export const submitResponse = async (req, res) => {
     post.pastedResponseRaw = text;
 
     try {
-      const parsedPost = parseSocialPostResponse(text);
+      const rules = PLATFORM_RULES[post.platform] || {};
+      const parsedPost = parseSocialPostResponse(text, { isCarousel: Boolean(rules.isCarousel), slideCount: rules.slideCount || null });
       post.post = parsedPost;
       post.parseError = null;
       post.status = "PARSED";
@@ -121,12 +125,13 @@ export const updatePost = async (req, res) => {
     const post = await SocialPost.findById(req.params.id);
     if (!post) return res.status(404).json({ success: false, message: "Post not found" });
 
-    const { caption, hashtags, imagePromptSuggestion, altText, cta } = req.body || {};
+    const { caption, hashtags, imagePromptSuggestion, altText, cta, slides } = req.body || {};
     if (caption !== undefined) post.post.caption = caption;
     if (hashtags !== undefined) post.post.hashtags = Array.isArray(hashtags) ? hashtags : post.post.hashtags;
     if (imagePromptSuggestion !== undefined) post.post.imagePromptSuggestion = imagePromptSuggestion;
     if (altText !== undefined) post.post.altText = altText;
     if (cta !== undefined) post.post.cta = cta;
+    if (slides !== undefined) post.post.slides = Array.isArray(slides) ? slides : post.post.slides;
     if (post.post.caption) post.post.characterCount = post.post.caption.length;
 
     await post.save();

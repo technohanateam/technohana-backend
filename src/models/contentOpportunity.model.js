@@ -99,6 +99,7 @@ const contentOpportunitySchema = new Schema(
     },
 
     resultingBlogId: { type: Schema.Types.ObjectId, ref: "Blogs", default: null },
+    resultingSocialPostId: { type: Schema.Types.ObjectId, ref: "SocialPost", default: null },
 
     errorMessage: { type: String, default: null },
     retryCount: { type: Number, default: 0 },
