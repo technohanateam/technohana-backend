@@ -91,7 +91,21 @@ async function loadExistingCorpus() {
 // human-written draft. overallScore is left at 0 for the admin to set via the
 // existing PATCH /opportunities/:id/score (overrideScore) — the same escape
 // hatch already used for exactly this kind of manual judgment call.
-export async function buildOpportunityFromImport({ articleDraft, courseSlug = null, courseTitle = null, category = null, contentType, importedBy = null, sourceFile = null, origin = "MANUAL_IMPORT" }) {
+export async function buildOpportunityFromImport({
+  articleDraft,
+  courseSlug = null,
+  courseTitle = null,
+  category = null,
+  contentType,
+  importedBy = null,
+  sourceFile = null,
+  origin = "MANUAL_IMPORT",
+  trendScore = 0,
+  overallScore = 0,
+  topicAngle = null,
+  recommendationReason = null,
+  extraSourceInfo = null,
+}) {
   if (!articleDraft?.title) {
     const err = new Error("Article draft is missing a title.");
     err.statusCode = 400;
@@ -130,8 +144,11 @@ export async function buildOpportunityFromImport({ articleDraft, courseSlug = nu
     duplicateScore,
     cannibalizationRisk,
     duplicateSignals: signals,
-    overallScore: 0,
-    sourceInfo: { origin, importedBy, importedAt: new Date(), sourceFile },
+    overallScore,
+    trendScore,
+    topicAngle,
+    recommendationReason,
+    sourceInfo: { origin, importedBy, importedAt: new Date(), sourceFile, ...extraSourceInfo },
     status: "HUMAN_REVIEW",
     articleDraft,
   });
