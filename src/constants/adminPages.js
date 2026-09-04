@@ -24,7 +24,6 @@ export const ADMIN_PAGES = [
   "instructors",
   "training-requirements",
   "team",
-  "live-agent",
   "prompt-editor",
   "analytics",
   "ai-risk-reports",
@@ -150,6 +149,20 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "seo-topic-clusters",
     "seo-internal-links",
   ],
+};
+
+// Inverse of computeEffectivePages: translates an absolute page list — what the
+// Team UI's checkboxes actually mean — into the extraPages/revokedPages pair the
+// model stores. Doing the split server-side keeps DEFAULT_PAGES_BY_ROLE the only
+// definition of a role's defaults; a client diffing against its own copy grants
+// the wrong pages the moment the two lists drift.
+export const splitAbsolutePages = (role, pages = []) => {
+  const defaults = DEFAULT_PAGES_BY_ROLE[role] || [];
+  const wanted = [...new Set(pages)];
+  return {
+    extraPages: wanted.filter((page) => !defaults.includes(page)),
+    revokedPages: defaults.filter((page) => !wanted.includes(page)),
+  };
 };
 
 export const computeEffectivePages = (role, extraPages = [], revokedPages = []) => {
