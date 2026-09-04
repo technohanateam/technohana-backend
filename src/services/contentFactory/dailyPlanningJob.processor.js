@@ -154,18 +154,29 @@ export async function runDailyPlanningJob({ triggeredBy = "CRON" } = {}) {
     return { skipped: false, run, ...result };
   } catch (err) {
     console.error("[content-factory] daily planning job failed:", err.message);
-    const run = await ContentRun.create({
-      runType: "PLANNING",
-      triggeredBy,
-      status: "FAILED",
-      startedAt: new Date(),
-      finishedAt: new Date(),
-      coursesEvaluated: result.coursesEvaluated,
-      opportunitiesCreated: result.opportunitiesCreated,
-      articlesGenerated: result.articlesGenerated,
-      errors: [...result.errors, err.message],
-      dryRun: false,
-    });
+    // generateOpportunityCandidates() already persisted a FAILED ContentRun
+    // with the real coursesEvaluated/opportunitiesCreated counts before
+    // rethrowing (see err.contentRun) — update that one instead of creating
+    // a second, zeroed-out record for the same failure.
+    let run = err.contentRun;
+    if (run) {
+      run.articlesGenerated = result.articlesGenerated;
+      run.errors = [...(run.errors || []), ...result.errors];
+      await run.save();
+    } else {
+      run = await ContentRun.create({
+        runType: "PLANNING",
+        triggeredBy,
+        status: "FAILED",
+        startedAt: new Date(),
+        finishedAt: new Date(),
+        coursesEvaluated: result.coursesEvaluated,
+        opportunitiesCreated: result.opportunitiesCreated,
+        articlesGenerated: result.articlesGenerated,
+        errors: [...result.errors, err.message],
+        dryRun: false,
+      });
+    }
     return { skipped: false, failed: true, error: err.message, run };
   }
 }
