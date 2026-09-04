@@ -138,7 +138,10 @@ const BLOCKLISTED_COPY_TEXT = JSON.stringify({
 const CLEAN_REVISION_TEXT = JSON.stringify({
   headlines: [{ text: "Land a Cloud Engineering Role", platform: "META" }],
   primaryTexts: [{ text: "Small cohorts, live mentorship, and a portfolio employers notice.", platform: "META" }],
-  descriptions: [{ text: "Seats are limited for the next batch.", platform: "META" }],
+  // Must stay within FAKE_SETTINGS' 30-char META description limit — at 37
+  // the old fixture tripped the oversized check, so the "clean" revision was
+  // never actually clean and the gate correctly held it at NEEDS_REVISION.
+  descriptions: [{ text: "Limited seats this batch.", platform: "META" }],
   ctas: [{ text: "Apply Now", platform: "META" }],
 });
 const BRAND_VOICE_CLEAN_TEXT = JSON.stringify({ brandVoiceRiskScore: 10, flagReasons: [] });

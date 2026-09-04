@@ -294,6 +294,9 @@ export async function runGenerationPipeline(opportunityId, jobId, { briefMode, s
       job.status = "RUNNING";
     }
     ensureSteps(job);
+    // Remembered on the job so a later resumeStep still honours it — see the
+    // field's comment on the model.
+    job.skipBrandVoice = Boolean(skipBrandVoice);
     await job.save();
 
     return runSteps({ opportunity, job, fromIndex: 0, briefMode, skipBrandVoice });
@@ -326,9 +329,13 @@ export async function resumeStep(jobId, { responses, skipBrandVoice } = {}) {
   const stepName = job.pendingStep;
   const fromIndex = STEP_ORDER.indexOf(stepName);
 
+  // Either the caller skips this one pause, or the whole job was started
+  // with skipBrandVoice.
+  const skipsBrandVoice = Boolean(skipBrandVoice) || Boolean(job.skipBrandVoice);
+
   // Skipping the optional BRAND_VOICE pause: resolve the compliance gate
   // with the deterministic checks only, no pasted response needed.
-  if (job.pendingKind === "BRAND_VOICE" && skipBrandVoice) {
+  if (job.pendingKind === "BRAND_VOICE" && skipsBrandVoice) {
     const settings = await getOrCreateAdCreativeFactorySettings();
     const { blocklistHits, oversized } = job.pendingComplianceResult || {};
     const gateResult = computeAdComplianceGateResult({ blocklistHits: blocklistHits || [], oversized: oversized || [], brandVoiceResult: null }, settings);
@@ -375,7 +382,7 @@ export async function resumeStep(jobId, { responses, skipBrandVoice } = {}) {
   job.pendingKind = null;
   await job.save();
 
-  return runSteps({ opportunity, job, fromIndex, brief, creativeDraft, resume });
+  return runSteps({ opportunity, job, fromIndex, brief, creativeDraft, resume, skipBrandVoice: skipsBrandVoice });
 }
 
 // Re-runs only from the failed step onward.

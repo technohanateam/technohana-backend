@@ -42,6 +42,13 @@ const adCreativeGenerationJobSchema = new Schema(
     pendingComplianceResult: { type: Schema.Types.Mixed, default: null },
     pendingFirstRevision: { type: Schema.Types.Mixed, default: null },
 
+    // Set from the generate request's skipBrandVoice. It has to live on the
+    // job rather than stay a call argument: the pipeline always pauses for
+    // the BRIEF and COPY_DRAFT prompts before COMPLIANCE_GATE is reached, and
+    // each resume re-enters runSteps, so an argument-only flag never survives
+    // to the step it governs.
+    skipBrandVoice: { type: Boolean, default: false },
+
     retryCount: { type: Number, default: 0 },
     lastAttemptAt: { type: Date, default: null },
 
