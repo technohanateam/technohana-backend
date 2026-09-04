@@ -23,7 +23,7 @@ import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { refreshPriceCatalog } from "../utils/pricing.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
-import { adminLogin, setupAdmin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive, deleteAdminUser, forgotAdminPassword, resetAdminPasswordViaToken } from "../controllers/adminUser.controller.js";
+import { adminLogin, setupAdmin, getAdminPageRegistry, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive, deleteAdminUser, forgotAdminPassword, resetAdminPasswordViaToken } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { getAllLeads, getLead, createLead, updateLead, deleteLead } from "../controllers/lead.controller.js";
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
@@ -110,6 +110,8 @@ router.post("/setup", (req, res, next) => {
 }, setupAdmin);
 
 // ─── Admin team user management (admin role only) ─────────────────────────────
+// Declared before /users/:id-shaped routes so "page-registry" is never read as an id.
+router.get("/users/page-registry", authenticateAdmin, requireAdmin, requirePage("team"), getAdminPageRegistry);
 router.get("/users", authenticateAdmin, requireAdmin, requirePage("team"), listAdminUsers);
 router.post("/users", authenticateAdmin, requireAdmin, requirePage("team"), createAdminUser);
 router.put("/users/:id", authenticateAdmin, requireAdmin, requirePage("team"), updateAdminUser);
