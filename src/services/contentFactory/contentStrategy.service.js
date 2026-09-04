@@ -296,6 +296,7 @@ export async function generateOpportunityCandidates({
     run.opportunitiesSkippedDuplicate = opportunitiesSkippedDuplicate;
     run.errors = errors;
     await run.save();
+    err.contentRun = run;
     throw err;
   }
 }
