@@ -140,7 +140,10 @@ const corsOptionsDelegate = function (req, callback) {
           return cb(null, true);
         }
         if (process.env.NODE_ENV === 'production') {
-          return cb(new Error("Origin required in production"));
+          logger.warn(`[cors] rejected — no Origin header: ${req.method} ${req.path}`);
+          const err = new Error("Origin required in production");
+          err.status = 403;
+          return cb(err);
         }
         return cb(null, true);
       }
@@ -149,7 +152,10 @@ const corsOptionsDelegate = function (req, callback) {
       } else if (allowedOrigins.length === 0 && process.env.NODE_ENV !== 'production') {
         return cb(null, true);
       } else {
-        return cb(new Error("Not allowed by CORS"));
+        logger.warn(`[cors] rejected — origin not allowed: ${req.method} ${req.path} origin=${origin}`);
+        const err = new Error("Not allowed by CORS");
+        err.status = 403;
+        return cb(err);
       }
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
@@ -1487,8 +1493,13 @@ setInterval(async () => {
 // Safety net for any route/middleware that throws without its own try/catch —
 // never leak stack traces to the client.
 app.use((err, req, res, next) => {
-  logger.error('Unhandled error:', err);
   if (res.headersSent) return next(err);
+  if (err.status === 403 && (err.message === "Origin required in production" || err.message === "Not allowed by CORS")) {
+    // Already logged with request context in corsOptionsDelegate — avoid a
+    // second, less useful "Unhandled error" stack-trace log for the same event.
+    return res.status(403).json({ success: false, message: 'Not allowed by CORS' });
+  }
+  logger.error('Unhandled error:', err);
   res.status(500).json({ success: false, message: 'Server error' });
 });
 

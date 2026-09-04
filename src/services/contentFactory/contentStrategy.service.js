@@ -216,17 +216,27 @@ export async function generateOpportunityCandidates({
     // ~350 tokens/candidate covers title+keywords+angle+reason comfortably
     // with headroom; floor/ceiling keep small batches cheap and cap worst-case
     // cost regardless of how large maxDailyOpportunities is configured.
-    const candidateMaxTokens = Math.min(8192, Math.max(2048, 1024 + survivors.length * 350));
-    const { text } = await trackedCallClaude({
-      system: buildSystemPrompt(),
-      prompt: buildUserPrompt({ candidates: survivors }),
-      maxTokens: candidateMaxTokens,
-      tier: "standard",
-      callType: "opportunityCandidates",
-      opportunityId: null,
-    });
-    const parsed = extractJson(text);
-    const creativeFields = Array.isArray(parsed.opportunities) ? parsed.opportunities : [];
+    //
+    // No-API-key path: mirrors researchTrends()'s "no key configured, skip
+    // gracefully" pattern — candidates still get created with their template
+    // fallback fields (title, default scores) via the `creativeFields[i] ||
+    // {}` fallback below, just without AI-authored focusKeyword/angle/reason.
+    let creativeFields = [];
+    if (process.env.ANTHROPIC_API_KEY) {
+      const candidateMaxTokens = Math.min(8192, Math.max(2048, 1024 + survivors.length * 350));
+      const { text } = await trackedCallClaude({
+        system: buildSystemPrompt(),
+        prompt: buildUserPrompt({ candidates: survivors }),
+        maxTokens: candidateMaxTokens,
+        tier: "standard",
+        callType: "opportunityCandidates",
+        opportunityId: null,
+      });
+      const parsed = extractJson(text);
+      creativeFields = Array.isArray(parsed.opportunities) ? parsed.opportunities : [];
+    } else {
+      console.warn("[content-factory] generateOpportunityCandidates: ANTHROPIC_API_KEY not configured, skipping AI candidate writing — using template fallback fields.");
+    }
 
     const docsToInsert = survivors.map((candidate, i) => {
       const creative = creativeFields[i] || {};
