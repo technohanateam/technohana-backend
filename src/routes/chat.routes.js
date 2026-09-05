@@ -815,7 +815,7 @@ router.post("/api/chat/corporate", publicChatLimiter, async (req, res) => {
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-5",
       max_tokens: 512,
       system: CORPORATE_SYSTEM_PROMPT,
       messages: history,

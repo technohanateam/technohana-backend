@@ -115,7 +115,7 @@ async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imag
               step.model = apiResult.model || null;
               step.tokensIn = apiResult.usage?.input_tokens || 0;
               step.tokensOut = apiResult.usage?.output_tokens || 0;
-              // Matches COST_PER_1K_TOKENS["claude-sonnet-4-6"] in aiUsageTracker.service.js
+              // Matches COST_PER_1K_TOKENS["claude-sonnet-5"] in aiUsageTracker.service.js
               const INPUT_COST = 3 / 1_000_000;
               const OUTPUT_COST = 15 / 1_000_000;
               step.estimatedCostUsd = +(step.tokensIn * INPUT_COST + step.tokensOut * OUTPUT_COST).toFixed(6);
