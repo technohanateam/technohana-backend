@@ -18,7 +18,7 @@ function getClient() {
 
 const MODELS_BY_TIER = {
   cheap: "claude-haiku-4-5-20251001",
-  standard: "claude-sonnet-4-6",
+  standard: "claude-sonnet-5",
 };
 
 // Bounds every Claude call so a network/provider stall can never hang a

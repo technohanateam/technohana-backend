@@ -13,7 +13,7 @@ const COST_PER_1K_TOKENS = {
 };
 
 function estimateCostUsd(model, tokensIn, tokensOut) {
-  const rates = COST_PER_1K_TOKENS[model] || COST_PER_1K_TOKENS["claude-sonnet-4-6"];
+  const rates = COST_PER_1K_TOKENS[model] || COST_PER_1K_TOKENS["claude-sonnet-5"];
   return (tokensIn / 1000) * rates.in + (tokensOut / 1000) * rates.out;
 }
 

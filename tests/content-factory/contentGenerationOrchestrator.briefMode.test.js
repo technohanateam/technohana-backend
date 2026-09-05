@@ -164,8 +164,8 @@ test("explicit briefMode='manual' also pauses at BRIEF without calling API", asy
 });
 
 test("API brief cost estimation formula matches aiUsageTracker.service.js pricing", () => {
-  // aiUsageTracker.service.js:9-11 defines:
-  //   "claude-sonnet-4-6": { in: 0.003, out: 0.015 } per 1K tokens
+  // aiUsageTracker.service.js:9-12 defines:
+  //   "claude-sonnet-5": { in: 0.003, out: 0.015 } per 1K tokens
   // The orchestrator's inline constants are the same values expressed per-token:
   const INPUT_COST = 3 / 1_000_000;   // $3/M = $0.003/1K
   const OUTPUT_COST = 15 / 1_000_000;  // $15/M = $0.015/1K
