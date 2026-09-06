@@ -11,6 +11,7 @@ import { User } from "../models/user.model.js";
 import { Order } from "../models/order.model.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
+import InstructorReview from "../models/instructorReview.model.js";
 import InstructorAgreement from "../models/instructorAgreement.model.js";
 import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptance.model.js";
 import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
@@ -479,6 +480,21 @@ router.get("/applications", authenticateInstructor, requireCompliance, async (re
     return res.json({ success: true, data: applications });
   } catch {
     return res.status(500).json({ success: false, message: "Failed to fetch applications" });
+  }
+});
+
+// ── Reviews ────────────────────────────────────────────────────────────────────
+
+router.get("/reviews", authenticateInstructor, requireCompliance, async (req, res) => {
+  try {
+    const reviews = await InstructorReview.find({ instructorId: req.instructor.id })
+      .populate("courseId", "courseTitle")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({ success: true, data: reviews });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to fetch reviews" });
   }
 });
 

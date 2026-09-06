@@ -48,6 +48,8 @@ const instructorSchema = new Schema({
     isActive : { type : Boolean, default : false },
     lastLogin : { type : Date },
     picture : { type : String },
+    avgRating: { type: Number, default: 0 },
+    reviewCount: { type: Number, default: 0 },
     // Compliance onboarding (NDA + ethics quiz) — gates portal access, see requireCompliance middleware
     complianceStatus: {
         ndaAccepted: { type: Boolean, default: false },

@@ -37,6 +37,7 @@ import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
+import InstructorReview, { recomputeInstructorRating } from "../models/instructorReview.model.js";
 import InstructorAgreement from "../models/instructorAgreement.model.js";
 import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptance.model.js";
 import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
@@ -1521,6 +1522,42 @@ router.patch("/instructors/:id/activate", authenticateAdmin, requirePage("instru
   } catch (err) {
     console.error("Activate instructor error:", err);
     return res.status(500).json({ success: false, message: "Failed to send activation email" });
+  }
+});
+
+// ─── Instructor Reviews (Moderation) ──────────────────────────────────────────
+
+// GET /admin/instructor-reviews?status=pending
+router.get("/instructor-reviews", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+    const reviews = await InstructorReview.find(filter)
+      .populate("instructorId", "name email")
+      .populate("courseId", "courseTitle")
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.json({ data: reviews });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PATCH /admin/instructor-reviews/:id/status - approve or reject a review
+router.patch("/instructor-reviews/:id/status", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!["approved", "rejected", "pending"].includes(status))
+      return res.status(400).json({ message: "Invalid status." });
+
+    const review = await InstructorReview.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!review) return res.status(404).json({ message: "Review not found." });
+
+    await recomputeInstructorRating(review.instructorId);
+
+    return res.json({ data: review });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

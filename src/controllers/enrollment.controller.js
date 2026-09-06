@@ -1,6 +1,8 @@
 // this file contains the controller for user enrollment
 
 import { User } from "../models/user.model.js";
+import Course from "../models/course.model.js";
+import InstructorReview, { recomputeInstructorRating } from "../models/instructorReview.model.js";
 import { generateEnrollmentConfirmationEmail, generateEnquiryTable } from "../utils/emailTemplate.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { validateEnrollmentForm, sanitizeString } from "../utils/inputValidator.js";
@@ -289,6 +291,84 @@ export const issueCertificate = async (req, res) => {
                 userName: enrollment.name
             }
         });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+// Submit or update a rating/review for the instructor of a completed enrollment
+export const submitInstructorReview = async (req, res) => {
+    try {
+        const { enrollmentId } = req.params;
+        const { email } = req.user;
+        const { rating, reviewText } = req.body;
+
+        const ratingNum = Number(rating);
+        if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+            return res.status(400).json({ success: false, message: "Rating must be an integer between 1 and 5" });
+        }
+
+        const enrollment = await User.findOne({ _id: enrollmentId, email });
+        if (!enrollment) {
+            return res.status(404).json({ success: false, message: "Enrollment not found" });
+        }
+        if (enrollment.status !== "completed") {
+            return res.status(400).json({ success: false, message: "You can only review a course after completing it" });
+        }
+
+        const course = await Course.findOne({ courseTitle: enrollment.courseTitle, instructorId: { $exists: true, $ne: null } });
+        if (!course) {
+            return res.status(400).json({ success: false, message: "This course doesn't have an assigned instructor to review" });
+        }
+
+        const existing = await InstructorReview.findOne({ instructorId: course.instructorId, studentEmail: email, courseId: course._id });
+
+        const review = await InstructorReview.findOneAndUpdate(
+            { instructorId: course.instructorId, studentEmail: email, courseId: course._id },
+            {
+                instructorId: course.instructorId,
+                courseId: course._id,
+                enrollmentId: enrollment._id,
+                studentEmail: email,
+                studentName: sanitizeString(enrollment.name || ""),
+                rating: ratingNum,
+                reviewText: sanitizeString(reviewText || ""),
+                status: "pending",
+            },
+            { upsert: true, new: true }
+        );
+
+        // If this review was previously approved and counted in the average, drop it immediately
+        if (existing?.status === "approved") {
+            await recomputeInstructorRating(course.instructorId);
+        }
+
+        return res.json({ success: true, data: review });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+// Fetch the current student's review (if any) for a given enrollment
+export const getInstructorReviewForEnrollment = async (req, res) => {
+    try {
+        const { enrollmentId } = req.params;
+        const { email } = req.user;
+
+        const enrollment = await User.findOne({ _id: enrollmentId, email }).select("courseTitle").lean();
+        if (!enrollment) {
+            return res.status(404).json({ success: false, message: "Enrollment not found" });
+        }
+
+        const course = await Course.findOne({ courseTitle: enrollment.courseTitle, instructorId: { $exists: true, $ne: null } }).select("instructorId").lean();
+        if (!course) {
+            return res.json({ success: true, data: null });
+        }
+
+        const review = await InstructorReview.findOne({ instructorId: course.instructorId, studentEmail: email, courseId: course._id }).lean();
+        return res.json({ success: true, data: review || null });
     } catch (error) {
         console.log(error);
         return res.status(500).json({ success: false, message: "Internal server error" });

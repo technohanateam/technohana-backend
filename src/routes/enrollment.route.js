@@ -1,6 +1,6 @@
 import express from 'express';
 import upload from '../middleware/upload.js';
-import { enrollUser, getUsersByStatus, getMyEnrollments, updateEnrollmentProgress, issueCertificate, updateEnrollment, deleteEnrollment } from '../controllers/enrollment.controller.js';
+import { enrollUser, getUsersByStatus, getMyEnrollments, updateEnrollmentProgress, issueCertificate, updateEnrollment, deleteEnrollment, submitInstructorReview, getInstructorReviewForEnrollment } from '../controllers/enrollment.controller.js';
 import { InstructorForm } from '../controllers/instructorForm.controller.js';
 import { submitInternApplication } from '../controllers/internApplication.controller.js';
 import { authenticateJWT } from '../middleware/authenticateJWT.js';
@@ -18,6 +18,10 @@ router.delete('/enrollments/:enrollmentId', authenticateJWT, deleteEnrollment);
 // Progress and certificate routes
 router.put('/enrollments/:enrollmentId/progress', authenticateJWT, updateEnrollmentProgress);
 router.post('/enrollments/:enrollmentId/certificate', authenticateJWT, issueCertificate);
+
+// Instructor rating/review (post-completion)
+router.post('/enrollments/:enrollmentId/review', authenticateJWT, submitInstructorReview);
+router.get('/enrollments/:enrollmentId/review', authenticateJWT, getInstructorReviewForEnrollment);
 
 router.post('/submit-instructor', (req, res, next) => {
   upload.single('resume')(req, res, (err) => {
