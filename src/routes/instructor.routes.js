@@ -11,7 +11,12 @@ import { User } from "../models/user.model.js";
 import { Order } from "../models/order.model.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
+import InstructorAgreement from "../models/instructorAgreement.model.js";
+import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptance.model.js";
+import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
+import InstructorComplianceSettings from "../models/instructorComplianceSettings.model.js";
 import { authenticateInstructor } from "../middleware/authenticateInstructor.js";
+import { requireCompliance } from "../middleware/requireCompliance.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { instructorPasswordResetEmail } from "../utils/emailTemplate.js";
 import { generateResetToken, hashToken } from "../utils/resetTokenUtil.js";
@@ -153,6 +158,111 @@ router.put("/me", authenticateInstructor, async (req, res) => {
   }
 });
 
+// ── Compliance (NDA + Ethics Quiz) ──────────────────────────────────────────────
+
+router.get("/compliance/agreement", authenticateInstructor, async (req, res) => {
+  try {
+    const agreement = await InstructorAgreement.findOne({ isActive: true }).lean();
+    if (!agreement)
+      return res.status(404).json({ success: false, message: "No active agreement found" });
+    return res.json({ success: true, data: agreement });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to fetch agreement" });
+  }
+});
+
+router.post("/compliance/agreement/accept", authenticateInstructor, async (req, res) => {
+  try {
+    const { typedFullName } = req.body;
+    if (!typedFullName || !typedFullName.trim())
+      return res.status(400).json({ success: false, message: "Full name is required to accept the agreement" });
+
+    const agreement = await InstructorAgreement.findOne({ isActive: true }).lean();
+    if (!agreement)
+      return res.status(404).json({ success: false, message: "No active agreement found" });
+
+    await InstructorAgreementAcceptance.findOneAndUpdate(
+      { instructorId: req.instructor.id, agreementVersion: agreement.version },
+      {
+        instructorId: req.instructor.id,
+        agreementVersion: agreement.version,
+        typedFullName: typedFullName.trim(),
+        ipAddress: req.ip,
+        acceptedAt: new Date(),
+      },
+      { upsert: true }
+    );
+
+    await Instructor.findByIdAndUpdate(req.instructor.id, {
+      "complianceStatus.ndaAccepted": true,
+      "complianceStatus.ndaAcceptedVersion": agreement.version,
+    });
+
+    return res.json({ success: true, message: "Agreement accepted" });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to accept agreement" });
+  }
+});
+
+router.get("/compliance/quiz", authenticateInstructor, async (req, res) => {
+  try {
+    const settings = await InstructorComplianceSettings.findOne({}).lean();
+    if (!settings || !settings.questions?.length)
+      return res.status(404).json({ success: false, message: "No compliance quiz configured" });
+
+    // Never leak correctIndex to the client
+    const questions = settings.questions.map(({ id, question, options }) => ({ id, question, options }));
+    return res.json({ success: true, data: { questions } });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to fetch quiz" });
+  }
+});
+
+router.post("/compliance/quiz/submit", authenticateInstructor, async (req, res) => {
+  try {
+    const { answers } = req.body; // [{ questionId, selected }]
+    if (!Array.isArray(answers) || !answers.length)
+      return res.status(400).json({ success: false, message: "Answers are required" });
+
+    const settings = await InstructorComplianceSettings.findOne({}).lean();
+    if (!settings || !settings.questions?.length)
+      return res.status(404).json({ success: false, message: "No compliance quiz configured" });
+
+    const correctById = new Map(settings.questions.map((q) => [q.id, q.correctIndex]));
+    const scoredAnswers = answers.map((a) => ({
+      questionId: a.questionId,
+      selected: a.selected,
+      isCorrect: correctById.get(a.questionId) === a.selected,
+    }));
+    const score = scoredAnswers.filter((a) => a.isCorrect).length;
+    const totalQuestions = settings.questions.length;
+    const percentage = Math.round((score / totalQuestions) * 100);
+    const passed = percentage >= (settings.passThresholdPercent ?? 80);
+
+    const attemptCount = await InstructorComplianceQuiz.countDocuments({ instructorId: req.instructor.id });
+    await InstructorComplianceQuiz.create({
+      instructorId: req.instructor.id,
+      answers: scoredAnswers,
+      score,
+      totalQuestions,
+      percentage,
+      passed,
+      attemptNumber: attemptCount + 1,
+    });
+
+    if (passed) {
+      await Instructor.findByIdAndUpdate(req.instructor.id, {
+        "complianceStatus.quizPassed": true,
+        "complianceStatus.quizPassedAt": new Date(),
+      });
+    }
+
+    return res.json({ success: true, data: { score, totalQuestions, percentage, passed } });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to submit quiz" });
+  }
+});
+
 // ── File Uploads ──────────────────────────────────────────────────────────────
 
 router.post("/me/photo", authenticateInstructor, memUpload.single("photo"), async (req, res) => {
@@ -222,7 +332,7 @@ router.get("/me/resume-proxy", authenticateInstructor, async (req, res) => {
 
 // ── Courses ───────────────────────────────────────────────────────────────────
 
-router.get("/courses", authenticateInstructor, async (req, res) => {
+router.get("/courses", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const courses = await Course.find({ instructorId: req.instructor.id }).lean();
     return res.json({ success: true, data: courses });
@@ -231,7 +341,7 @@ router.get("/courses", authenticateInstructor, async (req, res) => {
   }
 });
 
-router.get("/courses/:courseId/students", authenticateInstructor, async (req, res) => {
+router.get("/courses/:courseId/students", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const { courseId } = req.params;
 
@@ -252,7 +362,7 @@ router.get("/courses/:courseId/students", authenticateInstructor, async (req, re
 
 // ── Earnings ──────────────────────────────────────────────────────────────────
 
-router.get("/earnings", authenticateInstructor, async (req, res) => {
+router.get("/earnings", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const courses = await Course.find({ instructorId: req.instructor.id }).lean();
     if (!courses.length)
@@ -309,7 +419,7 @@ router.get("/earnings", authenticateInstructor, async (req, res) => {
 
 // ── Training Requirements (Gig Board) ─────────────────────────────────────────
 
-router.get("/requirements", authenticateInstructor, async (req, res) => {
+router.get("/requirements", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const requirements = await TrainingRequirement.find({ status: "open" })
       .sort({ createdAt: -1 })
@@ -331,7 +441,7 @@ router.get("/requirements", authenticateInstructor, async (req, res) => {
   }
 });
 
-router.post("/requirements/:id/apply", authenticateInstructor, async (req, res) => {
+router.post("/requirements/:id/apply", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const requirement = await TrainingRequirement.findOne({ _id: req.params.id, status: "open" });
     if (!requirement)
@@ -359,7 +469,7 @@ router.post("/requirements/:id/apply", authenticateInstructor, async (req, res) 
   }
 });
 
-router.get("/applications", authenticateInstructor, async (req, res) => {
+router.get("/applications", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const applications = await InstructorApplication.find({ instructorId: req.instructor.id })
       .populate("requirementId", "title topic budgetRange deadline status")

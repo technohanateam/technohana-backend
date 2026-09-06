@@ -37,8 +37,12 @@ import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
+import InstructorAgreement from "../models/instructorAgreement.model.js";
+import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptance.model.js";
+import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
+import InstructorComplianceSettings from "../models/instructorComplianceSettings.model.js";
 import CareerApplication from "../models/careerApplication.model.js";
-import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail } from "../utils/emailTemplate.js";
+import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail } from "../utils/emailTemplate.js";
 import crypto from "crypto";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 
@@ -1413,6 +1417,23 @@ router.patch("/instructors/:id", authenticateAdmin, requirePage("instructors"), 
   }
 });
 
+// GET /admin/instructors/:id/compliance - View NDA acceptance + quiz attempt history
+router.get("/instructors/:id/compliance", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const instructor = await Instructor.findById(req.params.id).select("complianceStatus").lean();
+    if (!instructor) return res.status(404).json({ message: "Instructor not found." });
+
+    const [acceptances, quizAttempts] = await Promise.all([
+      InstructorAgreementAcceptance.find({ instructorId: req.params.id }).sort({ acceptedAt: -1 }).lean(),
+      InstructorComplianceQuiz.find({ instructorId: req.params.id }).sort({ completedAt: -1 }).lean(),
+    ]);
+
+    return res.json({ data: { complianceStatus: instructor.complianceStatus, acceptances, quizAttempts } });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 // DELETE /admin/instructors/:id - Delete instructor application + Cloudinary resume
 router.delete("/instructors/:id", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
   try {
@@ -1453,6 +1474,10 @@ router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructor
       custom: {
         subject: "Message from Technohana",
         html: `<p>Hi ${name},</p><p>${customMessage || ""}</p><p>Best regards,<br/>Technohana Careers Team</p>`,
+      },
+      "compliance-reminder": {
+        subject: "Finish your Technohana instructor onboarding",
+        html: complianceReminderEmail(name),
       },
     };
 
@@ -1496,6 +1521,71 @@ router.patch("/instructors/:id/activate", authenticateAdmin, requirePage("instru
   } catch (err) {
     console.error("Activate instructor error:", err);
     return res.status(500).json({ success: false, message: "Failed to send activation email" });
+  }
+});
+
+// ─── Instructor Compliance: NDA Agreement ────────────────────────────────────
+
+// GET /admin/compliance/agreement - Fetch the currently active NDA (for editing)
+router.get("/compliance/agreement", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const agreement = await InstructorAgreement.findOne({ isActive: true }).lean();
+    return res.json({ data: agreement || null });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PUT /admin/compliance/agreement - Publish a new NDA version (deactivates the previous one)
+router.put("/compliance/agreement", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+  try {
+    const { version, title, bodyHtml } = req.body;
+    if (!version || !title || !bodyHtml)
+      return res.status(400).json({ message: "version, title, and bodyHtml are required." });
+
+    await InstructorAgreement.updateMany({ isActive: true }, { isActive: false });
+    const agreement = await InstructorAgreement.findOneAndUpdate(
+      { version },
+      { version, title, bodyHtml, isActive: true },
+      { upsert: true, new: true }
+    );
+
+    return res.json({ data: agreement });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/compliance/quiz-settings - Fetch the current ethics quiz question bank (includes correctIndex)
+router.get("/compliance/quiz-settings", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const settings = await InstructorComplianceSettings.findOne({}).lean();
+    return res.json({ data: settings || { passThresholdPercent: 80, questions: [] } });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PUT /admin/compliance/quiz-settings - Replace the ethics quiz question bank + passing threshold
+router.put("/compliance/quiz-settings", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+  try {
+    const { passThresholdPercent, questions } = req.body;
+    if (!Array.isArray(questions) || !questions.length)
+      return res.status(400).json({ message: "At least one question is required." });
+    for (const q of questions) {
+      if (!q.question || !Array.isArray(q.options) || q.options.length < 2 || typeof q.correctIndex !== "number")
+        return res.status(400).json({ message: "Each question needs text, at least two options, and a correctIndex." });
+    }
+
+    const settings = await InstructorComplianceSettings.findOneAndUpdate(
+      {},
+      { passThresholdPercent: passThresholdPercent ?? 80, questions, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    return res.json({ data: settings });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

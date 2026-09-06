@@ -48,6 +48,13 @@ const instructorSchema = new Schema({
     isActive : { type : Boolean, default : false },
     lastLogin : { type : Date },
     picture : { type : String },
+    // Compliance onboarding (NDA + ethics quiz) — gates portal access, see requireCompliance middleware
+    complianceStatus: {
+        ndaAccepted: { type: Boolean, default: false },
+        ndaAcceptedVersion: { type: String, default: "" },
+        quizPassed: { type: Boolean, default: false },
+        quizPassedAt: { type: Date },
+    },
 })
 
 instructorSchema.index({ resetToken: 1 });

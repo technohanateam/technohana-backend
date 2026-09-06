@@ -774,6 +774,18 @@ export function instructorPasswordResetEmail(name, link) {
   return emailShell({ label: 'Instructor Portal', body });
 }
 
+// ─── INSTRUCTOR PORTAL — COMPLIANCE ONBOARDING REMINDER ──────────────────────
+
+export function complianceReminderEmail(name) {
+  const link = `${process.env.FRONTEND_URL || 'https://technohana.in'}/instructor/compliance`;
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Finish Your Instructor Onboarding</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${name}, you're almost set up — accept the instructor agreement and pass the short ethics quiz to unlock your full portal access.</p>
+    ${ctaButton('Complete Onboarding', link)}`;
+
+  return emailShell({ label: 'Instructor Portal', body });
+}
+
 // ─── INSTRUCTOR PORTAL — NEW TRAINING REQUIREMENT ────────────────────────────
 
 export function newRequirementNotificationEmail(name, requirement, portalLink) {
