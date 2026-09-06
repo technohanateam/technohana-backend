@@ -38,12 +38,14 @@ import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
 import InstructorReview, { recomputeInstructorRating } from "../models/instructorReview.model.js";
+import InstructorPayout from "../models/instructorPayout.model.js";
 import InstructorAgreement from "../models/instructorAgreement.model.js";
 import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptance.model.js";
 import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
 import InstructorComplianceSettings from "../models/instructorComplianceSettings.model.js";
 import CareerApplication from "../models/careerApplication.model.js";
-import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail } from "../utils/emailTemplate.js";
+import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail, payoutStatusUpdateEmail } from "../utils/emailTemplate.js";
+import { decryptToken } from "../utils/tokenCrypto.js";
 import crypto from "crypto";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 
@@ -1556,6 +1558,70 @@ router.patch("/instructor-reviews/:id/status", authenticateAdmin, requirePage("i
     await recomputeInstructorRating(review.instructorId);
 
     return res.json({ data: review });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ─── Instructor Payouts ───────────────────────────────────────────────────────
+
+// GET /admin/payouts?status=requested
+router.get("/payouts", authenticateAdmin, requirePage("payouts"), async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+    const payouts = await InstructorPayout.find(filter)
+      .select("-payoutDetailsSnapshotEncrypted")
+      .populate("instructorId", "name email")
+      .sort({ requestedAt: -1 })
+      .lean();
+    return res.json({ data: payouts });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/payouts/:id/details - the only endpoint that ever decrypts bank/UPI details
+router.get("/payouts/:id/details", authenticateAdmin, requirePage("payouts"), requireAdmin, async (req, res) => {
+  try {
+    const payout = await InstructorPayout.findById(req.params.id).lean();
+    if (!payout) return res.status(404).json({ message: "Payout not found." });
+    if (!payout.payoutDetailsSnapshotEncrypted)
+      return res.status(404).json({ message: "No payout details on file for this request." });
+
+    const details = decryptToken(payout.payoutDetailsSnapshotEncrypted);
+    return res.json({ data: details });
+  } catch (err) {
+    return res.status(500).json({ message: "Failed to decrypt payout details." });
+  }
+});
+
+// PATCH /admin/payouts/:id/status
+router.patch("/payouts/:id/status", authenticateAdmin, requirePage("payouts"), requireAdmin, async (req, res) => {
+  try {
+    const { status, paymentReference, adminNotes } = req.body;
+    if (!["requested", "approved", "processing", "paid", "rejected"].includes(status))
+      return res.status(400).json({ message: "Invalid status." });
+    if (status === "paid" && !paymentReference)
+      return res.status(400).json({ message: "A payment reference is required when marking a payout as paid." });
+
+    const update = { status, processedAt: new Date(), processedBy: req.admin?.email || "admin" };
+    if (paymentReference !== undefined) update.paymentReference = paymentReference;
+    if (adminNotes !== undefined) update.adminNotes = adminNotes;
+
+    const payout = await InstructorPayout.findByIdAndUpdate(req.params.id, update, { new: true })
+      .select("-payoutDetailsSnapshotEncrypted")
+      .populate("instructorId", "name email");
+    if (!payout) return res.status(404).json({ message: "Payout not found." });
+
+    sendEmail({
+      from: fromAddresses.careers,
+      to: payout.instructorId.email,
+      subject: "Update on your Technohana payout request",
+      html: payoutStatusUpdateEmail(payout.instructorId.name, status, (payout.amountMinor / 100).toFixed(2), payout.currency),
+    }).catch(() => {});
+
+    return res.json({ data: payout });
   } catch (err) {
     return res.status(500).json({ message: "Server error" });
   }

@@ -23,6 +23,7 @@ export const ADMIN_PAGES = [
   "coupons",
   "instructors",
   "training-requirements",
+  "payouts",
   "team",
   "prompt-editor",
   "analytics",

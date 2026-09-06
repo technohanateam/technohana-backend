@@ -8,10 +8,10 @@ import { v2 as cloudinary } from "cloudinary";
 import Instructor from "../models/instructor.js";
 import Course from "../models/course.model.js";
 import { User } from "../models/user.model.js";
-import { Order } from "../models/order.model.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
 import InstructorReview from "../models/instructorReview.model.js";
+import InstructorPayout from "../models/instructorPayout.model.js";
 import InstructorAgreement from "../models/instructorAgreement.model.js";
 import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptance.model.js";
 import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
@@ -19,8 +19,10 @@ import InstructorComplianceSettings from "../models/instructorComplianceSettings
 import { authenticateInstructor } from "../middleware/authenticateInstructor.js";
 import { requireCompliance } from "../middleware/requireCompliance.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
-import { instructorPasswordResetEmail } from "../utils/emailTemplate.js";
+import { instructorPasswordResetEmail, payoutRequestedEmail } from "../utils/emailTemplate.js";
 import { generateResetToken, hashToken } from "../utils/resetTokenUtil.js";
+import { computeInstructorEarnings } from "../utils/instructorEarnings.js";
+import { encryptToken } from "../utils/tokenCrypto.js";
 
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -131,7 +133,7 @@ router.post("/auth/forgot-password", instructorPasswordResetLimiter, async (req,
 router.get("/me", authenticateInstructor, async (req, res) => {
   try {
     const instructor = await Instructor.findById(req.instructor.id)
-      .select("-passwordHash -resetToken -resetTokenExpiry")
+      .select("-passwordHash -resetToken -resetTokenExpiry -payoutDetailsEncrypted")
       .lean();
     if (!instructor)
       return res.status(404).json({ success: false, message: "Instructor not found" });
@@ -150,7 +152,7 @@ router.put("/me", authenticateInstructor, async (req, res) => {
     );
 
     const instructor = await Instructor.findByIdAndUpdate(req.instructor.id, updates, { new: true })
-      .select("-passwordHash -resetToken -resetTokenExpiry")
+      .select("-passwordHash -resetToken -resetTokenExpiry -payoutDetailsEncrypted")
       .lean();
 
     return res.json({ success: true, data: instructor });
@@ -365,56 +367,132 @@ router.get("/courses/:courseId/students", authenticateInstructor, requireComplia
 
 router.get("/earnings", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
-    const courses = await Course.find({ instructorId: req.instructor.id }).lean();
-    if (!courses.length)
-      return res.json({ success: true, data: { total: 0, byMonth: [], byCourse: [] } });
-
-    const courseIds = courses.map((c) => c.id || String(c._id));
-
-    const orders = await Order.find({ courseId: { $in: courseIds }, status: "paid" }).lean();
-
-    // Group by course
-    const byCourse = courses.map((course) => {
-      const cid = course.id || String(course._id);
-      const courseOrders = orders.filter((o) => o.courseId === cid);
-      const gross = courseOrders.reduce((sum, o) => sum + (o.basePriceMinor || 0) * (o.participants || 1), 0);
-      const revenue = courseOrders.reduce((sum, o) => {
-        const base = (o.basePriceMinor || 0) * (o.participants || 1);
-        const discount = (o.totalDiscountPercent || 0) / 100;
-        return sum + base * (1 - discount);
-      }, 0);
-      return {
-        courseId: cid,
-        courseTitle: course.courseTitle,
-        enrollments: courseOrders.length,
-        grossMinor: gross,
-        revenueMinor: revenue,
-        revenueMajor: (revenue / 100).toFixed(2),
-      };
-    });
-
-    // Group by month
-    const monthMap = {};
-    orders.forEach((o) => {
-      const d = new Date(o.paidAt || o.createdAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      if (!monthMap[key]) monthMap[key] = 0;
-      const base = (o.basePriceMinor || 0) * (o.participants || 1);
-      const discount = (o.totalDiscountPercent || 0) / 100;
-      monthMap[key] += base * (1 - discount);
-    });
-    const byMonth = Object.entries(monthMap)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, revenueMinor]) => ({ month, revenueMinor, revenueMajor: (revenueMinor / 100).toFixed(2) }));
-
-    const totalMinor = byCourse.reduce((s, c) => s + c.revenueMinor, 0);
-
+    const { totalMinor, byMonth, byCourse } = await computeInstructorEarnings(req.instructor.id);
     return res.json({
       success: true,
       data: { totalMinor, totalMajor: (totalMinor / 100).toFixed(2), byMonth, byCourse },
     });
   } catch {
     return res.status(500).json({ success: false, message: "Failed to fetch earnings" });
+  }
+});
+
+// ── Payouts ───────────────────────────────────────────────────────────────────
+
+const PAYOUT_PENDING_STATUSES = ["requested", "approved", "processing", "paid"];
+
+router.get("/payout-details", authenticateInstructor, requireCompliance, async (req, res) => {
+  try {
+    const instructor = await Instructor.findById(req.instructor.id)
+      .select("payoutMethod payoutLastFour payoutCountry payoutCurrency payoutDetailsEncrypted")
+      .lean();
+    if (!instructor)
+      return res.status(404).json({ success: false, message: "Instructor not found" });
+
+    return res.json({
+      success: true,
+      data: {
+        payoutMethod: instructor.payoutMethod || null,
+        payoutLastFour: instructor.payoutLastFour || "",
+        payoutCountry: instructor.payoutCountry || "",
+        payoutCurrency: instructor.payoutCurrency || "INR",
+        hasDetails: Boolean(instructor.payoutDetailsEncrypted),
+      },
+    });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to fetch payout details" });
+  }
+});
+
+router.put("/payout-details", authenticateInstructor, requireCompliance, async (req, res) => {
+  try {
+    const { method, accountHolderName, bankName, accountNumber, ifscCode, swiftCode, upiId, country, currency } = req.body;
+    if (!["bank", "upi"].includes(method))
+      return res.status(400).json({ success: false, message: "Method must be 'bank' or 'upi'" });
+
+    const identifier = method === "upi" ? upiId : accountNumber;
+    if (!identifier || !identifier.trim())
+      return res.status(400).json({ success: false, message: method === "upi" ? "UPI ID is required" : "Account number is required" });
+
+    const payoutDetailsEncrypted = encryptToken({ accountHolderName, bankName, accountNumber, ifscCode, swiftCode, upiId });
+    const payoutLastFour = identifier.trim().slice(-4);
+
+    await Instructor.findByIdAndUpdate(req.instructor.id, {
+      payoutMethod: method,
+      payoutLastFour,
+      payoutDetailsEncrypted,
+      payoutCountry: country || "",
+      payoutCurrency: currency || "INR",
+    });
+
+    return res.json({ success: true, data: { payoutMethod: method, payoutLastFour, hasDetails: true } });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to save payout details" });
+  }
+});
+
+router.get("/payouts", authenticateInstructor, requireCompliance, async (req, res) => {
+  try {
+    const [payouts, { totalMinor }] = await Promise.all([
+      InstructorPayout.find({ instructorId: req.instructor.id })
+        .select("-payoutDetailsSnapshotEncrypted")
+        .sort({ requestedAt: -1 })
+        .lean(),
+      computeInstructorEarnings(req.instructor.id),
+    ]);
+
+    const committedMinor = payouts
+      .filter((p) => PAYOUT_PENDING_STATUSES.includes(p.status))
+      .reduce((sum, p) => sum + p.amountMinor, 0);
+    const availableMinor = Math.max(totalMinor - committedMinor, 0);
+
+    return res.json({ success: true, data: { payouts, availableMinor, totalMinor } });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to fetch payouts" });
+  }
+});
+
+router.post("/payouts", authenticateInstructor, requireCompliance, async (req, res) => {
+  try {
+    const { amountMinor } = req.body;
+    if (!Number.isInteger(amountMinor) || amountMinor <= 0)
+      return res.status(400).json({ success: false, message: "amountMinor must be a positive integer" });
+
+    const instructor = await Instructor.findById(req.instructor.id)
+      .select("name email payoutMethod payoutLastFour payoutDetailsEncrypted payoutCurrency")
+      .lean();
+    if (!instructor?.payoutDetailsEncrypted)
+      return res.status(400).json({ success: false, message: "Add your payout details before requesting a payout" });
+
+    const [{ totalMinor }, existingPayouts] = await Promise.all([
+      computeInstructorEarnings(req.instructor.id),
+      InstructorPayout.find({ instructorId: req.instructor.id, status: { $in: PAYOUT_PENDING_STATUSES } }).select("amountMinor").lean(),
+    ]);
+    const committedMinor = existingPayouts.reduce((sum, p) => sum + p.amountMinor, 0);
+    const availableMinor = totalMinor - committedMinor;
+
+    if (amountMinor > availableMinor)
+      return res.status(400).json({ success: false, message: "Requested amount exceeds available balance" });
+
+    const payout = await InstructorPayout.create({
+      instructorId: req.instructor.id,
+      amountMinor,
+      currency: instructor.payoutCurrency || "INR",
+      payoutMethod: instructor.payoutMethod,
+      payoutLastFour: instructor.payoutLastFour,
+      payoutDetailsSnapshotEncrypted: instructor.payoutDetailsEncrypted,
+    });
+
+    sendEmail({
+      from: fromAddresses.careers,
+      to: process.env.MAIL_TO,
+      subject: `Payout requested by ${instructor.name}`,
+      html: payoutRequestedEmail(instructor.name, (amountMinor / 100).toFixed(2), instructor.payoutCurrency || "INR"),
+    }).catch(() => {});
+
+    return res.status(201).json({ success: true, data: payout });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to submit payout request" });
   }
 });
 

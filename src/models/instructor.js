@@ -50,6 +50,12 @@ const instructorSchema = new Schema({
     picture : { type : String },
     avgRating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
+    // Payout details — sensitive fields live only inside payoutDetailsEncrypted (see tokenCrypto.js)
+    payoutMethod: { type: String, enum: ["bank", "upi"] },
+    payoutLastFour: { type: String, default: "" },
+    payoutDetailsEncrypted: { type: String },
+    payoutCountry: { type: String, default: "" },
+    payoutCurrency: { type: String, default: "INR" },
     // Compliance onboarding (NDA + ethics quiz) — gates portal access, see requireCompliance middleware
     complianceStatus: {
         ndaAccepted: { type: Boolean, default: false },
