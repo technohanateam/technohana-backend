@@ -37,8 +37,15 @@ import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
+import InstructorReview, { recomputeInstructorRating } from "../models/instructorReview.model.js";
+import InstructorPayout from "../models/instructorPayout.model.js";
+import InstructorAgreement from "../models/instructorAgreement.model.js";
+import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptance.model.js";
+import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
+import InstructorComplianceSettings from "../models/instructorComplianceSettings.model.js";
 import CareerApplication from "../models/careerApplication.model.js";
-import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail } from "../utils/emailTemplate.js";
+import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail, payoutStatusUpdateEmail } from "../utils/emailTemplate.js";
+import { decryptToken } from "../utils/tokenCrypto.js";
 import crypto from "crypto";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 
@@ -1413,6 +1420,23 @@ router.patch("/instructors/:id", authenticateAdmin, requirePage("instructors"), 
   }
 });
 
+// GET /admin/instructors/:id/compliance - View NDA acceptance + quiz attempt history
+router.get("/instructors/:id/compliance", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const instructor = await Instructor.findById(req.params.id).select("complianceStatus").lean();
+    if (!instructor) return res.status(404).json({ message: "Instructor not found." });
+
+    const [acceptances, quizAttempts] = await Promise.all([
+      InstructorAgreementAcceptance.find({ instructorId: req.params.id }).sort({ acceptedAt: -1 }).lean(),
+      InstructorComplianceQuiz.find({ instructorId: req.params.id }).sort({ completedAt: -1 }).lean(),
+    ]);
+
+    return res.json({ data: { complianceStatus: instructor.complianceStatus, acceptances, quizAttempts } });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 // DELETE /admin/instructors/:id - Delete instructor application + Cloudinary resume
 router.delete("/instructors/:id", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
   try {
@@ -1453,6 +1477,10 @@ router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructor
       custom: {
         subject: "Message from Technohana",
         html: `<p>Hi ${name},</p><p>${customMessage || ""}</p><p>Best regards,<br/>Technohana Careers Team</p>`,
+      },
+      "compliance-reminder": {
+        subject: "Finish your Technohana instructor onboarding",
+        html: complianceReminderEmail(name),
       },
     };
 
@@ -1496,6 +1524,171 @@ router.patch("/instructors/:id/activate", authenticateAdmin, requirePage("instru
   } catch (err) {
     console.error("Activate instructor error:", err);
     return res.status(500).json({ success: false, message: "Failed to send activation email" });
+  }
+});
+
+// ─── Instructor Reviews (Moderation) ──────────────────────────────────────────
+
+// GET /admin/instructor-reviews?status=pending
+router.get("/instructor-reviews", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+    const reviews = await InstructorReview.find(filter)
+      .populate("instructorId", "name email")
+      .populate("courseId", "courseTitle")
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.json({ data: reviews });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PATCH /admin/instructor-reviews/:id/status - approve or reject a review
+router.patch("/instructor-reviews/:id/status", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!["approved", "rejected", "pending"].includes(status))
+      return res.status(400).json({ message: "Invalid status." });
+
+    const review = await InstructorReview.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!review) return res.status(404).json({ message: "Review not found." });
+
+    await recomputeInstructorRating(review.instructorId);
+
+    return res.json({ data: review });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ─── Instructor Payouts ───────────────────────────────────────────────────────
+
+// GET /admin/payouts?status=requested
+router.get("/payouts", authenticateAdmin, requirePage("payouts"), async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+    const payouts = await InstructorPayout.find(filter)
+      .select("-payoutDetailsSnapshotEncrypted")
+      .populate("instructorId", "name email")
+      .sort({ requestedAt: -1 })
+      .lean();
+    return res.json({ data: payouts });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/payouts/:id/details - the only endpoint that ever decrypts bank/UPI details
+router.get("/payouts/:id/details", authenticateAdmin, requirePage("payouts"), requireAdmin, async (req, res) => {
+  try {
+    const payout = await InstructorPayout.findById(req.params.id).lean();
+    if (!payout) return res.status(404).json({ message: "Payout not found." });
+    if (!payout.payoutDetailsSnapshotEncrypted)
+      return res.status(404).json({ message: "No payout details on file for this request." });
+
+    const details = decryptToken(payout.payoutDetailsSnapshotEncrypted);
+    return res.json({ data: details });
+  } catch (err) {
+    return res.status(500).json({ message: "Failed to decrypt payout details." });
+  }
+});
+
+// PATCH /admin/payouts/:id/status
+router.patch("/payouts/:id/status", authenticateAdmin, requirePage("payouts"), requireAdmin, async (req, res) => {
+  try {
+    const { status, paymentReference, adminNotes } = req.body;
+    if (!["requested", "approved", "processing", "paid", "rejected"].includes(status))
+      return res.status(400).json({ message: "Invalid status." });
+    if (status === "paid" && !paymentReference)
+      return res.status(400).json({ message: "A payment reference is required when marking a payout as paid." });
+
+    const update = { status, processedAt: new Date(), processedBy: req.admin?.email || "admin" };
+    if (paymentReference !== undefined) update.paymentReference = paymentReference;
+    if (adminNotes !== undefined) update.adminNotes = adminNotes;
+
+    const payout = await InstructorPayout.findByIdAndUpdate(req.params.id, update, { new: true })
+      .select("-payoutDetailsSnapshotEncrypted")
+      .populate("instructorId", "name email");
+    if (!payout) return res.status(404).json({ message: "Payout not found." });
+
+    sendEmail({
+      from: fromAddresses.careers,
+      to: payout.instructorId.email,
+      subject: "Update on your Technohana payout request",
+      html: payoutStatusUpdateEmail(payout.instructorId.name, status, (payout.amountMinor / 100).toFixed(2), payout.currency),
+    }).catch(() => {});
+
+    return res.json({ data: payout });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ─── Instructor Compliance: NDA Agreement ────────────────────────────────────
+
+// GET /admin/compliance/agreement - Fetch the currently active NDA (for editing)
+router.get("/compliance/agreement", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const agreement = await InstructorAgreement.findOne({ isActive: true }).lean();
+    return res.json({ data: agreement || null });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PUT /admin/compliance/agreement - Publish a new NDA version (deactivates the previous one)
+router.put("/compliance/agreement", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+  try {
+    const { version, title, bodyHtml } = req.body;
+    if (!version || !title || !bodyHtml)
+      return res.status(400).json({ message: "version, title, and bodyHtml are required." });
+
+    await InstructorAgreement.updateMany({ isActive: true }, { isActive: false });
+    const agreement = await InstructorAgreement.findOneAndUpdate(
+      { version },
+      { version, title, bodyHtml, isActive: true },
+      { upsert: true, new: true }
+    );
+
+    return res.json({ data: agreement });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/compliance/quiz-settings - Fetch the current ethics quiz question bank (includes correctIndex)
+router.get("/compliance/quiz-settings", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const settings = await InstructorComplianceSettings.findOne({}).lean();
+    return res.json({ data: settings || { passThresholdPercent: 80, questions: [] } });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PUT /admin/compliance/quiz-settings - Replace the ethics quiz question bank + passing threshold
+router.put("/compliance/quiz-settings", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+  try {
+    const { passThresholdPercent, questions } = req.body;
+    if (!Array.isArray(questions) || !questions.length)
+      return res.status(400).json({ message: "At least one question is required." });
+    for (const q of questions) {
+      if (!q.question || !Array.isArray(q.options) || q.options.length < 2 || typeof q.correctIndex !== "number")
+        return res.status(400).json({ message: "Each question needs text, at least two options, and a correctIndex." });
+    }
+
+    const settings = await InstructorComplianceSettings.findOneAndUpdate(
+      {},
+      { passThresholdPercent: passThresholdPercent ?? 80, questions, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    return res.json({ data: settings });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

@@ -8,13 +8,21 @@ import { v2 as cloudinary } from "cloudinary";
 import Instructor from "../models/instructor.js";
 import Course from "../models/course.model.js";
 import { User } from "../models/user.model.js";
-import { Order } from "../models/order.model.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
+import InstructorReview from "../models/instructorReview.model.js";
+import InstructorPayout from "../models/instructorPayout.model.js";
+import InstructorAgreement from "../models/instructorAgreement.model.js";
+import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptance.model.js";
+import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
+import InstructorComplianceSettings from "../models/instructorComplianceSettings.model.js";
 import { authenticateInstructor } from "../middleware/authenticateInstructor.js";
+import { requireCompliance } from "../middleware/requireCompliance.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
-import { instructorPasswordResetEmail } from "../utils/emailTemplate.js";
+import { instructorPasswordResetEmail, payoutRequestedEmail } from "../utils/emailTemplate.js";
 import { generateResetToken, hashToken } from "../utils/resetTokenUtil.js";
+import { computeInstructorEarnings } from "../utils/instructorEarnings.js";
+import { encryptToken } from "../utils/tokenCrypto.js";
 
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -125,7 +133,7 @@ router.post("/auth/forgot-password", instructorPasswordResetLimiter, async (req,
 router.get("/me", authenticateInstructor, async (req, res) => {
   try {
     const instructor = await Instructor.findById(req.instructor.id)
-      .select("-passwordHash -resetToken -resetTokenExpiry")
+      .select("-passwordHash -resetToken -resetTokenExpiry -payoutDetailsEncrypted")
       .lean();
     if (!instructor)
       return res.status(404).json({ success: false, message: "Instructor not found" });
@@ -144,12 +152,117 @@ router.put("/me", authenticateInstructor, async (req, res) => {
     );
 
     const instructor = await Instructor.findByIdAndUpdate(req.instructor.id, updates, { new: true })
-      .select("-passwordHash -resetToken -resetTokenExpiry")
+      .select("-passwordHash -resetToken -resetTokenExpiry -payoutDetailsEncrypted")
       .lean();
 
     return res.json({ success: true, data: instructor });
   } catch {
     return res.status(500).json({ success: false, message: "Failed to update profile" });
+  }
+});
+
+// ── Compliance (NDA + Ethics Quiz) ──────────────────────────────────────────────
+
+router.get("/compliance/agreement", authenticateInstructor, async (req, res) => {
+  try {
+    const agreement = await InstructorAgreement.findOne({ isActive: true }).lean();
+    if (!agreement)
+      return res.status(404).json({ success: false, message: "No active agreement found" });
+    return res.json({ success: true, data: agreement });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to fetch agreement" });
+  }
+});
+
+router.post("/compliance/agreement/accept", authenticateInstructor, async (req, res) => {
+  try {
+    const { typedFullName } = req.body;
+    if (!typedFullName || !typedFullName.trim())
+      return res.status(400).json({ success: false, message: "Full name is required to accept the agreement" });
+
+    const agreement = await InstructorAgreement.findOne({ isActive: true }).lean();
+    if (!agreement)
+      return res.status(404).json({ success: false, message: "No active agreement found" });
+
+    await InstructorAgreementAcceptance.findOneAndUpdate(
+      { instructorId: req.instructor.id, agreementVersion: agreement.version },
+      {
+        instructorId: req.instructor.id,
+        agreementVersion: agreement.version,
+        typedFullName: typedFullName.trim(),
+        ipAddress: req.ip,
+        acceptedAt: new Date(),
+      },
+      { upsert: true }
+    );
+
+    await Instructor.findByIdAndUpdate(req.instructor.id, {
+      "complianceStatus.ndaAccepted": true,
+      "complianceStatus.ndaAcceptedVersion": agreement.version,
+    });
+
+    return res.json({ success: true, message: "Agreement accepted" });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to accept agreement" });
+  }
+});
+
+router.get("/compliance/quiz", authenticateInstructor, async (req, res) => {
+  try {
+    const settings = await InstructorComplianceSettings.findOne({}).lean();
+    if (!settings || !settings.questions?.length)
+      return res.status(404).json({ success: false, message: "No compliance quiz configured" });
+
+    // Never leak correctIndex to the client
+    const questions = settings.questions.map(({ id, question, options }) => ({ id, question, options }));
+    return res.json({ success: true, data: { questions } });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to fetch quiz" });
+  }
+});
+
+router.post("/compliance/quiz/submit", authenticateInstructor, async (req, res) => {
+  try {
+    const { answers } = req.body; // [{ questionId, selected }]
+    if (!Array.isArray(answers) || !answers.length)
+      return res.status(400).json({ success: false, message: "Answers are required" });
+
+    const settings = await InstructorComplianceSettings.findOne({}).lean();
+    if (!settings || !settings.questions?.length)
+      return res.status(404).json({ success: false, message: "No compliance quiz configured" });
+
+    const correctById = new Map(settings.questions.map((q) => [q.id, q.correctIndex]));
+    const scoredAnswers = answers.map((a) => ({
+      questionId: a.questionId,
+      selected: a.selected,
+      isCorrect: correctById.get(a.questionId) === a.selected,
+    }));
+    const score = scoredAnswers.filter((a) => a.isCorrect).length;
+    const totalQuestions = settings.questions.length;
+    const percentage = Math.round((score / totalQuestions) * 100);
+    const passed = percentage >= (settings.passThresholdPercent ?? 80);
+
+    const attemptCount = await InstructorComplianceQuiz.countDocuments({ instructorId: req.instructor.id });
+    await InstructorComplianceQuiz.create({
+      instructorId: req.instructor.id,
+      answers: scoredAnswers,
+      score,
+      totalQuestions,
+      percentage,
+      passed,
+      attemptNumber: attemptCount + 1,
+    });
+
+    if (passed) {
+      await Instructor.findByIdAndUpdate(req.instructor.id, {
+        "complianceStatus.quizPassed": true,
+        "complianceStatus.quizPassedAt": new Date(),
+      });
+    }
+
+    return res.json({ success: true, data: { score, totalQuestions, percentage, passed } });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to submit quiz" });
   }
 });
 
@@ -222,7 +335,7 @@ router.get("/me/resume-proxy", authenticateInstructor, async (req, res) => {
 
 // ── Courses ───────────────────────────────────────────────────────────────────
 
-router.get("/courses", authenticateInstructor, async (req, res) => {
+router.get("/courses", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const courses = await Course.find({ instructorId: req.instructor.id }).lean();
     return res.json({ success: true, data: courses });
@@ -231,7 +344,7 @@ router.get("/courses", authenticateInstructor, async (req, res) => {
   }
 });
 
-router.get("/courses/:courseId/students", authenticateInstructor, async (req, res) => {
+router.get("/courses/:courseId/students", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const { courseId } = req.params;
 
@@ -252,52 +365,9 @@ router.get("/courses/:courseId/students", authenticateInstructor, async (req, re
 
 // ── Earnings ──────────────────────────────────────────────────────────────────
 
-router.get("/earnings", authenticateInstructor, async (req, res) => {
+router.get("/earnings", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
-    const courses = await Course.find({ instructorId: req.instructor.id }).lean();
-    if (!courses.length)
-      return res.json({ success: true, data: { total: 0, byMonth: [], byCourse: [] } });
-
-    const courseIds = courses.map((c) => c.id || String(c._id));
-
-    const orders = await Order.find({ courseId: { $in: courseIds }, status: "paid" }).lean();
-
-    // Group by course
-    const byCourse = courses.map((course) => {
-      const cid = course.id || String(course._id);
-      const courseOrders = orders.filter((o) => o.courseId === cid);
-      const gross = courseOrders.reduce((sum, o) => sum + (o.basePriceMinor || 0) * (o.participants || 1), 0);
-      const revenue = courseOrders.reduce((sum, o) => {
-        const base = (o.basePriceMinor || 0) * (o.participants || 1);
-        const discount = (o.totalDiscountPercent || 0) / 100;
-        return sum + base * (1 - discount);
-      }, 0);
-      return {
-        courseId: cid,
-        courseTitle: course.courseTitle,
-        enrollments: courseOrders.length,
-        grossMinor: gross,
-        revenueMinor: revenue,
-        revenueMajor: (revenue / 100).toFixed(2),
-      };
-    });
-
-    // Group by month
-    const monthMap = {};
-    orders.forEach((o) => {
-      const d = new Date(o.paidAt || o.createdAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      if (!monthMap[key]) monthMap[key] = 0;
-      const base = (o.basePriceMinor || 0) * (o.participants || 1);
-      const discount = (o.totalDiscountPercent || 0) / 100;
-      monthMap[key] += base * (1 - discount);
-    });
-    const byMonth = Object.entries(monthMap)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, revenueMinor]) => ({ month, revenueMinor, revenueMajor: (revenueMinor / 100).toFixed(2) }));
-
-    const totalMinor = byCourse.reduce((s, c) => s + c.revenueMinor, 0);
-
+    const { totalMinor, byMonth, byCourse } = await computeInstructorEarnings(req.instructor.id);
     return res.json({
       success: true,
       data: { totalMinor, totalMajor: (totalMinor / 100).toFixed(2), byMonth, byCourse },
@@ -307,9 +377,128 @@ router.get("/earnings", authenticateInstructor, async (req, res) => {
   }
 });
 
+// ── Payouts ───────────────────────────────────────────────────────────────────
+
+const PAYOUT_PENDING_STATUSES = ["requested", "approved", "processing", "paid"];
+
+router.get("/payout-details", authenticateInstructor, requireCompliance, async (req, res) => {
+  try {
+    const instructor = await Instructor.findById(req.instructor.id)
+      .select("payoutMethod payoutLastFour payoutCountry payoutCurrency payoutDetailsEncrypted")
+      .lean();
+    if (!instructor)
+      return res.status(404).json({ success: false, message: "Instructor not found" });
+
+    return res.json({
+      success: true,
+      data: {
+        payoutMethod: instructor.payoutMethod || null,
+        payoutLastFour: instructor.payoutLastFour || "",
+        payoutCountry: instructor.payoutCountry || "",
+        payoutCurrency: instructor.payoutCurrency || "INR",
+        hasDetails: Boolean(instructor.payoutDetailsEncrypted),
+      },
+    });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to fetch payout details" });
+  }
+});
+
+router.put("/payout-details", authenticateInstructor, requireCompliance, async (req, res) => {
+  try {
+    const { method, accountHolderName, bankName, accountNumber, ifscCode, swiftCode, upiId, country, currency } = req.body;
+    if (!["bank", "upi"].includes(method))
+      return res.status(400).json({ success: false, message: "Method must be 'bank' or 'upi'" });
+
+    const identifier = method === "upi" ? upiId : accountNumber;
+    if (!identifier || !identifier.trim())
+      return res.status(400).json({ success: false, message: method === "upi" ? "UPI ID is required" : "Account number is required" });
+
+    const payoutDetailsEncrypted = encryptToken({ accountHolderName, bankName, accountNumber, ifscCode, swiftCode, upiId });
+    const payoutLastFour = identifier.trim().slice(-4);
+
+    await Instructor.findByIdAndUpdate(req.instructor.id, {
+      payoutMethod: method,
+      payoutLastFour,
+      payoutDetailsEncrypted,
+      payoutCountry: country || "",
+      payoutCurrency: currency || "INR",
+    });
+
+    return res.json({ success: true, data: { payoutMethod: method, payoutLastFour, hasDetails: true } });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to save payout details" });
+  }
+});
+
+router.get("/payouts", authenticateInstructor, requireCompliance, async (req, res) => {
+  try {
+    const [payouts, { totalMinor }] = await Promise.all([
+      InstructorPayout.find({ instructorId: req.instructor.id })
+        .select("-payoutDetailsSnapshotEncrypted")
+        .sort({ requestedAt: -1 })
+        .lean(),
+      computeInstructorEarnings(req.instructor.id),
+    ]);
+
+    const committedMinor = payouts
+      .filter((p) => PAYOUT_PENDING_STATUSES.includes(p.status))
+      .reduce((sum, p) => sum + p.amountMinor, 0);
+    const availableMinor = Math.max(totalMinor - committedMinor, 0);
+
+    return res.json({ success: true, data: { payouts, availableMinor, totalMinor } });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to fetch payouts" });
+  }
+});
+
+router.post("/payouts", authenticateInstructor, requireCompliance, async (req, res) => {
+  try {
+    const { amountMinor } = req.body;
+    if (!Number.isInteger(amountMinor) || amountMinor <= 0)
+      return res.status(400).json({ success: false, message: "amountMinor must be a positive integer" });
+
+    const instructor = await Instructor.findById(req.instructor.id)
+      .select("name email payoutMethod payoutLastFour payoutDetailsEncrypted payoutCurrency")
+      .lean();
+    if (!instructor?.payoutDetailsEncrypted)
+      return res.status(400).json({ success: false, message: "Add your payout details before requesting a payout" });
+
+    const [{ totalMinor }, existingPayouts] = await Promise.all([
+      computeInstructorEarnings(req.instructor.id),
+      InstructorPayout.find({ instructorId: req.instructor.id, status: { $in: PAYOUT_PENDING_STATUSES } }).select("amountMinor").lean(),
+    ]);
+    const committedMinor = existingPayouts.reduce((sum, p) => sum + p.amountMinor, 0);
+    const availableMinor = totalMinor - committedMinor;
+
+    if (amountMinor > availableMinor)
+      return res.status(400).json({ success: false, message: "Requested amount exceeds available balance" });
+
+    const payout = await InstructorPayout.create({
+      instructorId: req.instructor.id,
+      amountMinor,
+      currency: instructor.payoutCurrency || "INR",
+      payoutMethod: instructor.payoutMethod,
+      payoutLastFour: instructor.payoutLastFour,
+      payoutDetailsSnapshotEncrypted: instructor.payoutDetailsEncrypted,
+    });
+
+    sendEmail({
+      from: fromAddresses.careers,
+      to: process.env.MAIL_TO,
+      subject: `Payout requested by ${instructor.name}`,
+      html: payoutRequestedEmail(instructor.name, (amountMinor / 100).toFixed(2), instructor.payoutCurrency || "INR"),
+    }).catch(() => {});
+
+    return res.status(201).json({ success: true, data: payout });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to submit payout request" });
+  }
+});
+
 // ── Training Requirements (Gig Board) ─────────────────────────────────────────
 
-router.get("/requirements", authenticateInstructor, async (req, res) => {
+router.get("/requirements", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const requirements = await TrainingRequirement.find({ status: "open" })
       .sort({ createdAt: -1 })
@@ -331,7 +520,7 @@ router.get("/requirements", authenticateInstructor, async (req, res) => {
   }
 });
 
-router.post("/requirements/:id/apply", authenticateInstructor, async (req, res) => {
+router.post("/requirements/:id/apply", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const requirement = await TrainingRequirement.findOne({ _id: req.params.id, status: "open" });
     if (!requirement)
@@ -359,7 +548,7 @@ router.post("/requirements/:id/apply", authenticateInstructor, async (req, res) 
   }
 });
 
-router.get("/applications", authenticateInstructor, async (req, res) => {
+router.get("/applications", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const applications = await InstructorApplication.find({ instructorId: req.instructor.id })
       .populate("requirementId", "title topic budgetRange deadline status")
@@ -369,6 +558,21 @@ router.get("/applications", authenticateInstructor, async (req, res) => {
     return res.json({ success: true, data: applications });
   } catch {
     return res.status(500).json({ success: false, message: "Failed to fetch applications" });
+  }
+});
+
+// ── Reviews ────────────────────────────────────────────────────────────────────
+
+router.get("/reviews", authenticateInstructor, requireCompliance, async (req, res) => {
+  try {
+    const reviews = await InstructorReview.find({ instructorId: req.instructor.id })
+      .populate("courseId", "courseTitle")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({ success: true, data: reviews });
+  } catch {
+    return res.status(500).json({ success: false, message: "Failed to fetch reviews" });
   }
 });
 

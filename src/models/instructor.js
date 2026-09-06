@@ -48,6 +48,21 @@ const instructorSchema = new Schema({
     isActive : { type : Boolean, default : false },
     lastLogin : { type : Date },
     picture : { type : String },
+    avgRating: { type: Number, default: 0 },
+    reviewCount: { type: Number, default: 0 },
+    // Payout details — sensitive fields live only inside payoutDetailsEncrypted (see tokenCrypto.js)
+    payoutMethod: { type: String, enum: ["bank", "upi"] },
+    payoutLastFour: { type: String, default: "" },
+    payoutDetailsEncrypted: { type: String },
+    payoutCountry: { type: String, default: "" },
+    payoutCurrency: { type: String, default: "INR" },
+    // Compliance onboarding (NDA + ethics quiz) — gates portal access, see requireCompliance middleware
+    complianceStatus: {
+        ndaAccepted: { type: Boolean, default: false },
+        ndaAcceptedVersion: { type: String, default: "" },
+        quizPassed: { type: Boolean, default: false },
+        quizPassedAt: { type: Date },
+    },
 })
 
 instructorSchema.index({ resetToken: 1 });

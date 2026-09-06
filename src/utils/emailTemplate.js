@@ -774,6 +774,46 @@ export function instructorPasswordResetEmail(name, link) {
   return emailShell({ label: 'Instructor Portal', body });
 }
 
+// ─── INSTRUCTOR PORTAL — COMPLIANCE ONBOARDING REMINDER ──────────────────────
+
+export function complianceReminderEmail(name) {
+  const link = `${process.env.FRONTEND_URL || 'https://technohana.in'}/instructor/compliance`;
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Finish Your Instructor Onboarding</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${name}, you're almost set up — accept the instructor agreement and pass the short ethics quiz to unlock your full portal access.</p>
+    ${ctaButton('Complete Onboarding', link)}`;
+
+  return emailShell({ label: 'Instructor Portal', body });
+}
+
+// ─── INSTRUCTOR PORTAL — PAYOUT REQUESTED (admin notification) ───────────────
+
+export function payoutRequestedEmail(instructorName, amountMajor, currency) {
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">New Payout Request</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;"><strong>${instructorName}</strong> has requested a payout of <strong>${currency} ${amountMajor}</strong>. Review it in the admin panel.</p>`;
+
+  return emailShell({ label: 'Payout Request', body });
+}
+
+// ─── INSTRUCTOR PORTAL — PAYOUT STATUS UPDATE ────────────────────────────────
+
+export function payoutStatusUpdateEmail(name, status, amountMajor, currency) {
+  const isPaid = status === 'paid';
+  const isRejected = status === 'rejected';
+  const statusColor = isPaid ? '#16a34a' : isRejected ? '#dc2626' : '#d97706';
+
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Payout Update</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${name}, here's an update on your payout request of <strong>${currency} ${amountMajor}</strong>.</p>
+    <div style="background:${isPaid ? '#f0fdf4' : isRejected ? '#fef2f2' : '#fffbeb'};border:1px solid ${statusColor};border-radius:10px;padding:16px 20px;text-align:center;margin-bottom:20px;">
+      <p style="margin:0;font-size:18px;font-weight:700;color:${statusColor};text-transform:capitalize;">Status: ${status}</p>
+    </div>
+    <p style="margin:20px 0 0;font-size:13px;color:#64748b;text-align:center;">You can track this request anytime from your instructor portal.</p>`;
+
+  return emailShell({ label: 'Payout Update', body });
+}
+
 // ─── INSTRUCTOR PORTAL — NEW TRAINING REQUIREMENT ────────────────────────────
 
 export function newRequirementNotificationEmail(name, requirement, portalLink) {

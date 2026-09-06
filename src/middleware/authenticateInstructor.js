@@ -17,12 +17,12 @@ export const authenticateInstructor = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "Instructor role required" });
     }
 
-    const instructor = await Instructor.findById(payload.id).select("isActive").lean();
+    const instructor = await Instructor.findById(payload.id).select("isActive complianceStatus").lean();
     if (!instructor || !instructor.isActive) {
       return res.status(401).json({ success: false, message: "Account is not active" });
     }
 
-    req.instructor = payload;
+    req.instructor = { ...payload, isActive: instructor.isActive, complianceStatus: instructor.complianceStatus };
     next();
   } catch {
     return res.status(401).json({ success: false, message: "Invalid or expired token" });
