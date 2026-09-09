@@ -109,7 +109,7 @@ export const getRecommendationsForBlog = async (blogId) => {
 
   const candidateCourses = await Course.find(
     {},
-    { id: 1, courseTitle: 1, category: 1 }
+    { id: 1, courseTitle: 1, category: 1, courseSlug: 1 }
   )
     .limit(500)
     .lean();
@@ -122,6 +122,7 @@ export const getRecommendationsForBlog = async (blogId) => {
     .map(({ course, score, reasons }) => ({
       type: "course",
       courseId: course.id,
+      courseSlug: course.courseSlug,
       title: course.courseTitle,
       score,
       reasons,
