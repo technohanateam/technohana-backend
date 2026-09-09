@@ -16,13 +16,15 @@ router.get("/courses", async (req, res) => {
   }
 });
 
-// GET /courses/:id — public, returns single course by `id` field
+// GET /courses/:id — public, returns single course by `courseSlug` (preferred) or legacy `id`
 router.get("/courses/:id", async (req, res) => {
   try {
     if (/^playbook-/i.test(req.params.id)) {
       return res.status(404).json({ message: "Course not found." });
     }
-    const course = await Course.findOne({ id: req.params.id }).lean();
+    const course =
+      (await Course.findOne({ courseSlug: req.params.id }).lean()) ||
+      (await Course.findOne({ id: req.params.id }).lean());
     if (!course) return res.status(404).json({ message: "Course not found." });
     return res.json(course);
   } catch (err) {

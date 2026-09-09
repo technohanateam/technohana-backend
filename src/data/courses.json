@@ -42768,5 +42768,348 @@
       "gbp": 719,
       "eur": 829
     }
+  },
+  {
+    "id": "AWS-AIF-C01",
+    "courseSlug": "aws-ai-practitioner-aif-c01",
+    "logo": "course_thumb01.jpg",
+    "category": "Amazon Web Services",
+    "catdesc": "Master Amazon Web Services to build scalable, reliable, and cost-effective cloud solutions. These courses prepare you for AWS certifications and equip you with hands-on skills for real-world cloud architecture and DevOps practices.",
+    "catcls": "cat-nine",
+    "courseTitle": "AWS AI Practitioner (AIF-C01) Certification",
+    "courseDays": "02 Days",
+    "courseTime": "16 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "12",
+    "instructor": "Industry Experts",
+    "price": 29999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "4.5",
+    "overview": "The AWS AI Practitioner course is a foundational program for business and technical professionals who want to understand artificial intelligence, machine learning, and generative AI on AWS without needing a deep technical background. Participants will explore core AI/ML concepts, AWS AI services, and responsible AI practices — aligned with the AWS Certified AI Practitioner (AIF-C01) exam.",
+    "courseObjective": "Participants will gain a working understanding of AI, ML, and generative AI concepts, learn how to identify appropriate AWS AI/ML services for business use cases, understand the fundamentals of AWS-managed generative AI with Amazon Bedrock, and apply responsible AI and security best practices.",
+    "courseOutcomes": "Upon completion, participants will be able to explain core AI/ML/generative AI concepts, select suitable AWS AI services for common business problems, describe how Amazon Bedrock and SageMaker fit into an AI solution, apply responsible AI and security principles, and sit for the AWS Certified AI Practitioner (AIF-C01) exam.",
+    "prerequisites": "No prior AI/ML experience required. Basic familiarity with cloud computing concepts and AWS fundamentals is helpful but not mandatory.",
+    "labs": "Guided walkthroughs using Amazon Bedrock playgrounds, Amazon Q, Amazon SageMaker Canvas (no-code ML), and AWS AI services consoles (Rekognition, Comprehend, Textract) to build intuition without requiring coding skills.",
+    "whatWillYouLearn": [
+      "Fundamentals of AI, machine learning, and generative AI",
+      "Core generative AI concepts: foundation models, prompt engineering, embeddings",
+      "AWS AI/ML service landscape: Bedrock, SageMaker, Comprehend, Rekognition, Textract, Transcribe, Polly, Translate",
+      "Amazon Q and AWS managed generative AI assistants",
+      "Responsible AI: bias, fairness, explainability, and governance",
+      "Security, compliance, and data privacy for AI workloads on AWS",
+      "Cost management and best practices for AI/ML solutions on AWS",
+      "AIF-C01 exam structure and preparation strategy"
+    ],
+    "requirements": [
+      "No coding or ML experience required",
+      "Basic understanding of cloud computing concepts recommended",
+      "Interest in business or technical applications of AI"
+    ],
+    "targetAudience": [
+      "Business analysts and product managers evaluating AI opportunities",
+      "IT professionals new to AI/ML",
+      "Sales, marketing, and consulting professionals working with AI-driven products",
+      "Developers seeking a foundational AI credential before specialty certifications",
+      "Professionals preparing for the AWS Certified AI Practitioner (AIF-C01) exam"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Fundamentals of AI and Machine Learning",
+        "content": [
+          "What is AI, ML, and deep learning — key distinctions",
+          "Types of ML: supervised, unsupervised, reinforcement learning",
+          "Common AI use cases across industries",
+          "Introduction to neural networks and model training at a conceptual level"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Fundamentals of Generative AI",
+        "content": [
+          "Foundation models and large language models (LLMs)",
+          "Prompt engineering basics and prompt design patterns",
+          "Embeddings, retrieval-augmented generation (RAG), and fine-tuning at a high level",
+          "Generative AI use cases and limitations"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: AWS AI/ML Services Overview",
+        "content": [
+          "Amazon Bedrock: managed access to foundation models",
+          "Amazon SageMaker: overview of the ML development lifecycle",
+          "Amazon Q: generative AI-powered assistant for business and developers",
+          "AI services: Rekognition, Comprehend, Textract, Transcribe, Polly, Translate, Personalize"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Applications of Foundation Models",
+        "content": [
+          "Choosing a foundation model for a use case",
+          "Amazon Bedrock playground walkthrough",
+          "Customizing foundation models: fine-tuning vs. RAG vs. prompt engineering",
+          "Evaluating generative AI outputs"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Guidelines for Responsible AI",
+        "content": [
+          "Bias, fairness, and explainability in AI systems",
+          "Transparency and human oversight",
+          "Environmental and societal considerations",
+          "AWS tools for responsible AI: Bedrock Guardrails, SageMaker Clarify"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Security, Compliance, and Exam Preparation",
+        "content": [
+          "Data privacy and governance for AI workloads",
+          "IAM, encryption, and compliance considerations for AI on AWS",
+          "Cost management for AI/ML services",
+          "AIF-C01 exam domains, format, and practice questions"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 29999,
+      "usd": 389,
+      "aed": 1669,
+      "gbp": 349,
+      "eur": 409
+    },
+    "categoryGroup": "Cloud"
+  },
+  {
+    "id": "AWS-BEDROCK-ENT",
+    "courseSlug": "amazon-bedrock-enterprise-guide",
+    "logo": "course_thumb01.jpg",
+    "category": "Amazon Web Services",
+    "catdesc": "Master Amazon Web Services to build scalable, reliable, and cost-effective cloud solutions. These courses prepare you for AWS certifications and equip you with hands-on skills for real-world cloud architecture and DevOps practices.",
+    "catcls": "cat-nine",
+    "courseTitle": "Amazon Bedrock for Enterprise Applications",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "07 Modules",
+    "noStudents": "12",
+    "instructor": "Industry Experts",
+    "price": 44999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.6",
+    "overview": "This hands-on course teaches developers and architects how to build production-grade generative AI applications using Amazon Bedrock. Participants will learn to select and invoke foundation models, implement retrieval-augmented generation (RAG), build agentic workflows with Bedrock Agents, and apply enterprise-grade security, governance, and cost controls.",
+    "courseObjective": "Participants will gain hands-on experience invoking foundation models through the Bedrock API and SDKs, building knowledge bases for RAG, creating Bedrock Agents for task automation, applying Guardrails for responsible AI, and architecting secure, scalable, multi-tenant generative AI applications on AWS.",
+    "courseOutcomes": "Upon completion, participants will be able to design and deploy enterprise generative AI applications on Amazon Bedrock, implement RAG pipelines with Knowledge Bases, build and orchestrate Bedrock Agents, apply Guardrails and IAM-based access controls, and monitor and optimize cost and performance in production.",
+    "prerequisites": "Working knowledge of AWS core services (IAM, S3, Lambda). Programming experience in Python or a similar language. Basic understanding of APIs and cloud architecture.",
+    "labs": "Hands-on labs building a Bedrock-powered chat application, configuring a Knowledge Base with S3-backed vector search, creating a Bedrock Agent that calls Lambda action groups, and applying Guardrails to filter unsafe content.",
+    "whatWillYouLearn": [
+      "Amazon Bedrock architecture and supported foundation models",
+      "Invoking models via the Bedrock API, SDKs, and playgrounds",
+      "Building Retrieval-Augmented Generation (RAG) pipelines with Knowledge Bases",
+      "Creating and orchestrating Bedrock Agents for multi-step task automation",
+      "Implementing Guardrails for content filtering and responsible AI",
+      "Fine-tuning and customizing foundation models on Bedrock",
+      "Enterprise security, IAM policies, and VPC configurations for Bedrock",
+      "Cost optimization and observability for generative AI workloads"
+    ],
+    "requirements": [
+      "Working knowledge of core AWS services (IAM, S3, Lambda)",
+      "Programming experience in Python or similar language",
+      "Familiarity with REST APIs and basic cloud architecture concepts"
+    ],
+    "targetAudience": [
+      "Cloud architects designing generative AI solutions",
+      "Backend and full-stack developers integrating LLMs into applications",
+      "ML engineers moving from experimentation to production on AWS",
+      "Technical leads evaluating Amazon Bedrock for enterprise use cases"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Introduction to Amazon Bedrock",
+        "content": [
+          "Generative AI on AWS: Bedrock vs. SageMaker vs. AI services",
+          "Supported foundation model providers and model selection criteria",
+          "Bedrock console, playgrounds, and pricing model",
+          "Setting up IAM permissions for Bedrock access"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Invoking Foundation Models",
+        "content": [
+          "Bedrock Runtime API: InvokeModel and Converse APIs",
+          "Using the AWS SDK (boto3) to call foundation models",
+          "Prompt engineering for different model families",
+          "Streaming responses and handling model parameters"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Retrieval-Augmented Generation (RAG)",
+        "content": [
+          "RAG architecture and when to use it",
+          "Building a Knowledge Base with Amazon Bedrock",
+          "Vector stores: OpenSearch Serverless, Aurora, Pinecone integration",
+          "Chunking strategies and embedding model selection"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Bedrock Agents",
+        "content": [
+          "Agent architecture: action groups, orchestration, and reasoning",
+          "Connecting Agents to Lambda functions and APIs",
+          "Multi-step task automation with Agents",
+          "Testing and debugging Agent workflows"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Responsible AI with Guardrails",
+        "content": [
+          "Configuring Bedrock Guardrails for content filtering",
+          "Denied topics, sensitive information filters, and word filters",
+          "Contextual grounding checks to reduce hallucination",
+          "Monitoring and auditing Guardrail interventions"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Customization and Fine-Tuning",
+        "content": [
+          "Fine-tuning foundation models on Bedrock",
+          "Continued pre-training vs. fine-tuning vs. RAG trade-offs",
+          "Model evaluation and A/B testing on Bedrock",
+          "Custom model import"
+        ]
+      },
+      {
+        "moduleTitle": "Module 7: Enterprise Architecture and Production Readiness",
+        "content": [
+          "Multi-tenant architecture patterns for Bedrock applications",
+          "VPC endpoints, encryption, and network isolation",
+          "Cost monitoring, provisioned throughput, and quota management",
+          "CI/CD and observability for generative AI applications"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 44999,
+      "usd": 589,
+      "aed": 2499,
+      "gbp": 519,
+      "eur": 619
+    },
+    "categoryGroup": "Cloud"
+  },
+  {
+    "id": "AWS-MLOPS-SM",
+    "courseSlug": "mlops-on-aws-sagemaker",
+    "logo": "course_thumb01.jpg",
+    "category": "Amazon Web Services",
+    "catdesc": "Master Amazon Web Services to build scalable, reliable, and cost-effective cloud solutions. These courses prepare you for AWS certifications and equip you with hands-on skills for real-world cloud architecture and DevOps practices.",
+    "catcls": "cat-nine",
+    "courseTitle": "MLOps on AWS SageMaker",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "07 Modules",
+    "noStudents": "12",
+    "instructor": "Industry Experts",
+    "price": 46999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.6",
+    "overview": "This engineering-focused course teaches ML engineers and DevOps practitioners how to operationalize machine learning workflows on Amazon SageMaker. Participants will build automated, reproducible ML pipelines, implement CI/CD for ML, and apply monitoring and governance practices to run models reliably in production.",
+    "courseObjective": "Participants will gain hands-on experience building SageMaker Pipelines for automated training and deployment, implementing CI/CD for ML using SageMaker Projects, applying Model Registry and approval workflows, and monitoring deployed models for drift and quality using SageMaker Model Monitor.",
+    "courseOutcomes": "Upon completion, participants will be able to design and implement end-to-end MLOps pipelines on SageMaker, automate model training, evaluation, and deployment with CI/CD, manage model versions through the Model Registry, and monitor production models for data drift and performance degradation.",
+    "prerequisites": "Experience training and deploying ML models (equivalent to AWS Machine Learning Specialty level knowledge is beneficial). Working knowledge of Python, Docker, and CI/CD concepts. Familiarity with core AWS services (IAM, S3, CloudFormation).",
+    "labs": "Hands-on labs building a full SageMaker Pipeline from data preprocessing through model deployment, configuring SageMaker Projects for CI/CD, registering and promoting models through the Model Registry, and setting up SageMaker Model Monitor for drift detection.",
+    "whatWillYouLearn": [
+      "MLOps principles and the ML lifecycle on AWS",
+      "Building automated ML pipelines with SageMaker Pipelines",
+      "CI/CD for ML using SageMaker Projects and CodePipeline",
+      "Model versioning and governance with SageMaker Model Registry",
+      "Automated model evaluation and approval workflows",
+      "Production monitoring with SageMaker Model Monitor and Clarify",
+      "Infrastructure as Code for ML: CloudFormation and CDK for SageMaker",
+      "Cost optimization and multi-environment (dev/staging/prod) ML deployments"
+    ],
+    "requirements": [
+      "Prior experience training and deploying ML models",
+      "Working knowledge of Python, Docker, and CI/CD concepts",
+      "Familiarity with core AWS services (IAM, S3, CloudFormation)"
+    ],
+    "targetAudience": [
+      "ML engineers responsible for productionizing models",
+      "DevOps engineers extending CI/CD practices to ML workloads",
+      "Data scientists moving into ML engineering roles",
+      "Platform teams building internal MLOps tooling on AWS"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: MLOps Foundations",
+        "content": [
+          "MLOps maturity model and the ML lifecycle",
+          "Differences between DevOps and MLOps",
+          "AWS MLOps reference architecture",
+          "Setting up a SageMaker Studio environment for teams"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Building SageMaker Pipelines",
+        "content": [
+          "Pipeline steps: processing, training, tuning, and evaluation",
+          "Conditional steps and pipeline parameters",
+          "Caching and pipeline execution optimization",
+          "Scheduling pipelines with EventBridge"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Model Registry and Governance",
+        "content": [
+          "Registering model versions and model groups",
+          "Approval workflows and stage promotion",
+          "Model lineage tracking",
+          "Access control for model artifacts"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: CI/CD for Machine Learning",
+        "content": [
+          "SageMaker Projects and MLOps templates",
+          "Integrating CodePipeline and CodeBuild for ML",
+          "Automated testing for ML code and data",
+          "Multi-account, multi-environment deployment strategies"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Deployment Strategies",
+        "content": [
+          "Real-time, batch, and serverless inference deployment",
+          "Blue/green and canary deployments for models",
+          "Multi-model and multi-container endpoints",
+          "Autoscaling SageMaker endpoints"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Monitoring and Observability",
+        "content": [
+          "SageMaker Model Monitor: data quality and model quality monitoring",
+          "Detecting data drift and concept drift",
+          "SageMaker Clarify for bias and explainability monitoring in production",
+          "Integrating CloudWatch alarms and automated retraining triggers"
+        ]
+      },
+      {
+        "moduleTitle": "Module 7: Infrastructure as Code and Cost Management",
+        "content": [
+          "Provisioning SageMaker resources with CloudFormation and CDK",
+          "Managing environments (dev/staging/prod) as code",
+          "Cost monitoring and optimization for training and inference",
+          "Security best practices: VPC, encryption, and IAM least privilege"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 46999,
+      "usd": 609,
+      "aed": 2589,
+      "gbp": 539,
+      "eur": 639
+    },
+    "categoryGroup": "Cloud"
   }
 ]
