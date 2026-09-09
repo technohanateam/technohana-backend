@@ -22,6 +22,8 @@ import { enqueueSitemapSubmit } from "../services/seoIntelQueue.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { refreshPriceCatalog } from "../utils/pricing.js";
+import { contentFactoryAiLimiter } from "../middleware/contentFactoryAiLimiter.js";
+import { generateCourseFromUrls } from "../controllers/contentFactory/courseUrlImport.controller.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
 import { adminLogin, setupAdmin, getAdminPageRegistry, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive, deleteAdminUser, forgotAdminPassword, resetAdminPasswordViaToken } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
@@ -1061,6 +1063,10 @@ router.post("/courses", authenticateAdmin, requirePage("courses", "quote-generat
     return res.status(500).json({ message: "Server error" });
   }
 });
+
+// POST /admin/courses/import-from-urls — scan vendor course pages and build
+// a Claude Pro prompt to generate a new course grounded in that material.
+router.post("/courses/import-from-urls", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, contentFactoryAiLimiter, generateCourseFromUrls);
 
 // PUT /admin/courses/:id
 router.put("/courses/:id", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, async (req, res) => {
