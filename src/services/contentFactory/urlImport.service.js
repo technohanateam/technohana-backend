@@ -98,3 +98,80 @@ Return this JSON only:
 
   return { sourceSections, sourcesList, failedUrls, systemPrompt, userPrompt };
 }
+
+// Fetches and extracts plain text from each vendor URL server-side, then
+// builds the Claude Pro prompt for a new Technohana course grounded in that
+// material. Mirrors fetchAndBuildUrlPrompt's fetch step but targets the
+// course JSON schema used by AdminCourses.jsx's CLAUDE_COURSE_PROMPT.
+export async function fetchAndBuildCoursePrompt({ urls, courseTitle }) {
+  const sourceSections = [];
+  const sourcesList = [];
+  const failedUrls = [];
+  for (const url of urls) {
+    try {
+      const pageRes = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; TechnohanaBot/1.0)" }, signal: AbortSignal.timeout(12000) });
+      if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status}`);
+      const html = await pageRes.text();
+      const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const text = stripHtml(html).slice(0, 3000);
+      sourceSections.push(`--- SOURCE: ${url} ---\n${text}`);
+      sourcesList.push({ title: titleMatch ? stripHtml(titleMatch[1]).trim() : url, url });
+    } catch {
+      failedUrls.push(url);
+      sourceSections.push(`--- SOURCE: ${url} ---\n[Could not fetch this URL]`);
+    }
+  }
+
+  const titleInstruction = courseTitle
+    ? `Use exactly this as "courseTitle": "${String(courseTitle).replace(/[`${}]/g, "")}". Build the rest of the course around it.`
+    : `Derive the best "courseTitle" from the source material below.`;
+
+  const systemPrompt = `You are Technohana's Senior Curriculum Designer.
+
+You are given extracted content from vendor/competitor course pages.
+
+Treat this content as reference material only — never copy it verbatim.
+
+Rules:
+Synthesize an original, Technohana-branded course inspired by this material.
+Never invent statistics, ratings, or student counts — use plausible placeholder-style values instead (e.g. round numbers).
+Never claim to have searched the web.
+Never reference vendor names or copy vendor marketing copy.
+Return only valid JSON.`;
+
+  const userPrompt = `Generate a training course as a single JSON object (no markdown, no explanation — just the JSON) with exactly these fields:
+
+{
+  "courseTitle": "string",
+  "category": "string, e.g. Microsoft Azure",
+  "difficulty": "Beginner | Intermediate | Advanced",
+  "price": "number as string, e.g. 33600 (INR)",
+  "instructor": "string",
+  "language": "English",
+  "courseDays": "e.g. 03 Days",
+  "courseTime": "e.g. 24 Hours",
+  "courseModules": "e.g. 12 Modules",
+  "noStudents": "e.g. 30",
+  "rating": "e.g. 4.3",
+  "overview": "2-3 paragraph course overview",
+  "courseObjective": "what this course aims to achieve",
+  "courseOutcomes": "what learners will achieve",
+  "labs": "hands-on lab description",
+  "prerequisites": ["array of strings"],
+  "whatWillYouLearn": ["array of strings"],
+  "requirements": ["array of strings"],
+  "targetAudience": ["array of strings"],
+  "modules": [
+    { "moduleTitle": "Module 01: Introduction", "content": ["Topic 1", "Topic 2"] }
+  ]
+}
+
+${titleInstruction}
+
+Reference material scanned from vendor pages:
+${sourceSections.join("\n\n")}
+
+Return ONLY the JSON object above.`;
+
+  return { sourceSections, sourcesList, failedUrls, systemPrompt, userPrompt };
+}
