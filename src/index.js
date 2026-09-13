@@ -171,7 +171,15 @@ const corsOptionsDelegate = function (req, callback) {
   });
 };
 app.use(cors(corsOptionsDelegate));
-app.use(express.json());
+// /webhooks/resend needs its raw, unparsed body to verify the svix signature
+// (see src/services/resendWebhook.js) — express.json() here would consume
+// the request stream first and hand the route only a parsed object.
+app.use((req, res, next) => {
+  if (req.path === '/webhooks/resend') {
+    return next();
+  }
+  return express.json()(req, res, next);
+});
 // --- Persistent order store via MongoDB (24-hour TTL) ---
 
 const PendingOrderSchema = new mongoose.Schema({

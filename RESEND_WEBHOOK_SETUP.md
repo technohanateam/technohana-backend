@@ -142,25 +142,33 @@ Campaign metrics saved
 - [✅] Real email opens trigger webhook
 - [✅] Metrics visible in `/admin/campaigns/{id}/analytics`
 
-## Advanced: Validate Webhook Signature (Optional)
+## Webhook Signature Validation (Required)
 
-If implementing HMAC validation in future:
+`resendWebhook.js` verifies every incoming event via svix and **hard-rejects
+the request if this isn't set up** — it's not optional.
 
 1. Get signing secret from Resend:
    - Resend Dashboard → Webhooks → Your webhook → Copy signing secret
-   
-2. Store in `.env`:
-   ```
-   RESEND_WEBHOOK_SECRET=<signing-secret>
-   ```
 
-3. Verify signature in `resendWebhook.js`:
+2. Store it as `RESEND_WEBHOOK_SECRET` in Railway's environment variables
+   (never commit it to `.env`).
+
+3. `resendWebhook.js` uses it via the `svix` package:
    ```javascript
-   const signature = req.headers['x-resend-signature'];
-   const verified = verifyResendWebhook(req.body, signature);
+   const wh = new Webhook(secret);
+   const event = wh.verify(req.body, {
+     "svix-id": req.headers["svix-id"],
+     "svix-timestamp": req.headers["svix-timestamp"],
+     "svix-signature": req.headers["svix-signature"],
+   });
    ```
+   This requires `req.body` to be the raw request body (a Buffer/string),
+   not JSON-parsed — `src/index.js` exempts `/webhooks/resend` from the
+   global `express.json()` middleware for this reason.
 
-Current implementation skips signature validation (note in resendWebhook.js).
+Without `RESEND_WEBHOOK_SECRET` set, every event is rejected with HTTP 500
+before verification is even attempted, and campaign analytics (opens,
+clicks, bounces) will never update.
 
 ## Production Deployment Checklist
 
