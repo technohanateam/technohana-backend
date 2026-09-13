@@ -337,7 +337,7 @@ app.post('/pricing/quote', checkoutLimiter, async (req, res) => {
       }
     }
 
-    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
+    const quote = await computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
     return res.json(quote);
   } catch (err) {
     console.error('Quote error:', err.message);
@@ -364,7 +364,7 @@ app.post('/stripe/checkout', checkoutLimiter, async (req, res) => {
       }
     }
 
-    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
+    const quote = await computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
 
     // Validate client calculation vs backend calculation
     const backendTotalMinor = quote.expectedTotalMinor;
@@ -507,7 +507,7 @@ app.post('/razorpay/checkout', checkoutLimiter, async (req, res) => {
       }
     }
 
-    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
+    const quote = await computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
 
     const backendTotalMinor = quote.expectedTotalMinor;
     const clientTotalMinor = clientCalculatedTotal ? Math.round(Number(clientCalculatedTotal) * 100) : backendTotalMinor;
@@ -625,7 +625,7 @@ app.post('/stripe/cart-checkout', checkoutLimiter, async (req, res) => {
     const orderIds = [];
 
     for (const item of items) {
-      const quote = computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
+      const quote = await computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
       const orderId = generateOrderId();
       orderIds.push(orderId);
       lineItems.push({
@@ -690,7 +690,7 @@ app.post('/razorpay/cart-checkout', checkoutLimiter, async (req, res) => {
     let combinedCurrency = (currency || 'INR').toLowerCase();
 
     for (const item of items) {
-      const quote = computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
+      const quote = await computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
       const orderId = generateOrderId();
       orderIds.push(orderId);
       combinedTotalMinor += quote.expectedTotalMinor;

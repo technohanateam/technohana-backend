@@ -631,7 +631,7 @@ export const draftProposal = async (req, res) => {
       const snippets = [];
       for (const courseId of lead.recommendedCourses.slice(0, 5)) {
         try {
-          const quote = computeQuote({
+          const quote = await computeQuote({
             courseId,
             enrollmentType,
             participants: lead.teamSize,
