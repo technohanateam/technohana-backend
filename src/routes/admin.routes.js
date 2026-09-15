@@ -497,6 +497,42 @@ router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sale
 // enquiryPromptBuilder.service.js / enquiryPromptParser.service.js.
 const ENQUIRY_PROMPT_ITEMS = ["trainerSearch", "socialPost", "blogPost"];
 
+// Shared by both the enquiry-flow and partner-flow paste routes: parses the
+// pasted text for `item`, stores it on `pack[item]`, and (for blogPost) saves
+// a draft Blogs doc the first time it parses successfully. Mutates `pack` in
+// place but does not save it — callers call pack.save() themselves.
+async function applyPastedResponse(pack, item, text) {
+  pack[item].pastedResponseRaw = text;
+  try {
+    const parsed =
+      item === "trainerSearch" ? parseTrainerSearchResponse(text) :
+      item === "socialPost" ? parseEnquirySocialPostResponse(text) :
+      parseBlogPostResponse(text);
+
+    pack[item].parsed = parsed;
+    pack[item].parseError = null;
+    pack[item].status = "PARSED";
+    pack[item].parsedAt = new Date();
+
+    if (item === "blogPost" && !pack.blogPost.blogId) {
+      const blog = new Blogs({
+        title: parsed.title,
+        content: parsed.content,
+        excerpt: parsed.excerpt,
+        metaTitle: parsed.metaTitle,
+        metaDescription: parsed.metaDescription,
+        focusKeyword: parsed.focusKeyword,
+        tags: parsed.tags,
+        published: false,
+      });
+      await blog.save();
+      pack.blogPost.blogId = blog._id;
+    }
+  } catch (err) {
+    pack[item].parseError = err.message;
+  }
+}
+
 // POST /admin/enquiries/:id/prompt-pack — generate (or return existing) prompt pack
 router.post("/enquiries/:id/prompt-pack", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
   try {
@@ -557,40 +593,85 @@ router.post("/enquiries/:id/prompt-pack/:item/paste", authenticateAdmin, require
     const pack = await EnquiryPromptPack.findOne({ enquiryId: req.params.id });
     if (!pack) return res.status(404).json({ success: false, message: "No prompt pack generated yet" });
 
-    pack[item].pastedResponseRaw = text;
-    try {
-      const parsed =
-        item === "trainerSearch" ? parseTrainerSearchResponse(text) :
-        item === "socialPost" ? parseEnquirySocialPostResponse(text) :
-        parseBlogPostResponse(text);
-
-      pack[item].parsed = parsed;
-      pack[item].parseError = null;
-      pack[item].status = "PARSED";
-      pack[item].parsedAt = new Date();
-
-      if (item === "blogPost" && !pack.blogPost.blogId) {
-        const blog = new Blogs({
-          title: parsed.title,
-          content: parsed.content,
-          excerpt: parsed.excerpt,
-          metaTitle: parsed.metaTitle,
-          metaDescription: parsed.metaDescription,
-          focusKeyword: parsed.focusKeyword,
-          tags: parsed.tags,
-          published: false,
-        });
-        await blog.save();
-        pack.blogPost.blogId = blog._id;
-      }
-    } catch (err) {
-      pack[item].parseError = err.message;
-    }
-
+    await applyPastedResponse(pack, item, text);
     await pack.save();
     return res.json({ success: true, data: pack });
   } catch (err) {
     console.error("Enquiry prompt pack paste error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// ─── Partner Course Prompt Pack ────────────────────────────────────────────
+// Same prompt pack as above, but for a course name typed directly into the
+// dashboard's "Generate Prompts" modal (src/pages/admin/AdminOverview.jsx) —
+// no Enquiry doc involved. Looked up by the pack's own _id instead of an
+// enquiryId.
+
+// POST /admin/prompt-packs — create a partner-sourced prompt pack
+router.post("/prompt-packs", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    const { courseTitle, partnerName } = req.body;
+    if (!courseTitle || !courseTitle.trim()) return res.status(400).json({ success: false, message: "courseTitle is required" });
+
+    const course = await matchCourse({ courseTitle });
+
+    const pack = new EnquiryPromptPack({
+      source: "partner",
+      partnerCourseTitle: courseTitle.trim(),
+      partnerName: partnerName?.trim() || null,
+      createdBy: req.admin?.name || req.admin?.email || null,
+      courseMatch: {
+        found: Boolean(course),
+        courseId: course?._id || null,
+        courseTitle: course?.courseTitle || courseTitle.trim(),
+      },
+      trainerSearch: { generatedPrompt: buildTrainerSearchPrompt({ courseTitle }, course) },
+    });
+
+    if (course) {
+      pack.socialPost.generatedPrompt = buildSocialPostPrompt(course);
+      pack.blogPost.generatedPrompt = buildBlogPostPrompt(course);
+    }
+
+    await pack.save();
+    return res.status(201).json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Partner prompt pack generate error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET /admin/prompt-packs/:id
+router.get("/prompt-packs/:id", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid id" });
+    const pack = await EnquiryPromptPack.findById(req.params.id);
+    if (!pack) return res.status(404).json({ success: false, message: "Prompt pack not found" });
+    return res.json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Partner prompt pack fetch error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// POST /admin/prompt-packs/:id/:item/paste
+router.post("/prompt-packs/:id/:item/paste", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid id" });
+    const { item } = req.params;
+    if (!ENQUIRY_PROMPT_ITEMS.includes(item)) return res.status(400).json({ success: false, message: "Unknown prompt item" });
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ success: false, message: "text is required" });
+
+    const pack = await EnquiryPromptPack.findById(req.params.id);
+    if (!pack) return res.status(404).json({ success: false, message: "Prompt pack not found" });
+
+    await applyPastedResponse(pack, item, text);
+    await pack.save();
+    return res.json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Partner prompt pack paste error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
