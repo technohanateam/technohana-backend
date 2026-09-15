@@ -37,6 +37,9 @@ import { getAllDripSequences, getDripSequence, createDripSequence, updateDripSeq
 import Campaign from "../models/campaign.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
+import EnquiryPromptPack from "../models/enquiryPromptPack.model.js";
+import { matchCourse, buildTrainerSearchPrompt, buildSocialPostPrompt, buildBlogPostPrompt } from "../services/enquiryPromptBuilder.service.js";
+import { parseTrainerSearchResponse, parseSocialPostResponse as parseEnquirySocialPostResponse, parseBlogPostResponse } from "../services/enquiryPromptParser.service.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
 import InstructorReview, { recomputeInstructorRating } from "../models/instructorReview.model.js";
@@ -483,6 +486,112 @@ router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sale
   } catch (err) {
     console.error("Admin patch enquiry error:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ─── Enquiry Prompt Pack ────────────────────────────────────────────────────
+// Manual Claude Pro workflow (mirrors the Social Post Factory) — generates
+// copy-paste prompts for an enquiry (trainer-search LinkedIn post, a social
+// post, a blog draft, all grounded in the matched Course) and lets the admin
+// paste Claude's responses back. Never calls Claude/OpenAI itself. See
+// enquiryPromptBuilder.service.js / enquiryPromptParser.service.js.
+const ENQUIRY_PROMPT_ITEMS = ["trainerSearch", "socialPost", "blogPost"];
+
+// POST /admin/enquiries/:id/prompt-pack — generate (or return existing) prompt pack
+router.post("/enquiries/:id/prompt-pack", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid id" });
+    const enquiry = await Enquiry.findById(req.params.id).lean();
+    if (!enquiry) return res.status(404).json({ success: false, message: "Enquiry not found" });
+
+    let pack = await EnquiryPromptPack.findOne({ enquiryId: enquiry._id });
+    if (pack) return res.json({ success: true, data: pack });
+
+    const course = await matchCourse(enquiry);
+
+    pack = new EnquiryPromptPack({
+      enquiryId: enquiry._id,
+      courseMatch: {
+        found: Boolean(course),
+        courseId: course?._id || null,
+        courseTitle: course?.courseTitle || enquiry.courseTitle || null,
+      },
+      trainerSearch: { generatedPrompt: buildTrainerSearchPrompt(enquiry, course) },
+    });
+
+    if (course) {
+      pack.socialPost.generatedPrompt = buildSocialPostPrompt(course);
+      pack.blogPost.generatedPrompt = buildBlogPostPrompt(course);
+    }
+
+    await pack.save();
+    return res.status(201).json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Enquiry prompt pack generate error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET /admin/enquiries/:id/prompt-pack
+router.get("/enquiries/:id/prompt-pack", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid id" });
+    const pack = await EnquiryPromptPack.findOne({ enquiryId: req.params.id });
+    if (!pack) return res.status(404).json({ success: false, message: "No prompt pack generated yet" });
+    return res.json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Enquiry prompt pack fetch error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// POST /admin/enquiries/:id/prompt-pack/:item/paste — parse and persist a pasted Claude response
+router.post("/enquiries/:id/prompt-pack/:item/paste", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid id" });
+    const { item } = req.params;
+    if (!ENQUIRY_PROMPT_ITEMS.includes(item)) return res.status(400).json({ success: false, message: "Unknown prompt item" });
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ success: false, message: "text is required" });
+
+    const pack = await EnquiryPromptPack.findOne({ enquiryId: req.params.id });
+    if (!pack) return res.status(404).json({ success: false, message: "No prompt pack generated yet" });
+
+    pack[item].pastedResponseRaw = text;
+    try {
+      const parsed =
+        item === "trainerSearch" ? parseTrainerSearchResponse(text) :
+        item === "socialPost" ? parseEnquirySocialPostResponse(text) :
+        parseBlogPostResponse(text);
+
+      pack[item].parsed = parsed;
+      pack[item].parseError = null;
+      pack[item].status = "PARSED";
+      pack[item].parsedAt = new Date();
+
+      if (item === "blogPost" && !pack.blogPost.blogId) {
+        const blog = new Blogs({
+          title: parsed.title,
+          content: parsed.content,
+          excerpt: parsed.excerpt,
+          metaTitle: parsed.metaTitle,
+          metaDescription: parsed.metaDescription,
+          focusKeyword: parsed.focusKeyword,
+          tags: parsed.tags,
+          published: false,
+        });
+        await blog.save();
+        pack.blogPost.blogId = blog._id;
+      }
+    } catch (err) {
+      pack[item].parseError = err.message;
+    }
+
+    await pack.save();
+    return res.json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Enquiry prompt pack paste error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
