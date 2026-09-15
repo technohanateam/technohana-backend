@@ -1,10 +1,12 @@
 import mongoose from "mongoose";
 
-// One doc per Enquiry, generated on demand from the "Generate Prompts" admin
-// action. Every prompt here is a copy-paste-into-Claude.ai-Pro workflow — this
-// app never calls the Anthropic/OpenAI SDK for it (see
-// enquiryPromptBuilder.service.js). The admin runs each prompt themselves and
-// pastes the response back, which gets parsed and stored in `parsed`.
+// One doc per "Generate Prompts" admin action, either from an existing
+// Enquiry row (source: "enquiry") or typed directly into the dashboard's
+// partner-course modal (source: "partner", no Enquiry involved). Every prompt
+// here is a copy-paste-into-Claude.ai-Pro workflow — this app never calls the
+// Anthropic/OpenAI SDK for it (see enquiryPromptBuilder.service.js). The
+// admin runs each prompt themselves and pastes the response back, which gets
+// parsed and stored in `parsed`.
 const promptItemFields = {
   status: { type: String, enum: ["PROMPT_GENERATED", "PARSED"], default: "PROMPT_GENERATED" },
   generatedPrompt: {
@@ -19,9 +21,15 @@ const promptItemFields = {
 
 const enquiryPromptPackSchema = new mongoose.Schema(
   {
-    enquiryId: { type: mongoose.Schema.Types.ObjectId, ref: "Enquiry", required: true, index: true },
+    enquiryId: { type: mongoose.Schema.Types.ObjectId, ref: "Enquiry", default: null, index: true },
+    source: { type: String, enum: ["enquiry", "partner"], default: "enquiry" },
+    // Only set when source === "partner" — the course name/partner typed
+    // into the dashboard's "Generate Prompts" modal (no Enquiry doc exists).
+    partnerCourseTitle: { type: String, default: null },
+    partnerName: { type: String, default: null },
+    createdBy: { type: String, default: null },
 
-    // Whether the enquiry's course was found in the Course catalog — drives
+    // Whether the (enquiry's or partner-typed) course was found in the Course catalog — drives
     // whether the frontend offers "Create manually" / "Create from AI draft"
     // course-creation shortcuts. This pack never creates a Course itself.
     courseMatch: {
@@ -66,6 +74,6 @@ const enquiryPromptPackSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-enquiryPromptPackSchema.index({ enquiryId: 1 }, { unique: true });
+enquiryPromptPackSchema.index({ enquiryId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model("EnquiryPromptPack", enquiryPromptPackSchema);
