@@ -29,26 +29,6 @@ export function parseTrainerSearchResponse(rawText) {
   return { postText: requireString(parsed, "postText") };
 }
 
-export function parseSocialPostResponse(rawText) {
-  const parsed = parseJsonOrThrow(rawText);
-  const caption = requireString(parsed, "caption");
-  const cta = requireString(parsed, "cta");
-  const imagePromptSuggestion = requireString(parsed, "imagePromptSuggestion");
-  const altText = requireString(parsed, "altText");
-  if (!Array.isArray(parsed.hashtags) || !parsed.hashtags.every((h) => typeof h === "string")) {
-    const err = new Error('Pasted response is missing a valid "hashtags" array of strings');
-    err.statusCode = 422;
-    throw err;
-  }
-  return {
-    caption,
-    hashtags: parsed.hashtags.map((h) => h.replace(/^#/, "").trim()).filter(Boolean),
-    cta,
-    imagePromptSuggestion,
-    altText,
-  };
-}
-
 export function parseBlogPostResponse(rawText) {
   const parsed = parseJsonOrThrow(rawText);
   const title = requireString(parsed, "title");

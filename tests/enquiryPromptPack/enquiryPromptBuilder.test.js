@@ -2,12 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildTrainerSearchPrompt,
-  buildSocialPostPrompt,
   buildBlogPostPrompt,
 } from "../../src/services/enquiryPromptBuilder.service.js";
 import {
   parseTrainerSearchResponse,
-  parseSocialPostResponse,
   parseBlogPostResponse,
 } from "../../src/services/enquiryPromptParser.service.js";
 
@@ -44,13 +42,6 @@ test("buildTrainerSearchPrompt includes course overview/topics when a course is 
   assert.match(prompt, /Cluster setup/);
 });
 
-test("buildSocialPostPrompt reuses the Social Factory LINKEDIN prompt shape", () => {
-  const { prompt } = buildSocialPostPrompt(SAMPLE_COURSE);
-  assert.match(prompt, /LinkedIn/);
-  assert.match(prompt, /"caption"/);
-  assert.match(prompt, /"hashtags"/);
-});
-
 test("buildBlogPostPrompt grounds the prompt in the course's own content only", () => {
   const { prompt } = buildBlogPostPrompt(SAMPLE_COURSE);
   assert.match(prompt, /Certified Kubernetes Administrator/);
@@ -66,19 +57,6 @@ test("trainerSearch prompt <-> parser round trip", () => {
   const pasted = JSON.stringify({ postText: "We're hiring a Kubernetes trainer! #Trainer #FreelanceTrainer" });
   const parsed = parseTrainerSearchResponse(pasted);
   assert.equal(parsed.postText, "We're hiring a Kubernetes trainer! #Trainer #FreelanceTrainer");
-});
-
-test("socialPost prompt <-> parser round trip", () => {
-  const pasted = JSON.stringify({
-    caption: "Learn Kubernetes with Technohana.",
-    hashtags: ["#Kubernetes", "DevOps"],
-    cta: "Enroll now",
-    imagePromptSuggestion: "A cluster diagram",
-    altText: "Kubernetes cluster diagram",
-  });
-  const parsed = parseSocialPostResponse(pasted);
-  assert.equal(parsed.caption, "Learn Kubernetes with Technohana.");
-  assert.deepEqual(parsed.hashtags, ["Kubernetes", "DevOps"]);
 });
 
 test("blogPost prompt <-> parser round trip", () => {
@@ -98,7 +76,6 @@ test("blogPost prompt <-> parser round trip", () => {
 
 test("parsers reject a response missing a required field", () => {
   assert.throws(() => parseTrainerSearchResponse(JSON.stringify({})), /postText/);
-  assert.throws(() => parseSocialPostResponse(JSON.stringify({ caption: "x" })), /cta/);
   assert.throws(() => parseBlogPostResponse(JSON.stringify({ title: "x" })), /content/);
 });
 

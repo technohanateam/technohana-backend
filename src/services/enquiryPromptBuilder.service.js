@@ -1,6 +1,5 @@
 import Course from "../models/course.model.js";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
-import { buildSocialPrompt } from "./socialFactory/socialPromptBuilder.service.js";
 
 // Builds the copy-paste prompts for the Enquiry Prompt Pack. Pure functions —
 // this file never calls Claude/OpenAI. The admin copies each prompt, runs it
@@ -57,10 +56,6 @@ Respond with ONLY a single JSON object, no other text, no markdown code fences, 
 }`;
 
   return { system, prompt, generatedAt: new Date() };
-}
-
-export function buildSocialPostPrompt(course) {
-  return buildSocialPrompt({ sourceType: "COURSE", source: course, platform: "LINKEDIN" });
 }
 
 export function buildBlogPostPrompt(course) {

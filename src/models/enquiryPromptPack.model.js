@@ -2,11 +2,13 @@ import mongoose from "mongoose";
 
 // One doc per "Generate Prompts" admin action, either from an existing
 // Enquiry row (source: "enquiry") or typed directly into the dashboard's
-// partner-course modal (source: "partner", no Enquiry involved). Every prompt
-// here is a copy-paste-into-Claude.ai-Pro workflow — this app never calls the
-// Anthropic/OpenAI SDK for it (see enquiryPromptBuilder.service.js). The
-// admin runs each prompt themselves and pastes the response back, which gets
-// parsed and stored in `parsed`.
+// partner-course modal (source: "partner", no Enquiry involved).
+// trainerSearch/blogPost are copy-paste-into-Claude.ai-Pro workflows — this
+// app never calls the Anthropic/OpenAI SDK for them (see
+// enquiryPromptBuilder.service.js). The admin runs each prompt themselves
+// and pastes the response back, which gets parsed and stored in `parsed`.
+// socialPost instead delegates straight to the Social Media Post Factory
+// (see socialPostCreation.service.js) — see the field comment below.
 const promptItemFields = {
   status: { type: String, enum: ["PROMPT_GENERATED", "PARSED"], default: "PROMPT_GENERATED" },
   generatedPrompt: {
@@ -45,15 +47,13 @@ const enquiryPromptPackSchema = new mongoose.Schema(
       },
     },
 
+    // Delegated to the Social Media Post Factory instead of being generated
+    // and pasted-back here: when a course matches, a real SocialPost doc is
+    // created (status AWAITING_PASTE) and referenced by id, so it can be
+    // reviewed/approved/scheduled through the existing Factory UI. Left null
+    // when no course matches (nothing to post about yet).
     socialPost: {
-      ...promptItemFields,
-      parsed: {
-        caption: { type: String, default: null },
-        hashtags: { type: [String], default: [] },
-        cta: { type: String, default: null },
-        imagePromptSuggestion: { type: String, default: null },
-        altText: { type: String, default: null },
-      },
+      socialPostId: { type: mongoose.Schema.Types.ObjectId, ref: "SocialPost", default: null },
     },
 
     blogPost: {

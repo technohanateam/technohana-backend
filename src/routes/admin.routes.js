@@ -38,8 +38,9 @@ import Campaign from "../models/campaign.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import EnquiryPromptPack from "../models/enquiryPromptPack.model.js";
-import { matchCourse, buildTrainerSearchPrompt, buildSocialPostPrompt, buildBlogPostPrompt } from "../services/enquiryPromptBuilder.service.js";
-import { parseTrainerSearchResponse, parseSocialPostResponse as parseEnquirySocialPostResponse, parseBlogPostResponse } from "../services/enquiryPromptParser.service.js";
+import { matchCourse, buildTrainerSearchPrompt, buildBlogPostPrompt } from "../services/enquiryPromptBuilder.service.js";
+import { parseTrainerSearchResponse, parseBlogPostResponse } from "../services/enquiryPromptParser.service.js";
+import { createSocialPostForSource } from "../services/socialFactory/socialPostCreation.service.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
 import InstructorReview, { recomputeInstructorRating } from "../models/instructorReview.model.js";
@@ -495,7 +496,10 @@ router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sale
 // post, a blog draft, all grounded in the matched Course) and lets the admin
 // paste Claude's responses back. Never calls Claude/OpenAI itself. See
 // enquiryPromptBuilder.service.js / enquiryPromptParser.service.js.
-const ENQUIRY_PROMPT_ITEMS = ["trainerSearch", "socialPost", "blogPost"];
+// socialPost is excluded here — it delegates to a real SocialPost doc (see
+// createLinkedSocialPost below) whose own paste/approve/schedule flow lives
+// entirely in the Social Media Post Factory, not on this pack.
+const ENQUIRY_PROMPT_ITEMS = ["trainerSearch", "blogPost"];
 
 // Shared by both the enquiry-flow and partner-flow paste routes: parses the
 // pasted text for `item`, stores it on `pack[item]`, and (for blogPost) saves
@@ -504,10 +508,7 @@ const ENQUIRY_PROMPT_ITEMS = ["trainerSearch", "socialPost", "blogPost"];
 async function applyPastedResponse(pack, item, text) {
   pack[item].pastedResponseRaw = text;
   try {
-    const parsed =
-      item === "trainerSearch" ? parseTrainerSearchResponse(text) :
-      item === "socialPost" ? parseEnquirySocialPostResponse(text) :
-      parseBlogPostResponse(text);
+    const parsed = item === "trainerSearch" ? parseTrainerSearchResponse(text) : parseBlogPostResponse(text);
 
     pack[item].parsed = parsed;
     pack[item].parseError = null;
@@ -533,6 +534,15 @@ async function applyPastedResponse(pack, item, text) {
   }
 }
 
+// Shared by both generate routes: creates a real Social Media Post Factory
+// post for the matched course and returns its id, or null if no course
+// matched (nothing to post about yet).
+async function createLinkedSocialPost(course) {
+  if (!course) return null;
+  const socialPost = await createSocialPostForSource({ sourceType: "COURSE", sourceId: course._id, source: course, platform: "LINKEDIN" });
+  return socialPost._id;
+}
+
 // POST /admin/enquiries/:id/prompt-pack — generate (or return existing) prompt pack
 router.post("/enquiries/:id/prompt-pack", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
   try {
@@ -553,10 +563,10 @@ router.post("/enquiries/:id/prompt-pack", authenticateAdmin, requirePage("enquir
         courseTitle: course?.courseTitle || enquiry.courseTitle || null,
       },
       trainerSearch: { generatedPrompt: buildTrainerSearchPrompt(enquiry, course) },
+      socialPost: { socialPostId: await createLinkedSocialPost(course) },
     });
 
     if (course) {
-      pack.socialPost.generatedPrompt = buildSocialPostPrompt(course);
       pack.blogPost.generatedPrompt = buildBlogPostPrompt(course);
     }
 
@@ -627,10 +637,10 @@ router.post("/prompt-packs", authenticateAdmin, requirePage("enquiries", "sales-
         courseTitle: course?.courseTitle || courseTitle.trim(),
       },
       trainerSearch: { generatedPrompt: buildTrainerSearchPrompt({ courseTitle }, course) },
+      socialPost: { socialPostId: await createLinkedSocialPost(course) },
     });
 
     if (course) {
-      pack.socialPost.generatedPrompt = buildSocialPostPrompt(course);
       pack.blogPost.generatedPrompt = buildBlogPostPrompt(course);
     }
 
