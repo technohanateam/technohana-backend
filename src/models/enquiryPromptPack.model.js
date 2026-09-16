@@ -38,6 +38,7 @@ const enquiryPromptPackSchema = new mongoose.Schema(
       found: { type: Boolean, default: false },
       courseId: { type: mongoose.Schema.Types.ObjectId, ref: "Course", default: null },
       courseTitle: { type: String, default: null },
+      courseSlug: { type: String, default: null },
     },
 
     trainerSearch: {
@@ -67,8 +68,14 @@ const enquiryPromptPackSchema = new mongoose.Schema(
         focusKeyword: { type: String, default: null },
         tags: { type: [String], default: [] },
       },
-      // Set once the parsed draft is saved as a Blogs doc (published: false).
+      // Legacy — no longer populated. Earlier packs saved the parsed draft
+      // straight to Blogs; new packs go through Content Factory instead (see
+      // opportunityId below), so this stays only for already-created docs.
       blogId: { type: mongoose.Schema.Types.ObjectId, ref: "Blogs", default: null },
+      // Set once the parsed draft is seeded as a ContentOpportunity in
+      // HUMAN_REVIEW — becomes a real Blogs doc once a human approves it
+      // there (see articleImport.service.js#buildOpportunityFromImport).
+      opportunityId: { type: mongoose.Schema.Types.ObjectId, ref: "ContentOpportunity", default: null },
     },
   },
   { timestamps: true }
