@@ -38,8 +38,8 @@ import Campaign from "../models/campaign.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import EnquiryPromptPack from "../models/enquiryPromptPack.model.js";
-import { matchCourse, buildTrainerSearchPrompt, buildBlogPostPrompt } from "../services/enquiryPromptBuilder.service.js";
-import { parseTrainerSearchResponse, parseBlogPostResponse } from "../services/enquiryPromptParser.service.js";
+import { matchCourse, buildTrainerSearchPrompt, buildBlogPostPrompt, buildCourseBriefPrompt } from "../services/enquiryPromptBuilder.service.js";
+import { parseTrainerSearchResponse, parseBlogPostResponse, parseCourseBriefResponse } from "../services/enquiryPromptParser.service.js";
 import { createSocialPostForSource } from "../services/socialFactory/socialPostCreation.service.js";
 import { buildOpportunityFromImport } from "../services/contentFactory/articleImport.service.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
@@ -500,7 +500,7 @@ router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sale
 // socialPost is excluded here — it delegates to a real SocialPost doc (see
 // createLinkedSocialPost below) whose own paste/approve/schedule flow lives
 // entirely in the Social Media Post Factory, not on this pack.
-const ENQUIRY_PROMPT_ITEMS = ["trainerSearch", "blogPost"];
+const ENQUIRY_PROMPT_ITEMS = ["trainerSearch", "blogPost", "courseBrief"];
 
 // Shared by both the enquiry-flow and partner-flow paste routes: parses the
 // pasted text for `item`, stores it on `pack[item]`, and (for blogPost) seeds
@@ -512,7 +512,10 @@ const ENQUIRY_PROMPT_ITEMS = ["trainerSearch", "blogPost"];
 async function applyPastedResponse(pack, item, text, { admin } = {}) {
   pack[item].pastedResponseRaw = text;
   try {
-    const parsed = item === "trainerSearch" ? parseTrainerSearchResponse(text) : parseBlogPostResponse(text);
+    const parsed =
+      item === "trainerSearch" ? parseTrainerSearchResponse(text) :
+      item === "courseBrief" ? parseCourseBriefResponse(text) :
+      parseBlogPostResponse(text);
 
     pack[item].parsed = parsed;
     pack[item].parseError = null;
@@ -571,6 +574,8 @@ router.post("/enquiries/:id/prompt-pack", authenticateAdmin, requirePage("enquir
 
     if (course) {
       pack.blogPost.generatedPrompt = buildBlogPostPrompt(course);
+    } else {
+      pack.courseBrief.generatedPrompt = buildCourseBriefPrompt(enquiry.courseTitle || "the requested course");
     }
 
     await pack.save();
@@ -646,6 +651,8 @@ router.post("/prompt-packs", authenticateAdmin, requirePage("enquiries", "sales-
 
     if (course) {
       pack.blogPost.generatedPrompt = buildBlogPostPrompt(course);
+    } else {
+      pack.courseBrief.generatedPrompt = buildCourseBriefPrompt(courseTitle.trim());
     }
 
     await pack.save();

@@ -29,6 +29,16 @@ export function parseTrainerSearchResponse(rawText) {
   return { postText: requireString(parsed, "postText") };
 }
 
+// Deliberately loose — mirrors AdminCourses.jsx's own "Paste JSON" tab
+// (handleApplyJson), which only requires courseTitle. Everything else is
+// optional and gets reviewed/edited by the admin in the Courses form before
+// they save, same as a manually-typed course.
+export function parseCourseBriefResponse(rawText) {
+  const parsed = parseJsonOrThrow(rawText);
+  requireString(parsed, "courseTitle");
+  return parsed;
+}
+
 export function parseBlogPostResponse(rawText) {
   const parsed = parseJsonOrThrow(rawText);
   const title = requireString(parsed, "title");

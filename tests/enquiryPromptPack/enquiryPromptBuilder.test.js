@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import {
   buildTrainerSearchPrompt,
   buildBlogPostPrompt,
+  buildCourseBriefPrompt,
 } from "../../src/services/enquiryPromptBuilder.service.js";
 import {
   parseTrainerSearchResponse,
   parseBlogPostResponse,
+  parseCourseBriefResponse,
 } from "../../src/services/enquiryPromptParser.service.js";
 
 const SAMPLE_COURSE = {
@@ -50,6 +52,15 @@ test("buildBlogPostPrompt grounds the prompt in the course's own content only", 
   assert.match(prompt, /"focusKeyword"/);
 });
 
+test("buildCourseBriefPrompt mirrors AdminCourses.jsx's CLAUDE_COURSE_PROMPT shape", () => {
+  const { prompt } = buildCourseBriefPrompt("Advanced Terraform");
+  assert.match(prompt, /Course topic: Advanced Terraform/);
+  assert.match(prompt, /"courseTitle"/);
+  assert.match(prompt, /"prices"/);
+  assert.match(prompt, /"modules"/);
+  assert.match(prompt, /not a flat currency-exchange conversion/);
+});
+
 // Round-trip: a hand-written "pasted Claude response" for each prompt's exact
 // declared JSON shape must parse cleanly — this is the real regression risk
 // (builder prompt drifting out of sync with the parser's expected fields).
@@ -74,9 +85,20 @@ test("blogPost prompt <-> parser round trip", () => {
   assert.deepEqual(parsed.tags, ["Kubernetes", "DevOps"]);
 });
 
+test("courseBrief prompt <-> parser round trip, only courseTitle required", () => {
+  const pasted = JSON.stringify({ courseTitle: "Advanced Terraform", category: "DevOps" });
+  const parsed = parseCourseBriefResponse(pasted);
+  assert.equal(parsed.courseTitle, "Advanced Terraform");
+  // Every other field is optional — a response with just courseTitle must
+  // still parse (AdminCourses.jsx's own CourseModal fills the rest with "").
+  const minimal = parseCourseBriefResponse(JSON.stringify({ courseTitle: "Minimal Course" }));
+  assert.equal(minimal.courseTitle, "Minimal Course");
+});
+
 test("parsers reject a response missing a required field", () => {
   assert.throws(() => parseTrainerSearchResponse(JSON.stringify({})), /postText/);
   assert.throws(() => parseBlogPostResponse(JSON.stringify({ title: "x" })), /content/);
+  assert.throws(() => parseCourseBriefResponse(JSON.stringify({})), /courseTitle/);
 });
 
 test("parsers reject text with no JSON object at all", () => {

@@ -48,6 +48,16 @@ const enquiryPromptPackSchema = new mongoose.Schema(
       },
     },
 
+    // Only generated when courseMatch.found is false — a course-brief prompt
+    // (mirrors AdminCourses.jsx's own CLAUDE_COURSE_PROMPT). Never auto-saved:
+    // once parsed, the frontend hands the result to the existing admin
+    // Courses form pre-filled, and the admin still reviews/edits and clicks
+    // Save themselves — a Course has no draft state, so this stays manual.
+    courseBrief: {
+      ...promptItemFields,
+      parsed: { type: mongoose.Schema.Types.Mixed, default: null },
+    },
+
     // Delegated to the Social Media Post Factory instead of being generated
     // and pasted-back here: when a course matches, a real SocialPost doc is
     // created (status AWAITING_PASTE) and referenced by id, so it can be

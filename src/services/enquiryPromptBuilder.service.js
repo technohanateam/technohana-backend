@@ -58,6 +58,48 @@ Respond with ONLY a single JSON object, no other text, no markdown code fences, 
   return { system, prompt, generatedAt: new Date() };
 }
 
+// Mirrors CLAUDE_COURSE_PROMPT in technohana-frontend-master's AdminCourses.jsx
+// (the "Paste JSON" tab's own prompt) so a pasted response can hand off
+// straight into that page's CourseModal — same JSON shape, same instructions.
+export function buildCourseBriefPrompt(courseTitle) {
+  const system =
+    "You are Technohana's course catalog content writer. You draft new training courses as structured JSON, ready to review and publish — never inventing certifications or outcomes the course can't actually deliver.";
+
+  const prompt = `Generate a training course as a single JSON object (no markdown, no explanation — just the JSON) with exactly these fields:
+
+{
+  "courseTitle": "string",
+  "category": "string, e.g. Microsoft Azure",
+  "difficulty": "Beginner | Intermediate | Advanced",
+  "price": "number as string, e.g. 33600 (INR)",
+  "prices": { "inr": 33600, "usd": 449, "aed": 1699, "gbp": 359, "eur": 419 },
+  "instructor": "string",
+  "language": "English",
+  "courseDays": "e.g. 03 Days",
+  "courseTime": "e.g. 24 Hours",
+  "courseModules": "e.g. 12 Modules",
+  "noStudents": "e.g. 30",
+  "rating": "e.g. 4.3",
+  "overview": "2-3 paragraph course overview",
+  "courseObjective": "what this course aims to achieve",
+  "courseOutcomes": "what learners will achieve",
+  "labs": "hands-on lab description",
+  "prerequisites": ["array of strings"],
+  "whatWillYouLearn": ["array of strings"],
+  "requirements": ["array of strings"],
+  "targetAudience": ["array of strings"],
+  "modules": [
+    { "moduleTitle": "Module 01: Introduction", "content": ["Topic 1", "Topic 2"] }
+  ]
+}
+
+"prices" must be independently reasonable regional list prices for each currency — not a flat currency-exchange conversion of the INR figure. Base each on realistic in-market pricing for a course of this length/depth/certification level in that region (e.g. US/UK/EU courses are typically priced higher relative to PPP than a straight FX conversion would suggest).
+
+Course topic: ${courseTitle}`;
+
+  return { system, prompt, generatedAt: new Date() };
+}
+
 export function buildBlogPostPrompt(course) {
   const system =
     "You are Technohana's Senior Content Writer. You write SEO-friendly, factually grounded blog articles for a professional training academy audience, using only the source material provided — never inventing facts, statistics, or claims not present in it.";
