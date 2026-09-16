@@ -2,8 +2,9 @@ import SocialPost from "../../models/socialFactory/socialPost.model.js";
 import Course from "../../models/course.model.js";
 import { Blogs } from "../../models/blogs.model.js";
 import ContentOpportunity from "../../models/contentOpportunity.model.js";
-import { buildSocialPrompt, SOCIAL_PLATFORMS, PLATFORM_RULES } from "../../services/socialFactory/socialPromptBuilder.service.js";
+import { SOCIAL_PLATFORMS, PLATFORM_RULES } from "../../services/socialFactory/socialPromptBuilder.service.js";
 import { parseSocialPostResponse } from "../../services/socialFactory/socialPostParser.service.js";
+import { createSocialPostForSource } from "../../services/socialFactory/socialPostCreation.service.js";
 
 // GET /admin/social-factory/posts
 export const listPosts = async (req, res) => {
@@ -64,17 +65,7 @@ export const createPost = async (req, res) => {
       return res.status(404).json({ success: false, message: `${sourceType} not found` });
     }
 
-    const generatedPrompt = buildSocialPrompt({ sourceType, source, platform });
-
-    const post = await SocialPost.create({
-      sourceType,
-      sourceId,
-      sourceSlug: sourceType === "COURSE" ? source.courseSlug || source.id || null : source.slug || null,
-      sourceTitle: sourceType === "COURSE" ? source.courseTitle : source.title,
-      platform,
-      status: "AWAITING_PASTE",
-      generatedPrompt,
-    });
+    const post = await createSocialPostForSource({ sourceType, sourceId, source, platform });
 
     return res.status(201).json({ success: true, data: post, message: "Prompt generated" });
   } catch (err) {

@@ -2,11 +2,13 @@ import mongoose from "mongoose";
 
 // One doc per "Generate Prompts" admin action, either from an existing
 // Enquiry row (source: "enquiry") or typed directly into the dashboard's
-// partner-course modal (source: "partner", no Enquiry involved). Every prompt
-// here is a copy-paste-into-Claude.ai-Pro workflow — this app never calls the
-// Anthropic/OpenAI SDK for it (see enquiryPromptBuilder.service.js). The
-// admin runs each prompt themselves and pastes the response back, which gets
-// parsed and stored in `parsed`.
+// partner-course modal (source: "partner", no Enquiry involved).
+// trainerSearch/blogPost are copy-paste-into-Claude.ai-Pro workflows — this
+// app never calls the Anthropic/OpenAI SDK for them (see
+// enquiryPromptBuilder.service.js). The admin runs each prompt themselves
+// and pastes the response back, which gets parsed and stored in `parsed`.
+// socialPost instead delegates straight to the Social Media Post Factory
+// (see socialPostCreation.service.js) — see the field comment below.
 const promptItemFields = {
   status: { type: String, enum: ["PROMPT_GENERATED", "PARSED"], default: "PROMPT_GENERATED" },
   generatedPrompt: {
@@ -36,6 +38,7 @@ const enquiryPromptPackSchema = new mongoose.Schema(
       found: { type: Boolean, default: false },
       courseId: { type: mongoose.Schema.Types.ObjectId, ref: "Course", default: null },
       courseTitle: { type: String, default: null },
+      courseSlug: { type: String, default: null },
     },
 
     trainerSearch: {
@@ -45,15 +48,23 @@ const enquiryPromptPackSchema = new mongoose.Schema(
       },
     },
 
-    socialPost: {
+    // Only generated when courseMatch.found is false — a course-brief prompt
+    // (mirrors AdminCourses.jsx's own CLAUDE_COURSE_PROMPT). Never auto-saved:
+    // once parsed, the frontend hands the result to the existing admin
+    // Courses form pre-filled, and the admin still reviews/edits and clicks
+    // Save themselves — a Course has no draft state, so this stays manual.
+    courseBrief: {
       ...promptItemFields,
-      parsed: {
-        caption: { type: String, default: null },
-        hashtags: { type: [String], default: [] },
-        cta: { type: String, default: null },
-        imagePromptSuggestion: { type: String, default: null },
-        altText: { type: String, default: null },
-      },
+      parsed: { type: mongoose.Schema.Types.Mixed, default: null },
+    },
+
+    // Delegated to the Social Media Post Factory instead of being generated
+    // and pasted-back here: when a course matches, a real SocialPost doc is
+    // created (status AWAITING_PASTE) and referenced by id, so it can be
+    // reviewed/approved/scheduled through the existing Factory UI. Left null
+    // when no course matches (nothing to post about yet).
+    socialPost: {
+      socialPostId: { type: mongoose.Schema.Types.ObjectId, ref: "SocialPost", default: null },
     },
 
     blogPost: {
@@ -67,8 +78,14 @@ const enquiryPromptPackSchema = new mongoose.Schema(
         focusKeyword: { type: String, default: null },
         tags: { type: [String], default: [] },
       },
-      // Set once the parsed draft is saved as a Blogs doc (published: false).
+      // Legacy — no longer populated. Earlier packs saved the parsed draft
+      // straight to Blogs; new packs go through Content Factory instead (see
+      // opportunityId below), so this stays only for already-created docs.
       blogId: { type: mongoose.Schema.Types.ObjectId, ref: "Blogs", default: null },
+      // Set once the parsed draft is seeded as a ContentOpportunity in
+      // HUMAN_REVIEW — becomes a real Blogs doc once a human approves it
+      // there (see articleImport.service.js#buildOpportunityFromImport).
+      opportunityId: { type: mongoose.Schema.Types.ObjectId, ref: "ContentOpportunity", default: null },
     },
   },
   { timestamps: true }

@@ -29,24 +29,14 @@ export function parseTrainerSearchResponse(rawText) {
   return { postText: requireString(parsed, "postText") };
 }
 
-export function parseSocialPostResponse(rawText) {
+// Deliberately loose — mirrors AdminCourses.jsx's own "Paste JSON" tab
+// (handleApplyJson), which only requires courseTitle. Everything else is
+// optional and gets reviewed/edited by the admin in the Courses form before
+// they save, same as a manually-typed course.
+export function parseCourseBriefResponse(rawText) {
   const parsed = parseJsonOrThrow(rawText);
-  const caption = requireString(parsed, "caption");
-  const cta = requireString(parsed, "cta");
-  const imagePromptSuggestion = requireString(parsed, "imagePromptSuggestion");
-  const altText = requireString(parsed, "altText");
-  if (!Array.isArray(parsed.hashtags) || !parsed.hashtags.every((h) => typeof h === "string")) {
-    const err = new Error('Pasted response is missing a valid "hashtags" array of strings');
-    err.statusCode = 422;
-    throw err;
-  }
-  return {
-    caption,
-    hashtags: parsed.hashtags.map((h) => h.replace(/^#/, "").trim()).filter(Boolean),
-    cta,
-    imagePromptSuggestion,
-    altText,
-  };
+  requireString(parsed, "courseTitle");
+  return parsed;
 }
 
 export function parseBlogPostResponse(rawText) {

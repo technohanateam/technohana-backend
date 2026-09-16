@@ -38,8 +38,10 @@ import Campaign from "../models/campaign.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import EnquiryPromptPack from "../models/enquiryPromptPack.model.js";
-import { matchCourse, buildTrainerSearchPrompt, buildSocialPostPrompt, buildBlogPostPrompt } from "../services/enquiryPromptBuilder.service.js";
-import { parseTrainerSearchResponse, parseSocialPostResponse as parseEnquirySocialPostResponse, parseBlogPostResponse } from "../services/enquiryPromptParser.service.js";
+import { matchCourse, buildTrainerSearchPrompt, buildBlogPostPrompt, buildCourseBriefPrompt } from "../services/enquiryPromptBuilder.service.js";
+import { parseTrainerSearchResponse, parseBlogPostResponse, parseCourseBriefResponse } from "../services/enquiryPromptParser.service.js";
+import { createSocialPostForSource } from "../services/socialFactory/socialPostCreation.service.js";
+import { buildOpportunityFromImport } from "../services/contentFactory/articleImport.service.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
 import InstructorReview, { recomputeInstructorRating } from "../models/instructorReview.model.js";
@@ -495,18 +497,24 @@ router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sale
 // post, a blog draft, all grounded in the matched Course) and lets the admin
 // paste Claude's responses back. Never calls Claude/OpenAI itself. See
 // enquiryPromptBuilder.service.js / enquiryPromptParser.service.js.
-const ENQUIRY_PROMPT_ITEMS = ["trainerSearch", "socialPost", "blogPost"];
+// socialPost is excluded here — it delegates to a real SocialPost doc (see
+// createLinkedSocialPost below) whose own paste/approve/schedule flow lives
+// entirely in the Social Media Post Factory, not on this pack.
+const ENQUIRY_PROMPT_ITEMS = ["trainerSearch", "blogPost", "courseBrief"];
 
 // Shared by both the enquiry-flow and partner-flow paste routes: parses the
-// pasted text for `item`, stores it on `pack[item]`, and (for blogPost) saves
-// a draft Blogs doc the first time it parses successfully. Mutates `pack` in
-// place but does not save it — callers call pack.save() themselves.
-async function applyPastedResponse(pack, item, text) {
+// pasted text for `item`, stores it on `pack[item]`, and (for blogPost) seeds
+// a Content Factory ContentOpportunity in HUMAN_REVIEW the first time it
+// parses successfully, so the blog draft goes through the same editorial
+// review every other AI-generated post does before it becomes a real Blogs
+// doc (see articleImport.service.js#buildOpportunityFromImport). Mutates
+// `pack` in place but does not save it — callers call pack.save() themselves.
+async function applyPastedResponse(pack, item, text, { admin } = {}) {
   pack[item].pastedResponseRaw = text;
   try {
     const parsed =
       item === "trainerSearch" ? parseTrainerSearchResponse(text) :
-      item === "socialPost" ? parseEnquirySocialPostResponse(text) :
+      item === "courseBrief" ? parseCourseBriefResponse(text) :
       parseBlogPostResponse(text);
 
     pack[item].parsed = parsed;
@@ -514,23 +522,30 @@ async function applyPastedResponse(pack, item, text) {
     pack[item].status = "PARSED";
     pack[item].parsedAt = new Date();
 
-    if (item === "blogPost" && !pack.blogPost.blogId) {
-      const blog = new Blogs({
-        title: parsed.title,
-        content: parsed.content,
-        excerpt: parsed.excerpt,
-        metaTitle: parsed.metaTitle,
-        metaDescription: parsed.metaDescription,
-        focusKeyword: parsed.focusKeyword,
-        tags: parsed.tags,
-        published: false,
+    if (item === "blogPost" && !pack.blogPost.opportunityId) {
+      const opportunity = await buildOpportunityFromImport({
+        articleDraft: parsed,
+        courseSlug: pack.courseMatch.courseSlug,
+        courseTitle: pack.courseMatch.courseTitle,
+        contentType: "COURSE_GUIDE",
+        importedBy: admin?.name || admin?.email || null,
+        origin: "PROMPT_PACK",
       });
-      await blog.save();
-      pack.blogPost.blogId = blog._id;
+      await opportunity.save();
+      pack.blogPost.opportunityId = opportunity._id;
     }
   } catch (err) {
     pack[item].parseError = err.message;
   }
+}
+
+// Shared by both generate routes: creates a real Social Media Post Factory
+// post for the matched course and returns its id, or null if no course
+// matched (nothing to post about yet).
+async function createLinkedSocialPost(course) {
+  if (!course) return null;
+  const socialPost = await createSocialPostForSource({ sourceType: "COURSE", sourceId: course._id, source: course, platform: "LINKEDIN" });
+  return socialPost._id;
 }
 
 // POST /admin/enquiries/:id/prompt-pack — generate (or return existing) prompt pack
@@ -551,13 +566,16 @@ router.post("/enquiries/:id/prompt-pack", authenticateAdmin, requirePage("enquir
         found: Boolean(course),
         courseId: course?._id || null,
         courseTitle: course?.courseTitle || enquiry.courseTitle || null,
+        courseSlug: course?.courseSlug || null,
       },
       trainerSearch: { generatedPrompt: buildTrainerSearchPrompt(enquiry, course) },
+      socialPost: { socialPostId: await createLinkedSocialPost(course) },
     });
 
     if (course) {
-      pack.socialPost.generatedPrompt = buildSocialPostPrompt(course);
       pack.blogPost.generatedPrompt = buildBlogPostPrompt(course);
+    } else {
+      pack.courseBrief.generatedPrompt = buildCourseBriefPrompt(enquiry.courseTitle || "the requested course");
     }
 
     await pack.save();
@@ -593,7 +611,7 @@ router.post("/enquiries/:id/prompt-pack/:item/paste", authenticateAdmin, require
     const pack = await EnquiryPromptPack.findOne({ enquiryId: req.params.id });
     if (!pack) return res.status(404).json({ success: false, message: "No prompt pack generated yet" });
 
-    await applyPastedResponse(pack, item, text);
+    await applyPastedResponse(pack, item, text, { admin: req.admin });
     await pack.save();
     return res.json({ success: true, data: pack });
   } catch (err) {
@@ -625,13 +643,16 @@ router.post("/prompt-packs", authenticateAdmin, requirePage("enquiries", "sales-
         found: Boolean(course),
         courseId: course?._id || null,
         courseTitle: course?.courseTitle || courseTitle.trim(),
+        courseSlug: course?.courseSlug || null,
       },
       trainerSearch: { generatedPrompt: buildTrainerSearchPrompt({ courseTitle }, course) },
+      socialPost: { socialPostId: await createLinkedSocialPost(course) },
     });
 
     if (course) {
-      pack.socialPost.generatedPrompt = buildSocialPostPrompt(course);
       pack.blogPost.generatedPrompt = buildBlogPostPrompt(course);
+    } else {
+      pack.courseBrief.generatedPrompt = buildCourseBriefPrompt(courseTitle.trim());
     }
 
     await pack.save();
@@ -667,7 +688,7 @@ router.post("/prompt-packs/:id/:item/paste", authenticateAdmin, requirePage("enq
     const pack = await EnquiryPromptPack.findById(req.params.id);
     if (!pack) return res.status(404).json({ success: false, message: "Prompt pack not found" });
 
-    await applyPastedResponse(pack, item, text);
+    await applyPastedResponse(pack, item, text, { admin: req.admin });
     await pack.save();
     return res.json({ success: true, data: pack });
   } catch (err) {

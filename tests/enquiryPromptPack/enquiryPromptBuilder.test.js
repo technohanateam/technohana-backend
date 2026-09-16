@@ -2,13 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildTrainerSearchPrompt,
-  buildSocialPostPrompt,
   buildBlogPostPrompt,
+  buildCourseBriefPrompt,
 } from "../../src/services/enquiryPromptBuilder.service.js";
 import {
   parseTrainerSearchResponse,
-  parseSocialPostResponse,
   parseBlogPostResponse,
+  parseCourseBriefResponse,
 } from "../../src/services/enquiryPromptParser.service.js";
 
 const SAMPLE_COURSE = {
@@ -44,19 +44,21 @@ test("buildTrainerSearchPrompt includes course overview/topics when a course is 
   assert.match(prompt, /Cluster setup/);
 });
 
-test("buildSocialPostPrompt reuses the Social Factory LINKEDIN prompt shape", () => {
-  const { prompt } = buildSocialPostPrompt(SAMPLE_COURSE);
-  assert.match(prompt, /LinkedIn/);
-  assert.match(prompt, /"caption"/);
-  assert.match(prompt, /"hashtags"/);
-});
-
 test("buildBlogPostPrompt grounds the prompt in the course's own content only", () => {
   const { prompt } = buildBlogPostPrompt(SAMPLE_COURSE);
   assert.match(prompt, /Certified Kubernetes Administrator/);
   assert.match(prompt, /do not invent facts/i);
   assert.match(prompt, /"title"/);
   assert.match(prompt, /"focusKeyword"/);
+});
+
+test("buildCourseBriefPrompt mirrors AdminCourses.jsx's CLAUDE_COURSE_PROMPT shape", () => {
+  const { prompt } = buildCourseBriefPrompt("Advanced Terraform");
+  assert.match(prompt, /Course topic: Advanced Terraform/);
+  assert.match(prompt, /"courseTitle"/);
+  assert.match(prompt, /"prices"/);
+  assert.match(prompt, /"modules"/);
+  assert.match(prompt, /not a flat currency-exchange conversion/);
 });
 
 // Round-trip: a hand-written "pasted Claude response" for each prompt's exact
@@ -66,19 +68,6 @@ test("trainerSearch prompt <-> parser round trip", () => {
   const pasted = JSON.stringify({ postText: "We're hiring a Kubernetes trainer! #Trainer #FreelanceTrainer" });
   const parsed = parseTrainerSearchResponse(pasted);
   assert.equal(parsed.postText, "We're hiring a Kubernetes trainer! #Trainer #FreelanceTrainer");
-});
-
-test("socialPost prompt <-> parser round trip", () => {
-  const pasted = JSON.stringify({
-    caption: "Learn Kubernetes with Technohana.",
-    hashtags: ["#Kubernetes", "DevOps"],
-    cta: "Enroll now",
-    imagePromptSuggestion: "A cluster diagram",
-    altText: "Kubernetes cluster diagram",
-  });
-  const parsed = parseSocialPostResponse(pasted);
-  assert.equal(parsed.caption, "Learn Kubernetes with Technohana.");
-  assert.deepEqual(parsed.hashtags, ["Kubernetes", "DevOps"]);
 });
 
 test("blogPost prompt <-> parser round trip", () => {
@@ -96,10 +85,20 @@ test("blogPost prompt <-> parser round trip", () => {
   assert.deepEqual(parsed.tags, ["Kubernetes", "DevOps"]);
 });
 
+test("courseBrief prompt <-> parser round trip, only courseTitle required", () => {
+  const pasted = JSON.stringify({ courseTitle: "Advanced Terraform", category: "DevOps" });
+  const parsed = parseCourseBriefResponse(pasted);
+  assert.equal(parsed.courseTitle, "Advanced Terraform");
+  // Every other field is optional — a response with just courseTitle must
+  // still parse (AdminCourses.jsx's own CourseModal fills the rest with "").
+  const minimal = parseCourseBriefResponse(JSON.stringify({ courseTitle: "Minimal Course" }));
+  assert.equal(minimal.courseTitle, "Minimal Course");
+});
+
 test("parsers reject a response missing a required field", () => {
   assert.throws(() => parseTrainerSearchResponse(JSON.stringify({})), /postText/);
-  assert.throws(() => parseSocialPostResponse(JSON.stringify({ caption: "x" })), /cta/);
   assert.throws(() => parseBlogPostResponse(JSON.stringify({ title: "x" })), /content/);
+  assert.throws(() => parseCourseBriefResponse(JSON.stringify({})), /courseTitle/);
 });
 
 test("parsers reject text with no JSON object at all", () => {
