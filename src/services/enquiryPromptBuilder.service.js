@@ -9,7 +9,10 @@ import { buildSocialPrompt } from "./socialFactory/socialPromptBuilder.service.j
 
 // Looks the enquiry's course up in the Course catalog: by courseId first
 // (matches Course.id, the catalog's public string id — not the Mongo _id),
-// then by an exact case-insensitive courseTitle match.
+// then by courseTitle — exact match first, falling back to a substring match
+// (handles an acronym like "GICSP" typed against the full stored title
+// "GICSP - Global Industrial Cybersecurity Professional"), then to matching
+// just the acronym-style prefix before " - " in the stored title.
 export async function matchCourse(enquiry) {
   if (enquiry.courseId) {
     const byId = await Course.findOne({ id: enquiry.courseId }).lean();
@@ -18,8 +21,18 @@ export async function matchCourse(enquiry) {
   if (enquiry.courseTitle) {
     const regex = buildRegexQuery(enquiry.courseTitle);
     if (regex) {
-      const byTitle = await Course.findOne({ courseTitle: new RegExp(`^${regex.source}$`, "i") }).lean();
-      if (byTitle) return byTitle;
+      const byExactTitle = await Course.findOne({ courseTitle: new RegExp(`^${regex.source}$`, "i") }).lean();
+      if (byExactTitle) return byExactTitle;
+
+      const bySubstring = await Course.findOne({ courseTitle: regex }).lean();
+      if (bySubstring) return bySubstring;
+
+      const trimmedTitle = enquiry.courseTitle.trim().toLowerCase();
+      const candidates = await Course.find({}, { courseTitle: 1 }).lean();
+      const byAcronymPrefix = candidates.find(
+        (c) => c.courseTitle?.split(" - ")[0]?.trim().toLowerCase() === trimmedTitle
+      );
+      if (byAcronymPrefix) return byAcronymPrefix;
     }
   }
   return null;
