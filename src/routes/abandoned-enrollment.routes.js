@@ -22,6 +22,17 @@ const markAbandonedLimiter = rateLimit({
   keyGenerator: (req) => ipKeyGenerator(req.ip),
 })
 
+// Throttles the AI-triggered recovery-email send so a single logged-in user can't
+// burn AI/email budget by repeatedly hitting this endpoint (mirrors admin.routes.js's adminAiLimiter pattern).
+const sendReminderLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip),
+  message: "Too many reminder requests. Please try again later.",
+})
+
 // Save/update enrollment form progress (called on every field change)
 router.post("/save-progress", authenticateJWT, saveEnrollmentFormProgress)
 
@@ -32,7 +43,7 @@ router.get("/progress", authenticateJWT, getEnrollmentFormProgress)
 router.post("/mark-abandoned", markAbandonedLimiter, markFormAbandoned)
 
 // Send reminder email for abandoned enrollments (manual trigger or scheduled job)
-router.post("/send-reminder", authenticateJWT, sendEnrollmentReminder)
+router.post("/send-reminder", authenticateJWT, sendReminderLimiter, sendEnrollmentReminder)
 
 // Get all abandoned enrollments (admin only — contains PII)
 router.get("/abandoned-list", authenticateAdmin, requirePage("enrollments"), getAbandonedEnrollments)
