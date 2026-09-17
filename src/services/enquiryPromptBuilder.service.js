@@ -12,6 +12,10 @@ import { buildRegexQuery } from "../utils/escapeRegex.js";
 // (handles an acronym like "GICSP" typed against the full stored title
 // "GICSP - Global Industrial Cybersecurity Professional"), then to matching
 // just the acronym-style prefix before " - " in the stored title.
+// TODO: the enquiry-sourced flow doesn't yet fall back to
+// matchCourseByDescription() using the Enquiry's own description/message
+// field the way the partner flow does (admin.routes.js's /prompt-packs
+// route) — a deliberately deferred follow-up, not an oversight.
 export async function matchCourse(enquiry) {
   if (enquiry.courseId) {
     const byId = await Course.findOne({ id: enquiry.courseId }).lean();
@@ -35,6 +39,32 @@ export async function matchCourse(enquiry) {
     }
   }
   return null;
+}
+
+// Fallback for when a customer states a requirement in their own words
+// instead of naming a course (e.g. "identity and access management
+// training, something like Okta") and matchCourse() above found nothing by
+// title. Runs a plain MongoDB $text search over the catalog's description
+// fields (see the text index on Course) and returns the single top-scoring
+// hit, if any — a keyword match, not a semantic/AI judgement, so the caller
+// must present it to the admin as a suggestion to confirm, not a certainty.
+// Confidence is a coarse bucket derived from the $text relevance score.
+export async function matchCourseByDescription(description) {
+  if (!description || !description.trim()) return null;
+
+  const [top] = await Course.find(
+    { $text: { $search: description.trim() } },
+    { score: { $meta: "textScore" } }
+  )
+    .sort({ score: { $meta: "textScore" } })
+    .limit(1)
+    .lean();
+
+  if (!top) return null;
+
+  const score = top.score || 0;
+  const matchConfidence = score >= 1.5 ? "high" : score >= 0.75 ? "medium" : "low";
+  return { course: top, matchConfidence };
 }
 
 export function buildTrainerSearchPrompt(enquiry, course) {
@@ -103,10 +133,17 @@ export function buildCourseBriefPrompt(courseTitle) {
   "targetAudience": ["array of strings"],
   "modules": [
     { "moduleTitle": "Module 01: Introduction", "content": ["Topic 1", "Topic 2"] }
-  ]
+  ],
+  "pricingRationale": { "inr": "1 short phrase justifying this price", "usd": "...", "aed": "...", "gbp": "...", "eur": "..." },
+  "contentBasis": "1 sentence on what this course content is based on (e.g. publicly known vendor certification track, general product knowledge) and whether you have limited/uncertain information on this specific topic",
+  "uncertainFields": ["array of strings — name any specific claim, certification, or outcome above you're not fully confident is accurate; empty array if none"]
 }
 
 "prices" must be independently reasonable regional list prices for each currency — not a flat currency-exchange conversion of the INR figure. Base each on realistic in-market pricing for a course of this length/depth/certification level in that region (e.g. US/UK/EU courses are typically priced higher relative to PPP than a straight FX conversion would suggest).
+
+For "pricingRationale", give one short, concrete reason per currency (e.g. comparable vendor/market rate, certification tier) — not a restatement of the number.
+
+Be honest in "contentBasis" and "uncertainFields": if you're not confident about a certification name, exam code, or specific outcome, say so in "uncertainFields" rather than presenting it as fact. This content will be published as-is if not corrected, so do not omit uncertainty to make the output look more complete.
 
 Course topic: ${courseTitle}`;
 

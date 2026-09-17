@@ -38,7 +38,7 @@ import Campaign from "../models/campaign.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import EnquiryPromptPack from "../models/enquiryPromptPack.model.js";
-import { matchCourse, buildTrainerSearchPrompt, buildBlogPostPrompt, buildCourseBriefPrompt } from "../services/enquiryPromptBuilder.service.js";
+import { matchCourse, matchCourseByDescription, buildTrainerSearchPrompt, buildBlogPostPrompt, buildCourseBriefPrompt } from "../services/enquiryPromptBuilder.service.js";
 import { parseTrainerSearchResponse, parseBlogPostResponse, parseCourseBriefResponse } from "../services/enquiryPromptParser.service.js";
 import { createSocialPostForSource } from "../services/socialFactory/socialPostCreation.service.js";
 import { buildOpportunityFromImport } from "../services/contentFactory/articleImport.service.js";
@@ -629,14 +629,26 @@ router.post("/enquiries/:id/prompt-pack/:item/paste", authenticateAdmin, require
 // POST /admin/prompt-packs — create a partner-sourced prompt pack
 router.post("/prompt-packs", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
   try {
-    const { courseTitle, partnerName } = req.body;
+    const { courseTitle, partnerName, courseDescription } = req.body;
     if (!courseTitle || !courseTitle.trim()) return res.status(400).json({ success: false, message: "courseTitle is required" });
 
-    const course = await matchCourse({ courseTitle });
+    let course = await matchCourse({ courseTitle });
+    let matchedVia = course ? "title" : null;
+    let matchConfidence = null;
+
+    if (!course && courseDescription && courseDescription.trim()) {
+      const descriptionMatch = await matchCourseByDescription(courseDescription);
+      if (descriptionMatch) {
+        course = descriptionMatch.course;
+        matchedVia = "description";
+        matchConfidence = descriptionMatch.matchConfidence;
+      }
+    }
 
     const pack = new EnquiryPromptPack({
       source: "partner",
       partnerCourseTitle: courseTitle.trim(),
+      partnerCourseDescription: courseDescription?.trim() || null,
       partnerName: partnerName?.trim() || null,
       createdBy: req.admin?.name || req.admin?.email || null,
       courseMatch: {
@@ -644,6 +656,8 @@ router.post("/prompt-packs", authenticateAdmin, requirePage("enquiries", "sales-
         courseId: course?._id || null,
         courseTitle: course?.courseTitle || courseTitle.trim(),
         courseSlug: course?.courseSlug || null,
+        matchedVia,
+        matchConfidence,
       },
       trainerSearch: { generatedPrompt: buildTrainerSearchPrompt({ courseTitle }, course) },
       socialPost: { socialPostId: await createLinkedSocialPost(course) },

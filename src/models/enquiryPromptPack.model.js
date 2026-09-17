@@ -28,6 +28,10 @@ const enquiryPromptPackSchema = new mongoose.Schema(
     // Only set when source === "partner" — the course name/partner typed
     // into the dashboard's "Generate Prompts" modal (no Enquiry doc exists).
     partnerCourseTitle: { type: String, default: null },
+    // The customer's free-text requirement, if given, used as a fallback
+    // keyword search when partnerCourseTitle doesn't match a course by name
+    // (see courseMatcher's matchCourseByDescription).
+    partnerCourseDescription: { type: String, default: null },
     partnerName: { type: String, default: null },
     createdBy: { type: String, default: null },
 
@@ -39,6 +43,13 @@ const enquiryPromptPackSchema = new mongoose.Schema(
       courseId: { type: mongoose.Schema.Types.ObjectId, ref: "Course", default: null },
       courseTitle: { type: String, default: null },
       courseSlug: { type: String, default: null },
+      // How the match was found — "title" (exact/substring/acronym) or
+      // "description" (keyword search fallback against partnerCourseDescription).
+      // Null when found is false or the match came from an Enquiry's own courseId/courseTitle.
+      matchedVia: { type: String, enum: ["title", "description", null], default: null },
+      // Only set when matchedVia === "description" — a coarse bucket from the
+      // $text relevance score, not a semantic confidence judgement.
+      matchConfidence: { type: String, enum: ["high", "medium", "low", null], default: null },
     },
 
     trainerSearch: {
