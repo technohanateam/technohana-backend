@@ -46,7 +46,21 @@ const courseSchema = new mongoose.Schema({
   modules:          [moduleSchema],
 }, { timestamps: true });
 
-courseSchema.index({ courseTitle: "text", category: "text", instructor: "text" });
+// Mongo allows only one text index per collection — deploying this change
+// requires dropping the prior {courseTitle, category, instructor} text index
+// first (e.g. db.courses.dropIndex("courseTitle_text_category_text_instructor_text"))
+// so Mongoose can create this wider one without erroring on boot.
+courseSchema.index({
+  courseTitle: "text",
+  category: "text",
+  instructor: "text",
+  overview: "text",
+  courseObjective: "text",
+  courseOutcomes: "text",
+  whatWillYouLearn: "text",
+  targetAudience: "text",
+  prerequisites: "text",
+});
 courseSchema.index({ id: 1 });
 courseSchema.index({ courseSlug: 1 });
 
