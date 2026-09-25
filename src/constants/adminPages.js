@@ -26,6 +26,7 @@ export const ADMIN_PAGES = [
   "payouts",
   "team",
   "prompt-editor",
+  "prompt-library",
   "analytics",
   "ai-risk-reports",
   "hana-analytics",
@@ -131,6 +132,7 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "ad-creative-factory",
     "social-factory",
     "marketing-calendar",
+    "prompt-library",
   ],
   // trainer/accounts/hr/student_support/readonly are CRM-only crmRoles — they
   // never get admin-panel pages (see authenticateAdmin.js CRM_ONLY_ROLES block),
