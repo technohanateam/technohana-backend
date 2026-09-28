@@ -23,6 +23,7 @@ export const ADMIN_PAGES = [
   "coupons",
   "instructors",
   "training-requirements",
+  "batches",
   "payouts",
   "team",
   "prompt-editor",
@@ -98,6 +99,7 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "crm",
     "instructors",
     "training-requirements",
+    "batches",
   ],
   marketing: [
     "marketing-overview",

@@ -313,21 +313,26 @@ router.post("/me/resume", authenticateInstructor, memUpload.single("resume"), as
   }
 });
 
+// Signs a download URL for the CALLER'S OWN resume only. The public_id is read
+// from the instructor's own record — never from a query param. Accepting a
+// caller-supplied URL here (as this route previously did, validating only the
+// Cloudinary cloud-name prefix) let any authenticated instructor sign a download
+// for any raw asset in the account, including another instructor's resume.
 router.get("/me/resume-proxy", authenticateInstructor, async (req, res) => {
-  const { url } = req.query;
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  if (!url || !url.startsWith(`https://res.cloudinary.com/${cloudName}/`))
-    return res.status(400).json({ success: false, message: "Invalid URL" });
   try {
-    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(\?|$)/);
-    if (!match) return res.status(400).json({ success: false, message: "Could not parse public_id" });
-    const signedUrl = cloudinary.utils.private_download_url(match[1], null, {
+    const instructor = await Instructor.findById(req.instructor.id).select("resumePublicId").lean();
+    if (!instructor?.resumePublicId)
+      return res.status(404).json({ success: false, message: "No resume on file" });
+
+    const signedUrl = cloudinary.utils.private_download_url(instructor.resumePublicId, null, {
       resource_type: "raw",
       type: "upload",
       attachment: false,
       expires_at: Math.floor(Date.now() / 1000) + 300,
     });
-    return res.redirect(302, signedUrl);
+    // Returns the URL as JSON rather than a 302: the only caller opens it in a new
+    // window, and following a redirect through axios would stream the file instead.
+    return res.json({ success: true, url: signedUrl });
   } catch {
     return res.status(502).json({ success: false, message: "Failed to generate signed URL" });
   }
@@ -354,7 +359,7 @@ router.get("/courses/:courseId/students", authenticateInstructor, requireComplia
       return res.status(403).json({ success: false, message: "Course not found or not assigned to you" });
 
     const students = await User.find({ courseTitle: course.courseTitle, status: { $ne: "rejected" } })
-      .select("name email phone status progress completedLessons createdAt")
+      .select("name email phone status progress lessonsCompleted totalLessons batchId createdAt")
       .lean();
 
     return res.json({ success: true, data: students, courseTitle: course.courseTitle });
