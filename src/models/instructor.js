@@ -63,6 +63,10 @@ const instructorSchema = new Schema({
         quizPassed: { type: Boolean, default: false },
         quizPassedAt: { type: Date },
     },
+    // When the instructor last touched their calendar availability (see
+    // instructorAvailability.model.js). The free-text `availability` field above is
+    // separate prose written at application time and is not parsed.
+    availabilityUpdatedAt : { type : Date },
 })
 
 instructorSchema.index({ resetToken: 1 });
