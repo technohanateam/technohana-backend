@@ -1948,7 +1948,7 @@ router.patch("/courses/:id/assign-instructor", authenticateAdmin, requirePage("c
 });
 
 // ─── Admin: Training Requirements ────────────────────────────────────────────
-router.post("/training-requirements", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
+router.post("/training-requirements", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   try {
     const { title, description, topic, expertise, deliveryMode, duration, participants, budgetRange, startDate, deadline, location } = req.body;
     if (!title || !description)
@@ -1995,7 +1995,7 @@ router.post("/training-requirements", authenticateAdmin, requirePage("training-r
   }
 });
 
-router.get("/training-requirements", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
+router.get("/training-requirements", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   try {
     const { status } = req.query;
     const filter = status ? { status } : {};
@@ -2026,7 +2026,7 @@ router.get("/training-requirements", authenticateAdmin, requirePage("training-re
   }
 });
 
-router.patch("/training-requirements/:id", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
+router.patch("/training-requirements/:id", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   try {
     const allowed = ["title", "description", "topic", "expertise", "deliveryMode", "duration", "participants", "budgetRange", "startDate", "deadline", "location", "status"];
     const dateFields = new Set(["startDate", "deadline"]);
@@ -2045,7 +2045,7 @@ router.patch("/training-requirements/:id", authenticateAdmin, requirePage("train
   }
 });
 
-router.delete("/training-requirements/:id", authenticateAdmin, requirePage("training-requirements"), requireAdmin, async (req, res) => {
+router.delete("/training-requirements/:id", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
   try {
     await TrainingRequirement.findByIdAndDelete(req.params.id);
     await InstructorApplication.deleteMany({ requirementId: req.params.id });
@@ -2056,7 +2056,7 @@ router.delete("/training-requirements/:id", authenticateAdmin, requirePage("trai
   }
 });
 
-router.get("/training-requirements/:id/applications", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
+router.get("/training-requirements/:id/applications", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   try {
     const [instructorApps, careerApps] = await Promise.all([
       InstructorApplication.find({ requirementId: req.params.id })
@@ -2077,7 +2077,7 @@ router.get("/training-requirements/:id/applications", authenticateAdmin, require
   }
 });
 
-router.patch("/training-requirements/:id/applications/:appId", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
+router.patch("/training-requirements/:id/applications/:appId", authenticateAdmin, requirePage("instructors"), async (req, res) => {
   try {
     const { status, adminNotes } = req.body;
     const validStatuses = ["applied", "shortlisted", "accepted", "rejected"];
