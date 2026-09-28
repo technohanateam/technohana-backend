@@ -5,3 +5,8 @@ src/.env
 uploads/
 *.log
 .DS_Store
+
+# Production/backup env files — real secrets, never commit
+server-env
+server-env.bak
+.env.bak-srv
