@@ -26,6 +26,7 @@ export const ADMIN_PAGES = [
   "batches",
   "payouts",
   "team",
+  "global-search",
   "prompt-editor",
   "prompt-library",
   "analytics",
