@@ -30,6 +30,14 @@ const monthlyFlash = MONTHS.map((m, i) => ({
   notes: "Monthly flash sale — runs the full month, global",
 }));
 
+// Banner images live in the frontend's public/bar and public/promo folders (served same-origin).
+const ANNOUNCEMENT_BANNERS = ["BAHRAINDAY5","BLACKFRIDAY10","CYBERMONDAY10","DECFLASH10","DIWALI10","GURUPURAB5","HALLOWEEN5","NAVRATRI8","NOVFLASH10","OCTFLASH10","OMANDAY5","QATARDAY5","THANKSGIVING7","UAENATIONAL8","VETERANS5","XMAS10"];
+const PROMO_BANNERS = ["BAHRAINDAY5","BLACKFRIDAY10","CYBERMONDAY10","DECFLASH10","DIWALI10","GURUPURAB5","HALLOWEEN5","NAVRATRI8","NOVFLASH10","OCTFLASH10","OMANDAY5","QATARDAY5","THANKSGIVING7","UAENATIONAL8","VETERANS5","XMAS10"];
+const bannerFields = (code) => ({
+  ...(ANNOUNCEMENT_BANNERS.includes(code) && { announcementBannerUrl: `/bar/${code}.webp` }),
+  ...(PROMO_BANNERS.includes(code) && { bannerImageUrl: `/promo/${code}.webp` }),
+});
+
 const coupons = [
   ...monthlyFlash,
   // ── India (INR) ───────────────────────────────────────────────────────────
@@ -97,6 +105,7 @@ async function seed() {
         expiryDate: c.expiryDate ?? null,
         maxUsageCount: null,
         notes: c.notes,
+        ...bannerFields(c.code.toUpperCase()),
       },
       { upsert: true }
     );
