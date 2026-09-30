@@ -3,6 +3,7 @@ import AiRiskReport from "../models/aiRiskReport.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContactUsEmail, generateAiRiskReportEmail, generateMasterclassConfirmationEmail } from "../utils/emailTemplate.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
+import { routeAdLead } from "../services/adLeadRouter.js";
 import { validateEmail, validateName } from "../utils/inputValidator.js";
 
 export const createEnquiry = async (req, res) => {
@@ -30,6 +31,14 @@ export const createEnquiry = async (req, res) => {
 
     // AI lead scoring — fire and forget, never blocks the submission
     scoreEnquiry(enquiry._id).catch((err) => console.error("Lead scoring failed (enquiry already saved):", err));
+
+    // Paid-ad submissions also become CRM leads (organic ones stay in the admin panel only)
+    routeAdLead({
+      name, email, phone: body.phone, company: body.company,
+      interest: [courseTitle, body.description].filter(Boolean).join(" — ") || undefined,
+      teamSize: body.teamSize, utm: body.utm, origin: "enquiry", originId: enquiry._id,
+      extra: { enquiryType, trainingType: body.trainingType, landingPage: body.landingPage },
+    });
 
     let subject;
     switch (enquiryType) {
@@ -94,16 +103,24 @@ export const createEnquiry = async (req, res) => {
 
 export const contactUs = async (req, res) => {
   try {
-    const { name, email, phone, subject, message } = req.body;
+    const { name, email, phone, subject, message, utm } = req.body;
 
     if (!name || !email || !subject || !message || !validateEmail(email)) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const enquiry = new Enquiry({ name, email, phone, enquiryType: "Contact Us", courseTitle: subject, description: message });
+    const enquiry = new Enquiry({
+      name, email, phone, enquiryType: "Contact Us", courseTitle: subject, description: message,
+      utm: utm && typeof utm === "object" ? utm : undefined,
+    });
     await enquiry.save();
 
     scoreEnquiry(enquiry._id).catch((err) => console.error("Lead scoring failed (enquiry already saved):", err));
+
+    routeAdLead({
+      name, email, phone, interest: [subject, message].filter(Boolean).join(" — "),
+      utm, origin: "contact_us", originId: enquiry._id, extra: { enquiryType: "Contact Us" },
+    });
 
     await sendEmail({
       from: fromAddresses.connect,
