@@ -26,7 +26,7 @@ const logger = createLogger("index");
 // config.authenticator provided", jwt.sign(undefined), or a raw Mongo timeout).
 // Must run before Stripe/Razorpay are constructed below, since those throw
 // synchronously on a missing key.
-const REQUIRED_ENV_VARS = ['MONGO_DB', 'JWT_SECRET', 'ADMIN_JWT_SECRET', 'STRIPE_SECRET'];
+const REQUIRED_ENV_VARS = ['MONGO_DB', 'JWT_SECRET', 'ADMIN_JWT_SECRET', 'CRM_JWT_SECRET', 'STRIPE_SECRET'];
 const missingEnvVars = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
 if (missingEnvVars.length > 0) {
   logger.error(`Missing required environment variable(s): ${missingEnvVars.join(', ')}`);
@@ -79,6 +79,8 @@ import instructorTeachingRoutes from "./routes/instructorTeaching.routes.js";
 import adminTrainingRoutes from "./routes/adminTraining.routes.js";
 import skillsGapRoutes from "./routes/skillsGap.routes.js";
 import crmRoutes from "./routes/crm.routes.js";
+import crmAuthRoutes from "./routes/crmAuth.routes.js";
+import { authenticateCrm } from "./middleware/authenticateCrm.js";
 import careerRoutes from "./routes/career.routes.js";
 import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
@@ -1357,7 +1359,8 @@ app.use("/instructor", instructorRoutes);
 app.use("/instructor", instructorTeachingRoutes);
 app.use("/", skillsGapRoutes);
 app.use("/", careerRoutes);
-app.use("/api/crm", authenticateAdmin, crmRoutes);
+app.use("/api/crm/auth", crmAuthRoutes);
+app.use("/api/crm", authenticateCrm, crmRoutes);
 
 // ─── Campaign Automation ───────────────────────────────────────────────────────
 

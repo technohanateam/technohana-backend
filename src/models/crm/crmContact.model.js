@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const noteSchema = new mongoose.Schema(
-  { body: { type: String, required: true }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" } },
+  { body: { type: String, required: true }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" } },
   { timestamps: true }
 );
 
@@ -43,7 +43,7 @@ const crmContactSchema = new mongoose.Schema(
     deals: [{ type: mongoose.Schema.Types.ObjectId, ref: "CRMDeal" }],
 
     isDeleted: { type: Boolean, default: false },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" },
   },
   { timestamps: true }
 );
