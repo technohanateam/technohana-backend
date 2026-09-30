@@ -11,6 +11,8 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `MONGO_DB` | `src/config/db.js` | MongoDB connection string |
 | `JWT_SECRET` | `src/config/jwt.js`, `src/middleware/authenticateInstructor.js`, `src/routes/instructor.routes.js` | User/instructor auth token signing |
 | `ADMIN_JWT_SECRET` | `src/middleware/authenticateAdmin.js`, `src/controllers/adminUser.controller.js`, `src/controllers/seoConnection.controller.js` | Admin auth token signing |
+| `CRM_JWT_SECRET` | `src/middleware/authenticateCrm.js`, `src/controllers/crmUser.controller.js` | CRM token signing (must differ from `ADMIN_JWT_SECRET`); server refuses to start without it |
+| `CRM_FRONTEND_URL` | `src/controllers/crmUser.controller.js` | CRM app base URL for password-reset links (e.g. `https://crm.technohana.in`); also add it to `WHITELISTED_URLS` |
 | `STRIPE_SECRET` | `src/index.js` | Stripe SDK init (international payments) |
 
 ## Optional — feature degrades gracefully or has a fallback if unset
@@ -22,6 +24,7 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `SEO_GOOGLE_CLIENT_ID` / `SEO_GOOGLE_CLIENT_SECRET` / `SEO_GOOGLE_REDIRECT_URI` | `src/config/googleSeoOAuth.js` | Search Console/GA4 OAuth connect flow (SEO Intelligence admin) |
 | `GA4_PROPERTY_ID` / `GOOGLE_SERVICE_ACCOUNT_KEY` | `src/config/googleAnalytics.js` | GA4 Key Events admin panel |
 | `RESEND_API_KEY` | `src/config/emailService.js` and callers | Transactional email; sends will fail silently-per-call without it |
+| `TURNSTILE_SECRET_KEY` | `src/utils/verifyCaptcha.js` | Cloudflare Turnstile secret for Q&A comments; in production, posting comments is rejected without it (skipped outside production) |
 | `MAIL_TO` / `MAIL_FROM` | Various controllers (`enrollment`, `enquiry`, `career`, `leadCapture`, `internApplication`) | Admin notification recipient/sender address |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | `src/config/cloudinary.js` | File/image uploads |
 | `ANTHROPIC_API_KEY` | `src/services/aiAgent.service.js`, `src/routes/chat.routes.js`, `src/routes/admin.routes.js` | AI agents (recovery emails, lead scoring, chat) |

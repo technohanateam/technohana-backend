@@ -173,9 +173,16 @@ const userSchema = new Schema({
     // Enrollment status audit trail
     statusChangedBy: { type: String, default: null },
     statusChangedAt: { type: Date, default: null },
+    // Cohort assignment. The operational truth for rosters and attendance — the
+    // free-text batchDate/batchTime fields above stay as display copy and are still
+    // written by the enrollment flow, but cannot distinguish two concurrent cohorts.
+    // Attendance can only be marked for enrollments that have a batchId.
+    batchId: { type: mongoose.Schema.Types.ObjectId, ref: "Batch", sparse: true },
+    assignedToBatchAt: { type: Date },
     createdAt: { type: Date, default: Date.now },
 })
 
 userSchema.index({ createdAt: -1 });
+userSchema.index({ batchId: 1, status: 1 });
 
 export const User = mongoose.model("User", userSchema);

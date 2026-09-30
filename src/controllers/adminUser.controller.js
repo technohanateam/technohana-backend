@@ -7,6 +7,7 @@ import {
   ADMIN_PAGES,
   DEFAULT_PAGES_BY_ROLE,
   computeEffectivePages,
+  splitAbsolutePages,
 } from "../constants/adminPages.js";
 
 const TOKEN_EXPIRY = "8h";
@@ -124,6 +125,15 @@ export const setupAdmin = async (req, res) => {
   }
 };
 
+// GET /admin/users/page-registry
+// Lets the Team UI render checkboxes and "reset to role defaults" from the
+// server's own registry instead of a copy that can drift out of sync.
+export const getAdminPageRegistry = (req, res) =>
+  res.json({
+    success: true,
+    data: { pages: ADMIN_PAGES, defaultsByRole: DEFAULT_PAGES_BY_ROLE },
+  });
+
 // GET /admin/users
 export const listAdminUsers = async (req, res) => {
   try {
@@ -138,7 +148,7 @@ export const listAdminUsers = async (req, res) => {
 // POST /admin/users
 export const createAdminUser = async (req, res) => {
   try {
-    const { email, name, password, role, crmRole, extraPages = [], revokedPages = [] } = req.body;
+    const { email, name, password, role, crmRole, pages, extraPages = [], revokedPages = [] } = req.body;
 
     if (!email || !name || !password || !role) {
       return res.status(400).json({ success: false, message: "Email, name, password and role are required." });
@@ -152,7 +162,11 @@ export const createAdminUser = async (req, res) => {
     if (String(password).length < 8) {
       return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
     }
-    const badKeys = invalidPageKeys([...extraPages, ...revokedPages]);
+    const resolved = Array.isArray(pages)
+      ? splitAbsolutePages(role, pages)
+      : { extraPages, revokedPages };
+
+    const badKeys = invalidPageKeys([...resolved.extraPages, ...resolved.revokedPages]);
     if (badKeys.length) {
       return res.status(400).json({ success: false, message: `Unknown page keys: ${badKeys.join(", ")}` });
     }
@@ -170,8 +184,8 @@ export const createAdminUser = async (req, res) => {
       passwordHash,
       role,
       crmRole: crmRole || undefined,
-      extraPages,
-      revokedPages,
+      extraPages: resolved.extraPages,
+      revokedPages: resolved.revokedPages,
     });
 
     return res.status(201).json({ success: true, data: sanitize(user), message: "User created." });
@@ -190,7 +204,7 @@ const isLastActiveAdmin = async (userId) => {
 export const updateAdminUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, role, crmRole, extraPages, revokedPages } = req.body;
+    const { name, role, crmRole, pages, extraPages, revokedPages } = req.body;
 
     const user = await AdminUser.findById(id);
     if (!user) {
@@ -213,7 +227,18 @@ export const updateAdminUser = async (req, res) => {
       user.crmRole = crmRole || undefined;
     }
     if (name !== undefined) user.name = name;
-    if (extraPages !== undefined || revokedPages !== undefined) {
+    // `pages` (absolute list) wins over the legacy extraPages/revokedPages pair.
+    // user.role is already updated above, so a role change in the same request
+    // is split against the role the user ends up with.
+    if (Array.isArray(pages)) {
+      const resolved = splitAbsolutePages(user.role, pages);
+      const badKeys = invalidPageKeys([...resolved.extraPages, ...resolved.revokedPages]);
+      if (badKeys.length) {
+        return res.status(400).json({ success: false, message: `Unknown page keys: ${badKeys.join(", ")}` });
+      }
+      user.extraPages = resolved.extraPages;
+      user.revokedPages = resolved.revokedPages;
+    } else if (extraPages !== undefined || revokedPages !== undefined) {
       const badKeys = invalidPageKeys([...(extraPages || []), ...(revokedPages || [])]);
       if (badKeys.length) {
         return res.status(400).json({ success: false, message: `Unknown page keys: ${badKeys.join(", ")}` });

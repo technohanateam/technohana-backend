@@ -26,7 +26,7 @@ import { refreshPriceCatalog } from "../utils/pricing.js";
 import { contentFactoryAiLimiter } from "../middleware/contentFactoryAiLimiter.js";
 import { generateCourseFromUrls } from "../controllers/contentFactory/courseUrlImport.controller.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
-import { adminLogin, setupAdmin, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive, deleteAdminUser, forgotAdminPassword, resetAdminPasswordViaToken } from "../controllers/adminUser.controller.js";
+import { adminLogin, setupAdmin, getAdminPageRegistry, listAdminUsers, createAdminUser, updateAdminUser, resetAdminUserPassword, setAdminUserActive, deleteAdminUser, forgotAdminPassword, resetAdminPasswordViaToken } from "../controllers/adminUser.controller.js";
 import { getAllCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, resetCouponUsage, getCouponStats } from "../controllers/coupon.controller.js";
 import { getAllLeads, getLead, createLead, updateLead, deleteLead } from "../controllers/lead.controller.js";
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
@@ -38,10 +38,22 @@ import { getAllDripSequences, getDripSequence, createDripSequence, updateDripSeq
 import Campaign from "../models/campaign.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
+import EnquiryPromptPack from "../models/enquiryPromptPack.model.js";
+import { matchCourse, matchCourseByDescription, buildTrainerSearchPrompt, buildBlogPostPrompt, buildCourseBriefPrompt } from "../services/enquiryPromptBuilder.service.js";
+import { parseTrainerSearchResponse, parseBlogPostResponse, parseCourseBriefResponse } from "../services/enquiryPromptParser.service.js";
+import { createSocialPostForSource } from "../services/socialFactory/socialPostCreation.service.js";
+import { buildOpportunityFromImport } from "../services/contentFactory/articleImport.service.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
+import InstructorReview, { recomputeInstructorRating } from "../models/instructorReview.model.js";
+import InstructorPayout from "../models/instructorPayout.model.js";
+import InstructorAgreement from "../models/instructorAgreement.model.js";
+import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptance.model.js";
+import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
+import InstructorComplianceSettings from "../models/instructorComplianceSettings.model.js";
 import CareerApplication from "../models/careerApplication.model.js";
-import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail } from "../utils/emailTemplate.js";
+import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail, payoutStatusUpdateEmail } from "../utils/emailTemplate.js";
+import { decryptToken } from "../utils/tokenCrypto.js";
 import crypto from "crypto";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 
@@ -113,6 +125,8 @@ router.post("/setup", (req, res, next) => {
 }, setupAdmin);
 
 // ─── Admin team user management (admin role only) ─────────────────────────────
+// Declared before /users/:id-shaped routes so "page-registry" is never read as an id.
+router.get("/users/page-registry", authenticateAdmin, requireAdmin, requirePage("team"), getAdminPageRegistry);
 router.get("/users", authenticateAdmin, requireAdmin, requirePage("team"), listAdminUsers);
 router.post("/users", authenticateAdmin, requireAdmin, requirePage("team"), createAdminUser);
 router.put("/users/:id", authenticateAdmin, requireAdmin, requirePage("team"), updateAdminUser);
@@ -475,6 +489,226 @@ router.patch("/enquiries/:id", authenticateAdmin, requirePage("enquiries", "sale
   } catch (err) {
     console.error("Admin patch enquiry error:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ─── Enquiry Prompt Pack ────────────────────────────────────────────────────
+// Manual Claude Pro workflow (mirrors the Social Post Factory) — generates
+// copy-paste prompts for an enquiry (trainer-search LinkedIn post, a social
+// post, a blog draft, all grounded in the matched Course) and lets the admin
+// paste Claude's responses back. Never calls Claude/OpenAI itself. See
+// enquiryPromptBuilder.service.js / enquiryPromptParser.service.js.
+// socialPost is excluded here — it delegates to a real SocialPost doc (see
+// createLinkedSocialPost below) whose own paste/approve/schedule flow lives
+// entirely in the Social Media Post Factory, not on this pack.
+const ENQUIRY_PROMPT_ITEMS = ["trainerSearch", "blogPost", "courseBrief"];
+
+// Shared by both the enquiry-flow and partner-flow paste routes: parses the
+// pasted text for `item`, stores it on `pack[item]`, and (for blogPost) seeds
+// a Content Factory ContentOpportunity in HUMAN_REVIEW the first time it
+// parses successfully, so the blog draft goes through the same editorial
+// review every other AI-generated post does before it becomes a real Blogs
+// doc (see articleImport.service.js#buildOpportunityFromImport). Mutates
+// `pack` in place but does not save it — callers call pack.save() themselves.
+async function applyPastedResponse(pack, item, text, { admin } = {}) {
+  pack[item].pastedResponseRaw = text;
+  try {
+    const parsed =
+      item === "trainerSearch" ? parseTrainerSearchResponse(text) :
+      item === "courseBrief" ? parseCourseBriefResponse(text) :
+      parseBlogPostResponse(text);
+
+    pack[item].parsed = parsed;
+    pack[item].parseError = null;
+    pack[item].status = "PARSED";
+    pack[item].parsedAt = new Date();
+
+    if (item === "blogPost" && !pack.blogPost.opportunityId) {
+      const opportunity = await buildOpportunityFromImport({
+        articleDraft: parsed,
+        courseSlug: pack.courseMatch.courseSlug,
+        courseTitle: pack.courseMatch.courseTitle,
+        contentType: "COURSE_GUIDE",
+        importedBy: admin?.name || admin?.email || null,
+        origin: "PROMPT_PACK",
+      });
+      await opportunity.save();
+      pack.blogPost.opportunityId = opportunity._id;
+    }
+  } catch (err) {
+    pack[item].parseError = err.message;
+  }
+}
+
+// Shared by both generate routes: creates a real Social Media Post Factory
+// post for the matched course and returns its id, or null if no course
+// matched (nothing to post about yet).
+async function createLinkedSocialPost(course) {
+  if (!course) return null;
+  const socialPost = await createSocialPostForSource({ sourceType: "COURSE", sourceId: course._id, source: course, platform: "LINKEDIN" });
+  return socialPost._id;
+}
+
+// POST /admin/enquiries/:id/prompt-pack — generate (or return existing) prompt pack
+router.post("/enquiries/:id/prompt-pack", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid id" });
+    const enquiry = await Enquiry.findById(req.params.id).lean();
+    if (!enquiry) return res.status(404).json({ success: false, message: "Enquiry not found" });
+
+    let pack = await EnquiryPromptPack.findOne({ enquiryId: enquiry._id });
+    if (pack) return res.json({ success: true, data: pack });
+
+    const course = await matchCourse(enquiry);
+
+    pack = new EnquiryPromptPack({
+      enquiryId: enquiry._id,
+      courseMatch: {
+        found: Boolean(course),
+        courseId: course?._id || null,
+        courseTitle: course?.courseTitle || enquiry.courseTitle || null,
+        courseSlug: course?.courseSlug || null,
+      },
+      trainerSearch: { generatedPrompt: buildTrainerSearchPrompt(enquiry, course) },
+      socialPost: { socialPostId: await createLinkedSocialPost(course) },
+    });
+
+    if (course) {
+      pack.blogPost.generatedPrompt = buildBlogPostPrompt(course);
+    } else {
+      pack.courseBrief.generatedPrompt = buildCourseBriefPrompt(enquiry.courseTitle || "the requested course");
+    }
+
+    await pack.save();
+    return res.status(201).json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Enquiry prompt pack generate error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET /admin/enquiries/:id/prompt-pack
+router.get("/enquiries/:id/prompt-pack", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid id" });
+    const pack = await EnquiryPromptPack.findOne({ enquiryId: req.params.id });
+    if (!pack) return res.status(404).json({ success: false, message: "No prompt pack generated yet" });
+    return res.json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Enquiry prompt pack fetch error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// POST /admin/enquiries/:id/prompt-pack/:item/paste — parse and persist a pasted Claude response
+router.post("/enquiries/:id/prompt-pack/:item/paste", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid id" });
+    const { item } = req.params;
+    if (!ENQUIRY_PROMPT_ITEMS.includes(item)) return res.status(400).json({ success: false, message: "Unknown prompt item" });
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ success: false, message: "text is required" });
+
+    const pack = await EnquiryPromptPack.findOne({ enquiryId: req.params.id });
+    if (!pack) return res.status(404).json({ success: false, message: "No prompt pack generated yet" });
+
+    await applyPastedResponse(pack, item, text, { admin: req.admin });
+    await pack.save();
+    return res.json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Enquiry prompt pack paste error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// ─── Partner Course Prompt Pack ────────────────────────────────────────────
+// Same prompt pack as above, but for a course name typed directly into the
+// dashboard's "Generate Prompts" modal (src/pages/admin/AdminOverview.jsx) —
+// no Enquiry doc involved. Looked up by the pack's own _id instead of an
+// enquiryId.
+
+// POST /admin/prompt-packs — create a partner-sourced prompt pack
+router.post("/prompt-packs", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    const { courseTitle, partnerName, courseDescription } = req.body;
+    if (!courseTitle || !courseTitle.trim()) return res.status(400).json({ success: false, message: "courseTitle is required" });
+
+    let course = await matchCourse({ courseTitle });
+    let matchedVia = course ? "title" : null;
+    let matchConfidence = null;
+
+    if (!course && courseDescription && courseDescription.trim()) {
+      const descriptionMatch = await matchCourseByDescription(courseDescription);
+      if (descriptionMatch) {
+        course = descriptionMatch.course;
+        matchedVia = "description";
+        matchConfidence = descriptionMatch.matchConfidence;
+      }
+    }
+
+    const pack = new EnquiryPromptPack({
+      source: "partner",
+      partnerCourseTitle: courseTitle.trim(),
+      partnerCourseDescription: courseDescription?.trim() || null,
+      partnerName: partnerName?.trim() || null,
+      createdBy: req.admin?.name || req.admin?.email || null,
+      courseMatch: {
+        found: Boolean(course),
+        courseId: course?._id || null,
+        courseTitle: course?.courseTitle || courseTitle.trim(),
+        courseSlug: course?.courseSlug || null,
+        matchedVia,
+        matchConfidence,
+      },
+      trainerSearch: { generatedPrompt: buildTrainerSearchPrompt({ courseTitle }, course) },
+      socialPost: { socialPostId: await createLinkedSocialPost(course) },
+    });
+
+    if (course) {
+      pack.blogPost.generatedPrompt = buildBlogPostPrompt(course);
+    } else {
+      pack.courseBrief.generatedPrompt = buildCourseBriefPrompt(courseTitle.trim());
+    }
+
+    await pack.save();
+    return res.status(201).json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Partner prompt pack generate error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET /admin/prompt-packs/:id
+router.get("/prompt-packs/:id", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid id" });
+    const pack = await EnquiryPromptPack.findById(req.params.id);
+    if (!pack) return res.status(404).json({ success: false, message: "Prompt pack not found" });
+    return res.json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Partner prompt pack fetch error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// POST /admin/prompt-packs/:id/:item/paste
+router.post("/prompt-packs/:id/:item/paste", authenticateAdmin, requirePage("enquiries", "sales-pipeline"), async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid id" });
+    const { item } = req.params;
+    if (!ENQUIRY_PROMPT_ITEMS.includes(item)) return res.status(400).json({ success: false, message: "Unknown prompt item" });
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ success: false, message: "text is required" });
+
+    const pack = await EnquiryPromptPack.findById(req.params.id);
+    if (!pack) return res.status(404).json({ success: false, message: "Prompt pack not found" });
+
+    await applyPastedResponse(pack, item, text, { admin: req.admin });
+    await pack.save();
+    return res.json({ success: true, data: pack });
+  } catch (err) {
+    console.error("Partner prompt pack paste error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -1433,6 +1667,23 @@ router.patch("/instructors/:id", authenticateAdmin, requirePage("instructors"), 
   }
 });
 
+// GET /admin/instructors/:id/compliance - View NDA acceptance + quiz attempt history
+router.get("/instructors/:id/compliance", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const instructor = await Instructor.findById(req.params.id).select("complianceStatus").lean();
+    if (!instructor) return res.status(404).json({ message: "Instructor not found." });
+
+    const [acceptances, quizAttempts] = await Promise.all([
+      InstructorAgreementAcceptance.find({ instructorId: req.params.id }).sort({ acceptedAt: -1 }).lean(),
+      InstructorComplianceQuiz.find({ instructorId: req.params.id }).sort({ completedAt: -1 }).lean(),
+    ]);
+
+    return res.json({ data: { complianceStatus: instructor.complianceStatus, acceptances, quizAttempts } });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 // DELETE /admin/instructors/:id - Delete instructor application + Cloudinary resume
 router.delete("/instructors/:id", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
   try {
@@ -1473,6 +1724,10 @@ router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructor
       custom: {
         subject: "Message from Technohana",
         html: `<p>Hi ${name},</p><p>${customMessage || ""}</p><p>Best regards,<br/>Technohana Careers Team</p>`,
+      },
+      "compliance-reminder": {
+        subject: "Finish your Technohana instructor onboarding",
+        html: complianceReminderEmail(name),
       },
     };
 
@@ -1550,6 +1805,171 @@ router.get("/courses/:id/suggested-instructors", authenticateAdmin, requirePage(
   } catch (err) {
     console.error("Suggested instructors error:", err);
     return res.status(500).json({ success: false, message: "Failed to fetch suggestions" });
+  }
+});
+
+// ─── Instructor Reviews (Moderation) ──────────────────────────────────────────
+
+// GET /admin/instructor-reviews?status=pending
+router.get("/instructor-reviews", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+    const reviews = await InstructorReview.find(filter)
+      .populate("instructorId", "name email")
+      .populate("courseId", "courseTitle")
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.json({ data: reviews });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PATCH /admin/instructor-reviews/:id/status - approve or reject a review
+router.patch("/instructor-reviews/:id/status", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!["approved", "rejected", "pending"].includes(status))
+      return res.status(400).json({ message: "Invalid status." });
+
+    const review = await InstructorReview.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!review) return res.status(404).json({ message: "Review not found." });
+
+    await recomputeInstructorRating(review.instructorId);
+
+    return res.json({ data: review });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ─── Instructor Payouts ───────────────────────────────────────────────────────
+
+// GET /admin/payouts?status=requested
+router.get("/payouts", authenticateAdmin, requirePage("payouts"), async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+    const payouts = await InstructorPayout.find(filter)
+      .select("-payoutDetailsSnapshotEncrypted")
+      .populate("instructorId", "name email")
+      .sort({ requestedAt: -1 })
+      .lean();
+    return res.json({ data: payouts });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/payouts/:id/details - the only endpoint that ever decrypts bank/UPI details
+router.get("/payouts/:id/details", authenticateAdmin, requirePage("payouts"), requireAdmin, async (req, res) => {
+  try {
+    const payout = await InstructorPayout.findById(req.params.id).lean();
+    if (!payout) return res.status(404).json({ message: "Payout not found." });
+    if (!payout.payoutDetailsSnapshotEncrypted)
+      return res.status(404).json({ message: "No payout details on file for this request." });
+
+    const details = decryptToken(payout.payoutDetailsSnapshotEncrypted);
+    return res.json({ data: details });
+  } catch (err) {
+    return res.status(500).json({ message: "Failed to decrypt payout details." });
+  }
+});
+
+// PATCH /admin/payouts/:id/status
+router.patch("/payouts/:id/status", authenticateAdmin, requirePage("payouts"), requireAdmin, async (req, res) => {
+  try {
+    const { status, paymentReference, adminNotes } = req.body;
+    if (!["requested", "approved", "processing", "paid", "rejected"].includes(status))
+      return res.status(400).json({ message: "Invalid status." });
+    if (status === "paid" && !paymentReference)
+      return res.status(400).json({ message: "A payment reference is required when marking a payout as paid." });
+
+    const update = { status, processedAt: new Date(), processedBy: req.admin?.email || "admin" };
+    if (paymentReference !== undefined) update.paymentReference = paymentReference;
+    if (adminNotes !== undefined) update.adminNotes = adminNotes;
+
+    const payout = await InstructorPayout.findByIdAndUpdate(req.params.id, update, { new: true })
+      .select("-payoutDetailsSnapshotEncrypted")
+      .populate("instructorId", "name email");
+    if (!payout) return res.status(404).json({ message: "Payout not found." });
+
+    sendEmail({
+      from: fromAddresses.careers,
+      to: payout.instructorId.email,
+      subject: "Update on your Technohana payout request",
+      html: payoutStatusUpdateEmail(payout.instructorId.name, status, (payout.amountMinor / 100).toFixed(2), payout.currency),
+    }).catch(() => {});
+
+    return res.json({ data: payout });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ─── Instructor Compliance: NDA Agreement ────────────────────────────────────
+
+// GET /admin/compliance/agreement - Fetch the currently active NDA (for editing)
+router.get("/compliance/agreement", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const agreement = await InstructorAgreement.findOne({ isActive: true }).lean();
+    return res.json({ data: agreement || null });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PUT /admin/compliance/agreement - Publish a new NDA version (deactivates the previous one)
+router.put("/compliance/agreement", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+  try {
+    const { version, title, bodyHtml } = req.body;
+    if (!version || !title || !bodyHtml)
+      return res.status(400).json({ message: "version, title, and bodyHtml are required." });
+
+    await InstructorAgreement.updateMany({ isActive: true }, { isActive: false });
+    const agreement = await InstructorAgreement.findOneAndUpdate(
+      { version },
+      { version, title, bodyHtml, isActive: true },
+      { upsert: true, new: true }
+    );
+
+    return res.json({ data: agreement });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /admin/compliance/quiz-settings - Fetch the current ethics quiz question bank (includes correctIndex)
+router.get("/compliance/quiz-settings", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  try {
+    const settings = await InstructorComplianceSettings.findOne({}).lean();
+    return res.json({ data: settings || { passThresholdPercent: 80, questions: [] } });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PUT /admin/compliance/quiz-settings - Replace the ethics quiz question bank + passing threshold
+router.put("/compliance/quiz-settings", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+  try {
+    const { passThresholdPercent, questions } = req.body;
+    if (!Array.isArray(questions) || !questions.length)
+      return res.status(400).json({ message: "At least one question is required." });
+    for (const q of questions) {
+      if (!q.question || !Array.isArray(q.options) || q.options.length < 2 || typeof q.correctIndex !== "number")
+        return res.status(400).json({ message: "Each question needs text, at least two options, and a correctIndex." });
+    }
+
+    const settings = await InstructorComplianceSettings.findOneAndUpdate(
+      {},
+      { passThresholdPercent: passThresholdPercent ?? 80, questions, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    return res.json({ data: settings });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
