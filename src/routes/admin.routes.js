@@ -15,6 +15,7 @@ import Enquiry from "../models/enquiry.model.js";
 import Instructor from "../models/instructor.js";
 import AiRiskReport from "../models/aiRiskReport.model.js";
 import Testimonial from "../models/testimonial.model.js";
+import QuestionComment from "../models/questionComment.model.js";
 import Subscription from "../models/subscription.model.js";
 import { Blogs } from "../models/blogs.model.js";
 import { createBlogFromPayload } from "../services/blogCreation.service.js";
@@ -811,6 +812,21 @@ router.delete("/testimonials/:id", authenticateAdmin, requirePage("testimonials"
     return res.json({ message: "Testimonial deleted." });
   } catch (err) {
     console.error("Admin delete testimonial error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// DELETE /admin/question-comments/:id — remove an abusive Q&A comment
+router.delete("/question-comments/:id", authenticateAdmin, requireAdmin, async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid comment ID." });
+    }
+    const deleted = await QuestionComment.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Comment not found." });
+    return res.json({ message: "Comment deleted." });
+  } catch (err) {
+    console.error("Admin delete question comment error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });

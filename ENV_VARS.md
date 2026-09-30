@@ -22,6 +22,7 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `SEO_GOOGLE_CLIENT_ID` / `SEO_GOOGLE_CLIENT_SECRET` / `SEO_GOOGLE_REDIRECT_URI` | `src/config/googleSeoOAuth.js` | Search Console/GA4 OAuth connect flow (SEO Intelligence admin) |
 | `GA4_PROPERTY_ID` / `GOOGLE_SERVICE_ACCOUNT_KEY` | `src/config/googleAnalytics.js` | GA4 Key Events admin panel |
 | `RESEND_API_KEY` | `src/config/emailService.js` and callers | Transactional email; sends will fail silently-per-call without it |
+| `TURNSTILE_SECRET_KEY` | `src/utils/verifyCaptcha.js` | Cloudflare Turnstile secret for Q&A comments; in production, posting comments is rejected without it (skipped outside production) |
 | `MAIL_TO` / `MAIL_FROM` | Various controllers (`enrollment`, `enquiry`, `career`, `leadCapture`, `internApplication`) | Admin notification recipient/sender address |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | `src/config/cloudinary.js` | File/image uploads |
 | `ANTHROPIC_API_KEY` | `src/services/aiAgent.service.js`, `src/routes/chat.routes.js`, `src/routes/admin.routes.js` | AI agents (recovery emails, lead scoring, chat) |
