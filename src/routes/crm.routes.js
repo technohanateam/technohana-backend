@@ -2,12 +2,12 @@ import { Router } from "express";
 import { crmRead, crmWrite, crmDelete, crmBulk, crmImport, crmExport } from "../middleware/crmPermission.js";
 
 import { getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents } from "../controllers/crmDashboard.controller.js";
-import { getRevenueTrend, getRepStats, getConversionStats } from "../controllers/crmAnalytics.controller.js";
+import { getRevenueTrend, getRepStats, getConversionStats, getDailyReport, emailDailyReportToMe } from "../controllers/crmAnalytics.controller.js";
 import {
   getLeads, getLead, createLead, updateLead, deleteLead,
   bulkLeadAction, mergeLead, addNote, getLeadActivities,
   getLeadExport, importLeads, aiLeadSummary, aiScoreLead, aiEmailDraft,
-  createLeadFromEnquiry, draftProposal,
+  draftProposal,
 } from "../controllers/crmLead.controller.js";
 import {
   getContacts, getContact, createContact, updateContact, deleteContact,
@@ -29,9 +29,9 @@ import {
   getActivities, logActivity, getTags, createTag, deleteTag,
 } from "../controllers/crmActivity.controller.js";
 import {
-  listAdminUsers, createAdminUser, updateAdminUser,
-  resetAdminUserPassword, setAdminUserActive, deleteAdminUser,
-} from "../controllers/adminUser.controller.js";
+  listCrmUsers, listCrmUserOptions, createCrmUser, updateCrmUser,
+  resetCrmUserPassword, setCrmUserActive, deleteCrmUser,
+} from "../controllers/crmUser.controller.js";
 import {
   getInternApplications, getInternApplication, updateInternApplication,
   updateInternApplicationStatus, deleteInternApplication, emailInternApplicant,
@@ -51,9 +51,10 @@ router.get("/calendar",          crmRead("dashboard"),  getCalendarEvents);
 router.get("/analytics/revenue-trend", crmRead("dashboard"), getRevenueTrend);
 router.get("/analytics/rep-stats",     crmRead("dashboard"), getRepStats);
 router.get("/analytics/conversions",   crmRead("dashboard"), getConversionStats);
+router.get("/analytics/daily-report",  crmRead("dashboard"), getDailyReport);
+router.post("/analytics/daily-report/email", crmWrite("users"), emailDailyReportToMe);
 
 // ── Leads ─────────────────────────────────────────────────────────────────────
-router.post("/leads/from-enquiry/:enquiryId", crmWrite("leads"), createLeadFromEnquiry);
 router.get("/leads/export",         crmExport("leads"),       getLeadExport);
 router.post("/leads/import",        crmImport("leads"),       importLeads);
 router.post("/leads/bulk",          crmBulk("leads"),         bulkLeadAction);
@@ -134,11 +135,12 @@ router.delete("/internships/:id",       crmDelete("internships"), deleteInternAp
 
 // ── Team (CRM user management — reachable by crmRole=super_admin/admin, who
 // are otherwise blocked from the admin panel's own Team page) ─────────────────
-router.get("/team",               crmRead("users"),   listAdminUsers);
-router.post("/team",              crmWrite("users"),  createAdminUser);
-router.put("/team/:id",           crmWrite("users"),  updateAdminUser);
-router.patch("/team/:id/password", crmWrite("users"), resetAdminUserPassword);
-router.patch("/team/:id/active",  crmWrite("users"),  setAdminUserActive);
-router.delete("/team/:id",        crmDelete("users"), deleteAdminUser);
+router.get("/team/options",       crmRead("tasks"),   listCrmUserOptions);
+router.get("/team",               crmRead("users"),   listCrmUsers);
+router.post("/team",              crmWrite("users"),  createCrmUser);
+router.put("/team/:id",           crmWrite("users"),  updateCrmUser);
+router.patch("/team/:id/password", crmWrite("users"), resetCrmUserPassword);
+router.patch("/team/:id/active",  crmWrite("users"),  setCrmUserActive);
+router.delete("/team/:id",        crmDelete("users"), deleteCrmUser);
 
 export default router;

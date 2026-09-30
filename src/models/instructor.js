@@ -18,6 +18,15 @@ const instructorSchema = new Schema({
     deliveryMode : { type : String },
     certifications : { type : String },
     expertiseOther : { type : String },
+    courseSkills : {
+        type : [{
+            _id : false,
+            courseId : { type : String, required : true },
+            courseTitle : { type : String },
+            category : { type : String },
+        }],
+        default : [],
+    },
     coverLetter : {
         type : String
     },
@@ -48,10 +57,16 @@ const instructorSchema = new Schema({
     isActive : { type : Boolean, default : false },
     lastLogin : { type : Date },
     picture : { type : String },
+    // When the instructor last touched their calendar availability (see
+    // instructorAvailability.model.js). The free-text `availability` field above is
+    // separate prose written at application time and is not parsed.
+    availabilityUpdatedAt : { type : Date },
 })
 
 instructorSchema.index({ resetToken: 1 });
 instructorSchema.index({ email: 1 });
+instructorSchema.index({ "courseSkills.courseId": 1 });
+instructorSchema.index({ "courseSkills.category": 1 });
 
 const Instructor = mongoose.model("Instructor",instructorSchema);
 

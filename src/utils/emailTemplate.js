@@ -185,7 +185,7 @@ export function generateResumeAcknowledgementEmail({ name }) {
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
       ${dataRow('Status', 'Under Review', false)}
       ${dataRow('Next Step', 'Our team will reach out if your profile matches current opportunities', true)}
-      ${dataRow('Expected Response', '5–7 business days', false)}
+      ${dataRow('Expected Response', 'Within 5 business days', false)}
     </table>
     ${ctaButton('Visit Technohana', 'https://technohana.in')}`;
 
@@ -812,7 +812,7 @@ export function applicationStatusEmail(name, requirementTitle, status, notes) {
       <p style="margin:0;font-size:18px;font-weight:700;color:${statusColor};">Status: ${statusLabel}</p>
     </div>
     ${notes ? `<p style="margin:0 0 20px;font-size:14px;color:#475569;"><strong>Note from team:</strong> ${notes.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}</p>` : ''}
-    ${isAccepted ? ctaButton('Go to Portal', `${process.env.FRONTEND_URL || 'https://technohana.in'}/instructor/dashboard`) : ''}
+    ${isAccepted ? ctaButton('Go to Portal', `${process.env.TRAINERS_FRONTEND_URL || process.env.FRONTEND_URL || 'https://trainers.technohana.in'}/instructor/dashboard`) : ''}
     <p style="margin:20px 0 0;font-size:13px;color:#64748b;text-align:center;">Thank you for your interest in training with Technohana.</p>`;
 
   return emailShell({ label: 'Application Status', body });
@@ -904,4 +904,44 @@ export function generateBlogPostEmail({ title, excerpt, img, slug }) {
     ${ctaButton('Read the Full Post →', postUrl)}`;
 
   return emailShell({ label: 'New from Technohana', body });
+}
+
+// ─── CRM DAILY REPORT (admins) ───────────────────────────────────────────────
+
+export function crmDailyReportEmail({ report, dashboardUrl }) {
+  const { totals: t, reps, sources, from, to } = report;
+  const inr = (n) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`;
+  const dateLabel = from === to ? from : `${from} → ${to}`;
+
+  const tile = (label, value) => `<td style="padding:6px;" width="25%">
+    <div style="background:#f5f3ff;border-radius:8px;padding:12px 8px;text-align:center;">
+      <div style="font-size:20px;font-weight:800;color:#4C1D95;">${value}</div>
+      <div style="font-size:11px;color:#64748b;margin-top:2px;">${label}</div>
+    </div></td>`;
+
+  const th = (s) => `<th style="padding:8px 6px;font-size:11px;text-align:right;color:#64748b;background:#f8fafc;border-bottom:1px solid #e2e8f0;">${s}</th>`;
+  const td = (s, bold) => `<td style="padding:8px 6px;font-size:12px;text-align:right;color:#1e293b;border-bottom:1px solid #f1f5f9;${bold ? 'font-weight:700;' : ''}">${s}</td>`;
+
+  const repRows = reps.map((r) => `<tr>
+    <td style="padding:8px 6px;font-size:12px;color:#1e293b;border-bottom:1px solid #f1f5f9;">${escapeHtml(r.repName)}</td>
+    ${td(r.leadsCreated)}${td(r.calls)}${td(r.emails + r.whatsapp)}${td(r.meetings)}${td(r.dealsWon)}${td(inr(r.revenueWon))}${td(r.tasksCompleted)}
+  </tr>`).join('');
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">CRM Daily Report</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">${dateLabel} (IST)</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;"><tr>
+      ${tile('New leads', t.leadsCreated)}${tile('Activities', t.activityTotal)}${tile('Deals won', t.dealsWon)}${tile('Revenue won', inr(t.revenueWon))}
+    </tr><tr>
+      ${tile('Calls', t.calls)}${tile('Meetings', t.meetings)}${tile('Tasks done', t.tasksCompleted)}${tile('Overdue tasks', t.tasksOverdue)}
+    </tr></table>
+    ${reps.length ? `<h3 style="margin:24px 0 8px;font-size:15px;color:#0f172a;">By team member</h3>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+      <tr><th style="padding:8px 6px;font-size:11px;text-align:left;color:#64748b;background:#f8fafc;border-bottom:1px solid #e2e8f0;">Rep</th>${th('Leads')}${th('Calls')}${th('Msgs')}${th('Mtgs')}${th('Won')}${th('Revenue')}${th('Tasks')}</tr>
+      ${repRows}
+    </table>` : '<p style="font-size:14px;color:#64748b;">No CRM activity recorded for this period.</p>'}
+    ${sources.length ? `<p style="margin:20px 0 0;font-size:12px;color:#64748b;"><strong>New lead sources:</strong> ${sources.map((s) => `${escapeHtml(s.source)} (${s.count})`).join(' · ')}</p>` : ''}
+    ${ctaButton('Open Analytics', dashboardUrl)}`;
+
+  return emailShell({ label: 'CRM Daily Report', body });
 }

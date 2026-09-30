@@ -26,7 +26,7 @@ const logger = createLogger("index");
 // config.authenticator provided", jwt.sign(undefined), or a raw Mongo timeout).
 // Must run before Stripe/Razorpay are constructed below, since those throw
 // synchronously on a missing key.
-const REQUIRED_ENV_VARS = ['MONGO_DB', 'JWT_SECRET', 'ADMIN_JWT_SECRET', 'STRIPE_SECRET'];
+const REQUIRED_ENV_VARS = ['MONGO_DB', 'JWT_SECRET', 'ADMIN_JWT_SECRET', 'CRM_JWT_SECRET', 'STRIPE_SECRET'];
 const missingEnvVars = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
 if (missingEnvVars.length > 0) {
   logger.error(`Missing required environment variable(s): ${missingEnvVars.join(', ')}`);
@@ -56,6 +56,7 @@ import referralRoutes from "./routes/referral.routes.js";
 import abandonedEnrollmentRoutes from "./routes/abandoned-enrollment.routes.js";
 import courseViewRoutes from "./routes/courseView.routes.js";
 import testimonialRoutes from "./routes/testimonial.routes.js";
+import questionCommentRoutes from "./routes/questionComment.routes.js";
 import assessmentResultRoutes from "./routes/assessmentResult.routes.js";
 import aiToolReportRoutes from "./routes/aiToolReport.routes.js";
 import seoGeoRoutes from "./routes/seo-geo.routes.js";
@@ -73,8 +74,13 @@ import internalLinkRecommendationRoutes from "./routes/internalLinkRecommendatio
 import authorRoutes from "./routes/author.routes.js";
 import leadCaptureRoutes from "./routes/leadCapture.routes.js";
 import instructorRoutes from "./routes/instructor.routes.js";
+import instructorTeachingRoutes from "./routes/instructorTeaching.routes.js";
+import adminTrainingRoutes from "./routes/adminTraining.routes.js";
+import globalSearchRoutes from "./routes/globalSearch.routes.js";
 import skillsGapRoutes from "./routes/skillsGap.routes.js";
 import crmRoutes from "./routes/crm.routes.js";
+import crmAuthRoutes from "./routes/crmAuth.routes.js";
+import { authenticateCrm } from "./middleware/authenticateCrm.js";
 import careerRoutes from "./routes/career.routes.js";
 import Coupon from "./models/coupon.model.js";
 import { validateCoupon, incrementCouponUsage } from "./controllers/coupon.controller.js";
@@ -1317,9 +1323,11 @@ app.use("/", blogRoutes);
 app.use("/", chatRoutes);
 app.use("/", courseRoutes);
 app.use("/admin", adminRoutes);
+app.use("/admin", adminTrainingRoutes);
 app.use("/api", courseViewRoutes);
 app.use("/admin", courseViewRoutes);
 app.use("/api/referral", referralRoutes);
+app.use("/api/question-comments", questionCommentRoutes);
 app.use("/api/ai-reports", aiToolReportRoutes);
 app.use("/api/abandoned-enrollment", abandonedEnrollmentRoutes);
 app.use("/", testimonialRoutes);
@@ -1337,11 +1345,14 @@ app.use("/academy", academyRoutes);
 app.use("/admin/seo/topic-clusters", seoTopicClusterRoutes);
 app.use("/admin/seo/internal-links", internalLinkRecommendationRoutes);
 app.use("/admin/authors", authorRoutes);
+app.use("/admin/global-search", globalSearchRoutes);
 app.use("/", leadCaptureRoutes);
 app.use("/instructor", instructorRoutes);
+app.use("/instructor", instructorTeachingRoutes);
 app.use("/", skillsGapRoutes);
 app.use("/", careerRoutes);
-app.use("/api/crm", authenticateAdmin, crmRoutes);
+app.use("/api/crm/auth", crmAuthRoutes);
+app.use("/api/crm", authenticateCrm, crmRoutes);
 
 // ─── Campaign Automation ───────────────────────────────────────────────────────
 
@@ -1376,6 +1387,11 @@ import("./services/contentFactory/contentFactoryQueue.js")
 import("./services/emailMarketing/campaignOpportunityQueue.js")
   .then(({ scheduleCampaignOpportunityRepeatable }) => scheduleCampaignOpportunityRepeatable())
   .catch((err) => console.error("[Campaign Opportunity Queue] failed to schedule repeatables:", err.message));
+
+// CRM daily report email to admins (7pm IST), same dedupe-safe Bull pattern.
+import("./services/crmDailyReportQueue.js")
+  .then(({ scheduleCrmDailyReportRepeatable }) => scheduleCrmDailyReportRepeatable())
+  .catch((err) => console.error("[CRM Daily Report Queue] failed to schedule repeatable:", err.message));
 
 // ─── Automated Email Sequences ────────────────────────────────────────────────
 
