@@ -747,17 +747,106 @@ export function generateMasterclassConfirmationEmail({ name, nextDate, agenda = 
   return emailShell({ label: 'Masterclass Registration Confirmed', body });
 }
 
+// ─── INSTRUCTOR APPLICATION — ADMIN-SENT EMAILS ──────────────────────────────
+
+const trainersBaseUrl = () => process.env.TRAINERS_FRONTEND_URL || process.env.FRONTEND_URL || 'https://trainers.technohana.in';
+
+// Admin-written plain text -> escaped, line-break-preserving callout
+function noteBlock(text) {
+  if (!text || !String(text).trim()) return '';
+  const safe = escapeHtml(String(text).trim()).replace(/\r?\n/g, '<br/>');
+  return `<div style="background:#f8fafc;border-left:4px solid #8B5CF6;border-radius:0 8px 8px 0;padding:14px 18px;margin:0 0 20px;font-size:14px;color:#1e293b;line-height:1.7;">${safe}</div>`;
+}
+
+function stepsList(steps) {
+  const items = steps
+    .map((s, i) => `<tr>
+      <td style="padding:8px 12px 8px 0;vertical-align:top;width:28px;"><div style="width:24px;height:24px;border-radius:12px;background:#8B5CF6;color:#ffffff;font-size:12px;font-weight:700;text-align:center;line-height:24px;">${i + 1}</div></td>
+      <td style="padding:8px 0;font-size:14px;color:#1e293b;line-height:1.6;">${s}</td>
+    </tr>`)
+    .join('');
+  return `<table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">${items}</table>`;
+}
+
+function courseChips(courses) {
+  const titles = (courses || []).map((c) => c?.courseTitle || c?.courseId).filter(Boolean);
+  if (!titles.length) return '';
+  const shown = titles.slice(0, 8).map((t) => `<span style="display:inline-block;background:#f5f3ff;color:#4C1D95;border:1px solid #ddd6fe;border-radius:999px;padding:3px 10px;font-size:12px;margin:0 6px 6px 0;">${escapeHtml(t)}</span>`).join('');
+  const more = titles.length > 8 ? `<span style="font-size:12px;color:#64748b;">+${titles.length - 8} more</span>` : '';
+  return `<p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:1px;color:#64748b;text-transform:uppercase;">Courses you selected</p><div style="margin:0 0 20px;">${shown}${more}</div>`;
+}
+
+export function instructorShortlistEmail({ name, courses, note }) {
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">You're shortlisted, ${escapeHtml(name)}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">Thank you for applying to teach with Technohana. We reviewed your profile and would like to speak with you.</p>
+    ${courseChips(courses)}
+    ${noteBlock(note)}
+    <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#0f172a;">What happens next</p>
+    ${stepsList([
+      '<strong>Reply to this email</strong> with two or three time slots in the next few days that suit you, and mention your time zone.',
+      "We'll confirm a slot and send you the meeting link.",
+      "We'll talk about your experience, teaching style and the courses you selected.",
+      "If it's a good fit, we'll activate your trainer portal and email you a link to set up your login.",
+    ])}
+    <p style="margin:0;font-size:13px;color:#64748b;">Simply reply to this email. It goes straight to our careers team.</p>`;
+
+  return emailShell({ label: 'Instructor Application', body });
+}
+
+export function instructorRejectEmail({ name, note }) {
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Your Instructor Application</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">Hi ${escapeHtml(name)}, thank you for applying to join Technohana as an instructor and for the time you put into your application.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#1e293b;line-height:1.6;">After careful review, we won't be moving forward at this time. We'll keep your profile on file and reach out if a training requirement matches your experience.</p>
+    ${noteBlock(note)}
+    <p style="margin:0;font-size:13px;color:#64748b;">Best regards,<br/>Technohana Careers Team</p>`;
+
+  return emailShell({ label: 'Instructor Application', body });
+}
+
+export function instructorOnboardEmail({ name, note }) {
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Welcome to Technohana, ${escapeHtml(name)}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">We're delighted to have you join our instructor network. Here is how to get started.</p>
+    ${noteBlock(note)}
+    ${stepsList([
+      '<strong>Set your password.</strong> We email you a separate activation link (valid for 24 hours). Check your spam folder if you can\'t find it.',
+      '<strong>Accept the instructor agreement</strong> and <strong>pass the short ethics quiz</strong>. Your trainer portal unlocks once both are done.',
+      '<strong>Complete your profile</strong> and confirm the courses you can deliver, so we can match you to batches and training requests.',
+    ])}
+    ${ctaButton('Go to Trainer Portal', `${trainersBaseUrl()}/instructor/login`)}`;
+
+  return emailShell({ label: 'Instructor Onboarding', body });
+}
+
+export function instructorCustomEmail({ name, note }) {
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Message from Technohana</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${escapeHtml(name)},</p>
+    ${noteBlock(note)}
+    <p style="margin:0;font-size:13px;color:#64748b;">Best regards,<br/>Technohana Careers Team</p>`;
+
+  return emailShell({ label: 'Instructor Application', body });
+}
+
 // ─── INSTRUCTOR PORTAL — SET PASSWORD (onboarding) ───────────────────────────
 
 export function instructorSetPasswordEmail(name, link) {
   const body = `
-    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Welcome to Technohana, ${name}!</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Your instructor account has been activated. Set your password to access your portal.</p>
-    <div style="background:#f0f7ff;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
-      <p style="margin:0;font-size:14px;color:#1e293b;">Once you're in, you can view your assigned courses, browse training opportunities, track earnings, and manage your profile.</p>
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Welcome to Technohana, ${escapeHtml(name)}!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Your instructor account has been activated. Set your password to access your trainer portal.</p>
+    <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#0f172a;">Before you can start</p>
+    ${stepsList([
+      'Set your password using the button below.',
+      'Accept the instructor agreement.',
+      'Pass the short ethics quiz. Your full portal access unlocks once both are done.',
+    ])}
+    <div style="background:#f0f7ff;border-radius:10px;padding:16px 20px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#1e293b;">After that you can view your batches and schedule, mark attendance, share materials, browse training opportunities, track earnings and manage your profile.</p>
     </div>
     ${ctaButton('Set Your Password', link)}
-    <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;text-align:center;">This link expires in 24 hours. If you didn't expect this email, please contact us.</p>`;
+    <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;text-align:center;">This link expires in 24 hours. If it has expired, reply to this email and we'll send a new one. If you didn't expect this email, please contact us.</p>`;
 
   return emailShell({ label: 'Instructor Portal', body });
 }
@@ -767,7 +856,7 @@ export function instructorSetPasswordEmail(name, link) {
 export function instructorPasswordResetEmail(name, link) {
   const body = `
     <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Reset Your Password</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${name}, we received a request to reset your instructor portal password.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${escapeHtml(name)}, we received a request to reset your instructor portal password.</p>
     ${ctaButton('Reset Password', link)}
     <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;text-align:center;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>`;
 
@@ -777,11 +866,12 @@ export function instructorPasswordResetEmail(name, link) {
 // ─── INSTRUCTOR PORTAL — COMPLIANCE ONBOARDING REMINDER ──────────────────────
 
 export function complianceReminderEmail(name) {
-  const link = `${process.env.FRONTEND_URL || 'https://technohana.in'}/instructor/compliance`;
+  const link = `${trainersBaseUrl()}/instructor/compliance`;
   const body = `
     <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Finish Your Instructor Onboarding</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${name}, you're almost set up — accept the instructor agreement and pass the short ethics quiz to unlock your full portal access.</p>
-    ${ctaButton('Complete Onboarding', link)}`;
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${escapeHtml(name)}, you're almost set up. Accept the instructor agreement and pass the short ethics quiz to unlock your full portal access.</p>
+    ${ctaButton('Complete Onboarding', link)}
+    <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;text-align:center;">You'll be asked to log in first. If you've lost your password, use "Forgot password" on the login page.</p>`;
 
   return emailShell({ label: 'Instructor Portal', body });
 }
@@ -791,7 +881,7 @@ export function complianceReminderEmail(name) {
 export function payoutRequestedEmail(instructorName, amountMajor, currency) {
   const body = `
     <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">New Payout Request</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#64748b;"><strong>${instructorName}</strong> has requested a payout of <strong>${currency} ${amountMajor}</strong>. Review it in the admin panel.</p>`;
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;"><strong>${escapeHtml(instructorName)}</strong> has requested a payout of <strong>${escapeHtml(currency)} ${escapeHtml(amountMajor)}</strong>. Review it in the admin panel.</p>`;
 
   return emailShell({ label: 'Payout Request', body });
 }
@@ -805,9 +895,9 @@ export function payoutStatusUpdateEmail(name, status, amountMajor, currency) {
 
   const body = `
     <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Payout Update</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${name}, here's an update on your payout request of <strong>${currency} ${amountMajor}</strong>.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${escapeHtml(name)}, here's an update on your payout request of <strong>${escapeHtml(currency)} ${escapeHtml(amountMajor)}</strong>.</p>
     <div style="background:${isPaid ? '#f0fdf4' : isRejected ? '#fef2f2' : '#fffbeb'};border:1px solid ${statusColor};border-radius:10px;padding:16px 20px;text-align:center;margin-bottom:20px;">
-      <p style="margin:0;font-size:18px;font-weight:700;color:${statusColor};text-transform:capitalize;">Status: ${status}</p>
+      <p style="margin:0;font-size:18px;font-weight:700;color:${statusColor};text-transform:capitalize;">Status: ${escapeHtml(status)}</p>
     </div>
     <p style="margin:20px 0 0;font-size:13px;color:#64748b;text-align:center;">You can track this request anytime from your instructor portal.</p>`;
 

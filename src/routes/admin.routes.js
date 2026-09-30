@@ -52,7 +52,7 @@ import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptan
 import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
 import InstructorComplianceSettings from "../models/instructorComplianceSettings.model.js";
 import CareerApplication from "../models/careerApplication.model.js";
-import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail, payoutStatusUpdateEmail } from "../utils/emailTemplate.js";
+import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail, payoutStatusUpdateEmail, instructorShortlistEmail, instructorRejectEmail, instructorOnboardEmail, instructorCustomEmail } from "../utils/emailTemplate.js";
 import { decryptToken } from "../utils/tokenCrypto.js";
 import crypto from "crypto";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
@@ -1707,23 +1707,24 @@ router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructor
 
     const { template, customMessage } = req.body;
     const name = instructor.name || "Instructor";
+    const note = typeof customMessage === "string" ? customMessage.slice(0, 2000) : "";
 
     const templates = {
       shortlist: {
-        subject: "Your Technohana Instructor Application — Next Steps",
-        html: `<p>Hi ${name},</p><p>Great news! We've reviewed your application and would love to schedule a brief interview. Please reply to this email with your availability.</p>${customMessage ? `<p>${customMessage}</p>` : ""}<p>Best regards,<br/>Technohana Careers Team</p>`,
+        subject: "You're shortlisted — Technohana Instructor Application",
+        html: instructorShortlistEmail({ name, courses: instructor.courseSkills, note }),
       },
       reject: {
         subject: "Your Technohana Instructor Application",
-        html: `<p>Hi ${name},</p><p>Thank you for applying to join Technohana as an instructor. After careful review, we won't be moving forward at this time. We'll keep your profile on file for future opportunities.</p>${customMessage ? `<p>${customMessage}</p>` : ""}<p>Best regards,<br/>Technohana Careers Team</p>`,
+        html: instructorRejectEmail({ name, note }),
       },
       onboard: {
-        subject: "Welcome to Technohana — Onboarding Next Steps",
-        html: `<p>Hi ${name},</p><p>We're thrilled to have you on board as a Technohana instructor! Our team will reach out shortly with your onboarding details and first assignment.</p>${customMessage ? `<p>${customMessage}</p>` : ""}<p>Best regards,<br/>Technohana Careers Team</p>`,
+        subject: "Welcome to Technohana — Your Onboarding Steps",
+        html: instructorOnboardEmail({ name, note }),
       },
       custom: {
         subject: "Message from Technohana",
-        html: `<p>Hi ${name},</p><p>${customMessage || ""}</p><p>Best regards,<br/>Technohana Careers Team</p>`,
+        html: instructorCustomEmail({ name, note }),
       },
       "compliance-reminder": {
         subject: "Finish your Technohana instructor onboarding",
@@ -1733,13 +1734,21 @@ router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructor
 
     const tpl = templates[template];
     if (!tpl) return res.status(400).json({ message: "Invalid template." });
+    if (template === "custom" && !note.trim()) return res.status(400).json({ message: "Write a message before sending." });
+
+    // Send first so a failed send never leaves the applicant marked shortlisted/rejected with no email.
+    // The Resend SDK reports API failures as { error } rather than throwing.
+    const sent = await sendEmail({ from: fromAddresses.careers, to: instructor.email, subject: tpl.subject, html: tpl.html });
+    if (sent?.error) {
+      console.error("Instructor email rejected by provider:", sent.error);
+      return res.status(502).json({ message: "The email provider rejected this message. The application status was not changed." });
+    }
 
     const statusMap = { shortlist: "shortlisted", reject: "rejected" };
     if (statusMap[template]) {
       await Instructor.findByIdAndUpdate(req.params.id, { status: statusMap[template] });
     }
 
-    await sendEmail({ from: fromAddresses.careers, to: instructor.email, subject: tpl.subject, html: tpl.html });
     return res.json({ message: "Email sent." });
   } catch (err) {
     console.error("Instructor email error:", err);
