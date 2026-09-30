@@ -37,6 +37,16 @@ const instructorPasswordResetLimiter = rateLimit({
   message: 'Too many password reset attempts. Please try again after 15 minutes.',
 });
 
+// Slows password guessing on the public trainer login. Successful logins don't count.
+const instructorLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many failed login attempts. Please try again in 15 minutes, or use "Forgot password".' },
+});
+
 const generateInstructorToken = (instructor) =>
   jwt.sign(
     { id: instructor._id, name: instructor.name, email: instructor.email, role: "instructor" },
@@ -46,7 +56,7 @@ const generateInstructorToken = (instructor) =>
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
-router.post("/auth/login", async (req, res) => {
+router.post("/auth/login", instructorLoginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password)

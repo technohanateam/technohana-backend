@@ -10,8 +10,8 @@ import { verifyCaptcha } from '../utils/verifyCaptcha.js';
 
 const router = express.Router();
 
-// Public, unauthenticated, and each submission stores a record, uploads a resume and sends two emails.
-const instructorApplicationLimiter = rateLimit({
+// Public, unauthenticated, and each submission stores a record, uploads a resume and sends emails.
+const applicationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
@@ -24,9 +24,9 @@ const discardUpload = (req) => {
 };
 
 // Runs after multer (the token travels in the multipart body).
-const requireInstructorCaptcha = async (req, res, next) => {
+const requireCaptcha = (routeName) => async (req, res, next) => {
   if (!process.env.TURNSTILE_SECRET_KEY && process.env.NODE_ENV === 'production') {
-    console.error('[submit-instructor] TURNSTILE_SECRET_KEY is not set; rejecting applications until it is configured.');
+    console.error(`[${routeName}] TURNSTILE_SECRET_KEY is not set; rejecting applications until it is configured.`);
     discardUpload(req);
     return res.status(503).json({ success: false, message: 'Applications are temporarily unavailable. Please email careers@technohana.in with your resume.' });
   }
@@ -53,7 +53,7 @@ router.post('/enrollments/:enrollmentId/certificate', authenticateJWT, issueCert
 router.post('/enrollments/:enrollmentId/review', authenticateJWT, submitInstructorReview);
 router.get('/enrollments/:enrollmentId/review', authenticateJWT, getInstructorReviewForEnrollment);
 
-router.post('/submit-instructor', instructorApplicationLimiter, (req, res, next) => {
+router.post('/submit-instructor', applicationLimiter, (req, res, next) => {
   upload.single('resume')(req, res, (err) => {
     if (err) {
       const msg = err.code === 'LIMIT_FILE_SIZE'
@@ -63,9 +63,9 @@ router.post('/submit-instructor', instructorApplicationLimiter, (req, res, next)
     }
     next();
   });
-}, requireInstructorCaptcha, InstructorForm);
+}, requireCaptcha('submit-instructor'), InstructorForm);
 
-router.post('/submit-internship', (req, res, next) => {
+router.post('/submit-internship', applicationLimiter, (req, res, next) => {
   upload.single('resume')(req, res, (err) => {
     if (err) {
       const msg = err.code === 'LIMIT_FILE_SIZE'
@@ -75,7 +75,7 @@ router.post('/submit-internship', (req, res, next) => {
     }
     next();
   });
-}, submitInternApplication);
+}, requireCaptcha('submit-internship'), submitInternApplication);
 
 
 export default router;
