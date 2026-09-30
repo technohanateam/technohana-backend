@@ -27,14 +27,6 @@ import Subscription from "../models/subscription.model.js";
 import CareerApplication from "../models/careerApplication.model.js";
 import InternApplication from "../models/internApplication.model.js";
 import AdminUser from "../models/adminUser.model.js";
-import CRMLead from "../models/crm/crmLead.model.js";
-import CRMContact from "../models/crm/crmContact.model.js";
-import CRMCompany from "../models/crm/crmCompany.model.js";
-import CRMDeal from "../models/crm/crmDeal.model.js";
-
-// Soft-delete guard shared by every CRM collection. Merged LAST in the query
-// compiler so an AI-supplied filter can never unset it.
-const NOT_DELETED = { isDeleted: { $ne: true } };
 
 const DOT = " · ";
 
@@ -104,113 +96,6 @@ export const SEARCH_ENTITIES = [
       nextFollowUp: { type: "date" },
     },
     groupable: ["status", "enquiryType", "source", "campaign", "assignedTo", "aiScoreBand", "courseTitle"],
-  },
-  {
-    key: "crmLead",
-    model: CRMLead,
-    label: "CRM Leads",
-    icon: "UserPlus",
-    searchFields: ["name", "email", "phone", "whatsApp", "company", "designation", "city", "state", "country", "interest", "industry", "website"],
-    identityFields: { email: ["email"], phone: ["phone", "whatsApp"], ref: [] },
-    project: { name: 1, email: 1, phone: 1, company: 1, designation: 1, city: 1, country: 1, status: 1, priority: 1, leadScore: 1, createdAt: 1 },
-    title: (d) => d.name || d.email,
-    subtitle: (d) => join(d.company, d.status, d.city),
-    linkTo: (d) => linkWithSearch("/admin/crm", d.email || d.name),
-    baseFilter: NOT_DELETED,
-    sort: { _id: -1 },
-    filterable: {
-      status: { type: "enum", values: ["new", "discovery", "needs_analysis", "skill_gap_assessed", "course_recommended", "proposal_sent", "negotiation", "quotation_sent", "purchase_order", "won", "lost", "junk"] },
-      priority: { type: "enum", values: ["low", "medium", "high", "urgent"] },
-      source: { type: "enum", values: ["website", "referral", "event", "campaign", "cold_call", "social", "partner", "chat", "enquiry_form", "other"] },
-      aiScoreBand: { type: "enum", values: ["hot", "warm", "cold"] },
-      company: { type: "string" },
-      country: { type: "string" },
-      city: { type: "string" },
-      industry: { type: "string" },
-      currency: { type: "string" },
-      leadScore: { type: "number" },
-      expectedRevenue: { type: "number" },
-      createdAt: { type: "date" },
-      nextFollowUp: { type: "date" },
-      wonAt: { type: "date" },
-    },
-    groupable: ["status", "priority", "source", "country", "city", "industry", "aiScoreBand"],
-  },
-  {
-    key: "crmContact",
-    model: CRMContact,
-    label: "CRM Contacts",
-    icon: "Contact",
-    searchFields: ["firstName", "lastName", "email", "phone", "whatsApp", "designation", "department", "city", "country", "website"],
-    identityFields: { email: ["email"], phone: ["phone", "whatsApp"], ref: [] },
-    project: { firstName: 1, lastName: 1, email: 1, phone: 1, designation: 1, department: 1, city: 1, country: 1, createdAt: 1 },
-    title: (d) => [d.firstName, d.lastName].filter(Boolean).join(" ") || d.email,
-    subtitle: (d) => join(d.designation, d.city, d.country),
-    linkTo: (d) => linkWithSearch("/admin/crm", d.email || d.firstName),
-    baseFilter: NOT_DELETED,
-    sort: { _id: -1 },
-    filterable: {
-      designation: { type: "string" },
-      department: { type: "string" },
-      city: { type: "string" },
-      country: { type: "string" },
-      isDecisionMaker: { type: "boolean" },
-      isPrimaryContact: { type: "boolean" },
-      createdAt: { type: "date" },
-    },
-    groupable: ["department", "country", "city", "designation"],
-  },
-  {
-    key: "crmCompany",
-    model: CRMCompany,
-    label: "CRM Companies",
-    icon: "Building2",
-    searchFields: ["name", "email", "phone", "website", "industry", "subIndustry", "gst", "pan", "address.city", "address.country"],
-    identityFields: { email: ["email"], phone: ["phone"], ref: ["gst", "pan"] },
-    project: { name: 1, email: 1, phone: 1, website: 1, industry: 1, employeeRange: 1, "address.city": 1, "address.country": 1, createdAt: 1 },
-    title: (d) => d.name,
-    subtitle: (d) => join(d.industry, d.address && d.address.city, d.address && d.address.country),
-    linkTo: (d) => linkWithSearch("/admin/crm", d.name),
-    baseFilter: NOT_DELETED,
-    sort: { _id: -1 },
-    filterable: {
-      industry: { type: "string" },
-      subIndustry: { type: "string" },
-      employeeRange: { type: "string" },
-      "address.city": { type: "string" },
-      "address.country": { type: "string" },
-      annualRevenue: { type: "number" },
-      employees: { type: "number" },
-      createdAt: { type: "date" },
-    },
-    groupable: ["industry", "employeeRange", "address.country", "address.city"],
-  },
-  {
-    key: "crmDeal",
-    model: CRMDeal,
-    label: "CRM Deals",
-    icon: "Kanban",
-    // assignedTo is an ObjectId ref to AdminUser here (unlike on Enquiry, where
-    // it is a name string), so it is neither searchable nor filterable by text.
-    searchFields: ["title", "quotationRef", "invoiceRef", "purchaseOrderRef", "stageKey"],
-    identityFields: { email: [], phone: [], ref: ["quotationRef", "invoiceRef", "purchaseOrderRef"] },
-    project: { title: 1, value: 1, currency: 1, status: 1, stageKey: 1, expectedCloseDate: 1, createdAt: 1 },
-    title: (d) => d.title,
-    subtitle: (d) => join(d.status, d.value != null ? [d.currency, d.value].filter(Boolean).join(" ") : null, d.stageKey),
-    linkTo: () => "/crm",
-    baseFilter: NOT_DELETED,
-    sort: { _id: -1 },
-    filterable: {
-      status: { type: "enum", values: ["open", "won", "lost"] },
-      stageKey: { type: "string" },
-      currency: { type: "string" },
-      value: { type: "number" },
-      probability: { type: "number" },
-      expectedCloseDate: { type: "date" },
-      createdAt: { type: "date" },
-      wonAt: { type: "date" },
-    },
-    groupable: ["status", "stageKey", "currency"],
   },
   {
     key: "order",

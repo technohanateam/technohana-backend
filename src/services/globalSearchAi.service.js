@@ -127,7 +127,7 @@ Rules:
 - Use only the field names listed above for the collection you choose. If the question needs a field that is not listed, choose the closest listed field, or pick the collection where the field does exist.
 - Prices in Technohana are stored in INR/AED/USD/GBP/EUR per record; filter on currency when the question names one.
 - Money on orders is in MINOR units (paise/cents): 50000 INR is expectedTotalMinor 5000000.
-- Enrollments live in 'enrollment' (status enrolled/completed means they converted). Sales enquiries live in 'enquiry'. CRM pipeline records live in 'crmLead' and 'crmDeal'.`;
+- Enrollments live in 'enrollment' (status enrolled/completed means they converted). Sales enquiries live in 'enquiry'. CRM leads and deals are a separate system and are not searchable here.`;
 
 const NARRATE_SYSTEM = `You summarise database results for a Technohana administrator in 1-3 short sentences. State what the data shows, with the concrete numbers. Do not speculate beyond the rows.
 
