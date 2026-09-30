@@ -1396,6 +1396,11 @@ import("./services/emailMarketing/campaignOpportunityQueue.js")
   .then(({ scheduleCampaignOpportunityRepeatable }) => scheduleCampaignOpportunityRepeatable())
   .catch((err) => console.error("[Campaign Opportunity Queue] failed to schedule repeatables:", err.message));
 
+// CRM daily report email to admins (7pm IST), same dedupe-safe Bull pattern.
+import("./services/crmDailyReportQueue.js")
+  .then(({ scheduleCrmDailyReportRepeatable }) => scheduleCrmDailyReportRepeatable())
+  .catch((err) => console.error("[CRM Daily Report Queue] failed to schedule repeatable:", err.message));
+
 // ─── Automated Email Sequences ────────────────────────────────────────────────
 
 // Abandoned cart: check every 30 minutes, send re-engagement email after 2h

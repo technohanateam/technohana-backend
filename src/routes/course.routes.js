@@ -16,6 +16,20 @@ router.get("/courses", async (req, res) => {
   }
 });
 
+// GET /courses/options — public, lightweight list for trainer course pickers
+router.get("/courses/options", async (req, res) => {
+  try {
+    const data = await Course.find({ id: { $not: /^playbook-/i } })
+      .select("id courseTitle category -_id")
+      .sort({ category: 1, courseTitle: 1 })
+      .lean();
+    return res.json(data);
+  } catch (err) {
+    console.error("Course options error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 // GET /courses/:id — public, returns single course by `courseSlug` (preferred) or legacy `id`
 router.get("/courses/:id", async (req, res) => {
   try {

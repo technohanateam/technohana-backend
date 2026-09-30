@@ -1759,7 +1759,7 @@ router.patch("/instructors/:id/activate", authenticateAdmin, requirePage("instru
       resetTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
 
-    const link = `${process.env.FRONTEND_URL}/instructor/set-password?token=${token}`;
+    const link = `${process.env.TRAINERS_FRONTEND_URL || process.env.FRONTEND_URL}/instructor/set-password?token=${token}`;
     await sendEmail({
       from: fromAddresses.careers,
       to: instructor.email,
@@ -1771,6 +1771,40 @@ router.patch("/instructors/:id/activate", authenticateAdmin, requirePage("instru
   } catch (err) {
     console.error("Activate instructor error:", err);
     return res.status(500).json({ success: false, message: "Failed to send activation email" });
+  }
+});
+
+// ─── Admin: Suggested instructors for a course ───────────────────────────────
+// Exact course matches rank above same-category matches.
+router.get("/courses/:id/suggested-instructors", authenticateAdmin, requirePage("courses"), async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id).select("id category").lean();
+    if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+
+    const or = [{ "courseSkills.courseId": course.id }];
+    if (course.category) or.push({ "courseSkills.category": course.category });
+
+    const instructors = await Instructor.find({ isActive: true, $or: or })
+      .select("name email experience dailyRate availability deliveryMode courseSkills")
+      .lean();
+
+    const data = instructors
+      .map((i) => ({
+        _id: i._id,
+        name: i.name,
+        email: i.email,
+        experience: i.experience,
+        dailyRate: i.dailyRate,
+        availability: i.availability,
+        deliveryMode: i.deliveryMode,
+        matchType: i.courseSkills.some((s) => s.courseId === course.id) ? "course" : "category",
+      }))
+      .sort((a, b) => (a.matchType === b.matchType ? 0 : a.matchType === "course" ? -1 : 1));
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error("Suggested instructors error:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch suggestions" });
   }
 });
 
@@ -1964,7 +1998,7 @@ router.patch("/courses/:id/assign-instructor", authenticateAdmin, requirePage("c
 });
 
 // ─── Admin: Training Requirements ────────────────────────────────────────────
-router.post("/training-requirements", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+router.post("/training-requirements", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
   try {
     const { title, description, topic, expertise, deliveryMode, duration, participants, budgetRange, startDate, deadline, location } = req.body;
     if (!title || !description)
@@ -1987,7 +2021,7 @@ router.post("/training-requirements", authenticateAdmin, requirePage("instructor
 
     // Notify all active instructors — fire and forget so the response returns immediately
     const activeInstructors = await Instructor.find({ isActive: true }).select("name email").lean();
-    const portalLink = `${process.env.FRONTEND_URL}/instructor/opportunities`;
+    const portalLink = `${process.env.TRAINERS_FRONTEND_URL || process.env.FRONTEND_URL}/instructor/opportunities`;
     const notifiedCount = activeInstructors.length;
 
     Promise.allSettled(
@@ -2011,7 +2045,7 @@ router.post("/training-requirements", authenticateAdmin, requirePage("instructor
   }
 });
 
-router.get("/training-requirements", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+router.get("/training-requirements", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
   try {
     const { status } = req.query;
     const filter = status ? { status } : {};
@@ -2042,7 +2076,7 @@ router.get("/training-requirements", authenticateAdmin, requirePage("instructors
   }
 });
 
-router.patch("/training-requirements/:id", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+router.patch("/training-requirements/:id", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
   try {
     const allowed = ["title", "description", "topic", "expertise", "deliveryMode", "duration", "participants", "budgetRange", "startDate", "deadline", "location", "status"];
     const dateFields = new Set(["startDate", "deadline"]);
@@ -2061,7 +2095,7 @@ router.patch("/training-requirements/:id", authenticateAdmin, requirePage("instr
   }
 });
 
-router.delete("/training-requirements/:id", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
+router.delete("/training-requirements/:id", authenticateAdmin, requirePage("training-requirements"), requireAdmin, async (req, res) => {
   try {
     await TrainingRequirement.findByIdAndDelete(req.params.id);
     await InstructorApplication.deleteMany({ requirementId: req.params.id });
@@ -2072,7 +2106,7 @@ router.delete("/training-requirements/:id", authenticateAdmin, requirePage("inst
   }
 });
 
-router.get("/training-requirements/:id/applications", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+router.get("/training-requirements/:id/applications", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
   try {
     const [instructorApps, careerApps] = await Promise.all([
       InstructorApplication.find({ requirementId: req.params.id })
@@ -2093,7 +2127,7 @@ router.get("/training-requirements/:id/applications", authenticateAdmin, require
   }
 });
 
-router.patch("/training-requirements/:id/applications/:appId", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+router.patch("/training-requirements/:id/applications/:appId", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
   try {
     const { status, adminNotes } = req.body;
     const validStatuses = ["applied", "shortlisted", "accepted", "rejected"];

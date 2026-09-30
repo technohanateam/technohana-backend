@@ -21,6 +21,7 @@ import { requireCompliance } from "../middleware/requireCompliance.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { instructorPasswordResetEmail, payoutRequestedEmail } from "../utils/emailTemplate.js";
 import { generateResetToken, hashToken } from "../utils/resetTokenUtil.js";
+import { resolveCourseSkills } from "../controllers/instructorForm.controller.js";
 import { computeInstructorEarnings } from "../utils/instructorEarnings.js";
 import { encryptToken } from "../utils/tokenCrypto.js";
 
@@ -114,7 +115,7 @@ router.post("/auth/forgot-password", instructorPasswordResetLimiter, async (req,
       resetTokenExpiry: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
     });
 
-    const resetLink = `${process.env.FRONTEND_URL}/instructor/set-password?token=${token}`;
+    const resetLink = `${process.env.TRAINERS_FRONTEND_URL || process.env.FRONTEND_URL}/instructor/set-password?token=${token}`;
     await sendEmail({
       from: fromAddresses.careers,
       to: instructor.email,
@@ -150,6 +151,10 @@ router.put("/me", authenticateInstructor, async (req, res) => {
     const updates = Object.fromEntries(
       Object.entries(req.body).filter(([k]) => allowed.includes(k))
     );
+
+    if ("courseSkills" in req.body) {
+      updates.courseSkills = await resolveCourseSkills(req.body.courseSkills);
+    }
 
     const instructor = await Instructor.findByIdAndUpdate(req.instructor.id, updates, { new: true })
       .select("-passwordHash -resetToken -resetTokenExpiry -payoutDetailsEncrypted")
@@ -358,6 +363,10 @@ router.get("/courses/:courseId/students", authenticateInstructor, requireComplia
     if (!course)
       return res.status(403).json({ success: false, message: "Course not found or not assigned to you" });
 
+    // Legacy roster: still joined on courseTitle, so it cannot distinguish two
+    // cohorts of the same course. Batch-scoped rosters live on the teaching router
+    // and join on batchId; batchId is projected here so the UI can flag learners
+    // who have not been assigned to a batch yet.
     const students = await User.find({ courseTitle: course.courseTitle, status: { $ne: "rejected" } })
       .select("name email phone status progress lessonsCompleted totalLessons batchId createdAt")
       .lean();

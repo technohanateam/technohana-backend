@@ -18,6 +18,15 @@ const instructorSchema = new Schema({
     deliveryMode : { type : String },
     certifications : { type : String },
     expertiseOther : { type : String },
+    courseSkills : {
+        type : [{
+            _id : false,
+            courseId : { type : String, required : true },
+            courseTitle : { type : String },
+            category : { type : String },
+        }],
+        default : [],
+    },
     coverLetter : {
         type : String
     },
@@ -71,6 +80,8 @@ const instructorSchema = new Schema({
 
 instructorSchema.index({ resetToken: 1 });
 instructorSchema.index({ email: 1 });
+instructorSchema.index({ "courseSkills.courseId": 1 });
+instructorSchema.index({ "courseSkills.category": 1 });
 
 const Instructor = mongoose.model("Instructor",instructorSchema);
 

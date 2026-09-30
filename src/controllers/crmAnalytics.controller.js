@@ -1,5 +1,6 @@
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
+import { buildDailyReport, sendDailyReportEmail } from "../services/crmDailyReport.js";
 
 export const getRevenueTrend = async (req, res) => {
   try {
@@ -161,5 +162,33 @@ export const getConversionStats = async (req, res) => {
     res.json({ success: true, data: withRates, message: "Conversion stats loaded" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to load conversion stats" });
+  }
+};
+
+const CRM_ADMIN_ROLES = ["super_admin", "admin"];
+
+export const getDailyReport = async (req, res) => {
+  try {
+    const role = req.crmRole || req.admin.role;
+    const repId = CRM_ADMIN_ROLES.includes(role) ? null : req.admin._id;
+    const report = await buildDailyReport({ from: req.query.from, to: req.query.to, repId });
+    if (report.error) return res.status(400).json({ success: false, message: report.error });
+    res.json({ success: true, data: report, message: "Daily report loaded" });
+  } catch (err) {
+    console.error("getDailyReport error:", err);
+    res.status(500).json({ success: false, message: "Failed to load daily report" });
+  }
+};
+
+// Sends the report for a given day to the caller only (admin preview), so a
+// manual send can never email the whole admin list by accident.
+export const emailDailyReportToMe = async (req, res) => {
+  try {
+    const { sent, report } = await sendDailyReportEmail({ date: req.body?.date, to: [req.admin.email] });
+    if (!sent) return res.status(400).json({ success: false, message: "No recipient" });
+    res.json({ success: true, message: `Report for ${report.from} emailed to ${req.admin.email}` });
+  } catch (err) {
+    console.error("emailDailyReportToMe error:", err);
+    res.status(500).json({ success: false, message: "Failed to send report" });
   }
 };

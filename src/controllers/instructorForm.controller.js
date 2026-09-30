@@ -1,6 +1,7 @@
 import { fromAddresses} from "../config/emailService.js"
 import { generateResumeAcknowledgementEmail } from "../utils/emailTemplate.js";
 import Instructor from "../models/instructor.js";
+import Course from "../models/course.model.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 import { Resend } from "resend";
@@ -30,6 +31,22 @@ const sendEmail = async(to,subject,html,attachment = null)=>{
     }
 }
 
+// Accepts an array or a JSON string of course ids and returns catalog-verified
+// { courseId, courseTitle, category } entries — client-supplied titles are ignored.
+export const resolveCourseSkills = async (raw) => {
+    let ids = raw;
+    if (typeof ids === "string") {
+        try { ids = JSON.parse(ids); } catch { return []; }
+    }
+    if (!Array.isArray(ids)) return [];
+    const unique = [...new Set(ids.map((i) => String(i)).filter(Boolean))].slice(0, 50);
+    if (!unique.length) return [];
+    const courses = await Course.find({ id: { $in: unique } }).select("id courseTitle category -_id").lean();
+    return courses.map((c) => ({ courseId: c.id, courseTitle: c.courseTitle, category: c.category }));
+};
+
+const escapeHtml = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
 export const InstructorForm = async(req,res)=>{
     try {
         const {name,email,coverLetter,phone,expertise,expertiseOther,experience,linkedinUrl,dailyRate,availability,deliveryMode,certifications} = req.body;
@@ -39,6 +56,14 @@ export const InstructorForm = async(req,res)=>{
             return res.status(400).json({
                 success : false,
                 message : "Name and email are required"
+            })
+        }
+
+        const courseSkills = await resolveCourseSkills(req.body.courseSkills);
+        if(!courseSkills.length){
+            return res.status(400).json({
+                success : false,
+                message : "Select at least one course you can deliver"
             })
         }
 
@@ -87,6 +112,7 @@ export const InstructorForm = async(req,res)=>{
             availability,
             deliveryMode,
             certifications,
+            courseSkills,
             coverLetter,
             resumeUrl,
             resumePublicId
@@ -149,6 +175,10 @@ export const InstructorForm = async(req,res)=>{
               <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:20px;">
                 ${rowsHtml}
               </table>
+              <div style="background:#f8fafc;border-left:4px solid #FFC107;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:16px;">
+                <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Courses they can deliver (${courseSkills.length})</p>
+                <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.7;">${courseSkills.map((c) => escapeHtml(c.courseTitle || c.courseId)).join(" · ")}</p>
+              </div>
               ${certifications ? `<div style="background:#f8fafc;border-left:4px solid #8b5cf6;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:16px;">
                 <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Certifications</p>
                 <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.7;">${certifications}</p>

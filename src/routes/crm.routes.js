@@ -2,7 +2,7 @@ import { Router } from "express";
 import { crmRead, crmWrite, crmDelete, crmBulk, crmImport, crmExport } from "../middleware/crmPermission.js";
 
 import { getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents } from "../controllers/crmDashboard.controller.js";
-import { getRevenueTrend, getRepStats, getConversionStats } from "../controllers/crmAnalytics.controller.js";
+import { getRevenueTrend, getRepStats, getConversionStats, getDailyReport, emailDailyReportToMe } from "../controllers/crmAnalytics.controller.js";
 import {
   getLeads, getLead, createLead, updateLead, deleteLead,
   bulkLeadAction, mergeLead, addNote, getLeadActivities,
@@ -51,6 +51,8 @@ router.get("/calendar",          crmRead("dashboard"),  getCalendarEvents);
 router.get("/analytics/revenue-trend", crmRead("dashboard"), getRevenueTrend);
 router.get("/analytics/rep-stats",     crmRead("dashboard"), getRepStats);
 router.get("/analytics/conversions",   crmRead("dashboard"), getConversionStats);
+router.get("/analytics/daily-report",  crmRead("dashboard"), getDailyReport);
+router.post("/analytics/daily-report/email", crmWrite("users"), emailDailyReportToMe);
 
 // ── Leads ─────────────────────────────────────────────────────────────────────
 router.get("/leads/export",         crmExport("leads"),       getLeadExport);
