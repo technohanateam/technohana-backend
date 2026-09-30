@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const noteSchema = new mongoose.Schema(
-  { body: { type: String, required: true }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" } },
+  { body: { type: String, required: true }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" } },
   { timestamps: true }
 );
 
@@ -11,7 +11,7 @@ const attachmentSchema = new mongoose.Schema({
   publicId: String,
   size: Number,
   mimeType: String,
-  uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" },
+  uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" },
   uploadedAt: { type: Date, default: Date.now },
 });
 
@@ -33,8 +33,12 @@ const crmLeadSchema = new mongoose.Schema(
     // Source
     source: {
       type: String,
-      enum: ["website", "referral", "event", "campaign", "cold_call", "social", "partner", "chat", "enquiry_form", "other"],
-      default: "website",
+      enum: [
+        "meta_ads", "google_ads", "linkedin_ads", "outbound_email", "outbound_linkedin", "cold_call",
+        "referral", "event", "campaign", "social", "partner", "other",
+        "website", "chat", "enquiry_form",
+      ],
+      default: "other",
     },
     website: { type: String, trim: true },
     linkedIn: { type: String, trim: true },
@@ -74,7 +78,7 @@ const crmLeadSchema = new mongoose.Schema(
     pipelineStage: { type: String },
 
     // Assignments
-    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" },
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" },
     nextFollowUp: { type: Date },
 
     // Related CRM entities (set as lead progresses)
@@ -98,12 +102,13 @@ const crmLeadSchema = new mongoose.Schema(
     mergedInto: { type: mongoose.Schema.Types.ObjectId, ref: "CRMLead" },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date },
+    archivedReason: { type: String },
 
     // Skills gap data captured during needs analysis
     skillGapData: { type: Object },
     recommendedCourses: [{ courseId: String, courseTitle: String, reason: String }],
 
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" },
   },
   { timestamps: true }
 );

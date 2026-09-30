@@ -11,6 +11,8 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `MONGO_DB` | `src/config/db.js` | MongoDB connection string |
 | `JWT_SECRET` | `src/config/jwt.js`, `src/middleware/authenticateInstructor.js`, `src/routes/instructor.routes.js` | User/instructor auth token signing |
 | `ADMIN_JWT_SECRET` | `src/middleware/authenticateAdmin.js`, `src/controllers/adminUser.controller.js`, `src/controllers/seoConnection.controller.js` | Admin auth token signing |
+| `CRM_JWT_SECRET` | `src/middleware/authenticateCrm.js`, `src/controllers/crmUser.controller.js` | CRM token signing (must differ from `ADMIN_JWT_SECRET`); server refuses to start without it |
+| `CRM_FRONTEND_URL` | `src/controllers/crmUser.controller.js` | CRM app base URL for password-reset links (e.g. `https://crm.technohana.in`); also add it to `WHITELISTED_URLS` |
 | `STRIPE_SECRET` | `src/index.js` | Stripe SDK init (international payments) |
 
 ## Optional — feature degrades gracefully or has a fallback if unset
