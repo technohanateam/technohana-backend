@@ -203,7 +203,7 @@ export const compileSearchQuery = (input) => {
   // is never projected). That is a different message from a wrong entity name.
   if (input.entity == null || input.entity === "") {
     throw new SearchQueryError(
-      "That data isn't available through search. Try asking about enrollments, enquiries, CRM records, orders, courses, batches, blogs or coupons.",
+      "That data isn't available through search. Try asking about enrollments, enquiries, orders, courses, batches, blogs or coupons.",
       "no_entity"
     );
   }

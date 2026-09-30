@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-export const CRM_ROLES = ["super_admin", "admin", "sales", "marketing", "trainer", "accounts", "hr", "student_support", "readonly"];
+export const CRM_ROLES = ["super_admin", "admin", "sales", "marketing", "hr", "readonly"];
 
 const crmUserSchema = new Schema(
   {

@@ -6,6 +6,8 @@ import CRMLead from "../src/models/crm/crmLead.model.js";
 
 const DRY_RUN = !process.argv.includes("--apply");
 const SITE_SOURCES = ["website", "enquiry_form", "chat"];
+// Roles the CRM still has; older accounts (trainer, accounts, student_support) become read-only
+const CRM_ROLES = ["super_admin", "admin", "sales", "marketing", "hr", "readonly"];
 
 const run = async () => {
   await mongoose.connect(process.env.MONGO_DB);
@@ -23,7 +25,7 @@ const run = async () => {
         email: a.email,
         name: a.name,
         passwordHash: a.passwordHash,
-        crmRole: a.crmRole || "sales",
+        crmRole: CRM_ROLES.includes(a.crmRole) ? a.crmRole : a.crmRole ? "readonly" : "sales",
         active: a.active,
       });
     }
