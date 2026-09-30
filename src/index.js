@@ -66,6 +66,7 @@ import contentFactoryExternalRoutes from "./routes/contentFactoryExternal.routes
 import courseFactoryRoutes from "./routes/courseFactory.routes.js";
 import adCreativeFactoryRoutes from "./routes/adCreativeFactory.routes.js";
 import socialFactoryRoutes from "./routes/socialFactory.routes.js";
+import globalSearchRoutes from "./routes/globalSearch.routes.js";
 import marketingCalendarRoutes from "./routes/marketingCalendar.routes.js";
 import academyRoutes from "./routes/academy.routes.js";
 import seoTopicClusterRoutes from "./routes/seoTopicCluster.routes.js";
@@ -1343,6 +1344,7 @@ app.use("/admin/content-factory-external", contentFactoryExternalRoutes);
 app.use("/admin/course-factory", courseFactoryRoutes);
 app.use("/admin/ad-creative-factory", adCreativeFactoryRoutes);
 app.use("/admin/social-factory", socialFactoryRoutes);
+app.use("/admin/global-search", globalSearchRoutes);
 app.use("/admin/marketing-calendar", marketingCalendarRoutes);
 app.use("/academy", academyRoutes);
 app.use("/admin/seo/topic-clusters", seoTopicClusterRoutes);
