@@ -805,17 +805,22 @@ export function instructorRejectEmail({ name, note }) {
   return emailShell({ label: 'Instructor Application', body });
 }
 
-export function instructorOnboardEmail({ name, note }) {
+export function instructorOnboardEmail({ name, note, setPasswordLink }) {
+  const loginLink = `${trainersBaseUrl()}/instructor/login`;
+  const firstStep = setPasswordLink
+    ? '<strong>Set your password</strong> using the button below. The link is valid for 24 hours; if it expires, reply to this email and we will send a new one.'
+    : '<strong>Log in</strong> to your trainer portal with your existing password.';
   const body = `
     <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Welcome to Technohana, ${escapeHtml(name)}!</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">We're delighted to have you join our instructor network. Here is how to get started.</p>
     ${noteBlock(note)}
     ${stepsList([
-      '<strong>Set your password.</strong> We email you a separate activation link (valid for 24 hours). Check your spam folder if you can\'t find it.',
-      '<strong>Accept the instructor agreement</strong> and <strong>pass the short ethics quiz</strong>. Your trainer portal unlocks once both are done.',
+      firstStep,
+      '<strong>Accept the instructor agreement</strong> and <strong>pass the short ethics quiz</strong>. Your full portal access unlocks once both are done.',
       '<strong>Complete your profile</strong> and confirm the courses you can deliver, so we can match you to batches and training requests.',
     ])}
-    ${ctaButton('Go to Trainer Portal', `${trainersBaseUrl()}/instructor/login`)}`;
+    ${setPasswordLink ? ctaButton('Set Your Password', setPasswordLink) : ctaButton('Go to Trainer Portal', loginLink)}
+    ${setPasswordLink ? `<p style="margin:20px 0 0;font-size:12px;color:#94a3b8;text-align:center;">After setting your password, log in any time at ${escapeHtml(loginLink)}</p>` : ''}`;
 
   return emailShell({ label: 'Instructor Onboarding', body });
 }

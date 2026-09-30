@@ -1699,6 +1699,16 @@ router.delete("/instructors/:id", authenticateAdmin, requirePage("instructors"),
   }
 });
 
+// Issues a 24h set-password token and returns the trainer-portal link for it.
+async function issueInstructorSetPasswordLink(instructorId) {
+  const { token, hash } = generateResetToken();
+  await Instructor.findByIdAndUpdate(instructorId, {
+    resetToken: hash,
+    resetTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  });
+  return `${process.env.TRAINERS_FRONTEND_URL || process.env.FRONTEND_URL}/instructor/set-password?token=${token}`;
+}
+
 // POST /admin/instructors/:id/email - Send templated email to instructor
 router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructors"), requireAdmin, async (req, res) => {
   try {
@@ -1708,6 +1718,12 @@ router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructor
     const { template, customMessage } = req.body;
     const name = instructor.name || "Instructor";
     const note = typeof customMessage === "string" ? customMessage.slice(0, 2000) : "";
+
+    // Onboarding carries the set-password link for accounts that aren't active yet,
+    // so one click gives the trainer everything needed to log in.
+    const setPasswordLink = template === "onboard" && !instructor.isActive
+      ? await issueInstructorSetPasswordLink(instructor._id)
+      : null;
 
     const templates = {
       shortlist: {
@@ -1720,7 +1736,7 @@ router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructor
       },
       onboard: {
         subject: "Welcome to Technohana — Your Onboarding Steps",
-        html: instructorOnboardEmail({ name, note }),
+        html: instructorOnboardEmail({ name, note, setPasswordLink }),
       },
       custom: {
         subject: "Message from Technohana",
@@ -1762,19 +1778,17 @@ router.patch("/instructors/:id/activate", authenticateAdmin, requirePage("instru
     const instructor = await Instructor.findById(req.params.id);
     if (!instructor) return res.status(404).json({ success: false, message: "Instructor not found" });
 
-    const { token, hash } = generateResetToken();
-    await Instructor.findByIdAndUpdate(instructor._id, {
-      resetToken: hash,
-      resetTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    });
-
-    const link = `${process.env.TRAINERS_FRONTEND_URL || process.env.FRONTEND_URL}/instructor/set-password?token=${token}`;
-    await sendEmail({
+    const link = await issueInstructorSetPasswordLink(instructor._id);
+    const sent = await sendEmail({
       from: fromAddresses.careers,
       to: instructor.email,
       subject: "Welcome to Technohana — Set up your instructor account",
       html: instructorSetPasswordEmail(instructor.name, link),
     });
+    if (sent?.error) {
+      console.error("Activation email rejected by provider:", sent.error);
+      return res.status(502).json({ success: false, message: "The email provider rejected the activation email. Nothing was sent." });
+    }
 
     return res.json({ success: true, message: "Activation email sent" });
   } catch (err) {
