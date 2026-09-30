@@ -80,7 +80,6 @@ const coupons = [
   { code: "BAHRAINDAY5", discountPercent: 5, description: "Bahrain National Day", validCurrencies: ["bhd"], isActive: true, startDate: s(12, 14), expiryDate: d(12, 17), notes: "Bahrain National Day Dec 16" },
   { code: "QATARDAY5", discountPercent: 5, description: "Qatar National Day", validCurrencies: ["qar"], isActive: true, startDate: s(12, 16), expiryDate: d(12, 19), notes: "Qatar National Day Dec 18" },
   // ── Global / Platform ─────────────────────────────────────────────────────
-  { code: "LAUNCH10",      discountPercent: 10, description: "Platform Launch — Global",    validCurrencies: null,                  isActive: true,  expiryDate: null,      notes: "Always-on" },
   { code: "FLASHSALE15",   discountPercent: 15, description: "Flash Sale — Global",         validCurrencies: null,                  isActive: false, expiryDate: null,      notes: "Activate manually for flash sales" },
   { code: "REFERRAL10",    discountPercent: 10, description: "Referral Campaign — Global",  validCurrencies: null,                  isActive: false, expiryDate: null,      notes: "Activate per referral campaign" },
   { code: "B2B20",         discountPercent: 20, description: "Corporate / B2B Deal",        validCurrencies: null,                  isActive: false, expiryDate: null,      notes: "Share directly with corporate clients" },

@@ -581,7 +581,7 @@ export function generateEnrollmentDetailsForSales({ orderId, learner, courseInfo
 
 // ─── ABANDONED CART RECOVERY (learner) ───────────────────────────────────────
 
-export function generateAbandonedCartEmail({ name, courseTitle, couponCode = 'LAUNCH10' }) {
+export function generateAbandonedCartEmail({ name, courseTitle, couponCode = `${['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][new Date().getMonth()]}FLASH10` }) {
   const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
   const courseLine = courseTitle
     ? `<p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">You started enrolling in <strong style="color:#1e293b;">${courseTitle}</strong> but didn't complete your payment. Your spot is not confirmed yet.</p>`
