@@ -59,13 +59,9 @@ export const InstructorForm = async(req,res)=>{
             })
         }
 
+        // The form enforces at least one course; the API stays tolerant so a cached
+        // older form (which never sends courseSkills) can still submit.
         const courseSkills = await resolveCourseSkills(req.body.courseSkills);
-        if(!courseSkills.length){
-            return res.status(400).json({
-                success : false,
-                message : "Select at least one course you can deliver"
-            })
-        }
 
         const normalizedEmail = String(email).toLowerCase().trim();
 
@@ -175,10 +171,10 @@ export const InstructorForm = async(req,res)=>{
               <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:20px;">
                 ${rowsHtml}
               </table>
-              <div style="background:#f8fafc;border-left:4px solid #FFC107;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:16px;">
+              ${courseSkills.length ? `<div style="background:#f8fafc;border-left:4px solid #FFC107;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:16px;">
                 <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Courses they can deliver (${courseSkills.length})</p>
                 <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.7;">${courseSkills.map((c) => escapeHtml(c.courseTitle || c.courseId)).join(" · ")}</p>
-              </div>
+              </div>` : ''}
               ${certifications ? `<div style="background:#f8fafc;border-left:4px solid #8b5cf6;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:16px;">
                 <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Certifications</p>
                 <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.7;">${certifications}</p>
