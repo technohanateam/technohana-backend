@@ -1345,7 +1345,10 @@ app.use("/admin/seo", seoOpsRoutes);
 app.use("/admin/seo-intel", seoIntelRoutes);
 app.use("/admin/content-factory", contentFactoryRoutes);
 app.use("/admin/content-factory-external", contentFactoryExternalRoutes);
-app.use("/admin/course-factory", courseFactoryRoutes);
+// Course Factory is disabled unless COURSE_FACTORY_ENABLED=true (it triggers paid AI generation)
+if (process.env.COURSE_FACTORY_ENABLED === "true") {
+  app.use("/admin/course-factory", courseFactoryRoutes);
+}
 app.use("/admin/ad-creative-factory", adCreativeFactoryRoutes);
 app.use("/admin/social-factory", socialFactoryRoutes);
 app.use("/admin/global-search", globalSearchRoutes);

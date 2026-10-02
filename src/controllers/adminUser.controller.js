@@ -352,7 +352,7 @@ export const forgotAdminPassword = async (req, res) => {
     user.resetTokenHash = hash;
     user.resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
     await user.save();
-    const resetLink = `${process.env.FRONTEND_URL}/admin/reset-password?token=${token}&id=${user._id}`;
+    const resetLink = `${process.env.ADMIN_FRONTEND_URL || process.env.FRONTEND_URL}/admin/reset-password?token=${token}&id=${user._id}`;
     await sendEmail({
       from: fromAddresses.noreply,
       to: user.email,
