@@ -23,11 +23,16 @@ export const ADMIN_PAGES = [
   "coupons",
   "instructors",
   "training-requirements",
+  "batches",
   "team",
   "live-agent",
   "prompt-editor",
   "analytics",
   "ai-risk-reports",
+  // Cross-collection search + AI ask mode. Reaches PII in every collection at
+  // once, so it is deliberately left out of every explicit role list below —
+  // only admin/super_admin (which spread ADMIN_PAGES) can reach it.
+  "global-search",
   "crm",
   "seo-ops-dashboard",
   "seo-ops-opportunities",
@@ -95,6 +100,7 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "crm",
     "instructors",
     "training-requirements",
+    "batches",
   ],
   marketing: [
     "marketing-overview",

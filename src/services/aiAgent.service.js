@@ -19,6 +19,9 @@ function getClient() {
 const MODELS_BY_TIER = {
   cheap: "claude-haiku-4-5-20251001",
   standard: "claude-sonnet-5",
+  // Used where a wrong answer is expensive rather than merely unhelpful — e.g.
+  // Global Search AI mode, which turns free text into a database query.
+  reasoning: "claude-opus-5",
 };
 
 // Bounds every Claude call so a network/provider stall can never hang a
@@ -33,23 +36,36 @@ const REQUEST_TIMEOUT_MS = 90_000;
 // callers can track token usage/cost (needed for AI Content Factory
 // budget tracking) — this is a breaking change from the previous bare-string
 // return; all existing callers have been updated to destructure `.text`.
-export async function callClaude({ system, prompt, maxTokens = 1024, tier = "standard" }) {
+// `tools`/`toolChoice` are optional and additive: pass them to get structured
+// output via tool use instead of parsing JSON out of prose. When supplied, the
+// first tool_use block is returned as `toolUse` ({ name, input }); `text` is
+// still populated for callers that don't use tools. Existing callers that pass
+// neither see byte-identical behaviour.
+export async function callClaude({ system, prompt, maxTokens = 1024, tier = "standard", tools, toolChoice, messages }) {
   const model = MODELS_BY_TIER[tier] || MODELS_BY_TIER.standard;
-  const response = await getClient().messages.create(
-    {
-      model,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: prompt }],
-    },
-    { timeout: REQUEST_TIMEOUT_MS }
-  );
+  const body = {
+    model,
+    max_tokens: maxTokens,
+    system,
+    messages: messages ?? [{ role: "user", content: prompt }],
+  };
+  if (tools) body.tools = tools;
+  if (toolChoice) body.tool_choice = toolChoice;
+
+  const response = await getClient().messages.create(body, { timeout: REQUEST_TIMEOUT_MS });
   const text = response.content.find((b) => b.type === "text")?.text ?? "";
+  const toolUseBlock = response.content.find((b) => b.type === "tool_use");
   // stopReason additive to the existing {text, usage, model} shape — existing
   // callers that don't destructure it are unaffected. "max_tokens" means the
   // response was cut off mid-generation (see courseFactory truncation
   // handling) rather than finishing naturally ("end_turn").
-  return { text, usage: response.usage, model, stopReason: response.stop_reason };
+  return {
+    text,
+    usage: response.usage,
+    model,
+    stopReason: response.stop_reason,
+    toolUse: toolUseBlock ? { name: toolUseBlock.name, input: toolUseBlock.input } : null,
+  };
 }
 
 // Pull a JSON object out of a model reply that may include surrounding prose

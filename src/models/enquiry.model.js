@@ -73,4 +73,9 @@ const enquirySchema = new mongoose.Schema({
   crmLeadId: { type: mongoose.Schema.Types.ObjectId, ref: "CRMLead", default: null },
 });
 
+// Global Search routes email/phone lookups to an exact match, which these
+// make an index scan instead of a collection scan.
+enquirySchema.index({ email: 1 });
+enquirySchema.index({ phone: 1 });
+
 export default mongoose.model("Enquiry", enquirySchema);
