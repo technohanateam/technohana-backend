@@ -4,6 +4,7 @@ import { getSegmentedUsers } from "../utils/segmentationEngine.js";
 import { Resend } from "resend";
 import { redisConfig } from "../config/redis.js";
 import { personalizeForRecipient } from "./emailMarketing/campaignPersonalizer.js";
+import { filterSuppressed, isSuppressed, withUnsubscribe } from "./emailSuppression.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -36,10 +37,14 @@ campaignQueue.process(async (job) => {
 
     console.log(`[Campaign Queue] Sending campaign: ${campaign.name}`);
 
-    // Get segmented users
-    const { users } = await getSegmentedUsers(campaign.segments, {
+    // Get segmented users, minus the unsubscribe/bounce suppression list
+    const { users: matchedUsers } = await getSegmentedUsers(campaign.segments, {
       limit: 50000,
     });
+    const users = await filterSuppressed(matchedUsers);
+    if (users.length < matchedUsers.length) {
+      console.log(`[Campaign Queue] Skipping ${matchedUsers.length - users.length} suppressed recipients`);
+    }
 
     if (users.length === 0) {
       console.log(`[Campaign Queue] No users matched for campaign ${campaignId}`);
@@ -95,12 +100,14 @@ campaignQueue.process(async (job) => {
             // Custom headers are NOT echoed back on Resend's webhook events, so
             // campaign/recipient identification for open/click tracking must go
             // through `tags` (returned in the webhook payload) and the email id.
+            const { html, headers: unsubscribeHeaders } = withUnsubscribe(emailContent, user.email);
             const response = await resend.emails.send({
               from: `${campaign.fromName} <${campaign.fromEmail}>`,
               to: user.email,
               subject: emailSubject,
-              html: emailContent,
+              html,
               headers: {
+                ...unsubscribeHeaders,
                 "X-Campaign-ID": campaign._id.toString(),
                 "X-User-ID": user._id?.toString() || user.email,
               },
@@ -171,13 +178,20 @@ eventQueue.process(async (job) => {
       `[Event Queue] Processing ${eventType} trigger for ${userEmail}`
     );
 
+    if (await isSuppressed(userEmail)) {
+      console.log(`[Event Queue] ${userEmail} is suppressed — skipping`);
+      return { skipped: true, reason: "suppressed" };
+    }
+
     // Send email
+    const { html, headers: unsubscribeHeaders } = withUnsubscribe(campaign.htmlContent, userEmail);
     const response = await resend.emails.send({
       from: `${campaign.fromName} <${campaign.fromEmail}>`,
       to: userEmail,
       subject: campaign.subject,
-      html: campaign.htmlContent,
+      html,
       headers: {
+        ...unsubscribeHeaders,
         "X-Campaign-ID": campaign._id.toString(),
         "X-Event-Type": eventType,
         "X-User-Email": userEmail,
@@ -333,13 +347,21 @@ const dripQueue = new Bull("drip-emails", { redis: redisConfig });
 dripQueue.process(async (job) => {
   const { userEmail, subject, htmlContent, fromName, fromEmail, dripSequenceId, stepNumber } = job.data;
 
+  // Checked at send time, not queue time: later steps are delayed by days and
+  // the recipient may have unsubscribed after an earlier step.
+  if (await isSuppressed(userEmail)) {
+    console.log(`[Drip Queue] ${userEmail} is suppressed — skipping step ${stepNumber}`);
+    return { sent: false, skipped: "suppressed", email: userEmail, step: stepNumber };
+  }
+
+  const { html, headers: unsubscribeHeaders } = withUnsubscribe(htmlContent, userEmail);
   await resend.emails.send({
     from: `${fromName} <${fromEmail}>`,
     to: userEmail,
     subject,
-    html: htmlContent,
+    html,
     headers: {
-      "List-Unsubscribe": "<mailto:unsubscribe@technohana.in?subject=unsubscribe>",
+      ...unsubscribeHeaders,
       "X-Drip-Sequence-ID": dripSequenceId,
       "X-Drip-Step": String(stepNumber),
     },

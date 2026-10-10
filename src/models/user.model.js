@@ -182,6 +182,10 @@ const userSchema = new Schema({
     createdAt: { type: Date, default: Date.now },
 })
 
+// Global Search routes email/phone lookups to an exact match, which these
+// make an index scan instead of a collection scan.
+userSchema.index({ email: 1 });
+userSchema.index({ phone: 1 });
 userSchema.index({ createdAt: -1 });
 userSchema.index({ batchId: 1, status: 1 });
 

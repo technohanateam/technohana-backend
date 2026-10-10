@@ -40,6 +40,7 @@ export const approveOpportunity = async (req, res) => {
       subject: "Draft — pending AI copy generation",
       htmlContent: "<p>Draft — pending AI copy generation</p>",
       segments: opportunity.segmentFilter || {},
+      copyBrief: opportunity.suggestedBrief,
       triggerType: "manual",
       status: "draft",
       sourceOpportunityId: opportunity._id,

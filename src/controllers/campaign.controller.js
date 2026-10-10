@@ -6,8 +6,25 @@ import { scheduleCampaignJob, getQueueStats } from "../services/campaignQueue.js
 import { buildRegexQuery } from "../utils/escapeRegex.js";
 import { personalizeForRecipient } from "../services/emailMarketing/campaignPersonalizer.js";
 import { generateBlogPostEmail } from "../utils/emailTemplate.js";
+import { filterSuppressed, withUnsubscribe } from "../services/emailSuppression.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+const EDITABLE_CAMPAIGN_FIELDS = [
+  "name",
+  "description",
+  "subject",
+  "htmlContent",
+  "previewText",
+  "fromName",
+  "fromEmail",
+  "variants",
+  "segments",
+  "triggerType",
+  "schedule",
+  "eventTrigger",
+  "personalize",
+];
 
 // Get all campaigns (with pagination & filters)
 export const getAllCampaigns = async (req, res) => {
@@ -34,7 +51,7 @@ export const getAllCampaigns = async (req, res) => {
       .skip(skip)
       .limit(limitNum)
       .select(
-        "name description subject status triggerType schedule metrics createdAt sentAt"
+        "name description subject status triggerType schedule metrics reviewState createdAt sentAt"
       )
       .lean();
 
@@ -219,7 +236,13 @@ export const updateCampaign = async (req, res) => {
       });
     }
 
-    Object.assign(campaign, updates);
+    // Whitelist: the admin form posts back the whole document it loaded, so a
+    // blanket Object.assign would let a stale reviewState (or metrics /
+    // recipientMetrics / status) overwrite what the AI review gate and the send
+    // pipeline have since written.
+    for (const key of EDITABLE_CAMPAIGN_FIELDS) {
+      if (updates[key] !== undefined) campaign[key] = updates[key];
+    }
     await campaign.save();
 
     return res.json({
@@ -290,14 +313,25 @@ export const sendCampaignNow = async (req, res) => {
     }
 
     // Get all segmented users (no limit cap for actual send)
-    const { users, total } = await getSegmentedUsers(campaign.segments, {
+    const { users: matchedUsers } = await getSegmentedUsers(campaign.segments, {
       limit: 50000,
     });
+
+    if (matchedUsers.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No users matched the campaign segments",
+      });
+    }
+
+    const users = await filterSuppressed(matchedUsers);
+    const suppressedCount = matchedUsers.length - users.length;
+    const total = users.length;
 
     if (total === 0) {
       return res.status(400).json({
         success: false,
-        message: "No users matched the campaign segments",
+        message: `All ${matchedUsers.length} matched recipients have unsubscribed or bounced`,
       });
     }
 
@@ -328,12 +362,14 @@ export const sendCampaignNow = async (req, res) => {
               emailContent = personalized.htmlContent;
             }
 
+            const { html, headers: unsubscribeHeaders } = withUnsubscribe(emailContent, user.email);
             const response = await resend.emails.send({
               from: `${campaign.fromName} <${campaign.fromEmail}>`,
               to: user.email,
               subject: emailSubject,
-              html: emailContent,
+              html,
               headers: {
+                ...unsubscribeHeaders,
                 "X-Campaign-ID": campaign._id.toString(),
                 "X-User-ID": user._id?.toString() || user.email,
               },
@@ -371,8 +407,10 @@ export const sendCampaignNow = async (req, res) => {
 
     return res.json({
       success: true,
-      message: `Campaign sent: ${sentCount} delivered, ${failedCount} failed`,
-      data: { sentCount, failedCount, total },
+      message:
+        `Campaign sent: ${sentCount} delivered, ${failedCount} failed` +
+        (suppressedCount > 0 ? `, ${suppressedCount} skipped (unsubscribed/bounced)` : ""),
+      data: { sentCount, failedCount, suppressedCount, total },
     });
   } catch (error) {
     console.error("Error sending campaign:", error);

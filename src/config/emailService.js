@@ -16,7 +16,7 @@ export const fromAddresses = {
 };
 
 // Make the 'from' address a parameter
-export const sendEmail = async ({ from, to, subject, html, attachments }) => {
+export const sendEmail = async ({ from, to, subject, html, attachments, headers }) => {
   try {
     const resendClient = getResend();
     const data = await resendClient.emails.send({
@@ -25,6 +25,7 @@ export const sendEmail = async ({ from, to, subject, html, attachments }) => {
       subject: subject,
       html: html,
       ...(attachments ? { attachments } : {}),
+      ...(headers ? { headers } : {}),
     });
     // Resend reports rejections (unverified domain, bad key, invalid recipient) in
     // `error` rather than throwing; callers that care check `result.error`.
