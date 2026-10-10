@@ -1,5 +1,15 @@
 import { Webhook } from "svix";
 import Campaign from "../models/campaign.model.js";
+import { suppressEmail } from "./emailSuppression.js";
+
+// Resend's email.bounced is a permanent rejection; only skip suppression if a
+// bounce is explicitly marked transient.
+const suppressionReasonFor = (type, data) => {
+  if (type === "email.unsubscribed") return "unsubscribed";
+  if (type === "email.complained") return "complained";
+  if (type === "email.bounced" && !/transient/i.test(data?.bounce?.type || "")) return "bounced";
+  return null;
+};
 
 /**
  * Handle Resend webhook events
@@ -50,6 +60,13 @@ export const handleResendWebhook = async (req, res) => {
     const campaignId = data?.tags?.find((t) => t.name === "campaign_id")?.value;
     const resendEmailId = data?.email_id;
     const recipientEmail = Array.isArray(data?.to) ? data.to[0] : data?.to;
+
+    // Suppress before the campaign lookup: drips, newsletters and transactional
+    // mail carry no campaign_id tag but still bounce/complain.
+    const suppressionReason = suppressionReasonFor(type, data);
+    if (suppressionReason && recipientEmail) {
+      await suppressEmail(recipientEmail, suppressionReason);
+    }
 
     if (!campaignId) {
       console.warn("[Webhook] No campaign_id tag in event");

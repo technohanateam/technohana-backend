@@ -135,6 +135,13 @@ const noOriginRequiredPaths = [
 const noOriginRequiredPrefixes = ['/blog/'];
 
 const corsOptionsDelegate = function (req, callback) {
+  // Unsubscribe links are opened from mail clients (no Origin), one-click
+  // POSTs come from mailbox providers' servers, and the confirm form posts from
+  // the backend-rendered page itself. None of these need CORS headers, and the
+  // HMAC token in the query string is the only gate.
+  if (req.path === '/unsubscribe') {
+    return callback(null, { origin: false });
+  }
   const exemptFromOriginRequirement = !req.headers.origin && (
     noOriginRequiredPaths.includes(req.path) ||
     noOriginRequiredPrefixes.some((prefix) => req.path.startsWith(prefix))
@@ -1254,15 +1261,19 @@ app.get('/admin/utm-report', authenticateAdmin, requirePage("utm-report"), async
       ...(from || to ? { createdAt: dateFilter } : {}),
     };
 
-    const [enquiryRows, enrollmentRows] = await Promise.all([
+    const orderMatch = { status: 'paid', ...(from || to ? { createdAt: dateFilter } : {}) };
+
+    const [enquiryRows, enrollmentRows, orderRows, totalEnquiries] = await Promise.all([
       Enquiry.aggregate([
         { $match: { ...enquiryMatch, 'utm.utm_source': { $exists: true } } },
         {
           $group: {
+            // Same (none) defaults as the User/Order groups so a source-only
+            // enquiry merges into the same row as its checkouts and orders.
             _id: {
               source: '$utm.utm_source',
-              medium: '$utm.utm_medium',
-              campaign: '$utm.utm_campaign',
+              medium: { $ifNull: ['$utm.utm_medium', '(none)'] },
+              campaign: { $ifNull: ['$utm.utm_campaign', '(none)'] },
             },
             enquiries: { $sum: 1 },
           },
@@ -1288,25 +1299,61 @@ app.get('/admin/utm-report', authenticateAdmin, requirePage("utm-report"), async
         },
         { $sort: { leads: -1 } },
       ]),
+      Order.aggregate([
+        { $match: orderMatch },
+        {
+          $group: {
+            _id: {
+              source: { $ifNull: ['$utm.utm_source', '(direct)'] },
+              medium: { $ifNull: ['$utm.utm_medium', '(none)'] },
+              campaign: { $ifNull: ['$utm.utm_campaign', '(none)'] },
+              currency: { $toUpper: { $ifNull: ['$currency', 'INR'] } },
+            },
+            orders: { $sum: 1 },
+            revenueMinor: { $sum: { $ifNull: ['$expectedTotalMinor', 0] } },
+          },
+        },
+      ]),
+      Enquiry.countDocuments(enquiryMatch),
     ]);
 
-    // Merge enquiry and enrollment rows by source/medium/campaign key
+    // Merge enquiry, enrollment and paid-order rows by source/medium/campaign key.
+    // Revenue stays per currency — minor units aren't comparable across currencies.
     const map = new Map();
+    const rowFor = ({ source, medium, campaign }) => {
+      const key = `${source}|${medium}|${campaign}`;
+      if (!map.has(key)) {
+        map.set(key, { source, medium, campaign, enquiries: 0, leads: 0, enrolled: 0, orders: 0, revenueByCurrency: {} });
+      }
+      return map.get(key);
+    };
     for (const row of enrollmentRows) {
-      const key = `${row._id.source}|${row._id.medium}|${row._id.campaign}`;
-      map.set(key, { source: row._id.source, medium: row._id.medium, campaign: row._id.campaign, enquiries: 0, leads: row.leads, enrolled: row.enrolled });
+      Object.assign(rowFor(row._id), { leads: row.leads, enrolled: row.enrolled });
     }
     for (const row of enquiryRows) {
-      const key = `${row._id.source}|${row._id.medium}|${row._id.campaign}`;
-      if (map.has(key)) {
-        map.get(key).enquiries = row.enquiries;
-      } else {
-        map.set(key, { source: row._id.source, medium: row._id.medium, campaign: row._id.campaign, enquiries: row.enquiries, leads: 0, enrolled: 0 });
-      }
+      rowFor(row._id).enquiries = row.enquiries;
+    }
+    const revenueByCurrency = {};
+    for (const row of orderRows) {
+      const target = rowFor(row._id);
+      const { currency } = row._id;
+      target.orders += row.orders;
+      target.revenueByCurrency[currency] = (target.revenueByCurrency[currency] || 0) + row.revenueMinor;
+      revenueByCurrency[currency] = (revenueByCurrency[currency] || 0) + row.revenueMinor;
     }
 
-    const rows = Array.from(map.values()).sort((a, b) => (b.enquiries + b.leads) - (a.enquiries + a.leads));
-    res.json({ rows });
+    const rows = Array.from(map.values()).sort(
+      (a, b) => (b.orders - a.orders) || ((b.enquiries + b.leads) - (a.enquiries + a.leads))
+    );
+    const summary = {
+      // All enquiries in range, including ones that arrived without UTM params.
+      enquiries: totalEnquiries,
+      checkouts: rows.reduce((s, r) => s + r.leads, 0),
+      enrolled: rows.reduce((s, r) => s + r.enrolled, 0),
+      orders: rows.reduce((s, r) => s + r.orders, 0),
+      revenueByCurrency,
+    };
+    res.json({ rows, summary });
   } catch (err) {
     console.error('[UTM Report] Error:', err.message);
     res.status(500).json({ error: err.message });
