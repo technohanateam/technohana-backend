@@ -158,18 +158,35 @@ test("a date range compiles to two clauses on the same field", () => {
   assert.ok(c.filter.$and[1].createdAt.$lte instanceof Date);
 });
 
+// No searchable collection is soft-deleted since the CRM entities left admin
+// search, so these two give one a soft-delete baseFilter for the test.
+const withSoftDelete = (key, fn) => {
+  const entity = SEARCH_ENTITIES.find((e) => e.key === key);
+  const original = entity.baseFilter;
+  entity.baseFilter = { isDeleted: { $ne: true } };
+  try {
+    fn();
+  } finally {
+    entity.baseFilter = original;
+  }
+};
+
 test("baseFilter is appended for soft-deleted collections", () => {
-  const c = compileSearchQuery({
-    entity: "crmLead",
-    mode: "count",
-    filters: [{ field: "country", op: "eq", value: "UAE" }],
+  withSoftDelete("enquiry", () => {
+    const c = compileSearchQuery({
+      entity: "enquiry",
+      mode: "count",
+      filters: [{ field: "aiScore", op: "gt", value: 50 }],
+    });
+    assert.deepEqual(c.filter.$and.at(-1), { isDeleted: { $ne: true } });
   });
-  assert.deepEqual(c.filter.$and.at(-1), { isDeleted: { $ne: true } });
 });
 
 test("baseFilter survives a query with no filters", () => {
-  const c = compileSearchQuery({ entity: "crmDeal", mode: "count" });
-  assert.deepEqual(c.filter, { isDeleted: { $ne: true } });
+  withSoftDelete("order", () => {
+    const c = compileSearchQuery({ entity: "order", mode: "count" });
+    assert.deepEqual(c.filter, { isDeleted: { $ne: true } });
+  });
 });
 
 test("group mode resolves a declared groupable field", () => {
@@ -236,7 +253,7 @@ test("rejects an unparseable date", () => {
 });
 
 test("rejects a non-numeric number", () => {
-  rejects({ entity: "crmDeal", mode: "count", filters: [{ field: "value", op: "gt", value: "a lot" }] }, "expects a number");
+  rejects({ entity: "order", mode: "count", filters: [{ field: "expectedTotalMinor", op: "gt", value: "a lot" }] }, "expects a number");
 });
 
 test("rejects an enum value outside the declared set", () => {
@@ -248,7 +265,7 @@ test("rejects a range operator on a string field", () => {
 });
 
 test("rejects contains on a non-string field", () => {
-  rejects({ entity: "crmDeal", mode: "count", filters: [{ field: "value", op: "contains", value: "5" }] }, "cannot be used on the number");
+  rejects({ entity: "order", mode: "count", filters: [{ field: "expectedTotalMinor", op: "contains", value: "5" }] }, "cannot be used on the number");
 });
 
 test("rejects an oversized in list", () => {
@@ -281,7 +298,7 @@ test("rejects group mode without, or with an undeclared, groupBy", () => {
 });
 
 test("rejects an attempt to unset a soft-delete filter", () => {
-  rejects({ entity: "crmLead", mode: "count", filters: [{ field: "isDeleted", op: "eq", value: false }] }, "cannot be used");
+  rejects({ entity: "enquiry", mode: "count", filters: [{ field: "isDeleted", op: "eq", value: false }] }, "cannot be used");
 });
 
 test("rejects sorting by an undeclared field", () => {

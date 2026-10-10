@@ -34,7 +34,7 @@ const crmActivitySchema = new mongoose.Schema(
       // meeting: { link: '...', at: Date }
     },
 
-    performedBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" },
+    performedBy: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" },
   },
   { timestamps: true }
 );

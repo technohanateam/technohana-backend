@@ -146,6 +146,7 @@ Return only valid JSON.`;
   "category": "string, e.g. Microsoft Azure",
   "difficulty": "Beginner | Intermediate | Advanced",
   "price": "number as string, e.g. 33600 (INR)",
+  "prices": { "inr": 33600, "usd": 449, "aed": 1699, "gbp": 359, "eur": 419 },
   "instructor": "string",
   "language": "English",
   "courseDays": "e.g. 03 Days",
@@ -167,6 +168,8 @@ Return only valid JSON.`;
 }
 
 ${titleInstruction}
+
+"prices" must be independently reasonable regional list prices for each currency — not a flat currency-exchange conversion of the INR figure. Base each on realistic in-market pricing for a course of this length/depth/certification level in that region (e.g. US/UK/EU courses are typically priced higher relative to PPP than a straight FX conversion would suggest).
 
 Reference material scanned from vendor pages:
 ${sourceSections.join("\n\n")}

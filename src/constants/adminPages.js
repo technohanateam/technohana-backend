@@ -24,15 +24,14 @@ export const ADMIN_PAGES = [
   "instructors",
   "training-requirements",
   "batches",
+  "payouts",
   "team",
-  "live-agent",
+  "global-search",
   "prompt-editor",
+  "prompt-library",
   "analytics",
   "ai-risk-reports",
-  // Cross-collection search + AI ask mode. Reaches PII in every collection at
-  // once, so it is deliberately left out of every explicit role list below —
-  // only admin/super_admin (which spread ADMIN_PAGES) can reach it.
-  "global-search",
+  "hana-analytics",
   "crm",
   "seo-ops-dashboard",
   "seo-ops-opportunities",
@@ -97,6 +96,7 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "referrals",
     "analytics",
     "ai-risk-reports",
+    "hana-analytics",
     "crm",
     "instructors",
     "training-requirements",
@@ -110,6 +110,7 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "geo-analysis",
     "seo-analysis",
     "analytics",
+    "hana-analytics",
     "seo-ops-dashboard",
     "seo-ops-opportunities",
     "seo-ops-competitors",
@@ -134,6 +135,7 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "ad-creative-factory",
     "social-factory",
     "marketing-calendar",
+    "prompt-library",
   ],
   // trainer/accounts/hr/student_support/readonly are CRM-only crmRoles — they
   // never get admin-panel pages (see authenticateAdmin.js CRM_ONLY_ROLES block),
@@ -156,6 +158,20 @@ export const DEFAULT_PAGES_BY_ROLE = {
     "seo-topic-clusters",
     "seo-internal-links",
   ],
+};
+
+// Inverse of computeEffectivePages: translates an absolute page list — what the
+// Team UI's checkboxes actually mean — into the extraPages/revokedPages pair the
+// model stores. Doing the split server-side keeps DEFAULT_PAGES_BY_ROLE the only
+// definition of a role's defaults; a client diffing against its own copy grants
+// the wrong pages the moment the two lists drift.
+export const splitAbsolutePages = (role, pages = []) => {
+  const defaults = DEFAULT_PAGES_BY_ROLE[role] || [];
+  const wanted = [...new Set(pages)];
+  return {
+    extraPages: wanted.filter((page) => !defaults.includes(page)),
+    revokedPages: defaults.filter((page) => !wanted.includes(page)),
+  };
 };
 
 export const computeEffectivePages = (role, extraPages = [], revokedPages = []) => {

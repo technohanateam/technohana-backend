@@ -6,17 +6,14 @@ const CRM_ROLE_HIERARCHY = {
   admin: 90,
   sales: 70,
   marketing: 60,
-  trainer: 50,
-  accounts: 40,
   hr: 30,
-  student_support: 20,
   readonly: 10,
 };
 
 // Permissions matrix: which roles can perform which actions
 const CRM_PERMISSIONS = {
   leads: {
-    read:   ["super_admin", "admin", "sales", "marketing", "student_support", "readonly"],
+    read:   ["super_admin", "admin", "sales", "marketing", "readonly"],
     write:  ["super_admin", "admin", "sales", "marketing"],
     delete: ["super_admin", "admin"],
     import: ["super_admin", "admin", "sales"],
@@ -24,7 +21,7 @@ const CRM_PERMISSIONS = {
     bulk:   ["super_admin", "admin", "sales"],
   },
   contacts: {
-    read:   ["super_admin", "admin", "sales", "marketing", "student_support", "readonly"],
+    read:   ["super_admin", "admin", "sales", "marketing", "readonly"],
     write:  ["super_admin", "admin", "sales", "marketing"],
     delete: ["super_admin", "admin"],
   },
@@ -44,16 +41,16 @@ const CRM_PERMISSIONS = {
     delete: ["super_admin", "admin"],
   },
   tasks: {
-    read:   ["super_admin", "admin", "sales", "marketing", "trainer", "student_support"],
-    write:  ["super_admin", "admin", "sales", "marketing", "trainer"],
+    read:   ["super_admin", "admin", "sales", "marketing"],
+    write:  ["super_admin", "admin", "sales", "marketing"],
     delete: ["super_admin", "admin", "sales"],
   },
   activities: {
-    read:   ["super_admin", "admin", "sales", "marketing", "trainer", "student_support", "readonly"],
-    write:  ["super_admin", "admin", "sales", "marketing", "trainer"],
+    read:   ["super_admin", "admin", "sales", "marketing", "readonly"],
+    write:  ["super_admin", "admin", "sales", "marketing"],
   },
   dashboard: {
-    read:   ["super_admin", "admin", "sales", "marketing", "trainer", "accounts", "hr", "student_support", "readonly"],
+    read:   ["super_admin", "admin", "sales", "marketing", "hr", "readonly"],
   },
   ai: {
     read:   ["super_admin", "admin", "sales"],

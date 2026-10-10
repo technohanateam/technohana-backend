@@ -3,6 +3,7 @@ import AiRiskReport from "../models/aiRiskReport.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContactUsEmail, generateAiRiskReportEmail, generateMasterclassConfirmationEmail } from "../utils/emailTemplate.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
+import { routeAdLead } from "../services/adLeadRouter.js";
 import { validateEmail, validateName } from "../utils/inputValidator.js";
 
 export const createEnquiry = async (req, res) => {
@@ -31,6 +32,14 @@ export const createEnquiry = async (req, res) => {
     // AI lead scoring — fire and forget, never blocks the submission
     scoreEnquiry(enquiry._id).catch((err) => console.error("Lead scoring failed (enquiry already saved):", err));
 
+    // Paid-ad submissions also become CRM leads (organic ones stay in the admin panel only)
+    routeAdLead({
+      name, email, phone: body.phone, company: body.company,
+      interest: [courseTitle, body.description].filter(Boolean).join(" — ") || undefined,
+      teamSize: body.teamSize, utm: body.utm, origin: "enquiry", originId: enquiry._id,
+      extra: { enquiryType, trainingType: body.trainingType, landingPage: body.landingPage },
+    });
+
     let subject;
     switch (enquiryType) {
       case "Quote Request":
@@ -53,17 +62,18 @@ export const createEnquiry = async (req, res) => {
         break;
       case "General Enquiry":
       default:
-        subject = `New General Enquiry for: ${courseTitle}`;
+        subject = `New ${enquiryType || "General Enquiry"} for: ${courseTitle || "General"}`;
         break;
     }
 
-    // Admin notification + user confirmation in parallel (non-blocking on user email failure)
-    await sendEmail({
+    // The lead is already saved — a notification failure must not 500 the request
+    // (users would resubmit and create duplicates).
+    sendEmail({
       from: fromAddresses.sales,
       to: process.env.MAIL_TO,
       subject,
-      html: generateEnquiryTable(req.body),
-    });
+      html: generateEnquiryTable(body),
+    }).catch((err) => console.error("Enquiry admin notification failed (lead already saved):", err));
 
     // Skills Gap leads get a dedicated, tailored plan email (POST /skills-gap/email-plan)
     // instead of this generic confirmation — sending both would double-email the user.
@@ -94,23 +104,31 @@ export const createEnquiry = async (req, res) => {
 
 export const contactUs = async (req, res) => {
   try {
-    const { name, email, phone, subject, message } = req.body;
+    const { name, email, phone, subject, message, utm } = req.body;
 
     if (!name || !email || !subject || !message || !validateEmail(email)) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const enquiry = new Enquiry({ name, email, phone, enquiryType: "Contact Us", courseTitle: subject, description: message });
+    const enquiry = new Enquiry({
+      name, email, phone, enquiryType: "Contact Us", courseTitle: subject, description: message,
+      utm: utm && typeof utm === "object" ? utm : undefined,
+    });
     await enquiry.save();
 
     scoreEnquiry(enquiry._id).catch((err) => console.error("Lead scoring failed (enquiry already saved):", err));
 
-    await sendEmail({
+    routeAdLead({
+      name, email, phone, interest: [subject, message].filter(Boolean).join(" — "),
+      utm, origin: "contact_us", originId: enquiry._id, extra: { enquiryType: "Contact Us" },
+    });
+
+    sendEmail({
       from: fromAddresses.connect,
       to: process.env.MAIL_TO,
       subject: "You have a new message from " + name,
       html: generateContactUsEmail({ name, email, subject, message }),
-    });
+    }).catch((err) => console.error("Contact-us admin notification failed (lead already saved):", err));
 
     return res.status(200).json({ message: "Message sent successfully" });
   } catch (error) {

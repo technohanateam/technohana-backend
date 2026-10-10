@@ -35351,6 +35351,190 @@
     }
   },
   {
+    "id": "FIN009",
+    "courseTitle": "ISO 20022 Lead Professional",
+    "courseSlug": "iso-20022-lead-professional",
+    "category": "Financial Technology",
+    "categoryGroup": "Industry Solutions",
+    "price": 47999,
+    "logo": "data.png",
+    "difficulty": "Intermediate",
+    "courseDays": "3 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "6 Modules",
+    "instructor": "Technohana Expert",
+    "videoId": "",
+    "rating": "N/A",
+    "language": "English",
+    "overview": "Master the ISO 20022 financial messaging standard powering the global migration away from legacy SWIFT MT formats. Learn message structure, the pain/pacs/camt message families, MT-to-MX mapping, and how to lead an ISO 20022 implementation or migration programme at a bank or payments provider.",
+    "whatWillYouLearn": [
+      "Understand the ISO 20022 data model and XML message architecture",
+      "Differentiate the pain, pacs, camt, and acmt message families and their use cases",
+      "Map legacy SWIFT MT fields to ISO 20022 MX equivalents",
+      "Plan and lead an ISO 20022 migration or coexistence programme",
+      "Apply ISO 20022 richer data to sanctions screening, reconciliation, and reporting"
+    ],
+    "requirements": [
+      "Banking, payments, or financial messaging background",
+      "Basic familiarity with SWIFT or payment processing helpful"
+    ],
+    "targetAudience": [
+      "Payments and transaction banking professionals",
+      "SWIFT/ISO 20022 migration project leads",
+      "Financial messaging and integration architects",
+      "Compliance, reconciliation, and operations teams"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "ISO 20022 Fundamentals",
+        "content": [
+          "Why ISO 20022: limitations of SWIFT MT and the case for structured data",
+          "ISO 20022 data dictionary, business model, and message catalogue",
+          "XML message syntax and validation rules"
+        ]
+      },
+      {
+        "moduleTitle": "Core Message Families",
+        "content": [
+          "pain: customer payment initiation and status messages",
+          "pacs: interbank payment clearing and settlement",
+          "camt: cash management, statements, and reporting"
+        ]
+      },
+      {
+        "moduleTitle": "MT to MX Migration",
+        "content": [
+          "Field-level mapping from MT10x/2xx/9xx to MX equivalents",
+          "SWIFT's Cross-Border Payments and Reporting Plus (CBPR+) guidelines",
+          "Coexistence, translation, and truncation risk management"
+        ]
+      },
+      {
+        "moduleTitle": "Implementation & Testing",
+        "content": [
+          "Migration programme planning and stakeholder governance",
+          "Testing strategy: schema validation, business rule, and UAT",
+          "Vendor and core banking system readiness assessment"
+        ]
+      },
+      {
+        "moduleTitle": "Data Quality & Compliance",
+        "content": [
+          "Structured party and address data for sanctions screening",
+          "Impact on AML/KYC and regulatory reporting",
+          "Reconciliation and exception handling with richer data"
+        ]
+      },
+      {
+        "moduleTitle": "Industry Adoption & Case Studies",
+        "content": [
+          "Market infrastructure adoption timelines (RTGS, SEPA, CBPR+)",
+          "Lessons from early adopter migration programmes",
+          "Roadmap for ongoing ISO 20022 evolution"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    }
+  },
+  {
+    "id": "FIN010",
+    "courseTitle": "CITB - Certified in Transaction Banking",
+    "courseSlug": "citb-certified-in-transaction-banking",
+    "category": "Financial Technology",
+    "categoryGroup": "Industry Solutions",
+    "price": 47999,
+    "logo": "data.png",
+    "difficulty": "Intermediate",
+    "courseDays": "3 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "6 Modules",
+    "instructor": "Technohana Expert",
+    "videoId": "",
+    "rating": "N/A",
+    "language": "English",
+    "overview": "Build end-to-end expertise across transaction banking: cash management, trade finance, correspondent banking, and payments infrastructure. Designed for banking professionals who advise on or deliver transaction banking products to corporate and institutional clients.",
+    "whatWillYouLearn": [
+      "Explain the core transaction banking product suite and revenue model",
+      "Design cash management and liquidity solutions for corporate clients",
+      "Structure trade finance instruments: LCs, guarantees, and supply chain finance",
+      "Navigate correspondent banking and cross-border payment infrastructure",
+      "Assess counterparty, operational, and regulatory risk in transaction banking"
+    ],
+    "requirements": [
+      "Banking or corporate finance background",
+      "Basic understanding of payments and trade concepts helpful"
+    ],
+    "targetAudience": [
+      "Transaction banking relationship managers and product managers",
+      "Corporate and institutional banking professionals",
+      "Trade finance and cash management specialists",
+      "Banking graduates pursuing a transaction banking career track"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Transaction Banking Fundamentals",
+        "content": [
+          "Overview of the transaction banking business model and revenue streams",
+          "Client segmentation: corporate, institutional, and financial institution clients",
+          "Regulatory and market structure landscape"
+        ]
+      },
+      {
+        "moduleTitle": "Cash Management",
+        "content": [
+          "Account structures, pooling, and sweeping",
+          "Liquidity management and working capital optimisation",
+          "Virtual accounts and real-time payment rails"
+        ]
+      },
+      {
+        "moduleTitle": "Payments & Clearing Infrastructure",
+        "content": [
+          "Domestic and cross-border payment rails (RTGS, ACH, SWIFT)",
+          "Correspondent banking relationships and nostro/vostro accounts",
+          "Payments risk, fraud, and sanctions screening controls"
+        ]
+      },
+      {
+        "moduleTitle": "Trade Finance",
+        "content": [
+          "Letters of credit, guarantees, and documentary collections",
+          "Supply chain and receivables finance",
+          "Trade finance digitisation and open account trade"
+        ]
+      },
+      {
+        "moduleTitle": "Client Advisory & Solution Design",
+        "content": [
+          "Structuring transaction banking solutions for corporate clients",
+          "Pricing, fee structures, and relationship profitability",
+          "Cross-selling across cash, trade, and payments products"
+        ]
+      },
+      {
+        "moduleTitle": "Risk, Compliance & Industry Trends",
+        "content": [
+          "Operational, credit, and counterparty risk in transaction banking",
+          "AML/KYC and sanctions compliance obligations",
+          "Emerging trends: real-time payments, embedded finance, and API banking"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 47999,
+      "usd": 629,
+      "aed": 2669,
+      "gbp": 559,
+      "eur": 659
+    }
+  },
+  {
     "id": "EDU005",
     "courseTitle": "AI Tutoring Systems & Personalised Learning",
     "courseSlug": "ai-tutoring-systems-personalised-learning",

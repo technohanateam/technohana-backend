@@ -1,4 +1,5 @@
 import Lead from "../models/lead.model.js";
+import { routeAdLead } from "../services/adLeadRouter.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateLeadMagnetEmail, generateLeadAdminEmail } from "../utils/emailTemplate.js";
 import { validateEmail, validateName } from "../utils/inputValidator.js";
@@ -13,6 +14,8 @@ export const capturePersonaLead = async (req, res) => {
   try {
     const lead = new Lead({ name, email, persona, phone, jobTitle, utm });
     await lead.save();
+
+    routeAdLead({ name, email, phone, interest: persona, utm, origin: "persona_lead", originId: lead._id, extra: { jobTitle } });
 
     Promise.all([
       sendEmail({

@@ -67,6 +67,7 @@ import contentFactoryExternalRoutes from "./routes/contentFactoryExternal.routes
 import courseFactoryRoutes from "./routes/courseFactory.routes.js";
 import adCreativeFactoryRoutes from "./routes/adCreativeFactory.routes.js";
 import socialFactoryRoutes from "./routes/socialFactory.routes.js";
+import globalSearchRoutes from "./routes/globalSearch.routes.js";
 import marketingCalendarRoutes from "./routes/marketingCalendar.routes.js";
 import academyRoutes from "./routes/academy.routes.js";
 import seoTopicClusterRoutes from "./routes/seoTopicCluster.routes.js";
@@ -76,7 +77,6 @@ import leadCaptureRoutes from "./routes/leadCapture.routes.js";
 import instructorRoutes from "./routes/instructor.routes.js";
 import instructorTeachingRoutes from "./routes/instructorTeaching.routes.js";
 import adminTrainingRoutes from "./routes/adminTraining.routes.js";
-import globalSearchRoutes from "./routes/globalSearch.routes.js";
 import skillsGapRoutes from "./routes/skillsGap.routes.js";
 import crmRoutes from "./routes/crm.routes.js";
 import crmAuthRoutes from "./routes/crmAuth.routes.js";
@@ -184,7 +184,15 @@ const corsOptionsDelegate = function (req, callback) {
   });
 };
 app.use(cors(corsOptionsDelegate));
-app.use(express.json());
+// /webhooks/resend needs its raw, unparsed body to verify the svix signature
+// (see src/services/resendWebhook.js) — express.json() here would consume
+// the request stream first and hand the route only a parsed object.
+app.use((req, res, next) => {
+  if (req.path === '/webhooks/resend') {
+    return next();
+  }
+  return express.json()(req, res, next);
+});
 // --- Persistent order store via MongoDB (24-hour TTL) ---
 
 const PendingOrderSchema = new mongoose.Schema({
@@ -342,7 +350,7 @@ app.post('/pricing/quote', checkoutLimiter, async (req, res) => {
       }
     }
 
-    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
+    const quote = await computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
     return res.json(quote);
   } catch (err) {
     console.error('Quote error:', err.message);
@@ -369,7 +377,7 @@ app.post('/stripe/checkout', checkoutLimiter, async (req, res) => {
       }
     }
 
-    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
+    const quote = await computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
 
     // Validate client calculation vs backend calculation
     const backendTotalMinor = quote.expectedTotalMinor;
@@ -512,7 +520,7 @@ app.post('/razorpay/checkout', checkoutLimiter, async (req, res) => {
       }
     }
 
-    const quote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
+    const quote = await computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
 
     const backendTotalMinor = quote.expectedTotalMinor;
     const clientTotalMinor = clientCalculatedTotal ? Math.round(Number(clientCalculatedTotal) * 100) : backendTotalMinor;
@@ -630,7 +638,7 @@ app.post('/stripe/cart-checkout', checkoutLimiter, async (req, res) => {
     const orderIds = [];
 
     for (const item of items) {
-      const quote = computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
+      const quote = await computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
       const orderId = generateOrderId();
       orderIds.push(orderId);
       lineItems.push({
@@ -695,7 +703,7 @@ app.post('/razorpay/cart-checkout', checkoutLimiter, async (req, res) => {
     let combinedCurrency = (currency || 'INR').toLowerCase();
 
     for (const item of items) {
-      const quote = computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
+      const quote = await computeQuote({ courseId: item.courseId, enrollmentType, participants, currency, couponCode, referralDiscountRate });
       const orderId = generateOrderId();
       orderIds.push(orderId);
       combinedTotalMinor += quote.expectedTotalMinor;
@@ -1390,12 +1398,12 @@ if (process.env.COURSE_FACTORY_ENABLED === "true") {
 }
 app.use("/admin/ad-creative-factory", adCreativeFactoryRoutes);
 app.use("/admin/social-factory", socialFactoryRoutes);
+app.use("/admin/global-search", globalSearchRoutes);
 app.use("/admin/marketing-calendar", marketingCalendarRoutes);
 app.use("/academy", academyRoutes);
 app.use("/admin/seo/topic-clusters", seoTopicClusterRoutes);
 app.use("/admin/seo/internal-links", internalLinkRecommendationRoutes);
 app.use("/admin/authors", authorRoutes);
-app.use("/admin/global-search", globalSearchRoutes);
 app.use("/", leadCaptureRoutes);
 app.use("/instructor", instructorRoutes);
 app.use("/instructor", instructorTeachingRoutes);

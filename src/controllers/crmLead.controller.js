@@ -1,9 +1,11 @@
 import mongoose from "mongoose";
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
-import Enquiry from "../models/enquiry.model.js";
 import { callClaude } from "../services/aiAgent.service.js";
 import { computeQuote, getBasePriceMinor } from "../utils/pricing.js";
+
+// Site-page leads (forms, chat) belong to the admin panel, not the CRM.
+const SITE_SOURCES = ["website", "enquiry_form", "chat"];
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -115,6 +117,9 @@ export const createLead = async (req, res) => {
     } = req.body;
 
     if (!name) return res.status(400).json({ success: false, message: "Name is required" });
+    if (SITE_SOURCES.includes(source)) {
+      return res.status(400).json({ success: false, message: "Site-page leads are managed in the admin panel, not the CRM" });
+    }
 
     // Duplicate detection by email
     if (email) {
@@ -153,6 +158,10 @@ export const updateLead = async (req, res) => {
   try {
     const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false });
     if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+
+    if (SITE_SOURCES.includes(req.body.source)) {
+      return res.status(400).json({ success: false, message: "Site-page leads are managed in the admin panel, not the CRM" });
+    }
 
     const prevStatus = lead.status;
     const prevStage  = lead.pipelineStage;
@@ -404,6 +413,7 @@ export const importLeads = async (req, res) => {
 
     for (const raw of rawLeads) {
       if (!raw.name) { results.errors.push({ row: raw, reason: "Missing name" }); continue; }
+      if (SITE_SOURCES.includes(raw.source)) { results.errors.push({ row: raw, reason: "Site-page source not allowed in CRM" }); continue; }
 
       if (raw.email) {
         const exists = await CRMLead.exists({ email: raw.email.toLowerCase().trim(), isDeleted: false });
@@ -538,85 +548,6 @@ Write subject line and email body. Keep it concise (under 150 words). Focus on v
   }
 };
 
-// Status mapping from old 5-stage Enquiry to 12-stage CRMLead
-const ENQUIRY_STATUS_MAP = {
-  new:       "new",
-  contacted: "discovery",
-  quoted:    "proposal_sent",
-  won:       "won",
-  lost:      "lost",
-};
-
-export const createLeadFromEnquiry = async (req, res) => {
-  try {
-    const enquiry = await Enquiry.findById(req.params.enquiryId);
-    if (!enquiry) return res.status(404).json({ success: false, message: "Enquiry not found" });
-
-    if (enquiry.crmLeadId) {
-      return res.status(409).json({
-        success: false,
-        message: "Already pushed to CRM",
-        crmLeadId: enquiry.crmLeadId,
-      });
-    }
-
-    // Map Enquiry fields → CRMLead fields
-    const interestParts = [enquiry.courseTitle, enquiry.description].filter(Boolean);
-    const interest = interestParts.join(" — ") || undefined;
-
-    const budget = enquiry.price ? parseFloat(String(enquiry.price).replace(/[^0-9.]/g, "")) || undefined : undefined;
-    const teamSize = enquiry.teamSize ? parseInt(enquiry.teamSize) || undefined : undefined;
-
-    const leadData = {
-      name:         enquiry.name,
-      email:        enquiry.email || undefined,
-      phone:        enquiry.phone || undefined,
-      company:      enquiry.company || undefined,
-      linkedIn:     enquiry.linkedinUrl || undefined,
-      teamSize,
-      interest,
-      source:       "website",
-      utm:          enquiry.utm || undefined,
-      currency:     enquiry.currency || "INR",
-      budget,
-      status:       ENQUIRY_STATUS_MAP[enquiry.status] || "new",
-      lostReason:   enquiry.lostReason || undefined,
-      aiScore:      enquiry.aiScore ?? undefined,
-      aiScoreBand:  enquiry.aiScoreBand || undefined,
-      aiReasoning:  enquiry.aiReasoning || undefined,
-      enquiryRef:   enquiry._id,
-      assignedTo:   req.admin._id,
-      createdBy:    req.admin._id,
-      customFields: {
-        trainingType:  enquiry.trainingType,
-        userType:      enquiry.userType,
-        enquiryType:   enquiry.enquiryType,
-        callBackDate:  enquiry.callBackDateTime,
-      },
-    };
-
-    if (enquiry.notes?.trim()) {
-      leadData.notes = [{ body: enquiry.notes.trim(), createdBy: req.admin._id }];
-    }
-
-    const lead = await CRMLead.create(leadData);
-
-    enquiry.crmLeadId = lead._id;
-    await enquiry.save();
-
-    await logActivity(
-      lead._id, "created", "Lead promoted from enquiry",
-      `Pushed from Admin Enquiries by ${req.admin.name || req.admin.email}`,
-      req.admin._id
-    );
-
-    res.status(201).json({ success: true, data: lead, message: "Lead pushed to CRM" });
-  } catch (err) {
-    console.error("createLeadFromEnquiry error:", err);
-    res.status(500).json({ success: false, message: "Failed to push lead to CRM" });
-  }
-};
-
 export const draftProposal = async (req, res) => {
   try {
     const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false })
@@ -631,7 +562,7 @@ export const draftProposal = async (req, res) => {
       const snippets = [];
       for (const courseId of lead.recommendedCourses.slice(0, 5)) {
         try {
-          const quote = computeQuote({
+          const quote = await computeQuote({
             courseId,
             enrollmentType,
             participants: lead.teamSize,

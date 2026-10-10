@@ -24,10 +24,10 @@ async function validateCourseExists(courseId) {
   if (!course) throw new Error(`Course not found: ${courseId}`);
 }
 
-function computeLine({ courseId, seats, currency, couponCode, manualDiscountPercent }) {
+async function computeLine({ courseId, seats, currency, couponCode, manualDiscountPercent }) {
   const participants = Math.max(1, Number(seats) || 1);
   const enrollmentType = participants >= 2 ? 'group' : 'individual';
-  const baseQuote = computeQuote({ courseId, enrollmentType, participants, currency, couponCode });
+  const baseQuote = await computeQuote({ courseId, enrollmentType, participants, currency, couponCode });
   return applyManualDiscount(baseQuote, manualDiscountPercent || 0);
 }
 
@@ -37,7 +37,7 @@ export const quoteProposalLine = async (req, res) => {
     if (!courseId || !currency) {
       return res.status(400).json({ success: false, message: 'courseId and currency are required' });
     }
-    const quote = computeLine({ courseId, seats, currency, couponCode, manualDiscountPercent });
+    const quote = await computeLine({ courseId, seats, currency, couponCode, manualDiscountPercent });
     return res.json({ success: true, data: quote });
   } catch (err) {
     console.error('quoteProposalLine error:', err);
@@ -62,8 +62,8 @@ export const createProposal = async (req, res) => {
       return res.status(400).json({ success: false, message: 'All courses in a proposal must use the same currency.' });
     }
 
-    const computedCourses = courses.map((c) => {
-      const quote = computeLine(c);
+    const computedCourses = await Promise.all(courses.map(async (c) => {
+      const quote = await computeLine(c);
       return {
         courseId: c.courseId,
         courseTitle: c.courseTitle || '',
@@ -74,7 +74,7 @@ export const createProposal = async (req, res) => {
         syllabus: c.syllabus || '',
         quote,
       };
-    });
+    }));
 
     const firstCurrency = computedCourses[0].currency.toUpperCase();
     const grandTotalMinor = computedCourses.reduce((s, c) => s + (c.quote.expectedTotalMinor || 0), 0);
@@ -125,8 +125,8 @@ export const updateProposal = async (req, res) => {
         return res.status(400).json({ success: false, message: 'All courses in a proposal must use the same currency.' });
       }
 
-      const computedCourses = courses.map((c) => {
-        const quote = computeLine(c);
+      const computedCourses = await Promise.all(courses.map(async (c) => {
+        const quote = await computeLine(c);
         return {
           courseId: c.courseId,
           courseTitle: c.courseTitle || '',
@@ -137,7 +137,7 @@ export const updateProposal = async (req, res) => {
           syllabus: c.syllabus || '',
           quote,
         };
-      });
+      }));
 
       const firstCurrency = computedCourses[0].currency.toUpperCase();
       const grandTotalMinor = computedCourses.reduce((s, c) => s + (c.quote.expectedTotalMinor || 0), 0);

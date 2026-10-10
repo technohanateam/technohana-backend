@@ -1,50 +1,7 @@
 import Course from '../models/course.model.js';
+import Coupon from '../models/coupon.model.js';
 
 export const allowedCurrencies = ['usd', 'inr', 'aed', 'eur', 'gbp', 'sar', 'qar', 'omr', 'bhd', 'kwd'];
-
-// Coupon map — single source of truth for both validation and quote computation
-// currencies: null means global (any currency); otherwise array of allowed currency codes
-export const validCoupons = {
-  // ── India (INR) ──────────────────────────────────────────────────────────
-  'NEWYEAR5':       { rate: 0.05, currencies: null },          // Jan 1  — global
-  'SUMMER10':       { rate: 0.10, currencies: null },          // Summer — global
-  'REPUBLIC5':      { rate: 0.05, currencies: ['inr'] },       // Jan 26 — Republic Day
-  'PONGAL5':        { rate: 0.05, currencies: ['inr'] },       // Jan    — Pongal / Makar Sankranti
-  'HOLI5':          { rate: 0.05, currencies: ['inr'] },       // Mar    — Holi
-  'BAISAKHI5':      { rate: 0.05, currencies: ['inr'] },       // Apr 14 — Baisakhi
-  'INDEPENDENCE8':  { rate: 0.08, currencies: ['inr'] },       // Aug 15 — Independence Day
-  'ONAM7':          { rate: 0.07, currencies: ['inr'] },       // Sep    — Onam
-  'NAVRATRI8':      { rate: 0.08, currencies: ['inr'] },       // Oct    — Navratri
-  'DIWALI10':       { rate: 0.10, currencies: ['inr'] },       // Oct/Nov — Diwali
-  'RATHYATRA5':     { rate: 0.05, currencies: ['inr'] },       // Jun 20–28 — Rath Yatra
-  // ── UAE / Arab ────────────────────────────────────────────────────────────
-  'RAMADAN8':       { rate: 0.08, currencies: ['aed'] },       // Mar/Apr — Ramadan
-  'EID10':          { rate: 0.10, currencies: ['aed'] },       // Apr/Jun — Eid ul-Fitr / Adha
-  'EID_ADHA10':     { rate: 0.10, currencies: ['inr', 'aed'] }, // May 25–Jun 5 — Eid al-Adha / Bakrid
-  'EID_ADHA_ME10':  { rate: 0.10, currencies: ['sar', 'qar', 'omr', 'bhd', 'kwd'] }, // May 25–Jun 5 — Eid al-Adha / Middle East
-  'ISLAMICNY5':     { rate: 0.05, currencies: ['aed'] },       // Jun 23–30 — Islamic New Year
-  'UAENATIONAL8':   { rate: 0.08, currencies: ['aed'] },       // Dec 2  — UAE National Day
-  // ── US ────────────────────────────────────────────────────────────────────
-  'MEMORIALDAY5':   { rate: 0.05, currencies: ['usd'] },       // May    — Memorial Day
-  'JUNETEENTH5':    { rate: 0.05, currencies: ['usd'] },       // Jun 19 — Juneteenth
-  'FATHERSDAY7':    { rate: 0.07, currencies: null },          // Jun 15–22 — Father's Day (global)
-  'LABORDAY7':      { rate: 0.07, currencies: ['usd'] },       // Sep    — Labor Day
-  'HALLOWEEN5':     { rate: 0.05, currencies: ['usd'] },       // Oct 31 — Halloween
-  'THANKSGIVING7':  { rate: 0.07, currencies: ['usd'] },       // Nov    — Thanksgiving
-  'XMAS10':         { rate: 0.10, currencies: ['usd', 'gbp', 'eur'] }, // Dec — Christmas
-  // ── UK / EU ───────────────────────────────────────────────────────────────
-  'STPATRICKS5':    { rate: 0.05, currencies: ['gbp', 'eur'] }, // Mar 17 — St. Patrick's Day
-  'EASTER6':        { rate: 0.06, currencies: ['gbp', 'eur'] }, // Apr    — Easter
-  'MAYBANK5':       { rate: 0.05, currencies: ['gbp', 'eur'] }, // May    — May Bank Holiday
-  'CORPUSCHRISTI5': { rate: 0.05, currencies: ['eur'] },        // Jun 1–7 — Corpus Christi (EU)
-  'MIDSUMMER5':     { rate: 0.05, currencies: ['eur'] },        // Jun 20–28 — Midsummer / St John's Day
-  'SUMMERLEARN7':   { rate: 0.07, currencies: ['usd', 'gbp', 'eur'] }, // Jun–Aug — Summer Learning
-  // ── Global / Platform ─────────────────────────────────────────────────────
-  'LAUNCH10':       { rate: 0.10, currencies: null },          // Always-on platform launch
-  'FLASHSALE15':    { rate: 0.15, currencies: null },          // On-demand flash sale — activate manually
-  'REFERRAL10':     { rate: 0.10, currencies: null },          // Referral campaign codes — activate per campaign
-  'B2B20':          { rate: 0.20, currencies: null },          // Corporate / B2B deals — activate per deal
-};
 
 const DEFAULT_PRICES = {
   inr: 1599900,
@@ -96,7 +53,7 @@ export function getBasePriceMinor(courseId, currency) {
   return typeof val === 'number' ? val : null;
 }
 
-export function computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate }) {
+export async function computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate }) {
   const normalizedCurrency = String(currency || 'usd').toLowerCase();
   if (!allowedCurrencies.includes(normalizedCurrency)) {
     throw new Error('Unsupported currency');
@@ -116,7 +73,7 @@ export function computeQuote({ courseId, enrollmentType, participants, currency,
       if (p >= 10) return 0.35;
       if (p >= 5) return 0.25;
       if (p >= 2) return 0.15;
-      return 0.15;
+      return 0; // "group" claimed with fewer than 2 participants doesn't qualify — treat as individual
     }
     return 0;
   };
@@ -132,19 +89,28 @@ export function computeQuote({ courseId, enrollmentType, participants, currency,
   let appliedCouponCode = null;
   let couponDiscountRate = 0;
 
+  // Coupons are the single source of truth in MongoDB (Coupon model) — the
+  // same document coupon.controller.js's admin CRUD and public /validate
+  // endpoint use, so isActive/expiry/usage-limit/currency rules are enforced
+  // identically here at actual checkout time, not just at UI-validation time.
   if (couponCode && typeof couponCode === 'string') {
     const code = couponCode.trim().toUpperCase();
-    const coupon = validCoupons[code];
-    if (coupon) {
-      const allowed = coupon.currencies;
-      if (!allowed || allowed.includes(normalizedCurrency)) {
-        unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * (1 - coupon.rate)));
-        couponApplied = true;
-        appliedCouponCode = code;
-        couponDiscountRate = coupon.rate;
-      }
+    const coupon = await Coupon.findOne({ code });
+    if (
+      coupon &&
+      coupon.isActive &&
+      coupon.hasStarted() &&
+      !coupon.isExpired() &&
+      !coupon.isExhausted() &&
+      coupon.isValidForCurrency(normalizedCurrency)
+    ) {
+      const rate = coupon.discountPercent / 100;
+      unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * (1 - rate)));
+      couponApplied = true;
+      appliedCouponCode = code;
+      couponDiscountRate = rate;
     } else if (code) {
-      console.warn(`Invalid coupon code attempted: ${code}`);
+      console.warn(`Invalid or inapplicable coupon code attempted: ${code}`);
     }
   }
 
@@ -154,6 +120,11 @@ export function computeQuote({ courseId, enrollmentType, participants, currency,
   if (appliedReferralRate > 0) {
     unitAmountMinor = Math.max(1, Math.round(unitAmountMinor * (1 - appliedReferralRate)));
   }
+
+  // Enrollment + coupon + referral together must never exceed 50% off,
+  // matching the same floor applyManualDiscount() enforces below.
+  const floorUnitMinor = Math.ceil(originalUnitMinor * 0.5);
+  unitAmountMinor = Math.max(floorUnitMinor, unitAmountMinor);
 
   const expectedTotalMinor = unitAmountMinor * quantity;
 

@@ -6,7 +6,7 @@ const checklistItemSchema = new mongoose.Schema(
 );
 
 const commentSchema = new mongoose.Schema(
-  { body: { type: String, required: true }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" } },
+  { body: { type: String, required: true }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" } },
   { timestamps: true }
 );
 
@@ -18,7 +18,7 @@ const crmTaskSchema = new mongoose.Schema(
     priority: { type: String, enum: ["low", "medium", "high", "urgent"], default: "medium" },
     status: { type: String, enum: ["open", "in_progress", "done", "cancelled"], default: "open" },
 
-    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" },
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" },
     dueDate: { type: Date },
     reminderAt: { type: Date },
     completedAt: { type: Date },
@@ -40,7 +40,7 @@ const crmTaskSchema = new mongoose.Schema(
     comments: [commentSchema],
 
     isDeleted: { type: Boolean, default: false },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" },
   },
   { timestamps: true }
 );

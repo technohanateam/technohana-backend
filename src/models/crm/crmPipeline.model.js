@@ -26,7 +26,7 @@ const crmPipelineSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     stages: [stageSchema],
     currency: { type: String, default: "INR" },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" },
   },
   { timestamps: true }
 );
