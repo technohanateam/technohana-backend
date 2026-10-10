@@ -62,17 +62,18 @@ export const createEnquiry = async (req, res) => {
         break;
       case "General Enquiry":
       default:
-        subject = `New General Enquiry for: ${courseTitle}`;
+        subject = `New ${enquiryType || "General Enquiry"} for: ${courseTitle || "General"}`;
         break;
     }
 
-    // Admin notification + user confirmation in parallel (non-blocking on user email failure)
-    await sendEmail({
+    // The lead is already saved — a notification failure must not 500 the request
+    // (users would resubmit and create duplicates).
+    sendEmail({
       from: fromAddresses.sales,
       to: process.env.MAIL_TO,
       subject,
-      html: generateEnquiryTable(req.body),
-    });
+      html: generateEnquiryTable(body),
+    }).catch((err) => console.error("Enquiry admin notification failed (lead already saved):", err));
 
     // Skills Gap leads get a dedicated, tailored plan email (POST /skills-gap/email-plan)
     // instead of this generic confirmation — sending both would double-email the user.
@@ -122,12 +123,12 @@ export const contactUs = async (req, res) => {
       utm, origin: "contact_us", originId: enquiry._id, extra: { enquiryType: "Contact Us" },
     });
 
-    await sendEmail({
+    sendEmail({
       from: fromAddresses.connect,
       to: process.env.MAIL_TO,
       subject: "You have a new message from " + name,
       html: generateContactUsEmail({ name, email, subject, message }),
-    });
+    }).catch((err) => console.error("Contact-us admin notification failed (lead already saved):", err));
 
     return res.status(200).json({ message: "Message sent successfully" });
   } catch (error) {
