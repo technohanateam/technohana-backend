@@ -26,7 +26,13 @@ export const sendEmail = async ({ from, to, subject, html, attachments }) => {
       html: html,
       ...(attachments ? { attachments } : {}),
     });
-    console.log(`Email sent to ${to} with subject "${subject}"`);
+    // Resend reports rejections (unverified domain, bad key, invalid recipient) in
+    // `error` rather than throwing; callers that care check `result.error`.
+    if (data?.error) {
+      console.error(`Email to ${to} rejected by Resend ("${subject}"):`, data.error);
+    } else {
+      console.log(`Email sent to ${to} with subject "${subject}"`);
+    }
     return data;
   } catch (err) {
     console.error("Error sending email:", err);
