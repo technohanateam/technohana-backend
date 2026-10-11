@@ -80,6 +80,7 @@ import adminTrainingRoutes from "./routes/adminTraining.routes.js";
 import skillsGapRoutes from "./routes/skillsGap.routes.js";
 import crmRoutes from "./routes/crm.routes.js";
 import crmAuthRoutes from "./routes/crmAuth.routes.js";
+import { ensureDefaultPipelines } from "./controllers/crmPipeline.controller.js";
 import { authenticateCrm } from "./middleware/authenticateCrm.js";
 import careerRoutes from "./routes/career.routes.js";
 import Coupon from "./models/coupon.model.js";
@@ -227,7 +228,10 @@ const generateOrderId = () => `ord_${Math.random().toString(36).slice(2, 10)}`;
 app.use(passport.initialize());
 
 // Connect to the database
-connectDb().then(() => refreshPriceCatalog().catch((err) => console.error("Price catalog refresh failed:", err)));
+connectDb().then(() => {
+  refreshPriceCatalog().catch((err) => console.error("Price catalog refresh failed:", err));
+  ensureDefaultPipelines().catch((err) => console.error("CRM default pipeline seed failed:", err));
+});
 
 
 app.get('/api/ping', (req, res) => {

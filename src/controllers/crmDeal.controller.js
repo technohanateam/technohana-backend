@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import CRMDeal from "../models/crm/crmDeal.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMPipeline from "../models/crm/crmPipeline.model.js";
+import { parsePaging } from "../utils/crmQuery.js";
 
 const logActivity = async (dealId, type, title, body, performedBy, metadata = {}) => {
   try {
@@ -9,14 +10,30 @@ const logActivity = async (dealId, type, title, body, performedBy, metadata = {}
   } catch (e) { console.error("Activity log failed:", e.message); }
 };
 
+// Keeps status/wonAt/lostAt consistent with the deal's stage and logs the
+// transition. Returns the activity to log after the deal is saved, if any.
+const applyStageStatus = (deal, stage, lostReason) => {
+  const prevStatus = deal.status;
+  const nextStatus = stage?.isWon ? "won" : stage?.isLost ? "lost" : "open";
+  if (nextStatus === prevStatus) return null;
+
+  deal.status = nextStatus;
+  deal.wonAt  = nextStatus === "won" ? new Date() : undefined;
+  deal.lostAt = nextStatus === "lost" ? new Date() : undefined;
+  if (nextStatus === "won")  return ["deal_won", "Deal won", `${deal.title} marked as won!`];
+  if (nextStatus === "lost") return ["deal_lost", "Deal lost", `${deal.title} marked as lost. Reason: ${lostReason || deal.lostReason || "N/A"}`];
+  return ["status_change", "Deal reopened", `${deal.title} moved back to an open stage`];
+};
+
 export const getDeals = async (req, res) => {
   try {
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, parseInt(req.query.limit) || 25);
-    const skip  = (page - 1) * limit;
+    const { page, limit, skip } = parsePaging(req.query, { max: 200 });
 
-    const { pipeline, status, assignedTo, company } = req.query;
+    const { pipeline, status, assignedTo, company, search } = req.query;
     const filter = { isDeleted: false };
+    if (typeof search === "string" && search.trim()) {
+      filter.title = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    }
     for (const [key, val] of [["pipeline", pipeline], ["assignedTo", assignedTo], ["company", company]]) {
       if (val && !mongoose.Types.ObjectId.isValid(val)) {
         return res.status(400).json({ success: false, message: `Invalid ${key} id` });
@@ -119,16 +136,22 @@ export const updateDeal = async (req, res) => {
       "tags", "notes", "attachments"];
     allowed.forEach((f) => { if (req.body[f] !== undefined) deal[f] = req.body[f]; });
 
+    const pending = [];
     if (req.body.status === "won" && prevStatus !== "won") {
       deal.wonAt = new Date();
-      await logActivity(deal._id, "deal_won", "Deal won", `${deal.title} marked as won!`, req.admin._id);
-    }
-    if (req.body.status === "lost" && prevStatus !== "lost") {
+      deal.lostAt = undefined;
+      pending.push(["deal_won", "Deal won", `${deal.title} marked as won!`]);
+    } else if (req.body.status === "lost" && prevStatus !== "lost") {
       deal.lostAt = new Date();
-      await logActivity(deal._id, "deal_lost", "Deal lost", `${deal.title} marked as lost. Reason: ${req.body.lostReason || "N/A"}`, req.admin._id);
+      deal.wonAt = undefined;
+      pending.push(["deal_lost", "Deal lost", `${deal.title} marked as lost. Reason: ${req.body.lostReason || "N/A"}`]);
+    } else if (req.body.status === "open" && prevStatus !== "open") {
+      deal.wonAt = undefined;
+      deal.lostAt = undefined;
     }
 
     await deal.save();
+    for (const [type, title, body] of pending) await logActivity(deal._id, type, title, body, req.admin._id);
     res.json({ success: true, data: deal, message: "Deal updated" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to update deal" });
@@ -150,16 +173,18 @@ export const moveDealStage = async (req, res) => {
     if (!stage) return res.status(400).json({ success: false, message: "Stage not found in pipeline" });
 
     const prevStage = deal.stageKey;
-    deal.stageKey   = stageKey;
-    deal.stageOrder = stage?.order ?? deal.stageOrder;
-    deal.probability = stage?.probability ?? deal.probability;
+    if (prevStage === stageKey) return res.json({ success: true, data: deal, message: "Stage unchanged" });
 
-    if (stage?.isWon) { deal.status = "won"; deal.wonAt = new Date(); }
-    if (stage?.isLost) { deal.status = "lost"; deal.lostAt = new Date(); }
+    deal.stageKey   = stageKey;
+    deal.stageOrder = stage.order ?? deal.stageOrder;
+    deal.probability = stage.probability ?? deal.probability;
+    const statusActivity = applyStageStatus(deal, stage, req.body.lostReason);
+    if (stage.isLost && req.body.lostReason) deal.lostReason = req.body.lostReason;
 
     await deal.save();
     await logActivity(deal._id, "stage_change", "Stage moved",
       `Deal moved from ${prevStage} → ${stageKey}`, req.admin._id, { from: prevStage, to: stageKey });
+    if (statusActivity) await logActivity(deal._id, ...statusActivity, req.admin._id);
 
     res.json({ success: true, data: deal, message: "Stage updated" });
   } catch (err) {

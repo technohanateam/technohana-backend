@@ -10,6 +10,7 @@ const crmActivitySchema = new mongoose.Schema(
         "task_done", "stage_change", "status_change", "created",
         "file_upload", "proposal_sent", "quote_sent", "deal_won",
         "deal_lost", "batch_created", "trainer_assigned", "certificate_issued",
+        "merged", "ai_draft",
       ],
     },
     title: { type: String, trim: true },

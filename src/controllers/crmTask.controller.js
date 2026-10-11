@@ -1,14 +1,16 @@
 import mongoose from "mongoose";
 import CRMTask from "../models/crm/crmTask.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
+import { parsePaging } from "../utils/crmQuery.js";
+import { resolveRange } from "../services/crmDailyReport.js";
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const getTasks = async (req, res) => {
   try {
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, parseInt(req.query.limit) || 25);
-    const skip  = (page - 1) * limit;
+    const { page, limit, skip } = parsePaging(req.query);
 
-    const { assignedTo, status, priority, dueToday, relatedToType, relatedToId, type } = req.query;
+    const { assignedTo, status, priority, dueToday, overdue, search, relatedToType, relatedToId, type } = req.query;
     const role    = req.crmRole || req.admin.role;
     const adminId = req.admin._id;
 
@@ -29,10 +31,18 @@ export const getTasks = async (req, res) => {
     if (relatedToType) filter.relatedToType = relatedToType;
     if (relatedToId)   filter.relatedToId   = new mongoose.Types.ObjectId(relatedToId);
 
+    // Due dates are IST calendar days, matching the dashboard and daily report.
+    const { start: todayStart, end: todayEnd } = resolveRange();
     if (dueToday === "true") {
-      const start = new Date(); start.setHours(0, 0, 0, 0);
-      const end   = new Date(); end.setHours(23, 59, 59, 999);
-      filter.dueDate = { $gte: start, $lte: end };
+      filter.dueDate = { $gte: todayStart, $lt: todayEnd };
+    } else if (overdue === "true") {
+      filter.dueDate = { $lt: todayStart };
+      filter.status = { $in: ["open", "in_progress"] };
+    }
+
+    if (typeof search === "string" && search.trim()) {
+      const re = new RegExp(escapeRegex(search.trim()), "i");
+      filter.$or = [{ title: re }, { description: re }];
     }
 
     const [tasks, total] = await Promise.all([

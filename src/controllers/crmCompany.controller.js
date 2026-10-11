@@ -4,14 +4,13 @@ import CRMContact from "../models/crm/crmContact.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
+import { parsePaging } from "../utils/crmQuery.js";
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const getCompanies = async (req, res) => {
   try {
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, parseInt(req.query.limit) || 25);
-    const skip  = (page - 1) * limit;
+    const { page, limit, skip } = parsePaging(req.query);
 
     const { search, industry, country } = req.query;
     const filter = { isDeleted: false };

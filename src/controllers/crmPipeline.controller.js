@@ -45,17 +45,18 @@ const DEFAULT_PIPELINES = [
   },
 ];
 
+// Called once at server start. Upserting on `type` with $setOnInsert never
+// touches pipelines that already exist, so it is safe on every boot.
+export async function ensureDefaultPipelines() {
+  if (await CRMPipeline.exists({})) return;
+  await Promise.all(DEFAULT_PIPELINES.map((p) =>
+    CRMPipeline.updateOne({ type: p.type }, { $setOnInsert: p }, { upsert: true })
+  ));
+}
+
 export const getPipelines = async (req, res) => {
   try {
-    let pipelines = await CRMPipeline.find({ isActive: true }).sort({ isDefault: -1, createdAt: 1 }).lean();
-
-    // Seed default pipelines on first call if none exist
-    if (pipelines.length === 0) {
-      const seeded = await CRMPipeline.insertMany(
-        DEFAULT_PIPELINES.map((p) => ({ ...p, createdBy: req.admin._id }))
-      );
-      pipelines = seeded;
-    }
+    const pipelines = await CRMPipeline.find({ isActive: true }).sort({ isDefault: -1, createdAt: 1 }).lean();
 
     // Add deal counts per pipeline
     const ids = pipelines.map((p) => p._id);
@@ -126,6 +127,22 @@ export const updatePipeline = async (req, res) => {
   try {
     const pipeline = await CRMPipeline.findById(req.params.id);
     if (!pipeline) return res.status(404).json({ success: false, message: "Pipeline not found" });
+
+    // Removing a stage that still holds deals would orphan them (they'd vanish from every board).
+    if (Array.isArray(req.body.stages)) {
+      const nextKeys = new Set(req.body.stages.map((s) => s?.key));
+      const removed = pipeline.stages.map((s) => s.key).filter((k) => !nextKeys.has(k));
+      if (removed.length) {
+        const stuck = await CRMDeal.aggregate([
+          { $match: { pipeline: pipeline._id, stageKey: { $in: removed }, isDeleted: false } },
+          { $group: { _id: "$stageKey", count: { $sum: 1 } } },
+        ]);
+        if (stuck.length) {
+          const detail = stuck.map((s) => `${s.count} in "${s._id}"`).join(", ");
+          return res.status(400).json({ success: false, message: `Move these deals out before removing their stages: ${detail}` });
+        }
+      }
+    }
 
     if (req.body.isDefault) await CRMPipeline.updateMany({ _id: { $ne: pipeline._id } }, { isDefault: false });
 

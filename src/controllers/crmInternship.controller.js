@@ -1,6 +1,7 @@
 import InternApplication from "../models/internApplication.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import cloudinary from "../config/cloudinary.js";
+import { parsePaging } from "../utils/crmQuery.js";
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -9,9 +10,7 @@ const DEPARTMENTS = ["sales", "marketing", "engineering", "design"];
 
 export const getInternApplications = async (req, res) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(200, parseInt(req.query.limit) || 50);
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePaging(req.query, { defaultLimit: 50, max: 200 });
 
     const { department, status, search } = req.query;
     const filter = {};

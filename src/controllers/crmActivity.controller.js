@@ -1,12 +1,11 @@
 import mongoose from "mongoose";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMTag from "../models/crm/crmTag.model.js";
+import { parsePaging, attachRelated } from "../utils/crmQuery.js";
 
 export const getActivities = async (req, res) => {
   try {
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, parseInt(req.query.limit) || 30);
-    const skip  = (page - 1) * limit;
+    const { page, limit, skip } = parsePaging(req.query, { defaultLimit: 30 });
 
     const { relatedToType, relatedToId, type } = req.query;
     if (relatedToId && !mongoose.Types.ObjectId.isValid(relatedToId)) {
@@ -27,7 +26,7 @@ export const getActivities = async (req, res) => {
       CRMActivity.countDocuments(filter),
     ]);
 
-    res.json({ success: true, data: activities, meta: { page, limit, total } });
+    res.json({ success: true, data: await attachRelated(activities), meta: { page, limit, total } });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to fetch activities" });
   }

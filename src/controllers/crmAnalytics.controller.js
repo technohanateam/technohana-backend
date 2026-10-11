@@ -1,20 +1,37 @@
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
-import { buildDailyReport, sendDailyReportEmail } from "../services/crmDailyReport.js";
+import { buildDailyReport, sendDailyReportEmail, resolveRange, istDateStr, istMonthStart, REPORT_TZ } from "../services/crmDailyReport.js";
+
+const wonAtPart = (op) => ({ [op]: { date: "$wonAt", timezone: REPORT_TZ } });
+
+// Each period buckets won deals into IST weeks (12), quarters (4) or months (12).
+const REVENUE_PERIODS = {
+  week: {
+    key: { $dateToString: { format: "%G-W%V", date: "$wonAt", timezone: REPORT_TZ } },
+    cutoff: () => new Date(Date.now() - 12 * 7 * 24 * 60 * 60 * 1000),
+  },
+  quarter: {
+    key: { $concat: [
+      { $toString: wonAtPart("$year") },
+      "-Q",
+      { $toString: { $toInt: { $ceil: { $divide: [wonAtPart("$month"), 3] } } } },
+    ] },
+    cutoff: () => {
+      const month = Number(istDateStr().slice(5, 7));
+      return istMonthStart(((month - 1) % 3) + 9);
+    },
+  },
+  month: {
+    key: { $dateToString: { format: "%Y-%m", date: "$wonAt", timezone: REPORT_TZ } },
+    cutoff: () => istMonthStart(11),
+  },
+};
 
 export const getRevenueTrend = async (req, res) => {
   try {
-    const { period = "month" } = req.query;
-
-    // Build grouping format based on period
-    const dateFormat = period === "week"
-      ? { $dateToString: { format: "%Y-%m-%d", date: "$wonAt" } }
-      : { $dateToString: { format: "%Y-%m", date: "$wonAt" } };
-
-    const cutoff = new Date();
-    if (period === "week")    cutoff.setDate(cutoff.getDate() - 84); // 12 weeks
-    else if (period === "quarter") cutoff.setMonth(cutoff.getMonth() - 12); // 4 quarters
-    else cutoff.setMonth(cutoff.getMonth() - 11); // 12 months
+    const period = Object.hasOwn(REVENUE_PERIODS, req.query.period) ? req.query.period : "month";
+    const { key: dateFormat, cutoff: cutoffFn } = REVENUE_PERIODS[period];
+    const cutoff = cutoffFn();
 
     const result = await CRMDeal.aggregate([
       {
@@ -63,7 +80,7 @@ export const getRepStats = async (req, res) => {
         },
         {
           $lookup: {
-            from: "adminusers",
+            from: "crmusers",
             localField: "_id",
             foreignField: "_id",
             as: "rep",
@@ -184,9 +201,14 @@ export const getDailyReport = async (req, res) => {
 // manual send can never email the whole admin list by accident.
 export const emailDailyReportToMe = async (req, res) => {
   try {
-    const { sent, report } = await sendDailyReportEmail({ date: req.body?.date, to: [req.admin.email] });
+    const from = req.body?.from ?? req.body?.date;
+    const to = req.body?.to ?? from;
+    const range = resolveRange(from, to);
+    if (range.error) return res.status(400).json({ success: false, message: range.error });
+    const { sent, report } = await sendDailyReportEmail({ from, to, recipients: [req.admin.email] });
     if (!sent) return res.status(400).json({ success: false, message: "No recipient" });
-    res.json({ success: true, message: `Report for ${report.from} emailed to ${req.admin.email}` });
+    const label = report.from === report.to ? report.from : `${report.from} → ${report.to}`;
+    res.json({ success: true, message: `Report for ${label} emailed to ${req.admin.email}` });
   } catch (err) {
     console.error("emailDailyReportToMe error:", err);
     res.status(500).json({ success: false, message: "Failed to send report" });

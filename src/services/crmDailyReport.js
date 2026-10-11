@@ -18,6 +18,13 @@ const isDateStr = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 export const istDateStr = (date = new Date()) =>
   new Date(date.getTime() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+// Start of the IST calendar month `monthsBack` months before the current one.
+export const istMonthStart = (monthsBack = 0) => {
+  const [y, m] = istDateStr().split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 - monthsBack, 1));
+  return new Date(`${d.toISOString().slice(0, 7)}-01T00:00:00${IST_OFFSET}`);
+};
+
 // Inclusive [fromStr, toStr] IST dates -> half-open UTC range.
 export function resolveRange(fromStr, toStr) {
   const today = istDateStr();
@@ -65,7 +72,7 @@ export async function buildDailyReport({ from, to, repId = null }) {
     CRMDeal.aggregate([{ $match: { isDeleted: false, status: "won", ...inRange("wonAt"), ...scope("assignedTo") } }, { $group: { _id: "$assignedTo", n: { $sum: 1 }, value: { $sum: "$value" } } }]),
     CRMDeal.aggregate([{ $match: { isDeleted: false, status: "lost", ...inRange("lostAt"), ...scope("assignedTo") } }, { $group: { _id: "$assignedTo", n: { $sum: 1 } } }]),
     CRMTask.aggregate([{ $match: { isDeleted: false, status: "done", ...inRange("completedAt"), ...scope("assignedTo") } }, { $group: { _id: "$assignedTo", n: { $sum: 1 } } }]),
-    CRMTask.aggregate([{ $match: { isDeleted: false, status: { $in: ["open", "in_progress"] }, dueDate: { $lt: new Date() }, ...scope("assignedTo") } }, { $group: { _id: "$assignedTo", n: { $sum: 1 } } }]),
+    CRMTask.aggregate([{ $match: { isDeleted: false, status: { $in: ["open", "in_progress"] }, dueDate: { $lt: resolveRange().start }, ...scope("assignedTo") } }, { $group: { _id: "$assignedTo", n: { $sum: 1 } } }]),
     CRMLead.aggregate([{ $match: { isDeleted: false, ...inRange("createdAt"), ...scope("assignedTo") } }, { $group: { _id: "$source", n: { $sum: 1 } } }, { $sort: { n: -1 } }]),
     CRMLead.aggregate([{ $match: { isDeleted: false, ...inRange("createdAt"), ...scope("assignedTo") } }, { $group: { _id: dayKey("createdAt"), n: { $sum: 1 } } }]),
     CRMActivity.aggregate([{ $match: { type: { $in: ACTIVITY_TYPES }, ...inRange("createdAt"), ...scope("performedBy") } }, { $group: { _id: dayKey("createdAt"), n: { $sum: 1 } } }]),
@@ -134,19 +141,20 @@ export async function getDailyReportRecipients() {
   return [...new Set([...admins.map((a) => a.email), ...extra])];
 }
 
-export async function sendDailyReportEmail({ date = istDateStr(), to } = {}) {
-  const report = await buildDailyReport({ from: date, to: date });
+export async function sendDailyReportEmail({ from = istDateStr(), to = from, recipients } = {}) {
+  const report = await buildDailyReport({ from, to });
   if (report.error) throw new Error(report.error);
 
-  const recipients = to?.length ? to : await getDailyReportRecipients();
-  if (!recipients.length) return { sent: 0, report };
+  const sendTo = recipients?.length ? recipients : await getDailyReportRecipients();
+  if (!sendTo.length) return { sent: 0, report };
 
   const dashboardUrl = process.env.CRM_FRONTEND_URL || "https://crm.technohana.in";
+  const dateLabel = report.from === report.to ? report.from : `${report.from} → ${report.to}`;
   await sendEmail({
     from: fromAddresses.sales,
-    to: recipients,
-    subject: `CRM Daily Report — ${date}`,
+    to: sendTo,
+    subject: `CRM ${report.from === report.to ? "Daily" : "Activity"} Report — ${dateLabel}`,
     html: crmDailyReportEmail({ report, dashboardUrl: `${dashboardUrl}/analytics` }),
   });
-  return { sent: recipients.length, report };
+  return { sent: sendTo.length, report };
 }

@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
+import CRMTask from "../models/crm/crmTask.model.js";
+import CRMDeal from "../models/crm/crmDeal.model.js";
+import CrmUser from "../models/crmUser.model.js";
+import { parsePaging } from "../utils/crmQuery.js";
 import { callClaude } from "../services/aiAgent.service.js";
 import { computeQuote, getBasePriceMinor } from "../utils/pricing.js";
 
@@ -8,6 +12,9 @@ import { computeQuote, getBasePriceMinor } from "../utils/pricing.js";
 const SITE_SOURCES = ["website", "enquiry_form", "chat"];
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const LEAD_STATUSES   = CRMLead.schema.path("status").enumValues;
+const LEAD_PRIORITIES = CRMLead.schema.path("priority").enumValues;
 
 const logActivity = async (leadId, type, title, body, performedBy, metadata = {}) => {
   try {
@@ -24,9 +31,7 @@ const logActivity = async (leadId, type, title, body, performedBy, metadata = {}
 
 export const getLeads = async (req, res) => {
   try {
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
-    const skip  = (page - 1) * limit;
+    const { page, limit, skip } = parsePaging(req.query);
 
     const { search, status, assignedTo, source, priority, pipeline, aiScoreBand, sort = "createdAt", order = "desc" } = req.query;
 
@@ -113,7 +118,7 @@ export const createLead = async (req, res) => {
       country, state, city, source, website, linkedIn, utm,
       interest, budget, currency, teamSize, industry,
       priority, expectedRevenue, probability,
-      status, pipeline, pipelineStage, assignedTo, tags, customFields,
+      status, pipeline, pipelineStage, assignedTo, tags, customFields, notes,
     } = req.body;
 
     if (!name) return res.status(400).json({ success: false, message: "Name is required" });
@@ -142,10 +147,12 @@ export const createLead = async (req, res) => {
       pipeline, pipelineStage,
       assignedTo: assignedTo || req.admin._id,
       tags, customFields,
+      notes: typeof notes === "string" && notes.trim() ? [{ body: notes.trim(), createdBy: req.admin._id }] : [],
       createdBy: req.admin._id,
     });
 
     await logActivity(lead._id, "created", "Lead created", `${name} was added to the CRM`, req.admin._id);
+    if (lead.notes.length) await logActivity(lead._id, "note", "Note added", lead.notes[0].body, req.admin._id);
 
     res.status(201).json({ success: true, data: lead, message: "Lead created" });
   } catch (err) {
@@ -230,21 +237,46 @@ export const bulkLeadAction = async (req, res) => {
     const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
 
     if (action === "delete") {
-      await CRMLead.updateMany({ _id: { $in: objectIds } }, { isDeleted: true, deletedAt: new Date() });
+      await CRMLead.updateMany({ _id: { $in: objectIds }, isDeleted: false }, { isDeleted: true, deletedAt: new Date() });
       return res.json({ success: true, message: `${ids.length} leads deleted` });
     }
 
     if (action === "assign" && payload?.assignedTo) {
+      if (!mongoose.Types.ObjectId.isValid(payload.assignedTo) || !(await CrmUser.exists({ _id: payload.assignedTo, active: true }))) {
+        return res.status(400).json({ success: false, message: "Invalid assignee" });
+      }
       await CRMLead.updateMany({ _id: { $in: objectIds }, isDeleted: false }, { assignedTo: payload.assignedTo });
       return res.json({ success: true, message: `${ids.length} leads reassigned` });
     }
 
     if (action === "status" && payload?.status) {
-      await CRMLead.updateMany({ _id: { $in: objectIds }, isDeleted: false }, { status: payload.status });
-      return res.json({ success: true, message: `${ids.length} leads status updated` });
+      if (!LEAD_STATUSES.includes(payload.status)) {
+        return res.status(400).json({ success: false, message: "Invalid status" });
+      }
+      const changing = await CRMLead.find({ _id: { $in: objectIds }, isDeleted: false, status: { $ne: payload.status } })
+        .select("status").lean();
+      if (changing.length) {
+        const update = { status: payload.status };
+        if (payload.status === "won") update.wonAt = new Date();
+        if (payload.status === "lost") update.lostAt = new Date();
+        await CRMLead.updateMany({ _id: { $in: changing.map((l) => l._id) } }, update);
+        await CRMActivity.insertMany(changing.map((l) => ({
+          type: "status_change",
+          title: "Status changed",
+          body: `Status changed from ${l.status} to ${payload.status}`,
+          relatedToType: "lead",
+          relatedToId: l._id,
+          performedBy: req.admin._id,
+          metadata: { from: l.status, to: payload.status, bulk: true },
+        })));
+      }
+      return res.json({ success: true, message: `${changing.length} leads status updated` });
     }
 
     if (action === "priority" && payload?.priority) {
+      if (!LEAD_PRIORITIES.includes(payload.priority)) {
+        return res.status(400).json({ success: false, message: "Invalid priority" });
+      }
       await CRMLead.updateMany({ _id: { $in: objectIds }, isDeleted: false }, { priority: payload.priority });
       return res.json({ success: true, message: `${ids.length} leads priority updated` });
     }
@@ -255,11 +287,20 @@ export const bulkLeadAction = async (req, res) => {
   }
 };
 
+const MERGE_SCALARS = ["email", "phone", "whatsApp", "designation", "company", "country", "state", "city",
+  "website", "linkedIn", "utm", "interest", "budget", "teamSize", "industry", "priority",
+  "leadScore", "expectedRevenue", "probability", "nextFollowUp", "lostReason",
+  "contactId", "companyId", "dealId", "proposalId", "enrollmentId", "pipeline", "pipelineStage"];
+const isBlank = (v) => v == null || v === "";
+
 export const mergeLead = async (req, res) => {
   try {
     const { targetId } = req.body;
     const sourceId = req.params.id;
 
+    if (!mongoose.Types.ObjectId.isValid(sourceId) || typeof targetId !== "string" || !mongoose.Types.ObjectId.isValid(targetId)) {
+      return res.status(400).json({ success: false, message: "Invalid lead id" });
+    }
     if (sourceId === targetId) {
       return res.status(400).json({ success: false, message: "Cannot merge a lead with itself" });
     }
@@ -271,22 +312,24 @@ export const mergeLead = async (req, res) => {
 
     if (!source || !target) return res.status(404).json({ success: false, message: "Lead not found" });
 
-    // Merge non-null fields from source into target
-    const mergeFields = ["phone", "whatsApp", "designation", "company", "country", "state", "city",
-      "website", "linkedIn", "interest", "budget", "teamSize", "industry", "priority",
-      "expectedRevenue", "probability", "tags", "customFields"];
-
-    mergeFields.forEach((f) => {
-      if (!target[f] && source[f]) target[f] = source[f];
+    // Fill gaps on the target from the source; the target's own values win.
+    MERGE_SCALARS.forEach((f) => {
+      if (isBlank(target[f]) && !isBlank(source[f])) target[f] = source[f];
     });
+    target.tags = [...new Set([...target.tags, ...source.tags].map(String))];
+    for (const [k, v] of source.customFields || []) {
+      if (!target.customFields.has(k)) target.customFields.set(k, v);
+    }
+    target.notes.push(...source.notes.map((n) => n.toObject()));
+    target.attachments.push(...source.attachments.map((a) => a.toObject()));
 
-    // Move activities
-    await CRMActivity.updateMany(
-      { relatedToType: "lead", relatedToId: source._id },
-      { relatedToId: target._id }
-    );
+    // Re-point everything that referenced the source lead.
+    await Promise.all([
+      CRMActivity.updateMany({ relatedToType: "lead", relatedToId: source._id }, { relatedToId: target._id }),
+      CRMTask.updateMany({ relatedToType: "lead", relatedToId: source._id }, { relatedToId: target._id }),
+      CRMDeal.updateMany({ lead: source._id }, { lead: target._id }),
+    ]);
 
-    // Soft-delete source
     source.isDeleted  = true;
     source.deletedAt  = new Date();
     source.isDuplicate = true;
@@ -294,12 +337,13 @@ export const mergeLead = async (req, res) => {
     await source.save();
     await target.save();
 
-    await logActivity(target._id, "created", "Lead merged",
+    await logActivity(target._id, "merged", "Lead merged",
       `Lead ${source.name} (${source.email || source._id}) was merged into this record`,
-      req.admin._id);
+      req.admin._id, { mergedLeadId: source._id });
 
     res.json({ success: true, data: target, message: "Leads merged" });
   } catch (err) {
+    console.error("mergeLead error:", err);
     res.status(500).json({ success: false, message: "Merge failed" });
   }
 };
@@ -328,9 +372,7 @@ export const getLeadActivities = async (req, res) => {
     const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false }).lean();
     if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
 
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, parseInt(req.query.limit) || 30);
-    const skip  = (page - 1) * limit;
+    const { page, limit, skip } = parsePaging(req.query, { defaultLimit: 30 });
 
     const [activities, total] = await Promise.all([
       CRMActivity.find({ relatedToType: "lead", relatedToId: req.params.id })
@@ -560,7 +602,8 @@ export const draftProposal = async (req, res) => {
     if (lead.recommendedCourses?.length > 0 && lead.currency && lead.teamSize) {
       const enrollmentType = lead.teamSize >= 2 ? "group" : "individual";
       const snippets = [];
-      for (const courseId of lead.recommendedCourses.slice(0, 5)) {
+      for (const { courseId, courseTitle } of lead.recommendedCourses.slice(0, 5)) {
+        if (!courseId) continue;
         try {
           const quote = await computeQuote({
             courseId,
@@ -570,7 +613,7 @@ export const draftProposal = async (req, res) => {
           });
           const symbol = { inr: "₹", usd: "$", aed: "AED", gbp: "£", eur: "€" }[quote.currency] || "";
           const totalMajor = (quote.expectedTotalMinor / 100).toLocaleString();
-          snippets.push(`Course ${courseId}: ${symbol}${totalMajor} total for ${lead.teamSize} participants (${quote.discountPercent}% group discount applied)`);
+          snippets.push(`${courseTitle || `Course ${courseId}`}: ${symbol}${totalMajor} total for ${lead.teamSize} participants (${quote.discountPercent}% group discount applied)`);
         } catch {
           // skip courses that can't be priced
         }
@@ -587,7 +630,7 @@ Team Size: ${lead.teamSize || "N/A"} participants
 Budget: ${lead.budget ? `${lead.currency || "INR"} ${lead.budget.toLocaleString()}` : "To be discussed"}
 Training Need: ${lead.interest || "AI and digital skills training"}
 Skill Gap Data: ${lead.skillGapData ? JSON.stringify(lead.skillGapData) : "Not assessed"}
-Recommended Courses: ${(lead.recommendedCourses || []).join(", ") || "To be recommended"}${pricingContext}
+Recommended Courses: ${(lead.recommendedCourses || []).map((c) => c.courseTitle || c.courseId).filter(Boolean).join(", ") || "To be recommended"}${pricingContext}
 
 Write a structured proposal with these sections:
 1. Executive Summary (2-3 sentences)
@@ -605,9 +648,8 @@ Keep total length under 400 words. Sign as "TechnoHana Corporate Learning Team".
       maxTokens: 800,
     });
 
-    // Log as activity
     await logActivity(
-      lead._id, "proposal_sent", "AI Proposal Draft Generated",
+      lead._id, "ai_draft", "AI Proposal Draft Generated",
       `Draft generated by ${req.admin.name || req.admin.email}`,
       req.admin._id
     );

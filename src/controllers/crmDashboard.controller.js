@@ -4,17 +4,21 @@ import CRMTask from "../models/crm/crmTask.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMCompany from "../models/crm/crmCompany.model.js";
+import { resolveRange, istMonthStart, istDateStr } from "../services/crmDailyReport.js";
+import { attachRelated } from "../utils/crmQuery.js";
 
-const startOfDay = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const endOfDay   = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+const STATUS_ORDER = [
+  "new", "discovery", "needs_analysis", "skill_gap_assessed",
+  "course_recommended", "proposal_sent", "negotiation",
+  "quotation_sent", "purchase_order", "won", "lost", "junk",
+];
 
 export const getDashboardStats = async (req, res) => {
   try {
-    const today = new Date();
-    const todayStart = startOfDay(today);
-    const todayEnd   = endOfDay(today);
-    const weekStart  = new Date(today); weekStart.setDate(today.getDate() - 7);
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    // "Today" and "this month" are IST, matching the daily report.
+    const { start: todayStart, end: todayEnd } = resolveRange();
+    const weekStart  = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const monthStart = istMonthStart();
 
     const adminId = req.admin._id;
     const role    = req.crmRole || req.admin.role;
@@ -40,7 +44,7 @@ export const getDashboardStats = async (req, res) => {
       leadsBySource,
     ] = await Promise.all([
       CRMLead.countDocuments({ isDeleted: false, ...assignedFilter }),
-      CRMLead.countDocuments({ isDeleted: false, createdAt: { $gte: todayStart, $lte: todayEnd }, ...assignedFilter }),
+      CRMLead.countDocuments({ isDeleted: false, createdAt: { $gte: todayStart, $lt: todayEnd }, ...assignedFilter }),
       CRMLead.countDocuments({ isDeleted: false, createdAt: { $gte: weekStart }, ...assignedFilter }),
       CRMLead.countDocuments({ isDeleted: false, createdAt: { $gte: monthStart }, ...assignedFilter }),
 
@@ -65,7 +69,7 @@ export const getDashboardStats = async (req, res) => {
       CRMTask.find({
         isDeleted: false,
         status: { $in: ["open", "in_progress"] },
-        dueDate: { $gte: todayStart, $lte: todayEnd },
+        dueDate: { $gte: todayStart, $lt: todayEnd },
         ...(["sales", "trainer"].includes(role) ? { assignedTo: adminId } : {}),
       })
         .populate("assignedTo", "name email")
@@ -102,14 +106,8 @@ export const getDashboardStats = async (req, res) => {
       ]),
     ]);
 
-    // Build funnel from leadsByStatus
-    const statusOrder = [
-      "new", "discovery", "needs_analysis", "skill_gap_assessed",
-      "course_recommended", "proposal_sent", "negotiation",
-      "quotation_sent", "purchase_order", "won", "lost", "junk",
-    ];
     const statusMap = Object.fromEntries(leadsByStatus.map((s) => [s._id, s.count]));
-    const funnel = statusOrder.map((s) => ({ status: s, count: statusMap[s] || 0 }));
+    const funnel = STATUS_ORDER.map((s) => ({ status: s, count: statusMap[s] || 0 }));
 
     res.json({
       success: true,
@@ -153,8 +151,8 @@ export const getFunnelData = async (req, res) => {
     const result = await CRMLead.aggregate([
       { $match: { isDeleted: false, ...assignedFilter } },
       { $group: { _id: "$status", count: { $sum: 1 }, totalExpectedRevenue: { $sum: "$expectedRevenue" } } },
-      { $sort: { _id: 1 } },
     ]);
+    result.sort((a, b) => STATUS_ORDER.indexOf(a._id) - STATUS_ORDER.indexOf(b._id));
 
     res.json({ success: true, data: result });
   } catch (err) {
@@ -260,33 +258,38 @@ export const getAnalytics = async (req, res) => {
 
 export const getCalendarEvents = async (req, res) => {
   try {
-    const { month } = req.query;
-    const now = new Date();
-    const [yr, mo] = month
-      ? month.split("-").map(Number)
-      : [now.getFullYear(), now.getMonth() + 1];
-
-    const start = new Date(yr, mo - 1, 1);
-    const end   = new Date(yr, mo, 0, 23, 59, 59, 999);
+    // month=YYYY-MM, as an IST calendar month (defaults to the current one).
+    const month = typeof req.query.month === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.month)
+      ? req.query.month
+      : istDateStr().slice(0, 7);
+    const start = new Date(`${month}-01T00:00:00+05:30`);
+    const [yr, mo] = month.split("-").map(Number);
+    const next = new Date(Date.UTC(yr, mo, 1)).toISOString().slice(0, 7);
+    const end = new Date(`${next}-01T00:00:00+05:30`);
 
     const role     = req.crmRole || req.admin.role;
     const adminId  = req.admin._id;
-    const taskFilter = ["sales"].includes(role) ? { assignedTo: adminId } : {};
+    const ownFilter = (field) => (["sales"].includes(role) ? { [field]: adminId } : {});
 
     const [tasks, activities] = await Promise.all([
-      CRMTask.find({ isDeleted: false, dueDate: { $gte: start, $lte: end }, ...taskFilter })
+      CRMTask.find({ isDeleted: false, dueDate: { $gte: start, $lt: end }, ...ownFilter("assignedTo") })
         .populate("assignedTo", "name")
-        .populate("relatedTo", "name email title")
-        .select("title type status priority dueDate relatedTo relatedToType assignedTo")
+        .select("title type status priority dueDate relatedToId relatedToType assignedTo")
+        .sort({ dueDate: 1 })
+        .limit(1000)
         .lean(),
-      CRMActivity.find({ createdAt: { $gte: start, $lte: end } })
-        .populate("createdBy", "name")
-        .select("type title body relatedTo relatedToType createdAt createdBy")
+      CRMActivity.find({ createdAt: { $gte: start, $lt: end }, type: { $in: ["call", "meeting"] }, ...ownFilter("performedBy") })
+        .populate("performedBy", "name")
+        .select("type title relatedToId relatedToType createdAt performedBy")
+        .sort({ createdAt: 1 })
+        .limit(1000)
         .lean(),
     ]);
 
-    res.json({ success: true, data: { tasks, activities } });
+    const [tasksWithRelated, activitiesWithRelated] = await Promise.all([attachRelated(tasks), attachRelated(activities)]);
+    res.json({ success: true, data: { month, tasks: tasksWithRelated, activities: activitiesWithRelated } });
   } catch (err) {
+    console.error("getCalendarEvents error:", err);
     res.status(500).json({ success: false, message: "Failed to load calendar" });
   }
 };
