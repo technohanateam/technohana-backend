@@ -53,5 +53,8 @@ const sessionSchema = new mongoose.Schema(
 sessionSchema.index({ instructorId: 1, startsAt: 1 });
 sessionSchema.index({ batchId: 1, startsAt: 1 });
 sessionSchema.index({ batchId: 1, sequence: 1 }, { unique: true });
+// Payouts and teaching stats credit whoever marked attendance, not the
+// denormalized instructorId, which a batch reassignment rewrites for past sessions too.
+sessionSchema.index({ attendanceMarkedBy: 1, startsAt: 1 });
 
 export default mongoose.model("Session", sessionSchema);
