@@ -39,8 +39,6 @@ const crmContactSchema = new mongoose.Schema(
       },
     ],
 
-    leads: [{ type: mongoose.Schema.Types.ObjectId, ref: "CRMLead" }],
-    deals: [{ type: mongoose.Schema.Types.ObjectId, ref: "CRMDeal" }],
 
     isDeleted: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" },

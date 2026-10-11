@@ -1,6 +1,34 @@
 import { Webhook } from "svix";
 import Campaign from "../models/campaign.model.js";
+import CRMActivity from "../models/crm/crmActivity.model.js";
 import { suppressEmail } from "./emailSuppression.js";
+
+// CRM 1:1 emails (crm.technohana.in) log a CRMActivity whose metadata tracks delivery.
+const CRM_STATUS = {
+  "email.delivery_delayed": "delayed", "email.delivered": "delivered", "email.opened": "opened",
+  "email.clicked": "clicked", "email.bounced": "bounced", "email.complained": "complained",
+};
+// A late "delivered" must not overwrite "opened"; bounces/complaints always win.
+const STATUS_RANK = { sending: 0, sent: 1, delayed: 1, delivered: 2, opened: 3, clicked: 4, bounced: 5, complained: 6 };
+
+async function recordCrmEmailEvent({ type, resendEmailId, activityId }) {
+  const byResendId = resendEmailId && await CRMActivity.findOne({ type: "email", "metadata.resendId": resendEmailId });
+  // The tag covers events that arrive before the send call stored the Resend id.
+  const activity = byResendId || (/^[a-f\d]{24}$/i.test(activityId || "") && await CRMActivity.findOne({ _id: activityId, type: "email" }));
+  if (!activity) return false;
+
+  const meta = { ...(activity.metadata || {}) };
+  meta.events = [...(meta.events || []), { type, at: new Date() }].slice(-20);
+  const next = CRM_STATUS[type];
+  if (next && (STATUS_RANK[next] ?? 0) >= (STATUS_RANK[meta.status] ?? 0)) {
+    meta.status = next;
+    meta.statusAt = new Date();
+  }
+  activity.metadata = meta;
+  activity.markModified("metadata");
+  await activity.save();
+  return true;
+}
 
 // Resend's email.bounced is a permanent rejection; only skip suppression if a
 // bounce is explicitly marked transient.
@@ -57,7 +85,11 @@ export const handleResendWebhook = async (req, res) => {
     const { type, data } = event;
     // Custom email headers set at send time are NOT included in Resend's
     // webhook payloads — only `tags` and `email_id` survive the round trip.
-    const campaignId = data?.tags?.find((t) => t.name === "campaign_id")?.value;
+    // Tags may arrive as [{ name, value }] or as a { name: value } map.
+    const tagValue = (name) => (Array.isArray(data?.tags)
+      ? data.tags.find((t) => t.name === name)?.value
+      : data?.tags?.[name]);
+    const campaignId = tagValue("campaign_id");
     const resendEmailId = data?.email_id;
     const recipientEmail = Array.isArray(data?.to) ? data.to[0] : data?.to;
 
@@ -66,6 +98,10 @@ export const handleResendWebhook = async (req, res) => {
     const suppressionReason = suppressionReasonFor(type, data);
     if (suppressionReason && recipientEmail) {
       await suppressEmail(recipientEmail, suppressionReason);
+    }
+
+    if (await recordCrmEmailEvent({ type, resendEmailId, activityId: tagValue("crm_activity") })) {
+      return res.json({ success: true });
     }
 
     if (!campaignId) {

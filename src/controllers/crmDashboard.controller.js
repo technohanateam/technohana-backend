@@ -4,22 +4,25 @@ import CRMTask from "../models/crm/crmTask.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMCompany from "../models/crm/crmCompany.model.js";
+import { resolveRange, istMonthStart, istDateStr } from "../services/crmDailyReport.js";
+import { attachRelated, ownerFilter, dealOwnerFilter, sendCrmError } from "../utils/crmQuery.js";
+import { hasCrmPermission } from "../middleware/crmPermission.js";
 
-const startOfDay = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const endOfDay   = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+const STATUS_ORDER = [
+  "new", "discovery", "needs_analysis", "skill_gap_assessed",
+  "course_recommended", "proposal_sent", "negotiation",
+  "quotation_sent", "purchase_order", "won", "lost", "junk",
+];
 
 export const getDashboardStats = async (req, res) => {
   try {
-    const today = new Date();
-    const todayStart = startOfDay(today);
-    const todayEnd   = endOfDay(today);
-    const weekStart  = new Date(today); weekStart.setDate(today.getDate() - 7);
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    // "Today" and "this month" are IST, matching the daily report.
+    const { start: todayStart, end: todayEnd } = resolveRange();
+    const weekStart  = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const monthStart = istMonthStart();
 
-    const adminId = req.admin._id;
-    const role    = req.crmRole || req.admin.role;
-    // Sales reps see their own data; admins see all
-    const assignedFilter = ["sales"].includes(role) ? { assignedTo: adminId } : {};
+    // Sales reps see their own data; everyone else sees the team's.
+    const assignedFilter = ownerFilter(req);
 
     const [
       totalLeads,
@@ -34,13 +37,12 @@ export const getDashboardStats = async (req, res) => {
       tasksDueToday,
       overdueTasksCount,
       openTasksCount,
-      recentActivities,
       totalContacts,
       totalCompanies,
       leadsBySource,
     ] = await Promise.all([
       CRMLead.countDocuments({ isDeleted: false, ...assignedFilter }),
-      CRMLead.countDocuments({ isDeleted: false, createdAt: { $gte: todayStart, $lte: todayEnd }, ...assignedFilter }),
+      CRMLead.countDocuments({ isDeleted: false, createdAt: { $gte: todayStart, $lt: todayEnd }, ...assignedFilter }),
       CRMLead.countDocuments({ isDeleted: false, createdAt: { $gte: weekStart }, ...assignedFilter }),
       CRMLead.countDocuments({ isDeleted: false, createdAt: { $gte: monthStart }, ...assignedFilter }),
 
@@ -65,8 +67,8 @@ export const getDashboardStats = async (req, res) => {
       CRMTask.find({
         isDeleted: false,
         status: { $in: ["open", "in_progress"] },
-        dueDate: { $gte: todayStart, $lte: todayEnd },
-        ...(["sales", "trainer"].includes(role) ? { assignedTo: adminId } : {}),
+        dueDate: { $gte: todayStart, $lt: todayEnd },
+        ...assignedFilter,
       })
         .populate("assignedTo", "name email")
         .sort({ dueDate: 1 })
@@ -77,20 +79,14 @@ export const getDashboardStats = async (req, res) => {
         isDeleted: false,
         status: { $in: ["open", "in_progress"] },
         dueDate: { $lt: todayStart },
-        ...(["sales", "trainer"].includes(role) ? { assignedTo: adminId } : {}),
+        ...assignedFilter,
       }),
 
       CRMTask.countDocuments({
         isDeleted: false,
         status: { $in: ["open", "in_progress"] },
-        ...(["sales", "trainer"].includes(role) ? { assignedTo: adminId } : {}),
+        ...assignedFilter,
       }),
-
-      CRMActivity.find()
-        .sort({ createdAt: -1 })
-        .limit(20)
-        .populate("performedBy", "name")
-        .lean(),
 
       CRMContact.countDocuments({ isDeleted: false }),
       CRMCompany.countDocuments({ isDeleted: false }),
@@ -102,14 +98,8 @@ export const getDashboardStats = async (req, res) => {
       ]),
     ]);
 
-    // Build funnel from leadsByStatus
-    const statusOrder = [
-      "new", "discovery", "needs_analysis", "skill_gap_assessed",
-      "course_recommended", "proposal_sent", "negotiation",
-      "quotation_sent", "purchase_order", "won", "lost", "junk",
-    ];
     const statusMap = Object.fromEntries(leadsByStatus.map((s) => [s._id, s.count]));
-    const funnel = statusOrder.map((s) => ({ status: s, count: statusMap[s] || 0 }));
+    const funnel = STATUS_ORDER.map((s) => ({ status: s, count: statusMap[s] || 0 }));
 
     res.json({
       success: true,
@@ -135,43 +125,38 @@ export const getDashboardStats = async (req, res) => {
         companies: totalCompanies,
         funnel,
         leadsBySource,
-        recentActivities,
       },
     });
   } catch (err) {
     console.error("CRM dashboard stats error:", err);
-    res.status(500).json({ success: false, message: "Failed to load dashboard stats" });
+    sendCrmError(res, err, "Failed to load dashboard stats");
   }
 };
 
 export const getFunnelData = async (req, res) => {
   try {
-    const adminId = req.admin._id;
-    const role    = req.crmRole || req.admin.role;
-    const assignedFilter = ["sales"].includes(role) ? { assignedTo: adminId } : {};
-
     const result = await CRMLead.aggregate([
-      { $match: { isDeleted: false, ...assignedFilter } },
+      { $match: { isDeleted: false, ...ownerFilter(req) } },
       { $group: { _id: "$status", count: { $sum: 1 }, totalExpectedRevenue: { $sum: "$expectedRevenue" } } },
-      { $sort: { _id: 1 } },
     ]);
+    result.sort((a, b) => STATUS_ORDER.indexOf(a._id) - STATUS_ORDER.indexOf(b._id));
 
     res.json({ success: true, data: result });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to load funnel data" });
+    sendCrmError(res, err, "Failed to load funnel data");
   }
 };
 
 export const getLeadSourcesBreakdown = async (req, res) => {
   try {
     const result = await CRMLead.aggregate([
-      { $match: { isDeleted: false } },
+      { $match: { isDeleted: false, ...ownerFilter(req) } },
       { $group: { _id: "$source", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
     ]);
     res.json({ success: true, data: result });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to load lead sources" });
+    sendCrmError(res, err, "Failed to load lead sources");
   }
 };
 
@@ -180,9 +165,10 @@ export const getAnalytics = async (req, res) => {
     const now = new Date();
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-    const [dealsWonByMonth, leadsCreatedByMonth, dealStatusCounts, activityByType, wonDealsAll] = await Promise.all([
+    const own = ownerFilter(req);
+    const [dealsWonByMonth, leadsCreatedByMonth, dealStatusCounts, activityByType, avgWon] = await Promise.all([
       CRMDeal.aggregate([
-        { $match: { isDeleted: false, status: "won", wonAt: { $gte: sixMonthsAgo } } },
+        { $match: { isDeleted: false, status: "won", wonAt: { $gte: sixMonthsAgo }, ...own } },
         { $group: {
           _id: { year: { $year: "$wonAt" }, month: { $month: "$wonAt" } },
           revenue: { $sum: "$value" },
@@ -192,7 +178,7 @@ export const getAnalytics = async (req, res) => {
       ]),
 
       CRMLead.aggregate([
-        { $match: { isDeleted: false, createdAt: { $gte: sixMonthsAgo } } },
+        { $match: { isDeleted: false, createdAt: { $gte: sixMonthsAgo }, ...own } },
         { $group: {
           _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
           count: { $sum: 1 },
@@ -201,17 +187,20 @@ export const getAnalytics = async (req, res) => {
       ]),
 
       CRMDeal.aggregate([
-        { $match: { isDeleted: false } },
+        { $match: { isDeleted: false, ...own } },
         { $group: { _id: "$status", count: { $sum: 1 }, value: { $sum: "$value" } } },
       ]),
 
       CRMActivity.aggregate([
-        { $match: { createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
+        { $match: { createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, ...ownerFilter(req, "performedBy") } },
         { $group: { _id: "$type", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
 
-      CRMDeal.find({ isDeleted: false, status: "won" }).select("value").lean(),
+      CRMDeal.aggregate([
+        { $match: { isDeleted: false, status: "won", ...own } },
+        { $group: { _id: null, avg: { $avg: "$value" } } },
+      ]),
     ]);
 
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -237,9 +226,7 @@ export const getAnalytics = async (req, res) => {
     const wonCount  = dealStatusCounts.find((d) => d._id === "won")?.count || 0;
     const lostCount = dealStatusCounts.find((d) => d._id === "lost")?.count || 0;
     const winRate   = wonCount + lostCount > 0 ? Math.round((wonCount / (wonCount + lostCount)) * 100) : 0;
-    const avgDealValue = wonDealsAll.length
-      ? Math.round(wonDealsAll.reduce((s, d) => s + (d.value || 0), 0) / wonDealsAll.length)
-      : 0;
+    const avgDealValue = Math.round(avgWon[0]?.avg || 0);
 
     res.json({
       success: true,
@@ -254,39 +241,119 @@ export const getAnalytics = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to load analytics" });
+    sendCrmError(res, err, "Failed to load analytics");
   }
 };
 
 export const getCalendarEvents = async (req, res) => {
   try {
-    const { month } = req.query;
-    const now = new Date();
-    const [yr, mo] = month
-      ? month.split("-").map(Number)
-      : [now.getFullYear(), now.getMonth() + 1];
-
-    const start = new Date(yr, mo - 1, 1);
-    const end   = new Date(yr, mo, 0, 23, 59, 59, 999);
-
-    const role     = req.crmRole || req.admin.role;
-    const adminId  = req.admin._id;
-    const taskFilter = ["sales"].includes(role) ? { assignedTo: adminId } : {};
+    // month=YYYY-MM, as an IST calendar month (defaults to the current one).
+    const month = typeof req.query.month === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.month)
+      ? req.query.month
+      : istDateStr().slice(0, 7);
+    const start = new Date(`${month}-01T00:00:00+05:30`);
+    const [yr, mo] = month.split("-").map(Number);
+    const next = new Date(Date.UTC(yr, mo, 1)).toISOString().slice(0, 7);
+    const end = new Date(`${next}-01T00:00:00+05:30`);
 
     const [tasks, activities] = await Promise.all([
-      CRMTask.find({ isDeleted: false, dueDate: { $gte: start, $lte: end }, ...taskFilter })
+      CRMTask.find({ isDeleted: false, dueDate: { $gte: start, $lt: end }, ...ownerFilter(req) })
         .populate("assignedTo", "name")
-        .populate("relatedTo", "name email title")
-        .select("title type status priority dueDate relatedTo relatedToType assignedTo")
+        .select("title type status priority dueDate relatedToId relatedToType assignedTo")
+        .sort({ dueDate: 1 })
+        .limit(1000)
         .lean(),
-      CRMActivity.find({ createdAt: { $gte: start, $lte: end } })
-        .populate("createdBy", "name")
-        .select("type title body relatedTo relatedToType createdAt createdBy")
+      CRMActivity.find({ createdAt: { $gte: start, $lt: end }, type: { $in: ["call", "meeting"] }, ...ownerFilter(req, "performedBy") })
+        .populate("performedBy", "name")
+        .select("type title relatedToId relatedToType createdAt performedBy")
+        .sort({ createdAt: 1 })
+        .limit(1000)
         .lean(),
     ]);
 
-    res.json({ success: true, data: { tasks, activities } });
+    const [tasksWithRelated, activitiesWithRelated] = await Promise.all([attachRelated(tasks), attachRelated(activities)]);
+    res.json({ success: true, data: { month, tasks: tasksWithRelated, activities: activitiesWithRelated } });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to load calendar" });
+    sendCrmError(res, err, "Failed to load calendar");
+  }
+};
+
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const SEARCH_TYPES = ["lead", "contact", "company", "deal"];
+
+// GET /search?q=&types=lead,contact,company,deal — quick search for the top bar and
+// record pickers. Each type is limited by the caller's permissions and ownership.
+export const getSearch = async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (q.length < 2) return res.json({ success: true, data: [] });
+    const role = req.admin.crmRole;
+    const wanted = (req.query.types || SEARCH_TYPES.join(",")).split(",").filter((t) => SEARCH_TYPES.includes(t));
+    const re = new RegExp(escapeRegex(q.slice(0, 100)), "i");
+    const limit = 6;
+
+    const jobs = [];
+    if (wanted.includes("lead") && hasCrmPermission(role, "leads")) {
+      jobs.push(CRMLead.find({ isDeleted: false, ...ownerFilter(req), $or: [{ name: re }, { email: re }, { phone: re }, { company: re }] })
+        .select("name email company status").sort({ updatedAt: -1 }).limit(limit).lean()
+        .then((rows) => rows.map((x) => ({ type: "lead", id: x._id, label: x.name, sub: [x.company, x.email].filter(Boolean).join(" · ") }))));
+    }
+    if (wanted.includes("contact") && hasCrmPermission(role, "contacts")) {
+      jobs.push(CRMContact.find({ isDeleted: false, $or: [{ firstName: re }, { lastName: re }, { email: re }, { phone: re }] })
+        .select("firstName lastName email").sort({ updatedAt: -1 }).limit(limit).lean()
+        .then((rows) => rows.map((x) => ({ type: "contact", id: x._id, label: [x.firstName, x.lastName].filter(Boolean).join(" "), sub: x.email || "" }))));
+    }
+    if (wanted.includes("company") && hasCrmPermission(role, "companies")) {
+      jobs.push(CRMCompany.find({ isDeleted: false, name: re })
+        .select("name industry").sort({ updatedAt: -1 }).limit(limit).lean()
+        .then((rows) => rows.map((x) => ({ type: "company", id: x._id, label: x.name, sub: x.industry || "" }))));
+    }
+    if (wanted.includes("deal") && hasCrmPermission(role, "deals")) {
+      jobs.push(dealOwnerFilter(req).then((scope) => CRMDeal.find({ isDeleted: false, ...scope, title: re })
+        .select("title status value currency").sort({ updatedAt: -1 }).limit(limit).lean())
+        .then((rows) => rows.map((x) => ({ type: "deal", id: x._id, label: x.title, sub: x.status }))));
+    }
+
+    res.json({ success: true, data: (await Promise.all(jobs)).flat() });
+  } catch (err) {
+    sendCrmError(res, err, "Search failed");
+  }
+};
+
+// GET /notifications — what needs the caller's attention (IST days): their overdue
+// and due-today tasks, and their open leads whose follow-up date has arrived.
+export const getNotifications = async (req, res) => {
+  try {
+    const me = req.admin._id;
+    const role = req.admin.crmRole;
+    const { start, end } = resolveRange();
+    const OPEN_TASK = { isDeleted: false, assignedTo: me, status: { $in: ["open", "in_progress"] } };
+    const overdueQ = { ...OPEN_TASK, dueDate: { $lt: start } };
+    const todayQ = { ...OPEN_TASK, dueDate: { $gte: start, $lt: end } };
+    const followUpQ = { isDeleted: false, assignedTo: me, status: { $nin: ["won", "lost", "junk"] }, nextFollowUp: { $lt: end } };
+    const canTasks = hasCrmPermission(role, "tasks");
+    const canLeads = hasCrmPermission(role, "leads");
+    const none = Promise.resolve([]);
+    const zero = Promise.resolve(0);
+
+    const [overdueTasks, dueTodayTasks, followUps, overdueCount, dueTodayCount, followUpCount] = await Promise.all([
+      canTasks ? CRMTask.find(overdueQ).sort({ dueDate: 1 }).limit(10).select("title dueDate priority").lean() : none,
+      canTasks ? CRMTask.find(todayQ).sort({ dueDate: 1 }).limit(10).select("title dueDate priority").lean() : none,
+      canLeads ? CRMLead.find(followUpQ).sort({ nextFollowUp: 1 }).limit(10).select("name company nextFollowUp").lean() : none,
+      canTasks ? CRMTask.countDocuments(overdueQ) : zero,
+      canTasks ? CRMTask.countDocuments(todayQ) : zero,
+      canLeads ? CRMLead.countDocuments(followUpQ) : zero,
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        overdueTasks, dueTodayTasks, followUps,
+        counts: { overdue: overdueCount, dueToday: dueTodayCount, followUps: followUpCount },
+        total: overdueCount + dueTodayCount + followUpCount,
+      },
+    });
+  } catch (err) {
+    sendCrmError(res, err, "Failed to load notifications");
   }
 };

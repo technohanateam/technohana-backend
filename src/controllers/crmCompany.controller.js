@@ -1,17 +1,22 @@
-import mongoose from "mongoose";
 import CRMCompany from "../models/crm/crmCompany.model.js";
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
+import { parsePaging, isValidId, pick, ownerFilter, dealOwnerFilter, findMissingRef, sendCrmError } from "../utils/crmQuery.js";
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// Notes go through POST /companies/:id/notes so their author can't be forged.
+const COMPANY_FIELDS = ["name", "gst", "pan", "industry", "subIndustry", "annualRevenue", "employees",
+  "employeeRange", "website", "linkedIn", "email", "phone", "address", "primaryContact", "tags"];
+
+const notFound = (res) => res.status(404).json({ success: false, message: "Company not found" });
+const nameMatch = (name) => new RegExp(`^${escapeRegex(name.trim())}$`, "i");
+
 export const getCompanies = async (req, res) => {
   try {
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, parseInt(req.query.limit) || 25);
-    const skip  = (page - 1) * limit;
+    const { page, limit, skip } = parsePaging(req.query);
 
     const { search, industry, country } = req.query;
     const filter = { isDeleted: false };
@@ -55,12 +60,13 @@ export const getCompanies = async (req, res) => {
 
     res.json({ success: true, data: enriched, meta: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to fetch companies" });
+    sendCrmError(res, err, "Failed to fetch companies");
   }
 };
 
 export const getCompany = async (req, res) => {
   try {
+    if (!isValidId(req.params.id)) return notFound(res);
     const company = await CRMCompany.findOne({ _id: req.params.id, isDeleted: false })
       .populate("primaryContact", "firstName lastName email phone designation")
       .populate("tags", "name color")
@@ -70,9 +76,9 @@ export const getCompany = async (req, res) => {
     const [contacts, deals, leads, activities] = await Promise.all([
       CRMContact.find({ company: company._id, isDeleted: false })
         .select("firstName lastName email phone designation isDecisionMaker").lean(),
-      CRMDeal.find({ company: company._id, isDeleted: false })
-        .select("title value currency status stageKey expectedCloseDate").lean(),
-      CRMLead.find({ companyId: company._id, isDeleted: false })
+      CRMDeal.find({ company: company._id, isDeleted: false, ...(await dealOwnerFilter(req)) })
+        .select("title value currency status stageKey expectedCloseDate").limit(200).lean(),
+      CRMLead.find({ companyId: company._id, isDeleted: false, ...ownerFilter(req) })
         .select("name email status priority leadScore assignedTo").limit(10).lean(),
       CRMActivity.find({ relatedToType: "company", relatedToId: company._id })
         .sort({ createdAt: -1 }).limit(30).populate("performedBy", "name").lean(),
@@ -80,43 +86,47 @@ export const getCompany = async (req, res) => {
 
     res.json({ success: true, data: { ...company, contacts, deals, leads, activities } });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to fetch company" });
+    sendCrmError(res, err, "Failed to fetch company");
   }
 };
 
 export const createCompany = async (req, res) => {
   try {
     const { name } = req.body;
-    if (!name) return res.status(400).json({ success: false, message: "Company name is required" });
+    if (typeof name !== "string" || !name.trim()) return res.status(400).json({ success: false, message: "Company name is required" });
 
-    const exists = await CRMCompany.exists({ name: name.trim(), isDeleted: false });
+    const exists = await CRMCompany.exists({ name: nameMatch(name), isDeleted: false });
     if (exists) return res.status(409).json({ success: false, message: "Company with this name already exists" });
 
-    const allowed = ["name", "gst", "pan", "industry", "subIndustry", "annualRevenue", "employees",
-      "employeeRange", "website", "linkedIn", "email", "phone", "address", "primaryContact", "tags", "notes"];
-    const fields = {};
-    allowed.forEach((f) => { if (req.body[f] !== undefined) fields[f] = req.body[f]; });
+    const fields = pick(req.body, COMPANY_FIELDS);
+    const missing = await findMissingRef({ primaryContact: ["contact", fields.primaryContact] });
+    if (missing) return res.status(400).json({ success: false, message: "Invalid primary contact" });
 
-    const company = await CRMCompany.create({ ...fields, createdBy: req.admin._id });
+    const company = await CRMCompany.create({ ...fields, name: name.trim(), createdBy: req.admin._id });
     res.status(201).json({ success: true, data: company, message: "Company created" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to create company" });
+    sendCrmError(res, err, "Failed to create company");
   }
 };
 
 export const updateCompany = async (req, res) => {
   try {
-    const company = await CRMCompany.findOne({ _id: req.params.id, isDeleted: false });
-    if (!company) return res.status(404).json({ success: false, message: "Company not found" });
+    const company = isValidId(req.params.id) && await CRMCompany.findOne({ _id: req.params.id, isDeleted: false });
+    if (!company) return notFound(res);
 
-    const allowed = ["name", "gst", "pan", "industry", "subIndustry", "annualRevenue", "employees",
-      "employeeRange", "website", "linkedIn", "email", "phone", "address", "primaryContact", "tags", "notes"];
-    allowed.forEach((f) => { if (req.body[f] !== undefined) company[f] = req.body[f]; });
+    const fields = pick(req.body, COMPANY_FIELDS);
+    const missing = await findMissingRef({ primaryContact: ["contact", fields.primaryContact] });
+    if (missing) return res.status(400).json({ success: false, message: "Invalid primary contact" });
+    if (typeof fields.name === "string" && fields.name.trim().toLowerCase() !== company.name.toLowerCase()) {
+      const clash = await CRMCompany.exists({ name: nameMatch(fields.name), isDeleted: false, _id: { $ne: company._id } });
+      if (clash) return res.status(409).json({ success: false, message: "Company with this name already exists" });
+    }
+    Object.assign(company, fields);
 
     await company.save();
     res.json({ success: true, data: company, message: "Company updated" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to update company" });
+    sendCrmError(res, err, "Failed to update company");
   }
 };
 
@@ -128,7 +138,7 @@ export const deleteCompany = async (req, res) => {
     await company.save();
     res.json({ success: true, message: "Company deleted" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to delete company" });
+    sendCrmError(res, err, "Failed to delete company");
   }
 };
 
@@ -142,6 +152,6 @@ export const addCompanyNote = async (req, res) => {
     await company.save();
     res.json({ success: true, data: company.notes[company.notes.length - 1] });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to add note" });
+    sendCrmError(res, err, "Failed to add note");
   }
 };

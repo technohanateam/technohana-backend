@@ -1,20 +1,26 @@
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import CrmUser, { CRM_ROLES } from "../models/crmUser.model.js";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
+import { escapeHtml } from "../utils/emailTemplate.js";
+import { isValidId } from "../utils/crmQuery.js";
 
 const TOKEN_EXPIRY = "8h";
+const BCRYPT_COST = 12;
+const MAX_FAILED_LOGINS = 5;
+const LOCK_MS = 15 * 60 * 1000;
 
 const signCrmToken = (user) =>
   jwt.sign(
-    { uid: user._id.toString(), email: user.email, name: user.name, crmRole: user.crmRole },
+    { uid: user._id.toString(), email: user.email, name: user.name, crmRole: user.crmRole, tv: user.tokenVersion ?? 0 },
     process.env.CRM_JWT_SECRET,
-    { expiresIn: TOKEN_EXPIRY }
+    { expiresIn: TOKEN_EXPIRY, algorithm: "HS256" }
   );
 
 const sanitize = (user) => {
-  const { passwordHash, resetTokenHash, resetTokenExpiry, ...rest } = user.toObject ? user.toObject() : user;
+  const { passwordHash, resetTokenHash, resetTokenExpiry, tokenVersion, ...rest } = user.toObject ? user.toObject() : user;
   return rest;
 };
 
@@ -23,19 +29,52 @@ const isLastActiveOwner = async (userId) => {
   return count === 0;
 };
 
+// Only an owner (super_admin) may create, edit, reset or remove another owner.
+const isOwner = (req) => req.admin.crmRole === "super_admin";
+const ownerOnly = (res) => res.status(403).json({ success: false, message: "Only an owner can manage owner accounts." });
+
+// Comparing against a throwaway hash keeps "no such user" as slow as "wrong password".
+let dummyHash;
+const getDummyHash = async () => (dummyHash ||= await bcrypt.hash(crypto.randomBytes(16).toString("hex"), BCRYPT_COST));
+
+const sameSecret = (a, b) => {
+  const ha = crypto.createHash("sha256").update(String(a)).digest();
+  const hb = crypto.createHash("sha256").update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+};
+
 // POST /api/crm/auth/login
 export const crmLogin = async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
+  if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     return res.status(400).json({ message: "Email and password are required." });
   }
 
   try {
-    const user = await CrmUser.findOne({ email: String(email).toLowerCase().trim() });
-    const valid = user && (await bcrypt.compare(password, user.passwordHash));
-    if (!valid) return res.status(401).json({ message: "Invalid credentials." });
+    const user = await CrmUser.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      await bcrypt.compare(password, await getDummyHash());
+      return res.status(401).json({ message: "Invalid credentials." });
+    }
+
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const mins = Math.ceil((user.lockedUntil - Date.now()) / 60000);
+      return res.status(429).json({ message: `Too many failed attempts. Try again in ${mins} minute${mins > 1 ? "s" : ""}, or reset your password.` });
+    }
+
+    if (!(await bcrypt.compare(password, user.passwordHash))) {
+      user.failedLoginCount = (user.failedLoginCount || 0) + 1;
+      if (user.failedLoginCount >= MAX_FAILED_LOGINS) {
+        user.lockedUntil = new Date(Date.now() + LOCK_MS);
+        user.failedLoginCount = 0;
+      }
+      await user.save();
+      return res.status(401).json({ message: "Invalid credentials." });
+    }
     if (!user.active) return res.status(401).json({ message: "Account deactivated." });
 
+    user.failedLoginCount = 0;
+    user.lockedUntil = null;
     user.lastLoginAt = new Date();
     await user.save();
 
@@ -46,20 +85,26 @@ export const crmLogin = async (req, res) => {
   }
 };
 
-// POST /api/crm/auth/setup — one-time bootstrap; disabled once any CrmUser exists
+// POST /api/crm/auth/setup — one-time bootstrap. Needs CRM_SETUP_TOKEN in the
+// environment and the same value in the request, and only works while no
+// CrmUser exists; unset the env var once the owner account is created.
 export const setupCrmOwner = async (req, res) => {
   try {
+    const expected = process.env.CRM_SETUP_TOKEN;
+    if (!expected || !req.body?.setupToken || !sameSecret(req.body.setupToken, expected)) {
+      return res.status(403).json({ success: false, message: "Setup is disabled." });
+    }
     if ((await CrmUser.countDocuments()) > 0) {
       return res.status(403).json({ success: false, message: "Setup already complete." });
     }
     const { email, password, name = "CRM Owner" } = req.body;
-    if (!email || !password || String(password).length < 8) {
+    if (typeof email !== "string" || !email || String(password || "").length < 8) {
       return res.status(400).json({ success: false, message: "Email and a password of at least 8 characters are required." });
     }
     await CrmUser.create({
-      email: String(email).toLowerCase().trim(),
-      name,
-      passwordHash: await bcrypt.hash(password, 10),
+      email: email.toLowerCase().trim(),
+      name: String(name),
+      passwordHash: await bcrypt.hash(String(password), BCRYPT_COST),
       crmRole: "super_admin",
     });
     return res.status(201).json({ success: true, message: "CRM owner created. You can now log in." });
@@ -76,10 +121,10 @@ export const crmMe = (req, res) =>
 // POST /api/crm/auth/forgot-password
 export const forgotCrmPassword = async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ success: false, message: "Email required." });
+  if (typeof email !== "string" || !email) return res.status(400).json({ success: false, message: "Email required." });
   const generic = { success: true, message: "If that email is registered, a reset link has been sent." };
   try {
-    const user = await CrmUser.findOne({ email: String(email).toLowerCase().trim() });
+    const user = await CrmUser.findOne({ email: email.toLowerCase().trim() });
     if (!user || !user.active) return res.json(generic);
 
     const { token, hash } = generateResetToken();
@@ -92,7 +137,7 @@ export const forgotCrmPassword = async (req, res) => {
       from: fromAddresses.sales,
       to: user.email,
       subject: "Technohana CRM — Password Reset",
-      html: `<p>Hi ${user.name},</p><p>Click the link below to reset your CRM password. This link is valid for 1 hour.</p><p><a href="${resetLink}">${resetLink}</a></p><p>If you did not request this, please ignore this email.</p>`,
+      html: `<p>Hi ${escapeHtml(user.name)},</p><p>Click the link below to reset your CRM password. This link is valid for 1 hour.</p><p><a href="${resetLink}">${resetLink}</a></p><p>If you did not request this, please ignore this email.</p>`,
     });
     return res.json(generic);
   } catch (error) {
@@ -104,10 +149,10 @@ export const forgotCrmPassword = async (req, res) => {
 // POST /api/crm/auth/reset-password
 export const resetCrmPasswordViaToken = async (req, res) => {
   const { id, token, newPassword } = req.body;
-  if (!id || !token || !newPassword) {
+  if (!isValidId(String(id)) || typeof token !== "string" || !token || typeof newPassword !== "string") {
     return res.status(400).json({ success: false, message: "id, token, and newPassword are required." });
   }
-  if (String(newPassword).length < 8) {
+  if (newPassword.length < 8) {
     return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
   }
   try {
@@ -115,9 +160,12 @@ export const resetCrmPasswordViaToken = async (req, res) => {
     if (!user?.resetTokenHash || !user.resetTokenExpiry || user.resetTokenExpiry < new Date() || !verifyResetToken(token, user.resetTokenHash)) {
       return res.status(400).json({ success: false, message: "Invalid or expired reset link." });
     }
-    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.passwordHash = await bcrypt.hash(newPassword, BCRYPT_COST);
     user.resetTokenHash = null;
     user.resetTokenExpiry = null;
+    user.failedLoginCount = 0;
+    user.lockedUntil = null;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
     return res.json({ success: true, message: "Password reset successfully. You can now log in." });
   } catch (error) {
@@ -129,7 +177,7 @@ export const resetCrmPasswordViaToken = async (req, res) => {
 // GET /api/crm/team
 export const listCrmUsers = async (req, res) => {
   try {
-    const users = await CrmUser.find().select("-passwordHash -resetTokenHash -resetTokenExpiry").sort({ createdAt: -1 }).lean();
+    const users = await CrmUser.find().select("-passwordHash -resetTokenHash -resetTokenExpiry -tokenVersion").sort({ createdAt: -1 }).lean();
     return res.json({ success: true, data: users });
   } catch (error) {
     console.error("List CRM users error:", error);
@@ -152,16 +200,17 @@ export const listCrmUserOptions = async (req, res) => {
 export const createCrmUser = async (req, res) => {
   try {
     const { email, name, password, crmRole } = req.body;
-    if (!email || !name || !password || !crmRole) {
+    if (typeof email !== "string" || typeof name !== "string" || typeof password !== "string" || !email || !name || !crmRole) {
       return res.status(400).json({ success: false, message: "Email, name, password and role are required." });
     }
     if (!CRM_ROLES.includes(crmRole)) {
       return res.status(400).json({ success: false, message: "Invalid CRM role." });
     }
-    if (String(password).length < 8) {
+    if (crmRole === "super_admin" && !isOwner(req)) return ownerOnly(res);
+    if (password.length < 8) {
       return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
     }
-    const normalizedEmail = String(email).toLowerCase().trim();
+    const normalizedEmail = email.toLowerCase().trim();
     if (await CrmUser.findOne({ email: normalizedEmail })) {
       return res.status(409).json({ success: false, message: "A user with this email already exists." });
     }
@@ -169,7 +218,7 @@ export const createCrmUser = async (req, res) => {
       email: normalizedEmail,
       name,
       crmRole,
-      passwordHash: await bcrypt.hash(password, 10),
+      passwordHash: await bcrypt.hash(password, BCRYPT_COST),
     });
     return res.status(201).json({ success: true, data: sanitize(user), message: "User created." });
   } catch (error) {
@@ -178,24 +227,41 @@ export const createCrmUser = async (req, res) => {
   }
 };
 
+const findTarget = async (req, res) => {
+  const user = isValidId(req.params.id) && await CrmUser.findById(req.params.id);
+  if (!user) {
+    res.status(404).json({ success: false, message: "User not found." });
+    return null;
+  }
+  if (user.crmRole === "super_admin" && !isOwner(req)) {
+    ownerOnly(res);
+    return null;
+  }
+  return user;
+};
+
 // PUT /api/crm/team/:id
 export const updateCrmUser = async (req, res) => {
   try {
-    const { id } = req.params;
     const { name, crmRole } = req.body;
-    const user = await CrmUser.findById(id);
-    if (!user) return res.status(404).json({ success: false, message: "User not found." });
+    const user = await findTarget(req, res);
+    if (!user) return;
 
-    if (crmRole !== undefined) {
+    if (crmRole !== undefined && crmRole !== user.crmRole) {
       if (!CRM_ROLES.includes(crmRole)) {
         return res.status(400).json({ success: false, message: "Invalid CRM role." });
       }
-      if (crmRole !== "super_admin" && user.crmRole === "super_admin" && user.active && (await isLastActiveOwner(id))) {
+      if (req.admin.uid === String(user._id)) {
+        return res.status(400).json({ success: false, message: "You can't change your own role." });
+      }
+      if (crmRole === "super_admin" && !isOwner(req)) return ownerOnly(res);
+      if (user.crmRole === "super_admin" && user.active && (await isLastActiveOwner(user._id))) {
         return res.status(400).json({ success: false, message: "Cannot demote the last active owner." });
       }
       user.crmRole = crmRole;
+      user.tokenVersion = (user.tokenVersion || 0) + 1;
     }
-    if (name !== undefined) user.name = name;
+    if (typeof name === "string" && name.trim()) user.name = name.trim();
 
     await user.save();
     return res.json({ success: true, data: sanitize(user), message: "User updated." });
@@ -209,13 +275,16 @@ export const updateCrmUser = async (req, res) => {
 export const resetCrmUserPassword = async (req, res) => {
   try {
     const { password } = req.body;
-    if (!password || String(password).length < 8) {
+    if (typeof password !== "string" || password.length < 8) {
       return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
     }
-    const user = await CrmUser.findById(req.params.id);
-    if (!user) return res.status(404).json({ success: false, message: "User not found." });
+    const user = await findTarget(req, res);
+    if (!user) return;
 
-    user.passwordHash = await bcrypt.hash(password, 10);
+    user.passwordHash = await bcrypt.hash(password, BCRYPT_COST);
+    user.failedLoginCount = 0;
+    user.lockedUntil = null;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
     return res.json({ success: true, message: "Password updated." });
   } catch (error) {
@@ -227,21 +296,21 @@ export const resetCrmUserPassword = async (req, res) => {
 // PATCH /api/crm/team/:id/active
 export const setCrmUserActive = async (req, res) => {
   try {
-    const { id } = req.params;
     const { active } = req.body;
     if (typeof active !== "boolean") {
       return res.status(400).json({ success: false, message: "active must be a boolean." });
     }
-    const user = await CrmUser.findById(id);
-    if (!user) return res.status(404).json({ success: false, message: "User not found." });
+    const user = await findTarget(req, res);
+    if (!user) return;
 
     if (!active) {
-      if (req.admin.uid === id) {
+      if (req.admin.uid === String(user._id)) {
         return res.status(400).json({ success: false, message: "You cannot deactivate your own account." });
       }
-      if (user.crmRole === "super_admin" && user.active && (await isLastActiveOwner(id))) {
+      if (user.crmRole === "super_admin" && user.active && (await isLastActiveOwner(user._id))) {
         return res.status(400).json({ success: false, message: "Cannot deactivate the last active owner." });
       }
+      user.tokenVersion = (user.tokenVersion || 0) + 1;
     }
     user.active = active;
     await user.save();
@@ -255,17 +324,16 @@ export const setCrmUserActive = async (req, res) => {
 // DELETE /api/crm/team/:id
 export const deleteCrmUser = async (req, res) => {
   try {
-    const { id } = req.params;
-    if (req.admin.uid === id) {
+    if (req.admin.uid === req.params.id) {
       return res.status(400).json({ success: false, message: "You cannot delete your own account." });
     }
-    const user = await CrmUser.findById(id);
-    if (!user) return res.status(404).json({ success: false, message: "User not found." });
+    const user = await findTarget(req, res);
+    if (!user) return;
 
-    if (user.crmRole === "super_admin" && user.active && (await isLastActiveOwner(id))) {
+    if (user.crmRole === "super_admin" && user.active && (await isLastActiveOwner(user._id))) {
       return res.status(400).json({ success: false, message: "Cannot delete the last active owner." });
     }
-    await CrmUser.deleteOne({ _id: id });
+    await CrmUser.deleteOne({ _id: user._id });
     return res.json({ success: true, message: "User deleted." });
   } catch (error) {
     console.error("Delete CRM user error:", error);

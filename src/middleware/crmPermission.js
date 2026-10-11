@@ -1,23 +1,15 @@
-// CRM role-based access control middleware.
-// Sits after authenticateAdmin — req.admin is guaranteed to be set.
+// CRM role-based access control. Runs after authenticateCrm, so req.admin is set.
+// Mirrored in technohana-crm/src/constants/crmConstants.js (CRM_PERMISSIONS) to
+// hide UI the role can't use — keep the two in sync.
 
-const CRM_ROLE_HIERARCHY = {
-  super_admin: 100,
-  admin: 90,
-  sales: 70,
-  marketing: 60,
-  hr: 30,
-  readonly: 10,
-};
-
-// Permissions matrix: which roles can perform which actions
 const CRM_PERMISSIONS = {
   leads: {
     read:   ["super_admin", "admin", "sales", "marketing", "readonly"],
     write:  ["super_admin", "admin", "sales", "marketing"],
     delete: ["super_admin", "admin"],
     import: ["super_admin", "admin", "sales"],
-    export: ["super_admin", "admin", "sales", "marketing"],
+    // Sales exports are limited to their own leads in the handler.
+    export: ["super_admin", "admin", "sales"],
     bulk:   ["super_admin", "admin", "sales"],
   },
   contacts: {
@@ -66,9 +58,7 @@ const CRM_PERMISSIONS = {
     write:  ["super_admin", "admin", "sales", "marketing", "hr"],
     delete: ["super_admin", "admin"],
   },
-  // CRM team member management — restricted to full CRM control (mirrors the
-  // admin panel's Team page, but reachable by crmRole=super_admin accounts
-  // that are blocked from /admin entirely).
+  // CRM team member management.
   users: {
     read:   ["super_admin", "admin"],
     write:  ["super_admin", "admin"],
@@ -76,24 +66,15 @@ const CRM_PERMISSIONS = {
   },
 };
 
-// Extend existing admin roles for CRM context.
-// Maps legacy 3-role system to CRM roles gracefully.
-const legacyRoleMap = {
-  admin: "admin",
-  sales: "sales",
-  marketing: "marketing",
-};
+export const hasCrmPermission = (role, resource, action = "read") =>
+  (CRM_PERMISSIONS[resource]?.[action] || []).includes(role);
 
 export function crmPermission(resource, action = "read") {
   return (req, res, next) => {
-    const admin = req.admin;
-    if (!admin) return res.status(401).json({ success: false, message: "Unauthorized" });
+    const crmRole = req.admin?.crmRole;
+    if (!crmRole) return res.status(401).json({ success: false, message: "Unauthorized" });
 
-    // Resolve CRM role (supports both new RBAC enum and legacy 3-role system)
-    const crmRole = admin.crmRole || legacyRoleMap[admin.role] || admin.role;
-
-    const allowed = CRM_PERMISSIONS[resource]?.[action] || [];
-    if (!allowed.includes(crmRole)) {
+    if (!hasCrmPermission(crmRole, resource, action)) {
       return res.status(403).json({
         success: false,
         message: `Your role (${crmRole}) does not have ${action} access to ${resource}.`,

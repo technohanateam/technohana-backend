@@ -80,6 +80,10 @@ import adminTrainingRoutes from "./routes/adminTraining.routes.js";
 import skillsGapRoutes from "./routes/skillsGap.routes.js";
 import crmRoutes from "./routes/crm.routes.js";
 import crmAuthRoutes from "./routes/crmAuth.routes.js";
+import metaWebhookRoutes from "./routes/metaWebhook.routes.js";
+import { ensureDefaultPipelines } from "./controllers/crmPipeline.controller.js";
+import { backfillPhoneNormalized } from "./services/crmLeadIntake.js";
+import { syncCrmOnOrderPaidSafely } from "./services/crmOrderSync.js";
 import { authenticateCrm } from "./middleware/authenticateCrm.js";
 import careerRoutes from "./routes/career.routes.js";
 import Coupon from "./models/coupon.model.js";
@@ -112,7 +116,7 @@ const allowedOrigins = process.env.WHITELISTED_URLS
 // Origin-required-in-production check below (same reasoning as /health).
 // The Google OAuth routes are hit via top-level browser navigation/redirect
 // (not fetch/XHR), so they never carry an Origin header either.
-// The Stripe and Resend webhooks are server-to-server deliveries from those
+// The Stripe, Resend and Meta Lead Ads webhooks are server-to-server deliveries from those
 // providers — they never carry a browser Origin header, and rejecting them
 // here would block the request before it ever reaches signature verification.
 // The Content Factory external-trend endpoint is hit by an unattended cloud
@@ -125,6 +129,7 @@ const noOriginRequiredPaths = [
   '/admin/seo-intel/oauth/callback',
   '/stripe/webhook',
   '/webhooks/resend',
+  '/webhooks/meta-leads',
   '/admin/content-factory-external/import/external-trend',
 ];
 
@@ -187,8 +192,11 @@ app.use(cors(corsOptionsDelegate));
 // /webhooks/resend needs its raw, unparsed body to verify the svix signature
 // (see src/services/resendWebhook.js) — express.json() here would consume
 // the request stream first and hand the route only a parsed object.
+// /api/crm/leads/import parses its own (larger) JSON body on the route, and the
+// Meta webhook needs the raw bytes to check its signature.
+const RAW_BODY_PATHS = new Set(['/webhooks/resend', '/webhooks/meta-leads', '/api/crm/leads/import']);
 app.use((req, res, next) => {
-  if (req.path === '/webhooks/resend') {
+  if (RAW_BODY_PATHS.has(req.path)) {
     return next();
   }
   return express.json()(req, res, next);
@@ -234,7 +242,11 @@ const generateOrderId = () => `ord_${Math.random().toString(36).slice(2, 10)}`;
 app.use(passport.initialize());
 
 // Connect to the database
-connectDb().then(() => refreshPriceCatalog().catch((err) => console.error("Price catalog refresh failed:", err)));
+connectDb().then(() => {
+  refreshPriceCatalog().catch((err) => console.error("Price catalog refresh failed:", err));
+  ensureDefaultPipelines().catch((err) => console.error("CRM default pipeline seed failed:", err));
+  backfillPhoneNormalized().catch((err) => console.error("CRM phone backfill failed:", err));
+});
 
 
 app.get('/api/ping', (req, res) => {
@@ -772,6 +784,7 @@ app.post('/razorpay/cart-verify', checkoutLimiter, async (req, res) => {
       try {
         await Order.create({ ...order, _id: undefined, invoiceNumber, status: 'paid', paidAt, razorpayPaymentId: razorpay_payment_id });
       } catch { /* duplicate, skip */ }
+      syncCrmOnOrderPaidSafely(order);
       if (order.couponCode) await incrementCouponUsage(order.couponCode).catch(() => {});
       const enrollmentToken = encryptToken({ orderId, email: order.learner.email, paidAt });
       const amountMajorStr = (order.expectedTotalMinor / 100).toFixed(2);
@@ -832,6 +845,7 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
       } catch (archiveErr) {
         console.error('Failed to archive Order:', archiveErr);
       }
+      syncCrmOnOrderPaidSafely(order);
 
       // Increment coupon usage if a coupon was applied
       if (order.couponCode) {
@@ -967,6 +981,7 @@ app.post('/payments/confirm', checkoutLimiter, async (req, res) => {
         const inv = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${oid.slice(-6).toUpperCase()}`;
         if (!firstInvoiceNumber) firstInvoiceNumber = inv;
         try { await Order.create({ ...o, _id: undefined, invoiceNumber: inv, status: 'paid', paidAt }); } catch { /* dup */ }
+        syncCrmOnOrderPaidSafely(o);
         if (o.couponCode) await incrementCouponUsage(o.couponCode).catch(() => {});
         const enrollmentToken = encryptToken({ orderId: oid, email: o.learner.email, paidAt });
         const amtStr = (o.expectedTotalMinor / 100).toFixed(2);
@@ -1004,6 +1019,7 @@ app.post('/payments/confirm', checkoutLimiter, async (req, res) => {
       } catch (archiveErr) {
         console.error('Failed to archive Order:', archiveErr);
       }
+      syncCrmOnOrderPaidSafely(order);
 
       // Increment coupon usage if a coupon was applied
       if (order.couponCode) {
@@ -1418,6 +1434,9 @@ app.use("/api/crm", authenticateCrm, crmRoutes);
 // Raw body required for svix signature verification inside handleResendWebhook.
 app.post("/webhooks/resend", express.raw({ type: "application/json" }), handleResendWebhook);
 
+// Meta Lead Ads (Facebook/Instagram instant forms) → CRM leads
+app.use("/webhooks/meta-leads", metaWebhookRoutes);
+
 // Register campaign event listeners (enrollment, referral, payment, etc.)
 registerCampaignEventListeners();
 
@@ -1450,6 +1469,11 @@ import("./services/emailMarketing/campaignOpportunityQueue.js")
 import("./services/crmDailyReportQueue.js")
   .then(({ scheduleCrmDailyReportRepeatable }) => scheduleCrmDailyReportRepeatable())
   .catch((err) => console.error("[CRM Daily Report Queue] failed to schedule repeatable:", err.message));
+
+// CRM task reminders (every 15 min) and each rep's 9am IST digest.
+import("./services/crmReminderQueue.js")
+  .then(({ scheduleCrmReminders }) => scheduleCrmReminders())
+  .catch((err) => console.error("[CRM Reminder Queue] failed to schedule repeatables:", err.message));
 
 // Trainer attendance reminder (10am IST): sessions ended 12h+ ago with no attendance.
 import("./services/trainerReminderQueue.js")
@@ -1583,6 +1607,12 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Server Startup ────────────────────────────────────────────────────────────
+
+// Express 4 doesn't catch rejected promises from async handlers; without this,
+// one stray rejection crashes the whole API on Node 15+.
+process.on("unhandledRejection", (reason) => {
+  logger.error(`Unhandled promise rejection: ${reason?.stack || reason}`);
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

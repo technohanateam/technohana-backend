@@ -32,11 +32,26 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `REDIS_URL` (preferred) or `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | `src/config/redis.js` | Bull queues; falls back to `127.0.0.1:6379` if unset |
 | `STRIPE_WEBHOOK_SECRET` | `src/index.js` | Stripe webhook signature verification |
 | `ENROLLMENT_TOKEN_KEY` | `src/utils/tokenCrypto.js` | Enrollment recovery link token encryption |
-| `RESET_TOKEN_SECRET` | `src/utils/resetTokenUtil.js` | Password reset tokens |
+| `RESET_TOKEN_SECRET` | `src/utils/resetTokenUtil.js` | Password reset token pepper. Set it in production — without it the pepper is derived from `JWT_SECRET` (and an error is logged) |
 | `CONFIRM_DELETE_SECRET` | `src/utils/confirmDelete.js` | Admin destructive-action confirmation |
 | `BACKLINK_STRATEGY_DIR` | `src/controllers/seoReport.controller.js` | SEO backlink strategy file location |
 | `FRONTEND_URL` | Many (email templates, OAuth redirects, CORS fallback) | Canonical frontend origin |
 | `WHITELISTED_URLS` | `src/index.js`, `src/routes/auth.routes.js` | Comma-separated CORS allowlist |
+
+## CRM integrations (optional)
+
+| Variable | Used by | Notes |
+|---|---|---|
+| `CRM_SETUP_TOKEN` | `src/controllers/crmUser.controller.js` | Enables the one-time `POST /api/crm/auth/setup` owner bootstrap (send it as `setupToken`). Leave unset once the first CRM owner exists — setup is disabled without it |
+| `CRM_FROM_EMAIL` | `src/controllers/crmActivity.controller.js` | Sender for emails reps send from the CRM (`POST /api/crm/email/send`), e.g. `Technohana Sales <sales@technohana.in>`; must be on the verified Resend domain. Defaults to the sales address. Replies go to the rep |
+| `CRM_DAILY_REPORT_EXTRA_EMAILS` | `src/services/crmDailyReport.js` | Comma-separated extra recipients for the 7pm IST CRM report |
+| `RESEND_WEBHOOK_SECRET` | `src/services/resendWebhook.js` | Also powers CRM email delivery status (delivered/opened/bounced) on the lead timeline |
+| `META_APP_SECRET` | `src/services/metaLeadAds.js` | Meta app secret — verifies `X-Hub-Signature-256` on `/webhooks/meta-leads` and signs Graph calls (`appsecret_proof`) |
+| `META_WEBHOOK_VERIFY_TOKEN` | `src/routes/metaWebhook.routes.js` | Any random string; enter the same value as the "Verify token" when subscribing the webhook in the Meta app |
+| `META_PAGE_ACCESS_TOKEN` | `src/services/metaLeadAds.js` | Long-lived Page access token with `leads_retrieval` + `pages_manage_metadata`, used to fetch each lead |
+| `META_GRAPH_VERSION` | `src/services/metaLeadAds.js` | Graph API version, default `v21.0` |
+
+Meta Lead Ads setup: in the Meta app add the Webhooks product → Page → subscribe to `leadgen` with callback `https://<api-host>/webhooks/meta-leads` and the verify token above; subscribe the app to the Page (`POST /{page-id}/subscribed_apps?subscribed_fields=leadgen`). Leads already submitted can be pulled with `node scripts/backfill-meta-leads.js --form <formId> --since YYYY-MM-DD --apply`.
 
 ## Admin bootstrap (optional, dev/ops convenience)
 

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { normalizePhone } from "../../utils/phone.js";
 
 const noteSchema = new mongoose.Schema(
   { body: { type: String, required: true }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" } },
@@ -21,6 +22,8 @@ const crmLeadSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     email: { type: String, trim: true, lowercase: true },
     phone: { type: String, trim: true },
+    // "+<digits>" form of phone, kept in sync below — used for duplicate detection.
+    phoneNormalized: { type: String },
     whatsApp: { type: String, trim: true },
     designation: { type: String, trim: true },
     company: { type: String, trim: true },
@@ -97,6 +100,9 @@ const crmLeadSchema = new mongoose.Schema(
     // Source reference — set when lead is promoted from an Enquiry
     enquiryRef: { type: mongoose.Schema.Types.ObjectId, ref: "Enquiry", default: null },
 
+    // Meta Lead Ads leadgen id — makes webhook redeliveries idempotent.
+    metaLeadgenId: { type: String },
+
     // Dedup
     isDuplicate: { type: Boolean, default: false },
     mergedInto: { type: mongoose.Schema.Types.ObjectId, ref: "CRMLead" },
@@ -113,13 +119,26 @@ const crmLeadSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Runs for save() and insertMany() alike; bulk updateMany() never touches phone.
+crmLeadSchema.pre("validate", function syncPhoneNormalized(next) {
+  if (this.isModified("phone") || this.isModified("country") || this.isNew) {
+    this.phoneNormalized = normalizePhone(this.phone, this.country);
+  }
+  next();
+});
+
 crmLeadSchema.index({ email: 1 });
-crmLeadSchema.index({ status: 1 });
+crmLeadSchema.index({ phoneNormalized: 1 });
+crmLeadSchema.index({ metaLeadgenId: 1 }, { unique: true, sparse: true });
 crmLeadSchema.index({ assignedTo: 1 });
 crmLeadSchema.index({ pipeline: 1 });
 crmLeadSchema.index({ createdAt: -1 });
 crmLeadSchema.index({ leadScore: -1 });
 crmLeadSchema.index({ isDeleted: 1, status: 1 });
 crmLeadSchema.index({ status: 1, assignedTo: 1 });
+// A rep's list view (isDeleted + owner, newest first) and the won-leads report.
+crmLeadSchema.index({ isDeleted: 1, assignedTo: 1, createdAt: -1 });
+crmLeadSchema.index({ wonAt: 1 }, { sparse: true });
+crmLeadSchema.index({ assignedTo: 1, nextFollowUp: 1 });
 
 export default mongoose.model("CRMLead", crmLeadSchema);

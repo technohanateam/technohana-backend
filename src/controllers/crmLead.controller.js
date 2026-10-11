@@ -1,13 +1,50 @@
-import mongoose from "mongoose";
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
+import CRMTask from "../models/crm/crmTask.model.js";
+import CRMDeal from "../models/crm/crmDeal.model.js";
+import CRMContact from "../models/crm/crmContact.model.js";
+import CRMCompany from "../models/crm/crmCompany.model.js";
+import CRMPipeline from "../models/crm/crmPipeline.model.js";
+import CrmUser from "../models/crmUser.model.js";
+import { hasCrmPermission } from "../middleware/crmPermission.js";
+import {
+  parsePaging, isValidId, pick, isCrmAdmin, isOwnerScoped, crmRoleOf, ownerFilter, leadScope,
+  findMissingRef, activeUserExists, sendCrmError,
+} from "../utils/crmQuery.js";
+import { pickAssignee, createAssigner } from "../services/crmLeadIntake.js";
+import { stageForLeadStatus, syncDealFromLead } from "../services/crmLifecycle.js";
+import { resolveRange } from "../services/crmDailyReport.js";
+import { normalizePhone } from "../utils/phone.js";
 import { callClaude } from "../services/aiAgent.service.js";
-import { computeQuote, getBasePriceMinor } from "../utils/pricing.js";
+import { computeQuote } from "../utils/pricing.js";
 
 // Site-page leads (forms, chat) belong to the admin panel, not the CRM.
 const SITE_SOURCES = ["website", "enquiry_form", "chat"];
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const LEAD_STATUSES   = CRMLead.schema.path("status").enumValues;
+const LEAD_PRIORITIES = CRMLead.schema.path("priority").enumValues;
+const SORT_FIELDS = ["createdAt", "updatedAt", "name", "leadScore", "aiScore", "expectedRevenue", "nextFollowUp", "status", "priority"];
+
+const EDITABLE_FIELDS = [
+  "name", "email", "phone", "whatsApp", "designation", "company",
+  "country", "state", "city", "source", "website", "linkedIn", "utm",
+  "interest", "budget", "currency", "teamSize", "industry",
+  "priority", "leadScore", "expectedRevenue", "probability",
+  "status", "lostReason", "pipeline", "pipelineStage", "assignedTo",
+  "nextFollowUp", "contactId", "companyId", "dealId", "proposalId",
+  "tags", "customFields", "skillGapData", "recommendedCourses",
+];
+
+const normEmail = (email) => (typeof email === "string" ? email.toLowerCase().trim() : email);
+
+const leadRefs = (body) => ({
+  contactId: ["contact", body.contactId],
+  companyId: ["company", body.companyId],
+  dealId:    ["deal", body.dealId],
+  pipeline:  ["pipeline", body.pipeline],
+});
 
 const logActivity = async (leadId, type, title, body, performedBy, metadata = {}) => {
   try {
@@ -22,41 +59,38 @@ const logActivity = async (leadId, type, title, body, performedBy, metadata = {}
   }
 };
 
+const notFound = (res) => res.status(404).json({ success: false, message: "Lead not found" });
+
 export const getLeads = async (req, res) => {
   try {
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
-    const skip  = (page - 1) * limit;
+    const { page, limit, skip } = parsePaging(req.query);
+    const { search, status, assignedTo, source, priority, pipeline, aiScoreBand, followUpDue, sort = "createdAt", order = "desc" } = req.query;
 
-    const { search, status, assignedTo, source, priority, pipeline, aiScoreBand, sort = "createdAt", order = "desc" } = req.query;
-
-    const role    = req.crmRole || req.admin.role;
-    const adminId = req.admin._id;
-
-    const filter = { isDeleted: false };
-
-    for (const [key, val] of [["assignedTo", assignedTo], ["pipeline", pipeline]]) {
-      if (val && !mongoose.Types.ObjectId.isValid(val)) {
-        return res.status(400).json({ success: false, message: `Invalid ${key} id` });
-      }
+    if (pipeline && !isValidId(pipeline)) return res.status(400).json({ success: false, message: "Invalid pipeline id" });
+    if (assignedTo && assignedTo !== "unassigned" && !isValidId(assignedTo)) {
+      return res.status(400).json({ success: false, message: "Invalid assignedTo id" });
     }
 
-    // Sales reps only see their own leads
-    if (role === "sales") filter.assignedTo = adminId;
-    else if (assignedTo) filter.assignedTo = new mongoose.Types.ObjectId(assignedTo);
+    const filter = { isDeleted: false, ...ownerFilter(req) };
+    if (!filter.assignedTo && assignedTo) filter.assignedTo = assignedTo === "unassigned" ? null : assignedTo;
 
     if (status)      filter.status      = status;
     if (source)      filter.source      = source;
     if (priority)    filter.priority    = priority;
-    if (pipeline)    filter.pipeline    = new mongoose.Types.ObjectId(pipeline);
+    if (pipeline)    filter.pipeline    = pipeline;
     if (aiScoreBand) filter.aiScoreBand = aiScoreBand;
+    // Follow-ups due today or earlier (IST) on leads that are still open.
+    if (followUpDue === "true") {
+      filter.nextFollowUp = { $lt: resolveRange().end };
+      if (!status) filter.status = { $nin: ["won", "lost", "junk"] };
+    }
 
     if (search) {
       const re = new RegExp(escapeRegex(search), "i");
       filter.$or = [{ name: re }, { email: re }, { phone: re }, { company: re }];
     }
 
-    const sortObj = { [sort]: order === "asc" ? 1 : -1 };
+    const sortObj = { [SORT_FIELDS.includes(sort) ? sort : "createdAt"]: order === "asc" ? 1 : -1 };
 
     const [leads, total] = await Promise.all([
       CRMLead.find(filter)
@@ -76,14 +110,16 @@ export const getLeads = async (req, res) => {
       meta: { page, limit, total, pages: Math.ceil(total / limit) },
     });
   } catch (err) {
-    console.error("getLeads error:", err);
-    res.status(500).json({ success: false, message: "Failed to fetch leads" });
+    sendCrmError(res, err, "Failed to fetch leads");
   }
 };
 
 export const getLead = async (req, res) => {
   try {
-    const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false })
+    const scope = leadScope(req, req.params.id);
+    if (!scope) return notFound(res);
+
+    const lead = await CRMLead.findOne(scope)
       .populate("assignedTo", "name email")
       .populate("pipeline", "name type stages")
       .populate("tags", "name color")
@@ -92,7 +128,7 @@ export const getLead = async (req, res) => {
       .populate("dealId", "title value status stageKey")
       .lean();
 
-    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+    if (!lead) return notFound(res);
 
     const activities = await CRMActivity.find({ relatedToType: "lead", relatedToId: lead._id })
       .sort({ createdAt: -1 })
@@ -102,110 +138,126 @@ export const getLead = async (req, res) => {
 
     res.json({ success: true, data: { ...lead, activities } });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to fetch lead" });
+    sendCrmError(res, err, "Failed to fetch lead");
   }
 };
 
 export const createLead = async (req, res) => {
   try {
-    const {
-      name, email, phone, whatsApp, designation, company,
-      country, state, city, source, website, linkedIn, utm,
-      interest, budget, currency, teamSize, industry,
-      priority, expectedRevenue, probability,
-      status, pipeline, pipelineStage, assignedTo, tags, customFields,
-    } = req.body;
+    const { name, email, source, assignedTo, notes } = req.body;
 
-    if (!name) return res.status(400).json({ success: false, message: "Name is required" });
+    if (typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ success: false, message: "Name is required" });
+    }
     if (SITE_SOURCES.includes(source)) {
       return res.status(400).json({ success: false, message: "Site-page leads are managed in the admin panel, not the CRM" });
     }
 
-    // Duplicate detection by email
     if (email) {
-      const existing = await CRMLead.findOne({ email: email.toLowerCase().trim(), isDeleted: false });
+      const existing = await CRMLead.findOne({ email: normEmail(email), isDeleted: false }).select("assignedTo").lean();
       if (existing) {
+        // Only hand back the id to someone allowed to open that lead.
+        const visible = !isOwnerScoped(req) || String(existing.assignedTo) === String(req.admin._id);
         return res.status(409).json({
           success: false,
-          message: "A lead with this email already exists",
-          data: { existingId: existing._id },
+          message: visible ? "A lead with this email already exists" : "A lead with this email already exists and is owned by another rep",
+          data: visible ? { existingId: existing._id } : undefined,
         });
       }
     }
 
+    // Only admins choose the owner ("auto" = least-loaded rep); everyone else creates leads for themselves.
+    let owner = req.admin._id;
+    if (isCrmAdmin(req) && assignedTo === "auto") {
+      owner = (await pickAssignee()) || req.admin._id;
+    } else if (isCrmAdmin(req) && assignedTo) {
+      if (!(await activeUserExists(assignedTo))) return res.status(400).json({ success: false, message: "Invalid assignee" });
+      owner = assignedTo;
+    }
+
+    const missing = await findMissingRef(leadRefs(req.body));
+    if (missing) return res.status(400).json({ success: false, message: `Invalid ${missing}` });
+
+    const fields = pick(req.body, EDITABLE_FIELDS.filter((f) => !["assignedTo", "leadScore", "lostReason"].includes(f)));
     const lead = await CRMLead.create({
-      name, email, phone, whatsApp, designation, company,
-      country, state, city, source, website, linkedIn, utm,
-      interest, budget, currency, teamSize, industry,
-      priority, expectedRevenue, probability,
-      status: status || "new",
-      pipeline, pipelineStage,
-      assignedTo: assignedTo || req.admin._id,
-      tags, customFields,
+      ...fields,
+      name: name.trim(),
+      email: normEmail(email),
+      status: fields.status || "new",
+      assignedTo: owner,
+      notes: typeof notes === "string" && notes.trim() ? [{ body: notes.trim(), createdBy: req.admin._id }] : [],
       createdBy: req.admin._id,
     });
 
-    await logActivity(lead._id, "created", "Lead created", `${name} was added to the CRM`, req.admin._id);
+    await logActivity(lead._id, "created", "Lead created", `${lead.name} was added to the CRM`, req.admin._id);
+    if (lead.notes.length) await logActivity(lead._id, "note", "Note added", lead.notes[0].body, req.admin._id);
 
     res.status(201).json({ success: true, data: lead, message: "Lead created" });
   } catch (err) {
-    console.error("createLead error:", err);
-    res.status(500).json({ success: false, message: "Failed to create lead" });
+    sendCrmError(res, err, "Failed to create lead");
   }
 };
 
 export const updateLead = async (req, res) => {
   try {
-    const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false });
-    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+    const scope = leadScope(req, req.params.id);
+    const lead = scope && await CRMLead.findOne(scope);
+    if (!lead) return notFound(res);
 
     if (SITE_SOURCES.includes(req.body.source)) {
       return res.status(400).json({ success: false, message: "Site-page leads are managed in the admin panel, not the CRM" });
     }
 
+    const updates = pick(req.body, EDITABLE_FIELDS);
+    if (!isCrmAdmin(req)) delete updates.assignedTo;
+    if (updates.email !== undefined) updates.email = normEmail(updates.email);
+
+    if (updates.assignedTo && String(updates.assignedTo) !== String(lead.assignedTo) && !(await activeUserExists(updates.assignedTo))) {
+      return res.status(400).json({ success: false, message: "Invalid assignee" });
+    }
+    const missing = await findMissingRef(leadRefs(updates));
+    if (missing) return res.status(400).json({ success: false, message: `Invalid ${missing}` });
+
     const prevStatus = lead.status;
     const prevStage  = lead.pipelineStage;
+    const prevOwner  = lead.assignedTo ? String(lead.assignedTo) : null;
 
-    const allowed = [
-      "name", "email", "phone", "whatsApp", "designation", "company",
-      "country", "state", "city", "source", "website", "linkedIn",
-      "interest", "budget", "currency", "teamSize", "industry",
-      "priority", "leadScore", "expectedRevenue", "probability",
-      "status", "lostReason", "pipeline", "pipelineStage", "assignedTo",
-      "nextFollowUp", "contactId", "companyId", "dealId", "proposalId",
-      "tags", "customFields", "skillGapData", "recommendedCourses",
-    ];
+    Object.assign(lead, updates);
 
-    allowed.forEach((f) => { if (req.body[f] !== undefined) lead[f] = req.body[f]; });
-
-    if (req.body.status === "won" && prevStatus !== "won") lead.wonAt = new Date();
-    if (req.body.status === "lost" && prevStatus !== "lost") lead.lostAt = new Date();
+    if (updates.status && updates.status !== prevStatus) {
+      lead.wonAt  = updates.status === "won" ? new Date() : undefined;
+      lead.lostAt = ["lost", "junk"].includes(updates.status) ? new Date() : undefined;
+    }
 
     await lead.save();
 
-    // Log status/stage changes
-    if (req.body.status && req.body.status !== prevStatus) {
+    if (updates.status && updates.status !== prevStatus) {
       await logActivity(lead._id, "status_change", "Status changed",
-        `Status changed from ${prevStatus} to ${req.body.status}`,
-        req.admin._id, { from: prevStatus, to: req.body.status });
+        `Status changed from ${prevStatus} to ${updates.status}${updates.lostReason ? ` (${updates.lostReason})` : ""}`,
+        req.admin._id, { from: prevStatus, to: updates.status });
+      await syncDealFromLead(lead, req.admin._id);
     }
-    if (req.body.pipelineStage && req.body.pipelineStage !== prevStage) {
+    if (updates.pipelineStage && updates.pipelineStage !== prevStage) {
       await logActivity(lead._id, "stage_change", "Stage moved",
-        `Moved from ${prevStage || "—"} to ${req.body.pipelineStage}`,
-        req.admin._id, { from: prevStage, to: req.body.pipelineStage });
+        `Moved from ${prevStage || "—"} to ${updates.pipelineStage}`,
+        req.admin._id, { from: prevStage, to: updates.pipelineStage });
+    }
+    if (updates.assignedTo !== undefined && String(updates.assignedTo || "") !== String(prevOwner || "")) {
+      await logActivity(lead._id, "assigned", "Lead reassigned", "Lead owner changed",
+        req.admin._id, { from: prevOwner, to: updates.assignedTo || null });
     }
 
     res.json({ success: true, data: lead, message: "Lead updated" });
   } catch (err) {
-    console.error("updateLead error:", err);
-    res.status(500).json({ success: false, message: "Failed to update lead" });
+    sendCrmError(res, err, "Failed to update lead");
   }
 };
 
 export const deleteLead = async (req, res) => {
   try {
-    const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false });
-    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+    const scope = leadScope(req, req.params.id);
+    const lead = scope && await CRMLead.findOne(scope);
+    if (!lead) return notFound(res);
 
     lead.isDeleted = true;
     lead.deletedAt = new Date();
@@ -213,7 +265,7 @@ export const deleteLead = async (req, res) => {
 
     res.json({ success: true, message: "Lead deleted" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to delete lead" });
+    sendCrmError(res, err, "Failed to delete lead");
   }
 };
 
@@ -223,70 +275,132 @@ export const bulkLeadAction = async (req, res) => {
     if (!action || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ success: false, message: "action and ids are required" });
     }
-
-    if (ids.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+    if (ids.length > 500) return res.status(400).json({ success: false, message: "Max 500 leads per bulk action" });
+    if (ids.some((id) => !isValidId(String(id)))) {
       return res.status(400).json({ success: false, message: "Invalid lead id in ids" });
     }
-    const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+
+    // Bulk actions only ever touch leads the caller could open one by one.
+    const inScope = { _id: { $in: ids }, isDeleted: false, ...ownerFilter(req) };
+    const role = crmRoleOf(req);
 
     if (action === "delete") {
-      await CRMLead.updateMany({ _id: { $in: objectIds } }, { isDeleted: true, deletedAt: new Date() });
-      return res.json({ success: true, message: `${ids.length} leads deleted` });
+      if (!hasCrmPermission(role, "leads", "delete")) {
+        return res.status(403).json({ success: false, message: `Your role (${role}) cannot delete leads.` });
+      }
+      const result = await CRMLead.updateMany(inScope, { isDeleted: true, deletedAt: new Date() });
+      return res.json({ success: true, message: `${result.modifiedCount} leads deleted` });
     }
 
-    if (action === "assign" && payload?.assignedTo) {
-      await CRMLead.updateMany({ _id: { $in: objectIds }, isDeleted: false }, { assignedTo: payload.assignedTo });
-      return res.json({ success: true, message: `${ids.length} leads reassigned` });
+    if (action === "assign") {
+      if (!isCrmAdmin(req)) return res.status(403).json({ success: false, message: "Only admins can reassign leads." });
+      if (!(await activeUserExists(payload?.assignedTo))) {
+        return res.status(400).json({ success: false, message: "Invalid assignee" });
+      }
+      const moving = await CRMLead.find({ ...inScope, assignedTo: { $ne: payload.assignedTo } }).select("assignedTo").lean();
+      if (moving.length) {
+        await CRMLead.updateMany({ _id: { $in: moving.map((l) => l._id) } }, { assignedTo: payload.assignedTo });
+        await CRMActivity.insertMany(moving.map((l) => ({
+          type: "assigned",
+          title: "Lead reassigned",
+          body: "Lead owner changed",
+          relatedToType: "lead",
+          relatedToId: l._id,
+          performedBy: req.admin._id,
+          metadata: { from: l.assignedTo || null, to: payload.assignedTo, bulk: true },
+        })));
+      }
+      return res.json({ success: true, message: `${moving.length} leads reassigned` });
     }
 
     if (action === "status" && payload?.status) {
-      await CRMLead.updateMany({ _id: { $in: objectIds }, isDeleted: false }, { status: payload.status });
-      return res.json({ success: true, message: `${ids.length} leads status updated` });
+      if (!LEAD_STATUSES.includes(payload.status)) {
+        return res.status(400).json({ success: false, message: "Invalid status" });
+      }
+      const changing = await CRMLead.find({ ...inScope, status: { $ne: payload.status } }).select("status").lean();
+      if (changing.length) {
+        const now = new Date();
+        const isWon = payload.status === "won";
+        const isLost = ["lost", "junk"].includes(payload.status);
+        const update = {
+          $set: { status: payload.status, ...(isWon && { wonAt: now }), ...(isLost && { lostAt: now }) },
+          $unset: { ...(!isWon && { wonAt: 1 }), ...(!isLost && { lostAt: 1 }) },
+        };
+        await CRMLead.updateMany({ _id: { $in: changing.map((l) => l._id) } }, update);
+        await CRMActivity.insertMany(changing.map((l) => ({
+          type: "status_change",
+          title: "Status changed",
+          body: `Status changed from ${l.status} to ${payload.status}`,
+          relatedToType: "lead",
+          relatedToId: l._id,
+          performedBy: req.admin._id,
+          metadata: { from: l.status, to: payload.status, bulk: true },
+        })));
+        if (isWon || payload.status === "lost") {
+          const withDeals = await CRMLead.find({ _id: { $in: changing.map((l) => l._id) }, dealId: { $ne: null } });
+          for (const l of withDeals) await syncDealFromLead(l, req.admin._id);
+        }
+      }
+      return res.json({ success: true, message: `${changing.length} leads status updated` });
     }
 
     if (action === "priority" && payload?.priority) {
-      await CRMLead.updateMany({ _id: { $in: objectIds }, isDeleted: false }, { priority: payload.priority });
-      return res.json({ success: true, message: `${ids.length} leads priority updated` });
+      if (!LEAD_PRIORITIES.includes(payload.priority)) {
+        return res.status(400).json({ success: false, message: "Invalid priority" });
+      }
+      const result = await CRMLead.updateMany(inScope, { priority: payload.priority });
+      return res.json({ success: true, message: `${result.modifiedCount} leads priority updated` });
     }
 
     res.status(400).json({ success: false, message: "Unknown bulk action" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Bulk action failed" });
+    sendCrmError(res, err, "Bulk action failed");
   }
 };
+
+const MERGE_SCALARS = ["email", "phone", "whatsApp", "designation", "company", "country", "state", "city",
+  "website", "linkedIn", "utm", "interest", "budget", "teamSize", "industry", "priority",
+  "leadScore", "expectedRevenue", "probability", "nextFollowUp", "lostReason",
+  "contactId", "companyId", "dealId", "proposalId", "enrollmentId", "pipeline", "pipelineStage"];
+const isBlank = (v) => v == null || v === "";
 
 export const mergeLead = async (req, res) => {
   try {
     const { targetId } = req.body;
     const sourceId = req.params.id;
 
+    if (!isValidId(sourceId) || !isValidId(targetId)) {
+      return res.status(400).json({ success: false, message: "Invalid lead id" });
+    }
     if (sourceId === targetId) {
       return res.status(400).json({ success: false, message: "Cannot merge a lead with itself" });
     }
 
     const [source, target] = await Promise.all([
-      CRMLead.findOne({ _id: sourceId, isDeleted: false }),
-      CRMLead.findOne({ _id: targetId, isDeleted: false }),
+      CRMLead.findOne(leadScope(req, sourceId)),
+      CRMLead.findOne(leadScope(req, targetId)),
     ]);
 
-    if (!source || !target) return res.status(404).json({ success: false, message: "Lead not found" });
+    if (!source || !target) return notFound(res);
 
-    // Merge non-null fields from source into target
-    const mergeFields = ["phone", "whatsApp", "designation", "company", "country", "state", "city",
-      "website", "linkedIn", "interest", "budget", "teamSize", "industry", "priority",
-      "expectedRevenue", "probability", "tags", "customFields"];
-
-    mergeFields.forEach((f) => {
-      if (!target[f] && source[f]) target[f] = source[f];
+    // Fill gaps on the target from the source; the target's own values win.
+    MERGE_SCALARS.forEach((f) => {
+      if (isBlank(target[f]) && !isBlank(source[f])) target[f] = source[f];
     });
+    target.tags = [...new Set([...target.tags, ...source.tags].map(String))];
+    for (const [k, v] of source.customFields || []) {
+      if (!target.customFields.has(k)) target.customFields.set(k, v);
+    }
+    target.notes.push(...source.notes.map((n) => n.toObject()));
+    target.attachments.push(...source.attachments.map((a) => a.toObject()));
 
-    // Move activities
-    await CRMActivity.updateMany(
-      { relatedToType: "lead", relatedToId: source._id },
-      { relatedToId: target._id }
-    );
+    // Re-point everything that referenced the source lead.
+    await Promise.all([
+      CRMActivity.updateMany({ relatedToType: "lead", relatedToId: source._id }, { relatedToId: target._id }),
+      CRMTask.updateMany({ relatedToType: "lead", relatedToId: source._id }, { relatedToId: target._id }),
+      CRMDeal.updateMany({ lead: source._id }, { lead: target._id }),
+    ]);
 
-    // Soft-delete source
     source.isDeleted  = true;
     source.deletedAt  = new Date();
     source.isDuplicate = true;
@@ -294,23 +408,24 @@ export const mergeLead = async (req, res) => {
     await source.save();
     await target.save();
 
-    await logActivity(target._id, "created", "Lead merged",
+    await logActivity(target._id, "merged", "Lead merged",
       `Lead ${source.name} (${source.email || source._id}) was merged into this record`,
-      req.admin._id);
+      req.admin._id, { mergedLeadId: source._id });
 
     res.json({ success: true, data: target, message: "Leads merged" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Merge failed" });
+    sendCrmError(res, err, "Merge failed");
   }
 };
 
 export const addNote = async (req, res) => {
   try {
     const { body } = req.body;
-    if (!body?.trim()) return res.status(400).json({ success: false, message: "Note body is required" });
+    if (typeof body !== "string" || !body.trim()) return res.status(400).json({ success: false, message: "Note body is required" });
 
-    const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false });
-    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+    const scope = leadScope(req, req.params.id);
+    const lead = scope && await CRMLead.findOne(scope);
+    if (!lead) return notFound(res);
 
     lead.notes.push({ body: body.trim(), createdBy: req.admin._id });
     await lead.save();
@@ -319,18 +434,103 @@ export const addNote = async (req, res) => {
 
     res.json({ success: true, data: lead.notes[lead.notes.length - 1], message: "Note added" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to add note" });
+    sendCrmError(res, err, "Failed to add note");
+  }
+};
+
+// POST /leads/:id/convert — turns a qualified lead into a contact (+ company) and
+// a deal in the chosen (or default) pipeline, and links all three to the lead.
+export const convertLead = async (req, res) => {
+  try {
+    const scope = leadScope(req, req.params.id);
+    const lead = scope && await CRMLead.findOne(scope);
+    if (!lead) return notFound(res);
+
+    if (lead.dealId && await CRMDeal.exists({ _id: lead.dealId, isDeleted: false })) {
+      return res.status(409).json({ success: false, message: "This lead already has a deal", data: { dealId: lead.dealId } });
+    }
+
+    const pipelineQuery = isValidId(String(req.body.pipeline || ""))
+      ? { _id: req.body.pipeline, isActive: true }
+      : { isActive: true };
+    const pipeline = await CRMPipeline.findOne(pipelineQuery).sort({ isDefault: -1, createdAt: 1 });
+    if (!pipeline?.stages?.length) return res.status(400).json({ success: false, message: "No usable pipeline" });
+    const stage = stageForLeadStatus(pipeline, lead.status);
+
+    const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    let company = lead.companyId && await CRMCompany.findOne({ _id: lead.companyId, isDeleted: false });
+    let companyCreated = false;
+    if (!company && lead.company?.trim()) {
+      company = await CRMCompany.findOne({ name: new RegExp(`^${escape(lead.company.trim())}$`, "i"), isDeleted: false });
+      if (!company) {
+        company = await CRMCompany.create({ name: lead.company.trim(), industry: lead.industry, website: lead.website, createdBy: req.admin._id });
+        companyCreated = true;
+      }
+    }
+
+    let contact = lead.contactId && await CRMContact.findOne({ _id: lead.contactId, isDeleted: false });
+    let contactCreated = false;
+    if (!contact && lead.email) contact = await CRMContact.findOne({ email: lead.email, isDeleted: false });
+    if (!contact) {
+      const [firstName, ...rest] = lead.name.trim().split(/\s+/);
+      contact = await CRMContact.create({
+        firstName, lastName: rest.join(" ") || undefined,
+        email: lead.email, phone: lead.phone, whatsApp: lead.whatsApp, designation: lead.designation,
+        linkedIn: lead.linkedIn, country: lead.country, state: lead.state, city: lead.city,
+        company: company?._id, isDecisionMaker: false, createdBy: req.admin._id,
+      });
+      contactCreated = true;
+    } else if (company && !contact.company) {
+      contact.company = company._id;
+      await contact.save();
+    }
+
+    const title = typeof req.body.title === "string" && req.body.title.trim()
+      ? req.body.title.trim()
+      : `${lead.company || lead.name} — ${lead.interest ? lead.interest.slice(0, 60) : "Training"}`;
+    const value = Number.isFinite(Number(req.body.value)) && req.body.value !== "" && req.body.value != null
+      ? Number(req.body.value)
+      : lead.expectedRevenue ?? lead.budget ?? 0;
+
+    const deal = await CRMDeal.create({
+      title, value, currency: lead.currency || "INR",
+      pipeline: pipeline._id, stageKey: stage.key, stageOrder: stage.order ?? 0,
+      probability: stage.probability ?? lead.probability ?? 20,
+      status: stage.isWon ? "won" : stage.isLost ? "lost" : "open",
+      ...(stage.isWon && { wonAt: new Date() }), ...(stage.isLost && { lostAt: new Date() }),
+      lead: lead._id, contact: contact._id, company: company?._id,
+      assignedTo: lead.assignedTo || req.admin._id, createdBy: req.admin._id,
+    });
+
+    lead.contactId = contact._id;
+    if (company) lead.companyId = company._id;
+    lead.dealId = deal._id;
+    lead.pipeline = pipeline._id;
+    lead.pipelineStage = stage.key;
+    await lead.save();
+
+    await Promise.all([
+      logActivity(lead._id, "note", "Converted to deal", `Deal "${deal.title}" created in ${pipeline.name}`, req.admin._id, { dealId: deal._id }),
+      CRMActivity.create({ type: "created", title: "Deal created", body: `${deal.title} created from lead ${lead.name}`, relatedToType: "deal", relatedToId: deal._id, performedBy: req.admin._id }),
+      contactCreated && CRMActivity.create({ type: "created", title: "Contact created", body: `${contact.firstName} created from lead ${lead.name}`, relatedToType: "contact", relatedToId: contact._id, performedBy: req.admin._id }),
+    ]);
+
+    res.status(201).json({
+      success: true,
+      data: { deal, contact, company: company || null, contactCreated, companyCreated },
+      message: "Lead converted",
+    });
+  } catch (err) {
+    sendCrmError(res, err, "Failed to convert lead");
   }
 };
 
 export const getLeadActivities = async (req, res) => {
   try {
-    const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false }).lean();
-    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+    const scope = leadScope(req, req.params.id);
+    if (!scope || !(await CRMLead.exists(scope))) return notFound(res);
 
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, parseInt(req.query.limit) || 30);
-    const skip  = (page - 1) * limit;
+    const { page, limit, skip } = parsePaging(req.query, { defaultLimit: 30 });
 
     const [activities, total] = await Promise.all([
       CRMActivity.find({ relatedToType: "lead", relatedToId: req.params.id })
@@ -344,48 +544,49 @@ export const getLeadActivities = async (req, res) => {
 
     res.json({ success: true, data: activities, meta: { page, limit, total } });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to fetch activities" });
+    sendCrmError(res, err, "Failed to fetch activities");
   }
 };
+
+const EXPORT_LIMIT = 10000;
 
 export const getLeadExport = async (req, res) => {
   try {
     const { status, assignedTo, source, priority } = req.query;
-    if (assignedTo && !mongoose.Types.ObjectId.isValid(assignedTo)) {
+    if (assignedTo && !isValidId(assignedTo)) {
       return res.status(400).json({ success: false, message: "Invalid assignedTo id" });
     }
-    const filter = { isDeleted: false };
+    const filter = { isDeleted: false, ...ownerFilter(req) };
     if (status)     filter.status     = status;
     if (source)     filter.source     = source;
     if (priority)   filter.priority   = priority;
-    if (assignedTo) filter.assignedTo = new mongoose.Types.ObjectId(assignedTo);
+    if (assignedTo && !filter.assignedTo) filter.assignedTo = assignedTo;
 
     const leads = await CRMLead.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(EXPORT_LIMIT)
       .populate("assignedTo", "name email")
       .select("-notes -attachments -customFields -__v")
       .lean();
 
-    // CSV generation
     const fields = ["name", "email", "phone", "company", "designation", "country", "state", "city",
       "source", "status", "priority", "leadScore", "budget", "teamSize", "industry",
       "expectedRevenue", "probability", "assignedTo", "createdAt"];
 
     const header = fields.join(",");
-    const rows = leads.map((l) => {
-      return fields.map((f) => {
-        let v = f === "assignedTo" ? (l.assignedTo?.name || "") : (l[f] ?? "");
-        if (v instanceof Date) v = v.toISOString();
-        let s = String(v);
-        if (/^[=+\-@]/.test(s)) s = `'${s}`;
-        return `"${s.replace(/"/g, '""')}"`;
-      }).join(",");
-    });
+    const rows = leads.map((l) => fields.map((f) => {
+      let v = f === "assignedTo" ? (l.assignedTo?.name || "") : (l[f] ?? "");
+      if (v instanceof Date) v = v.toISOString();
+      let s = String(v);
+      if (/^[=+\-@]/.test(s)) s = `'${s}`;
+      return `"${s.replace(/"/g, '""')}"`;
+    }).join(","));
 
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", `attachment; filename="crm-leads-${Date.now()}.csv"`);
     res.send([header, ...rows].join("\n"));
   } catch (err) {
-    res.status(500).json({ success: false, message: "Export failed" });
+    sendCrmError(res, err, "Export failed");
   }
 };
 
@@ -399,50 +600,91 @@ export const importLeads = async (req, res) => {
       return res.status(400).json({ success: false, message: "Max 1000 leads per import" });
     }
 
-    const allowed = [
-      "name", "email", "phone", "whatsApp", "designation", "company",
-      "country", "state", "city", "source", "website", "linkedIn",
-      "interest", "budget", "currency", "teamSize", "industry",
-      "priority", "leadScore", "expectedRevenue", "probability",
-      "status", "pipeline", "pipelineStage", "assignedTo",
-      "nextFollowUp", "contactId", "companyId", "tags", "customFields",
-    ];
+    // Plain-text columns only — refs, scores and ownership aren't importable.
+    const allowed = ["name", "email", "phone", "whatsApp", "designation", "company", "country", "state", "city",
+      "source", "website", "linkedIn", "interest", "budget", "currency", "teamSize", "industry",
+      "priority", "expectedRevenue", "probability", "status", "nextFollowUp"];
+    const text = (v) => (v == null ? undefined : String(v).trim() || undefined);
+    const num = (v) => (v == null || String(v).trim() === "" ? undefined : Number(String(v).replace(/[^\d.-]/g, "")));
+
+    // Admins may map an "owner email" column; otherwise leads go round-robin (admins) or to the importer.
+    const ownerEmails = isCrmAdmin(req)
+      ? [...new Set(rawLeads.map((r) => text(r?.ownerEmail)?.toLowerCase()).filter(Boolean))]
+      : [];
+    const owners = ownerEmails.length
+      ? new Map((await CrmUser.find({ email: { $in: ownerEmails }, active: true }).select("email").lean()).map((u) => [u.email, u._id]))
+      : new Map();
+
+    // One query for every email/phone in the file, plus in-file duplicate tracking.
+    const emails = rawLeads.map((r) => normEmail(text(r?.email))).filter(Boolean);
+    const phones = rawLeads.map((r) => normalizePhone(text(r?.phone), text(r?.country))).filter(Boolean);
+    const existing = await CRMLead.find({ isDeleted: false, $or: [{ email: { $in: emails } }, { phoneNormalized: { $in: phones } }] })
+      .select("email phoneNormalized").lean();
+    const seenEmails = new Set(existing.map((l) => l.email).filter(Boolean));
+    const seenPhones = new Set(existing.map((l) => l.phoneNormalized).filter(Boolean));
 
     const results = { created: 0, skipped: 0, errors: [] };
     const toInsert = [];
+    const nextOwner = isCrmAdmin(req) ? await createAssigner() : null;
 
-    for (const raw of rawLeads) {
-      if (!raw.name) { results.errors.push({ row: raw, reason: "Missing name" }); continue; }
-      if (SITE_SOURCES.includes(raw.source)) { results.errors.push({ row: raw, reason: "Site-page source not allowed in CRM" }); continue; }
+    for (const [index, raw] of rawLeads.entries()) {
+      const row = index + 1;
+      if (!raw || typeof raw !== "object") { results.errors.push({ row, reason: "Not a row object" }); continue; }
+      const fields = Object.fromEntries(Object.entries(pick(raw, allowed)).map(([k, v]) => [k,
+        ["budget", "teamSize", "expectedRevenue", "probability"].includes(k) ? num(v) : text(v)]));
+      fields.email = normEmail(fields.email);
+      fields.source = fields.source ? fields.source.toLowerCase().replace(/\s+/g, "_") : "other";
+      fields.status = fields.status ? fields.status.toLowerCase().replace(/\s+/g, "_") : "new";
+      fields.priority = fields.priority ? fields.priority.toLowerCase() : "medium";
 
-      if (raw.email) {
-        const exists = await CRMLead.exists({ email: raw.email.toLowerCase().trim(), isDeleted: false });
-        if (exists) { results.skipped++; continue; }
+      if (!fields.name) { results.errors.push({ row, reason: "Missing name" }); continue; }
+      if (SITE_SOURCES.includes(fields.source)) { results.errors.push({ row, reason: "Site-page source not allowed in CRM" }); continue; }
+
+      const phoneKey = normalizePhone(fields.phone, fields.country);
+      if ((fields.email && seenEmails.has(fields.email)) || (phoneKey && seenPhones.has(phoneKey))) { results.skipped++; continue; }
+
+      const ownerEmail = text(raw.ownerEmail)?.toLowerCase();
+      if (ownerEmail && isCrmAdmin(req) && !owners.has(ownerEmail)) {
+        results.errors.push({ row, reason: `Unknown owner email: ${ownerEmail}` });
+        continue;
       }
+      const assignedTo = owners.get(ownerEmail) || (nextOwner ? nextOwner() || req.admin._id : req.admin._id);
 
-      const fields = {};
-      allowed.forEach((f) => { if (raw[f] !== undefined) fields[f] = raw[f]; });
-      toInsert.push({ ...fields, createdBy: req.admin._id, assignedTo: raw.assignedTo || req.admin._id });
+      const doc = new CRMLead({ ...fields, assignedTo, createdBy: req.admin._id });
+      const invalid = doc.validateSync();
+      if (invalid) {
+        results.errors.push({ row, reason: Object.values(invalid.errors)[0]?.message || "Invalid row" });
+        continue;
+      }
+      if (fields.email) seenEmails.add(fields.email);
+      if (phoneKey) seenPhones.add(phoneKey);
+      toInsert.push(doc);
     }
 
     if (toInsert.length > 0) {
       const inserted = await CRMLead.insertMany(toInsert, { ordered: false });
       results.created = inserted.length;
+      await CRMActivity.insertMany(inserted.map((l) => ({
+        type: "created", title: "Lead imported", body: `${l.name} was imported from CSV`,
+        relatedToType: "lead", relatedToId: l._id, performedBy: req.admin._id,
+      })));
     }
 
-    res.json({ success: true, data: results, message: `Imported ${results.created} leads, skipped ${results.skipped} duplicates` });
+    res.json({
+      success: true,
+      data: results,
+      message: `Imported ${results.created} leads, skipped ${results.skipped} duplicates${results.errors.length ? `, ${results.errors.length} rows had errors` : ""}`,
+    });
   } catch (err) {
-    console.error("importLeads error:", err);
-    res.status(500).json({ success: false, message: "Import failed" });
+    sendCrmError(res, err, "Import failed");
   }
 };
 
 export const aiLeadSummary = async (req, res) => {
   try {
-    const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false })
-      .populate("assignedTo", "name")
-      .lean();
-    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+    const scope = leadScope(req, req.params.id);
+    const lead = scope && await CRMLead.findOne(scope).populate("assignedTo", "name").lean();
+    if (!lead) return notFound(res);
 
     const prompt = `You are a CRM assistant for TechnoHana, an AI Training & Corporate Learning company.
 Summarize the following lead in 3-4 sentences for the sales team. Focus on: who they are, their training need, buying intent signals, and recommended next action.
@@ -468,14 +710,15 @@ Write a concise, actionable summary for the sales rep.`;
     const { text: summary } = await callClaude({ system: "You are a helpful CRM assistant.", prompt, maxTokens: 300 });
     res.json({ success: true, data: { summary } });
   } catch (err) {
-    res.status(500).json({ success: false, message: "AI summary failed" });
+    sendCrmError(res, err, "AI summary failed");
   }
 };
 
 export const aiScoreLead = async (req, res) => {
   try {
-    const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false }).lean();
-    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+    const scope = leadScope(req, req.params.id);
+    const lead = scope && await CRMLead.findOne(scope).lean();
+    if (!lead) return notFound(res);
 
     const prompt = `You are a lead scoring AI for TechnoHana, an AI Training & Corporate Learning company.
 Score this lead from 0-100 and classify as hot/warm/cold based on buying intent.
@@ -520,7 +763,7 @@ Respond ONLY with valid JSON: {"score": <number>, "band": "<hot|warm|cold>", "re
 
     res.json({ success: true, data: parsed });
   } catch (err) {
-    res.status(500).json({ success: false, message: "AI scoring failed" });
+    sendCrmError(res, err, "AI scoring failed");
   }
 };
 
@@ -529,38 +772,42 @@ export const aiEmailDraft = async (req, res) => {
     const { leadId, tone = "professional", context = "" } = req.body;
     if (!leadId) return res.status(400).json({ success: false, message: "leadId is required" });
 
-    const lead = await CRMLead.findOne({ _id: leadId, isDeleted: false }).lean();
-    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+    const scope = leadScope(req, leadId);
+    const lead = scope && await CRMLead.findOne(scope).lean();
+    if (!lead) return notFound(res);
 
-    const prompt = `Write a ${tone} follow-up email for this lead on behalf of TechnoHana's sales team.
+    const safeTone = ["professional", "friendly", "formal", "casual", "persuasive"].includes(tone) ? tone : "professional";
+    const extra = typeof context === "string" ? context.slice(0, 1000) : "";
+
+    const prompt = `Write a ${safeTone} follow-up email for this lead on behalf of TechnoHana's sales team.
 
 Lead: ${lead.name}, ${lead.designation || ""} at ${lead.company || "their company"}
 Interest: ${lead.interest || "AI/Corporate Training"}
 Status: ${lead.status}
-${context ? `Additional context: ${context}` : ""}
+${extra ? `Additional context: ${extra}` : ""}
 
 Write subject line and email body. Keep it concise (under 150 words). Focus on value, not features. Sign as "TechnoHana Sales Team".`;
 
     const { text: draft } = await callClaude({ system: "You are a B2B sales email writer.", prompt, maxTokens: 400 });
     res.json({ success: true, data: { draft } });
   } catch (err) {
-    res.status(500).json({ success: false, message: "AI email draft failed" });
+    sendCrmError(res, err, "AI email draft failed");
   }
 };
 
 export const draftProposal = async (req, res) => {
   try {
-    const lead = await CRMLead.findOne({ _id: req.params.id, isDeleted: false })
-      .populate("assignedTo", "name email")
-      .lean();
-    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+    const scope = leadScope(req, req.params.id);
+    const lead = scope && await CRMLead.findOne(scope).populate("assignedTo", "name email").lean();
+    if (!lead) return notFound(res);
 
     // Compute server-side pricing for the recommended courses / team size
     let pricingContext = "";
     if (lead.recommendedCourses?.length > 0 && lead.currency && lead.teamSize) {
       const enrollmentType = lead.teamSize >= 2 ? "group" : "individual";
       const snippets = [];
-      for (const courseId of lead.recommendedCourses.slice(0, 5)) {
+      for (const { courseId, courseTitle } of lead.recommendedCourses.slice(0, 5)) {
+        if (!courseId) continue;
         try {
           const quote = await computeQuote({
             courseId,
@@ -570,7 +817,7 @@ export const draftProposal = async (req, res) => {
           });
           const symbol = { inr: "₹", usd: "$", aed: "AED", gbp: "£", eur: "€" }[quote.currency] || "";
           const totalMajor = (quote.expectedTotalMinor / 100).toLocaleString();
-          snippets.push(`Course ${courseId}: ${symbol}${totalMajor} total for ${lead.teamSize} participants (${quote.discountPercent}% group discount applied)`);
+          snippets.push(`${courseTitle || `Course ${courseId}`}: ${symbol}${totalMajor} total for ${lead.teamSize} participants (${quote.discountPercent}% group discount applied)`);
         } catch {
           // skip courses that can't be priced
         }
@@ -587,7 +834,7 @@ Team Size: ${lead.teamSize || "N/A"} participants
 Budget: ${lead.budget ? `${lead.currency || "INR"} ${lead.budget.toLocaleString()}` : "To be discussed"}
 Training Need: ${lead.interest || "AI and digital skills training"}
 Skill Gap Data: ${lead.skillGapData ? JSON.stringify(lead.skillGapData) : "Not assessed"}
-Recommended Courses: ${(lead.recommendedCourses || []).join(", ") || "To be recommended"}${pricingContext}
+Recommended Courses: ${(lead.recommendedCourses || []).map((c) => c.courseTitle || c.courseId).filter(Boolean).join(", ") || "To be recommended"}${pricingContext}
 
 Write a structured proposal with these sections:
 1. Executive Summary (2-3 sentences)
@@ -605,16 +852,54 @@ Keep total length under 400 words. Sign as "TechnoHana Corporate Learning Team".
       maxTokens: 800,
     });
 
-    // Log as activity
     await logActivity(
-      lead._id, "proposal_sent", "AI Proposal Draft Generated",
+      lead._id, "ai_draft", "AI Proposal Draft Generated",
       `Draft generated by ${req.admin.name || req.admin.email}`,
       req.admin._id
     );
 
     res.json({ success: true, data: { html, leadName: lead.name, company: lead.company }, message: "Proposal draft generated" });
   } catch (err) {
-    console.error("draftProposal error:", err);
-    res.status(500).json({ success: false, message: "Proposal generation failed" });
+    sendCrmError(res, err, "Proposal generation failed");
+  }
+};
+
+// POST /ai/ask — free-form question for the sales assistant, optionally about one
+// lead the caller can see (its details and recent activity go in as context).
+export const aiAsk = async (req, res) => {
+  try {
+    const { question, leadId } = req.body;
+    if (typeof question !== "string" || !question.trim()) {
+      return res.status(400).json({ success: false, message: "Ask a question" });
+    }
+    if (question.length > 2000) return res.status(400).json({ success: false, message: "Question is too long" });
+
+    let leadContext = "No specific lead selected.";
+    if (leadId) {
+      const scope = leadScope(req, leadId);
+      const lead = scope && await CRMLead.findOne(scope).lean();
+      if (!lead) return notFound(res);
+      const recent = await CRMActivity.find({ relatedToType: "lead", relatedToId: lead._id })
+        .sort({ createdAt: -1 }).limit(10).select("type title body createdAt").lean();
+      leadContext = `Lead: ${lead.name}${lead.designation ? `, ${lead.designation}` : ""}${lead.company ? ` at ${lead.company}` : ""}
+Status: ${lead.status} · Priority: ${lead.priority} · Source: ${lead.source}
+Industry: ${lead.industry || "N/A"} · Team size: ${lead.teamSize || "N/A"} · Budget: ${lead.budget ? `${lead.currency || "INR"} ${lead.budget}` : "N/A"}
+Interest: ${lead.interest || "N/A"}
+Next follow-up: ${lead.nextFollowUp ? new Date(lead.nextFollowUp).toDateString() : "not set"}
+Recent activity (newest first):
+${recent.map((a) => `- ${new Date(a.createdAt).toDateString()} ${a.type}: ${(a.title || "")} ${(a.body || "").slice(0, 200)}`).join("\n") || "- none"}`;
+    }
+
+    const prompt = `You help TechnoHana's sales team (AI & corporate training) work their CRM.
+Answer the rep's question concisely and practically. Use only the context below for facts about the lead; say so if something isn't known rather than guessing.
+
+${leadContext}
+
+Question: ${question.trim()}`;
+
+    const { text } = await callClaude({ system: "You are a pragmatic B2B sales assistant inside a CRM.", prompt, maxTokens: 700 });
+    res.json({ success: true, data: { answer: text } });
+  } catch (err) {
+    sendCrmError(res, err, "AI request failed");
   }
 };

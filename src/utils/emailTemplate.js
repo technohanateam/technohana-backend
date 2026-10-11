@@ -53,7 +53,7 @@ function dataRow(label, value, shade) {
 }
 
 // Escapes user-supplied text before interpolating into HTML email bodies
-function escapeHtml(str) {
+export function escapeHtml(str) {
   if (!str) return str;
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
