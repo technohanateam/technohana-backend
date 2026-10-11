@@ -1,5 +1,27 @@
 import CRMPipeline from "../models/crm/crmPipeline.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
+import { isValidId, pick, dealOwnerFilter, sendCrmError } from "../utils/crmQuery.js";
+
+const PIPELINE_FIELDS = ["name", "type", "description", "isDefault", "isActive", "currency"];
+const notFound = (res) => res.status(404).json({ success: false, message: "Pipeline not found" });
+
+// Returns cleaned stages, or an error message string.
+const cleanStages = (stages) => {
+  if (!Array.isArray(stages) || stages.length === 0) return "At least one stage is required";
+  if (stages.length > 30) return "A pipeline can have at most 30 stages";
+  const cleaned = stages.map((s, i) => ({
+    key: typeof s?.key === "string" ? s.key.trim() : "",
+    label: typeof s?.label === "string" ? s.label.trim() : "",
+    order: Number.isFinite(Number(s?.order)) ? Number(s.order) : i,
+    probability: Math.min(100, Math.max(0, Number(s?.probability) || 0)),
+    color: typeof s?.color === "string" && /^#[0-9a-f]{6}$/i.test(s.color) ? s.color : "#8B5CF6",
+    isWon: !!s?.isWon,
+    isLost: !!s?.isLost && !s?.isWon,
+  }));
+  if (cleaned.some((s) => !s.key || !s.label)) return "Every stage needs a key and a label";
+  if (new Set(cleaned.map((s) => s.key)).size !== cleaned.length) return "Stage keys must be unique";
+  return cleaned;
+};
 
 const DEFAULT_PIPELINES = [
   {
@@ -58,10 +80,10 @@ export const getPipelines = async (req, res) => {
   try {
     const pipelines = await CRMPipeline.find({ isActive: true }).sort({ isDefault: -1, createdAt: 1 }).lean();
 
-    // Add deal counts per pipeline
+    // Open deal counts/value per pipeline — a rep's numbers cover only their deals.
     const ids = pipelines.map((p) => p._id);
     const dealCounts = await CRMDeal.aggregate([
-      { $match: { pipeline: { $in: ids }, isDeleted: false, status: "open" } },
+      { $match: { pipeline: { $in: ids }, isDeleted: false, status: "open", ...(await dealOwnerFilter(req)) } },
       { $group: { _id: "$pipeline", count: { $sum: 1 }, totalValue: { $sum: "$value" } } },
     ]);
     const dcMap = Object.fromEntries(dealCounts.map((d) => [d._id.toString(), d]));
@@ -74,18 +96,19 @@ export const getPipelines = async (req, res) => {
 
     res.json({ success: true, data: enriched });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to fetch pipelines" });
+    sendCrmError(res, err, "Failed to fetch pipelines");
   }
 };
 
 export const getPipeline = async (req, res) => {
   try {
-    const pipeline = await CRMPipeline.findById(req.params.id).lean();
-    if (!pipeline) return res.status(404).json({ success: false, message: "Pipeline not found" });
+    const pipeline = isValidId(req.params.id) && await CRMPipeline.findById(req.params.id).lean();
+    if (!pipeline) return notFound(res);
 
-    // Deals grouped by stage
+    // Deals grouped by stage (at most 50 listed per stage; count/value cover all)
     const dealsByStage = await CRMDeal.aggregate([
-      { $match: { pipeline: pipeline._id, isDeleted: false, status: "open" } },
+      { $match: { pipeline: pipeline._id, isDeleted: false, status: "open", ...(await dealOwnerFilter(req)) } },
+      { $sort: { createdAt: -1 } },
       {
         $group: {
           _id: "$stageKey",
@@ -94,43 +117,45 @@ export const getPipeline = async (req, res) => {
           deals: { $push: { _id: "$_id", title: "$title", value: "$value", probability: "$probability", expectedCloseDate: "$expectedCloseDate" } },
         },
       },
+      { $project: { count: 1, totalValue: 1, deals: { $slice: ["$deals", 50] } } },
     ]);
 
     res.json({ success: true, data: { ...pipeline, dealsByStage } });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to fetch pipeline" });
+    sendCrmError(res, err, "Failed to fetch pipeline");
   }
 };
 
 export const createPipeline = async (req, res) => {
   try {
-    const { name, stages } = req.body;
-    if (!name) return res.status(400).json({ success: false, message: "Pipeline name is required" });
-    if (!stages?.length) return res.status(400).json({ success: false, message: "At least one stage is required" });
+    const { name } = req.body;
+    if (typeof name !== "string" || !name.trim()) return res.status(400).json({ success: false, message: "Pipeline name is required" });
+    const stages = cleanStages(req.body.stages);
+    if (typeof stages === "string") return res.status(400).json({ success: false, message: stages });
 
     if (req.body.isDefault) {
       await CRMPipeline.updateMany({}, { isDefault: false });
     }
 
-    const allowed = ["name", "type", "description", "isDefault", "isActive", "stages", "currency"];
-    const fields = {};
-    allowed.forEach((f) => { if (req.body[f] !== undefined) fields[f] = req.body[f]; });
-
-    const pipeline = await CRMPipeline.create({ ...fields, createdBy: req.admin._id });
+    const fields = pick(req.body, PIPELINE_FIELDS);
+    const pipeline = await CRMPipeline.create({ ...fields, name: name.trim(), stages, createdBy: req.admin._id });
     res.status(201).json({ success: true, data: pipeline, message: "Pipeline created" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to create pipeline" });
+    sendCrmError(res, err, "Failed to create pipeline");
   }
 };
 
 export const updatePipeline = async (req, res) => {
   try {
-    const pipeline = await CRMPipeline.findById(req.params.id);
-    if (!pipeline) return res.status(404).json({ success: false, message: "Pipeline not found" });
+    const pipeline = isValidId(req.params.id) && await CRMPipeline.findById(req.params.id);
+    if (!pipeline) return notFound(res);
+
+    const stages = req.body.stages === undefined ? undefined : cleanStages(req.body.stages);
+    if (typeof stages === "string") return res.status(400).json({ success: false, message: stages });
 
     // Removing a stage that still holds deals would orphan them (they'd vanish from every board).
-    if (Array.isArray(req.body.stages)) {
-      const nextKeys = new Set(req.body.stages.map((s) => s?.key));
+    if (stages) {
+      const nextKeys = new Set(stages.map((s) => s.key));
       const removed = pipeline.stages.map((s) => s.key).filter((k) => !nextKeys.has(k));
       if (removed.length) {
         const stuck = await CRMDeal.aggregate([
@@ -146,20 +171,20 @@ export const updatePipeline = async (req, res) => {
 
     if (req.body.isDefault) await CRMPipeline.updateMany({ _id: { $ne: pipeline._id } }, { isDefault: false });
 
-    const allowed = ["name", "type", "description", "isDefault", "isActive", "stages", "currency"];
-    allowed.forEach((f) => { if (req.body[f] !== undefined) pipeline[f] = req.body[f]; });
+    Object.assign(pipeline, pick(req.body, PIPELINE_FIELDS));
+    if (stages) pipeline.stages = stages;
 
     await pipeline.save();
     res.json({ success: true, data: pipeline, message: "Pipeline updated" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to update pipeline" });
+    sendCrmError(res, err, "Failed to update pipeline");
   }
 };
 
 export const deletePipeline = async (req, res) => {
   try {
-    const pipeline = await CRMPipeline.findById(req.params.id);
-    if (!pipeline) return res.status(404).json({ success: false, message: "Pipeline not found" });
+    const pipeline = isValidId(req.params.id) && await CRMPipeline.findById(req.params.id);
+    if (!pipeline) return notFound(res);
     if (pipeline.isDefault) return res.status(400).json({ success: false, message: "Cannot delete the default pipeline" });
 
     const dealCount = await CRMDeal.countDocuments({ pipeline: pipeline._id, isDeleted: false });
@@ -171,6 +196,6 @@ export const deletePipeline = async (req, res) => {
     await pipeline.save();
     res.json({ success: true, message: "Pipeline archived" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to delete pipeline" });
+    sendCrmError(res, err, "Failed to delete pipeline");
   }
 };

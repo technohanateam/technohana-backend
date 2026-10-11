@@ -9,11 +9,15 @@ export const authenticateCrm = async (req, res, next) => {
   }
 
   try {
-    const payload = jwt.verify(authHeader.split(" ")[1], process.env.CRM_JWT_SECRET);
+    const payload = jwt.verify(authHeader.split(" ")[1], process.env.CRM_JWT_SECRET, { algorithms: ["HS256"] });
 
-    const account = await CrmUser.findById(payload.uid).select("active crmRole name email").lean();
+    const account = await CrmUser.findById(payload.uid).select("active crmRole name email tokenVersion").lean();
     if (!account || !account.active) {
       return res.status(401).json({ message: "Account deactivated" });
+    }
+    // Tokens issued before a password reset, deactivation or role change are void.
+    if ((payload.tv ?? 0) !== (account.tokenVersion ?? 0)) {
+      return res.status(401).json({ message: "Session expired, please sign in again" });
     }
 
     // req.admin keeps the shape the CRM controllers already read (_id, role, name, email)

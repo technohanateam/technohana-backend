@@ -1,7 +1,11 @@
 import InternApplication from "../models/internApplication.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import cloudinary from "../config/cloudinary.js";
-import { parsePaging } from "../utils/crmQuery.js";
+import { parsePaging, isValidId } from "../utils/crmQuery.js";
+import { escapeHtml } from "../utils/emailTemplate.js";
+
+// Resumes uploaded by the internship form (internApplication.controller.js).
+const RESUME_FOLDER = "technohana/intern-resumes/";
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -45,9 +49,10 @@ export const getInternApplication = async (req, res) => {
 export const updateInternApplication = async (req, res) => {
   try {
     const { notes, assignedTo, nextFollowUp } = req.body;
+    if (!isValidId(req.params.id)) return res.status(404).json({ success: false, message: "Application not found" });
     const update = {};
-    if (notes !== undefined) update.notes = notes;
-    if (assignedTo !== undefined) update.assignedTo = assignedTo;
+    if (notes !== undefined) update.notes = String(notes).slice(0, 5000);
+    if (assignedTo !== undefined) update.assignedTo = String(assignedTo).slice(0, 200);
     if (nextFollowUp !== undefined) update.nextFollowUp = nextFollowUp || null;
 
     const updated = await InternApplication.findByIdAndUpdate(req.params.id, update, { new: true });
@@ -94,7 +99,12 @@ export const deleteInternApplication = async (req, res) => {
   }
 };
 
-const emailTemplates = (name, customMessage) => ({
+// Applicant name and the custom message are user-supplied — escape before
+// they go into the HTML body.
+const emailTemplates = (rawName, rawMessage) => {
+  const name = escapeHtml(rawName);
+  const customMessage = rawMessage ? escapeHtml(String(rawMessage).slice(0, 5000)).replace(/\n/g, "<br/>") : "";
+  return {
   shortlisted: {
     subject: "Your Technohana Internship Application — Next Steps",
     html: `<p>Hi ${name},</p><p>Great news! We've reviewed your application and would love to schedule a brief interview. Please reply to this email with your availability.</p>${customMessage ? `<p>${customMessage}</p>` : ""}<p>Best regards,<br/>Technohana Careers Team</p>`,
@@ -119,7 +129,8 @@ const emailTemplates = (name, customMessage) => ({
     subject: "Message from Technohana",
     html: `<p>Hi ${name},</p><p>${customMessage || ""}</p><p>Best regards,<br/>Technohana Careers Team</p>`,
   },
-});
+  };
+};
 
 export const emailInternApplicant = async (req, res) => {
   try {
@@ -156,20 +167,28 @@ export const emailInternApplicant = async (req, res) => {
 
 // GET /api/crm/internships/resume-proxy?url=<cloudinary_url>&disposition=inline|attachment
 export const getInternResumeProxy = async (req, res) => {
-  const { url, disposition = "attachment" } = req.query;
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  if (!url || !url.startsWith(`https://res.cloudinary.com/${cloudName}/`)) {
-    return res.status(400).json({ success: false, message: "Invalid URL" });
-  }
   try {
-    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(\?|$)/);
-    if (!match) return res.status(400).json({ success: false, message: "Could not parse public_id" });
-    const publicId = match[1];
+    const { url, disposition = "attachment" } = req.query;
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+
+    // Only intern resumes from our own Cloudinary account — this endpoint signs
+    // private download URLs, so it must not work for any other uploaded file.
+    let parsed;
+    try { parsed = new URL(String(url)); } catch { parsed = null; }
+    if (!parsed || parsed.protocol !== "https:" || parsed.hostname !== "res.cloudinary.com"
+      || !parsed.pathname.startsWith(`/${cloudName}/raw/upload/`)) {
+      return res.status(400).json({ success: false, message: "Invalid URL" });
+    }
+    const match = decodeURIComponent(parsed.pathname).match(/\/upload\/(?:v\d+\/)?(.+)$/);
+    const publicId = match?.[1];
+    if (!publicId || !publicId.startsWith(RESUME_FOLDER) || publicId.includes("..")) {
+      return res.status(400).json({ success: false, message: "Invalid URL" });
+    }
 
     const signedUrl = cloudinary.utils.private_download_url(publicId, null, {
       resource_type: "raw",
       type: "upload",
-      attachment: disposition === "attachment",
+      attachment: disposition !== "inline",
       expires_at: Math.floor(Date.now() / 1000) + 300,
     });
 

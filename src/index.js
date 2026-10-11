@@ -1536,6 +1536,12 @@ app.use((err, req, res, next) => {
 
 // ─── Server Startup ────────────────────────────────────────────────────────────
 
+// Express 4 doesn't catch rejected promises from async handlers; without this,
+// one stray rejection crashes the whole API on Node 15+.
+process.on("unhandledRejection", (reason) => {
+  logger.error(`Unhandled promise rejection: ${reason?.stack || reason}`);
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`Server is running on port ${PORT}`);

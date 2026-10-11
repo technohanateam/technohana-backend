@@ -1,6 +1,7 @@
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
 import { buildDailyReport, sendDailyReportEmail, resolveRange, istDateStr, istMonthStart, REPORT_TZ } from "../services/crmDailyReport.js";
+import { ownerFilter } from "../utils/crmQuery.js";
 
 const wonAtPart = (op) => ({ [op]: { date: "$wonAt", timezone: REPORT_TZ } });
 
@@ -39,6 +40,7 @@ export const getRevenueTrend = async (req, res) => {
           isDeleted: false,
           status: "won",
           wonAt: { $gte: cutoff },
+          ...ownerFilter(req),
         },
       },
       {

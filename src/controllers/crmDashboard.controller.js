@@ -5,7 +5,7 @@ import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMCompany from "../models/crm/crmCompany.model.js";
 import { resolveRange, istMonthStart, istDateStr } from "../services/crmDailyReport.js";
-import { attachRelated } from "../utils/crmQuery.js";
+import { attachRelated, ownerFilter, sendCrmError } from "../utils/crmQuery.js";
 
 const STATUS_ORDER = [
   "new", "discovery", "needs_analysis", "skill_gap_assessed",
@@ -20,10 +20,8 @@ export const getDashboardStats = async (req, res) => {
     const weekStart  = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const monthStart = istMonthStart();
 
-    const adminId = req.admin._id;
-    const role    = req.crmRole || req.admin.role;
-    // Sales reps see their own data; admins see all
-    const assignedFilter = ["sales"].includes(role) ? { assignedTo: adminId } : {};
+    // Sales reps see their own data; everyone else sees the team's.
+    const assignedFilter = ownerFilter(req);
 
     const [
       totalLeads,
@@ -38,7 +36,6 @@ export const getDashboardStats = async (req, res) => {
       tasksDueToday,
       overdueTasksCount,
       openTasksCount,
-      recentActivities,
       totalContacts,
       totalCompanies,
       leadsBySource,
@@ -70,7 +67,7 @@ export const getDashboardStats = async (req, res) => {
         isDeleted: false,
         status: { $in: ["open", "in_progress"] },
         dueDate: { $gte: todayStart, $lt: todayEnd },
-        ...(["sales", "trainer"].includes(role) ? { assignedTo: adminId } : {}),
+        ...assignedFilter,
       })
         .populate("assignedTo", "name email")
         .sort({ dueDate: 1 })
@@ -81,20 +78,14 @@ export const getDashboardStats = async (req, res) => {
         isDeleted: false,
         status: { $in: ["open", "in_progress"] },
         dueDate: { $lt: todayStart },
-        ...(["sales", "trainer"].includes(role) ? { assignedTo: adminId } : {}),
+        ...assignedFilter,
       }),
 
       CRMTask.countDocuments({
         isDeleted: false,
         status: { $in: ["open", "in_progress"] },
-        ...(["sales", "trainer"].includes(role) ? { assignedTo: adminId } : {}),
+        ...assignedFilter,
       }),
-
-      CRMActivity.find()
-        .sort({ createdAt: -1 })
-        .limit(20)
-        .populate("performedBy", "name")
-        .lean(),
 
       CRMContact.countDocuments({ isDeleted: false }),
       CRMCompany.countDocuments({ isDeleted: false }),
@@ -133,43 +124,38 @@ export const getDashboardStats = async (req, res) => {
         companies: totalCompanies,
         funnel,
         leadsBySource,
-        recentActivities,
       },
     });
   } catch (err) {
     console.error("CRM dashboard stats error:", err);
-    res.status(500).json({ success: false, message: "Failed to load dashboard stats" });
+    sendCrmError(res, err, "Failed to load dashboard stats");
   }
 };
 
 export const getFunnelData = async (req, res) => {
   try {
-    const adminId = req.admin._id;
-    const role    = req.crmRole || req.admin.role;
-    const assignedFilter = ["sales"].includes(role) ? { assignedTo: adminId } : {};
-
     const result = await CRMLead.aggregate([
-      { $match: { isDeleted: false, ...assignedFilter } },
+      { $match: { isDeleted: false, ...ownerFilter(req) } },
       { $group: { _id: "$status", count: { $sum: 1 }, totalExpectedRevenue: { $sum: "$expectedRevenue" } } },
     ]);
     result.sort((a, b) => STATUS_ORDER.indexOf(a._id) - STATUS_ORDER.indexOf(b._id));
 
     res.json({ success: true, data: result });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to load funnel data" });
+    sendCrmError(res, err, "Failed to load funnel data");
   }
 };
 
 export const getLeadSourcesBreakdown = async (req, res) => {
   try {
     const result = await CRMLead.aggregate([
-      { $match: { isDeleted: false } },
+      { $match: { isDeleted: false, ...ownerFilter(req) } },
       { $group: { _id: "$source", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
     ]);
     res.json({ success: true, data: result });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to load lead sources" });
+    sendCrmError(res, err, "Failed to load lead sources");
   }
 };
 
@@ -178,9 +164,10 @@ export const getAnalytics = async (req, res) => {
     const now = new Date();
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-    const [dealsWonByMonth, leadsCreatedByMonth, dealStatusCounts, activityByType, wonDealsAll] = await Promise.all([
+    const own = ownerFilter(req);
+    const [dealsWonByMonth, leadsCreatedByMonth, dealStatusCounts, activityByType, avgWon] = await Promise.all([
       CRMDeal.aggregate([
-        { $match: { isDeleted: false, status: "won", wonAt: { $gte: sixMonthsAgo } } },
+        { $match: { isDeleted: false, status: "won", wonAt: { $gte: sixMonthsAgo }, ...own } },
         { $group: {
           _id: { year: { $year: "$wonAt" }, month: { $month: "$wonAt" } },
           revenue: { $sum: "$value" },
@@ -190,7 +177,7 @@ export const getAnalytics = async (req, res) => {
       ]),
 
       CRMLead.aggregate([
-        { $match: { isDeleted: false, createdAt: { $gte: sixMonthsAgo } } },
+        { $match: { isDeleted: false, createdAt: { $gte: sixMonthsAgo }, ...own } },
         { $group: {
           _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
           count: { $sum: 1 },
@@ -199,17 +186,20 @@ export const getAnalytics = async (req, res) => {
       ]),
 
       CRMDeal.aggregate([
-        { $match: { isDeleted: false } },
+        { $match: { isDeleted: false, ...own } },
         { $group: { _id: "$status", count: { $sum: 1 }, value: { $sum: "$value" } } },
       ]),
 
       CRMActivity.aggregate([
-        { $match: { createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
+        { $match: { createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, ...ownerFilter(req, "performedBy") } },
         { $group: { _id: "$type", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
 
-      CRMDeal.find({ isDeleted: false, status: "won" }).select("value").lean(),
+      CRMDeal.aggregate([
+        { $match: { isDeleted: false, status: "won", ...own } },
+        { $group: { _id: null, avg: { $avg: "$value" } } },
+      ]),
     ]);
 
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -235,9 +225,7 @@ export const getAnalytics = async (req, res) => {
     const wonCount  = dealStatusCounts.find((d) => d._id === "won")?.count || 0;
     const lostCount = dealStatusCounts.find((d) => d._id === "lost")?.count || 0;
     const winRate   = wonCount + lostCount > 0 ? Math.round((wonCount / (wonCount + lostCount)) * 100) : 0;
-    const avgDealValue = wonDealsAll.length
-      ? Math.round(wonDealsAll.reduce((s, d) => s + (d.value || 0), 0) / wonDealsAll.length)
-      : 0;
+    const avgDealValue = Math.round(avgWon[0]?.avg || 0);
 
     res.json({
       success: true,
@@ -252,7 +240,7 @@ export const getAnalytics = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to load analytics" });
+    sendCrmError(res, err, "Failed to load analytics");
   }
 };
 
@@ -267,18 +255,14 @@ export const getCalendarEvents = async (req, res) => {
     const next = new Date(Date.UTC(yr, mo, 1)).toISOString().slice(0, 7);
     const end = new Date(`${next}-01T00:00:00+05:30`);
 
-    const role     = req.crmRole || req.admin.role;
-    const adminId  = req.admin._id;
-    const ownFilter = (field) => (["sales"].includes(role) ? { [field]: adminId } : {});
-
     const [tasks, activities] = await Promise.all([
-      CRMTask.find({ isDeleted: false, dueDate: { $gte: start, $lt: end }, ...ownFilter("assignedTo") })
+      CRMTask.find({ isDeleted: false, dueDate: { $gte: start, $lt: end }, ...ownerFilter(req) })
         .populate("assignedTo", "name")
         .select("title type status priority dueDate relatedToId relatedToType assignedTo")
         .sort({ dueDate: 1 })
         .limit(1000)
         .lean(),
-      CRMActivity.find({ createdAt: { $gte: start, $lt: end }, type: { $in: ["call", "meeting"] }, ...ownFilter("performedBy") })
+      CRMActivity.find({ createdAt: { $gte: start, $lt: end }, type: { $in: ["call", "meeting"] }, ...ownerFilter(req, "performedBy") })
         .populate("performedBy", "name")
         .select("type title relatedToId relatedToType createdAt performedBy")
         .sort({ createdAt: 1 })
@@ -289,7 +273,6 @@ export const getCalendarEvents = async (req, res) => {
     const [tasksWithRelated, activitiesWithRelated] = await Promise.all([attachRelated(tasks), attachRelated(activities)]);
     res.json({ success: true, data: { month, tasks: tasksWithRelated, activities: activitiesWithRelated } });
   } catch (err) {
-    console.error("getCalendarEvents error:", err);
-    res.status(500).json({ success: false, message: "Failed to load calendar" });
+    sendCrmError(res, err, "Failed to load calendar");
   }
 };

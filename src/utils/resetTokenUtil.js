@@ -1,7 +1,17 @@
 import crypto from 'crypto';
 import { timingSafeEqual } from 'crypto';
 
-const RESET_TOKEN_SECRET = process.env.RESET_TOKEN_SECRET || 'reset-token-secret';
+// Read lazily (env may load after this module) and never fall back to a public
+// constant: without RESET_TOKEN_SECRET, derive a server-only pepper from JWT_SECRET.
+let warnedMissingSecret = false;
+const resetTokenSecret = () => {
+  if (process.env.RESET_TOKEN_SECRET) return process.env.RESET_TOKEN_SECRET;
+  if (!warnedMissingSecret && process.env.NODE_ENV === 'production') {
+    console.error('RESET_TOKEN_SECRET is not set — deriving reset-token pepper from JWT_SECRET. Set it explicitly.');
+    warnedMissingSecret = true;
+  }
+  return crypto.createHash('sha256').update(`reset-token:${process.env.JWT_SECRET || ''}`).digest('hex');
+};
 
 export const generateResetToken = () => {
   const token = crypto.randomBytes(32).toString('hex');
@@ -12,7 +22,7 @@ export const generateResetToken = () => {
 export const hashToken = (token) => {
   return crypto
     .createHash('sha256')
-    .update(token + RESET_TOKEN_SECRET)
+    .update(token + resetTokenSecret())
     .digest('hex');
 };
 
@@ -29,7 +39,7 @@ export const getResetTokenLink = (baseUrl, token, expiryMinutes = 60) => {
   const timestamp = Date.now();
   const payload = `${token}|${timestamp}|${expiryMinutes * 60 * 1000}`;
   const signature = crypto
-    .createHmac('sha256', RESET_TOKEN_SECRET)
+    .createHmac('sha256', resetTokenSecret())
     .update(payload)
     .digest('hex');
 

@@ -12,6 +12,11 @@ const crmUserSchema = new Schema(
     lastLoginAt: { type: Date, default: null },
     resetTokenHash: { type: String, default: null },
     resetTokenExpiry: { type: Date, default: null },
+    // Bumped on password change, deactivation or role change; JWTs carrying an
+    // older value are rejected, so those events end existing sessions.
+    tokenVersion: { type: Number, default: 0 },
+    failedLoginCount: { type: Number, default: 0 },
+    lockedUntil: { type: Date, default: null },
   },
   { timestamps: true }
 );

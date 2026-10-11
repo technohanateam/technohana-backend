@@ -1,5 +1,7 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { crmRead, crmWrite, crmDelete, crmBulk, crmImport, crmExport } from "../middleware/crmPermission.js";
+import { crmInputGuard } from "../middleware/crmInputGuard.js";
 
 import { getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents } from "../controllers/crmDashboard.controller.js";
 import { getRevenueTrend, getRepStats, getConversionStats, getDailyReport, emailDailyReportToMe } from "../controllers/crmAnalytics.controller.js";
@@ -40,6 +42,18 @@ import {
 
 const router = Router();
 
+router.use(crmInputGuard);
+
+// Each AI call costs a Claude request — cap it per CRM user, not per IP.
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => `crm-ai:${req.admin.uid}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "AI limit reached (30 per hour). Please try again later." },
+});
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 router.get("/dashboard/stats",   crmRead("dashboard"),  getDashboardStats);
 router.get("/dashboard/funnel",  crmRead("dashboard"),  getFunnelData);
@@ -68,10 +82,10 @@ router.post("/leads/:id/notes",     crmWrite("leads"),        addNote);
 router.get("/leads/:id/activities", crmRead("leads"),         getLeadActivities);
 
 // ── AI on Leads ───────────────────────────────────────────────────────────────
-router.get("/leads/:id/ai-summary",      crmRead("ai"),  aiLeadSummary);
-router.post("/leads/:id/ai-score",       crmWrite("ai"), aiScoreLead);
-router.post("/leads/:id/draft-proposal", crmWrite("ai"), draftProposal);
-router.post("/ai/email-draft",           crmWrite("ai"), aiEmailDraft);
+router.get("/leads/:id/ai-summary",      crmRead("ai"),  aiLimiter, aiLeadSummary);
+router.post("/leads/:id/ai-score",       crmWrite("ai"), aiLimiter, aiScoreLead);
+router.post("/leads/:id/draft-proposal", crmWrite("ai"), aiLimiter, draftProposal);
+router.post("/ai/email-draft",           crmWrite("ai"), aiLimiter, aiEmailDraft);
 
 // ── Contacts ──────────────────────────────────────────────────────────────────
 router.get("/contacts",                  crmRead("contacts"),   getContacts);

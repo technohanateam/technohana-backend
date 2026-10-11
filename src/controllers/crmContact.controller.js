@@ -1,8 +1,15 @@
-import mongoose from "mongoose";
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
-import { parsePaging } from "../utils/crmQuery.js";
+import { parsePaging, isValidId, pick, dealOwnerFilter, findMissingRef, sendCrmError } from "../utils/crmQuery.js";
+
+// Notes go through POST /contacts/:id/notes so their author can't be forged.
+const CONTACT_FIELDS = ["firstName", "lastName", "email", "phone", "whatsApp", "company", "designation",
+  "department", "linkedIn", "twitter", "website", "country", "state", "city", "timezone",
+  "isDecisionMaker", "isPrimaryContact", "tags"];
+
+const notFound = (res) => res.status(404).json({ success: false, message: "Contact not found" });
+const normEmail = (email) => (typeof email === "string" ? email.toLowerCase().trim() : email);
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -20,8 +27,8 @@ export const getContacts = async (req, res) => {
     const filter = { isDeleted: false };
 
     if (company) {
-      if (!mongoose.Types.ObjectId.isValid(company)) return res.status(400).json({ success: false, message: "Invalid company id" });
-      filter.company = new mongoose.Types.ObjectId(company);
+      if (!isValidId(company)) return res.status(400).json({ success: false, message: "Invalid company id" });
+      filter.company = company;
     }
     if (isDecisionMaker) filter.isDecisionMaker = true;
     if (search) {
@@ -42,12 +49,13 @@ export const getContacts = async (req, res) => {
 
     res.json({ success: true, data: contacts, meta: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to fetch contacts" });
+    sendCrmError(res, err, "Failed to fetch contacts");
   }
 };
 
 export const getContact = async (req, res) => {
   try {
+    if (!isValidId(req.params.id)) return notFound(res);
     const contact = await CRMContact.findOne({ _id: req.params.id, isDeleted: false })
       .populate("company", "name industry website")
       .populate("tags", "name color")
@@ -57,55 +65,54 @@ export const getContact = async (req, res) => {
     const [activities, deals] = await Promise.all([
       CRMActivity.find({ relatedToType: "contact", relatedToId: contact._id })
         .sort({ createdAt: -1 }).limit(30).populate("performedBy", "name").lean(),
-      CRMDeal.find({ contact: contact._id, isDeleted: false })
+      CRMDeal.find({ contact: contact._id, isDeleted: false, ...(await dealOwnerFilter(req)) })
         .select("title value currency status stageKey expectedCloseDate").lean(),
     ]);
 
     res.json({ success: true, data: { ...contact, activities, deals } });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to fetch contact" });
+    sendCrmError(res, err, "Failed to fetch contact");
   }
 };
 
 export const createContact = async (req, res) => {
   try {
     const { firstName, email } = req.body;
-    if (!firstName) return res.status(400).json({ success: false, message: "First name is required" });
+    if (typeof firstName !== "string" || !firstName.trim()) return res.status(400).json({ success: false, message: "First name is required" });
 
     if (email) {
-      const exists = await CRMContact.exists({ email: email.toLowerCase().trim(), isDeleted: false });
+      const exists = await CRMContact.exists({ email: normEmail(email), isDeleted: false });
       if (exists) return res.status(409).json({ success: false, message: "Contact with this email already exists" });
     }
 
-    const allowed = ["firstName", "lastName", "email", "phone", "whatsApp", "company", "designation",
-      "department", "linkedIn", "twitter", "website", "country", "state", "city", "timezone",
-      "isDecisionMaker", "isPrimaryContact", "tags", "notes"];
-    const fields = {};
-    allowed.forEach((f) => { if (req.body[f] !== undefined) fields[f] = req.body[f]; });
+    const fields = pick(req.body, CONTACT_FIELDS);
+    const missing = await findMissingRef({ company: ["company", fields.company] });
+    if (missing) return res.status(400).json({ success: false, message: "Invalid company" });
 
-    const contact = await CRMContact.create({ ...fields, createdBy: req.admin._id });
-    await logActivity(contact._id, "created", "Contact created", `${firstName} added to CRM`, req.admin._id);
+    const contact = await CRMContact.create({ ...fields, email: normEmail(fields.email), createdBy: req.admin._id });
+    await logActivity(contact._id, "created", "Contact created", `${contact.firstName} added to CRM`, req.admin._id);
 
     res.status(201).json({ success: true, data: contact, message: "Contact created" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to create contact" });
+    sendCrmError(res, err, "Failed to create contact");
   }
 };
 
 export const updateContact = async (req, res) => {
   try {
-    const contact = await CRMContact.findOne({ _id: req.params.id, isDeleted: false });
-    if (!contact) return res.status(404).json({ success: false, message: "Contact not found" });
+    const contact = isValidId(req.params.id) && await CRMContact.findOne({ _id: req.params.id, isDeleted: false });
+    if (!contact) return notFound(res);
 
-    const allowed = ["firstName", "lastName", "email", "phone", "whatsApp", "company", "designation",
-      "department", "linkedIn", "twitter", "website", "country", "state", "city", "timezone",
-      "isDecisionMaker", "isPrimaryContact", "tags", "notes"];
-    allowed.forEach((f) => { if (req.body[f] !== undefined) contact[f] = req.body[f]; });
+    const fields = pick(req.body, CONTACT_FIELDS);
+    const missing = await findMissingRef({ company: ["company", fields.company] });
+    if (missing) return res.status(400).json({ success: false, message: "Invalid company" });
+    if (fields.email !== undefined) fields.email = normEmail(fields.email);
 
+    Object.assign(contact, fields);
     await contact.save();
     res.json({ success: true, data: contact, message: "Contact updated" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to update contact" });
+    sendCrmError(res, err, "Failed to update contact");
   }
 };
 
@@ -117,7 +124,7 @@ export const deleteContact = async (req, res) => {
     await contact.save();
     res.json({ success: true, message: "Contact deleted" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to delete contact" });
+    sendCrmError(res, err, "Failed to delete contact");
   }
 };
 
@@ -132,16 +139,17 @@ export const addContactNote = async (req, res) => {
     await logActivity(contact._id, "note", "Note added", body.trim(), req.admin._id);
     res.json({ success: true, data: contact.notes[contact.notes.length - 1] });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to add note" });
+    sendCrmError(res, err, "Failed to add note");
   }
 };
 
 export const getContactActivities = async (req, res) => {
   try {
+    if (!isValidId(req.params.id)) return notFound(res);
     const activities = await CRMActivity.find({ relatedToType: "contact", relatedToId: req.params.id })
       .sort({ createdAt: -1 }).limit(50).populate("performedBy", "name email").lean();
     res.json({ success: true, data: activities });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to fetch activities" });
+    sendCrmError(res, err, "Failed to fetch activities");
   }
 };
