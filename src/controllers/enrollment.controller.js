@@ -1,6 +1,13 @@
 // this file contains the controller for user enrollment
 
+import mongoose from "mongoose";
+import { v2 as cloudinary } from "cloudinary";
 import { User } from "../models/user.model.js";
+import Batch from "../models/batch.model.js";
+import Session from "../models/session.model.js";
+import Attendance from "../models/attendance.model.js";
+import CourseMaterial from "../models/courseMaterial.model.js";
+import { computeAttendanceStats } from "../utils/attendanceAggregations.js";
 import Course from "../models/course.model.js";
 import InstructorReview, { recomputeInstructorRating } from "../models/instructorReview.model.js";
 import { generateEnrollmentConfirmationEmail, generateEnquiryTable } from "../utils/emailTemplate.js";
@@ -369,6 +376,137 @@ export const getInstructorReviewForEnrollment = async (req, res) => {
 
         const review = await InstructorReview.findOne({ instructorId: course.instructorId, studentEmail: email, courseId: course._id }).lean();
         return res.json({ success: true, data: review || null });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+// ── Classroom (learner view of their batch) ──────────────────────────────────
+
+// Learner-facing links must be https; anything else is dropped rather than rendered.
+const safeHttps = (url) => {
+    try {
+        return new URL(url).protocol === "https:" ? url : null;
+    } catch {
+        return null;
+    }
+};
+
+// Resolves an enrollment owned by the signed-in learner and the batch it is in.
+const loadLearnerBatch = async (req) => {
+    const { enrollmentId } = req.params;
+    if (!mongoose.isValidObjectId(enrollmentId)) return { error: [400, "Malformed enrollment id"] };
+
+    const enrollment = await User.findOne({ _id: enrollmentId, email: req.user.email })
+        .select("batchId status courseTitle")
+        .lean();
+    if (!enrollment) return { error: [404, "Enrollment not found"] };
+    if (!enrollment.batchId || enrollment.status === "rejected") return { enrollment, batch: null };
+
+    const batch = await Batch.findById(enrollment.batchId)
+        .select("batchCode courseTitle courseId deliveryMode location meetingLink timezone startDate endDate instructorName status")
+        .lean();
+    return { enrollment, batch };
+};
+
+// What a learner may see from the materials library: shared with their batch (or
+// course-wide), not deleted, and for links either an allowlisted host or added by
+// the admin team. Unvetted "other" links stay with the trainer.
+const learnerMaterialFilter = (batch) => ({
+    deletedAt: null,
+    visibility: { $in: ["batch", "public"] },
+    $or: [{ batchId: batch._id }, { batchId: null, courseId: batch.courseId }],
+    $nor: [{ kind: "link", "link.provider": "other", uploadedByRole: { $ne: "admin" } }],
+});
+
+export const getClassroom = async (req, res) => {
+    try {
+        const { error, enrollment, batch } = await loadLearnerBatch(req);
+        if (error) return res.status(error[0]).json({ success: false, message: error[1] });
+        if (!batch) return res.json({ success: true, data: { batch: null, courseTitle: enrollment.courseTitle } });
+
+        const [sessions, materials, records] = await Promise.all([
+            Session.find({ batchId: batch._id })
+                .select("sequence title agenda startsAt endsAt status mode meetingLink recordingUrl")
+                .sort({ startsAt: 1 })
+                .lean(),
+            CourseMaterial.find(learnerMaterialFilter(batch))
+                .select("kind title description category sessionId link.provider file.sizeBytes createdAt order")
+                .sort({ order: 1, createdAt: -1 })
+                .lean(),
+            Attendance.find({ batchId: batch._id, enrollmentId: enrollment._id }).select("sessionId status").lean(),
+        ]);
+
+        const now = new Date();
+        const mine = new Map(records.map((r) => [String(r.sessionId), r.status]));
+        const scheduled = sessions.filter((s) => s.status !== "cancelled");
+
+        return res.json({
+            success: true,
+            data: {
+                batch: {
+                    batchCode: batch.batchCode,
+                    courseTitle: batch.courseTitle,
+                    deliveryMode: batch.deliveryMode,
+                    location: batch.location,
+                    timezone: batch.timezone,
+                    startDate: batch.startDate,
+                    endDate: batch.endDate,
+                    instructorName: batch.instructorName,
+                    status: batch.status,
+                },
+                sessions: sessions.map((s) => {
+                    const upcoming = s.status !== "cancelled" && new Date(s.endsAt) > now;
+                    return {
+                        _id: s._id,
+                        sequence: s.sequence,
+                        title: s.title,
+                        agenda: s.agenda,
+                        startsAt: s.startsAt,
+                        endsAt: s.endsAt,
+                        status: s.status,
+                        mode: s.mode,
+                        joinLink: upcoming ? safeHttps(s.meetingLink || batch.meetingLink) : null,
+                        recordingUrl: safeHttps(s.recordingUrl),
+                        myAttendance: mine.get(String(s._id)) || null,
+                    };
+                }),
+                materials,
+                attendance: computeAttendanceStats(records, scheduled.length),
+            },
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+export const openClassroomMaterial = async (req, res) => {
+    try {
+        const { error, batch } = await loadLearnerBatch(req);
+        if (error) return res.status(error[0]).json({ success: false, message: error[1] });
+        if (!batch || !mongoose.isValidObjectId(req.params.materialId))
+            return res.status(404).json({ success: false, message: "Material not found" });
+
+        const material = await CourseMaterial.findOne({ _id: req.params.materialId, ...learnerMaterialFilter(batch) }).lean();
+        if (!material) return res.status(404).json({ success: false, message: "Material not found" });
+
+        let url = null;
+        if (material.kind === "link") {
+            url = safeHttps(material.link?.url);
+        } else if (material.file?.publicId) {
+            url = cloudinary.utils.private_download_url(material.file.publicId, material.file.format || null, {
+                resource_type: "raw",
+                type: "upload",
+                attachment: true,
+                expires_at: Math.floor(Date.now() / 1000) + 300,
+            });
+        }
+        if (!url) return res.status(404).json({ success: false, message: "Material is not available" });
+
+        CourseMaterial.updateOne({ _id: material._id }, { $inc: { downloadCount: 1 } }).catch(() => {});
+        return res.json({ success: true, url });
     } catch (error) {
         console.log(error);
         return res.status(500).json({ success: false, message: "Internal server error" });

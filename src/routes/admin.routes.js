@@ -32,7 +32,7 @@ import { getAllLeads, getLead, createLead, updateLead, deleteLead } from "../con
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
-import { getAllCampaigns, getCampaign, createCampaign, createCampaignFromBlog, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy, approveCampaignReview, rejectCampaignReview, regenerateCampaignCopy, rerunCampaignQualityGate } from "../controllers/campaign.controller.js";
+import { getAllCampaigns, getCampaign, createCampaign, createCampaignFromBlog, updateCampaign, deleteCampaign, sendCampaignNow, sendCampaignTest, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy, approveCampaignReview, rejectCampaignReview, regenerateCampaignCopy, rerunCampaignQualityGate } from "../controllers/campaign.controller.js";
 import { getAllOpportunities, runOpportunityScanNow, approveOpportunity, dismissOpportunity } from "../controllers/campaignOpportunity.controller.js";
 import { getAllDripSequences, getDripSequence, createDripSequence, updateDripSequence, deleteDripSequence, activateDripSequence, deactivateDripSequence } from "../controllers/dripSequence.controller.js";
 import Campaign from "../models/campaign.model.js";
@@ -105,6 +105,17 @@ const adminUploadLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => req.admin?.uid || ipKeyGenerator(req.ip),
   message: 'Upload rate limit reached. Try again later.',
+});
+
+// Test sends can go to any address, so cap them per admin. Object message so
+// the admin UI can show it (a string body has no .message).
+const adminTestSendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.admin?.uid || ipKeyGenerator(req.ip),
+  message: { success: false, message: "Test-send limit reached (20 per hour). Try again later." },
 });
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -871,22 +882,34 @@ router.delete("/ai-risk-reports/:id", authenticateAdmin, requirePage("ai-risk-re
 });
 
 // GET /admin/leads?page=1&limit=20&persona=executives
-router.get("/leads", authenticateAdmin, requirePage("crm"), adminDataLimiter, getAllLeads);
-router.get("/leads/:id", authenticateAdmin, requirePage("crm"), adminDataLimiter, getLead);
+// Reads also accept "ai-risk-reports": the Persona Leads tab under Marketing is
+// gated by that key on the frontend (adminNavSections.js), and the marketing
+// role has it but not "crm".
+router.get("/leads", authenticateAdmin, requirePage("crm", "ai-risk-reports"), adminDataLimiter, getAllLeads);
+router.get("/leads/:id", authenticateAdmin, requirePage("crm", "ai-risk-reports"), adminDataLimiter, getLead);
 router.post("/leads", authenticateAdmin, requirePage("crm"), requireAdmin, createLead);
 router.put("/leads/:id", authenticateAdmin, requirePage("crm"), requireAdmin, updateLead);
 router.delete("/leads/:id", authenticateAdmin, requirePage("crm"), requireAdmin, deleteLead);
 
-// GET /admin/subscribers?page=1&limit=20
+// GET /admin/subscribers?page=1&limit=20&search=&isActive=true|false
+// isActive:false rows are the marketing suppression list (unsubscribed,
+// complained, bounced) — see services/emailSuppression.js.
 router.get("/subscribers", authenticateAdmin, requirePage("subscribers"), adminDataLimiter, async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, search, isActive, from } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
-    const [data, total] = await Promise.all([
-      Subscription.find().sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
-      Subscription.countDocuments(),
+    const filter = {};
+    const regex = buildRegexQuery(search);
+    if (regex) filter.email = regex;
+    if (isActive === "true" || isActive === "false") filter.isActive = isActive === "true";
+    if (from && !Number.isNaN(Date.parse(from))) filter.createdAt = { $gte: new Date(from) };
+    const [data, total, activeCount, inactiveCount] = await Promise.all([
+      Subscription.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
+      Subscription.countDocuments(filter),
+      Subscription.countDocuments({ isActive: true }),
+      Subscription.countDocuments({ isActive: false }),
     ]);
-    return res.json({ success: true, data, total, page: Number(page), limit: Number(limit) });
+    return res.json({ success: true, data, total, activeCount, inactiveCount, page: Number(page), limit: Number(limit) });
   } catch (err) {
     console.error("Admin subscribers error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -1457,6 +1480,29 @@ router.get("/campaigns", authenticateAdmin, requirePage("campaigns", "marketing-
 // POST /admin/campaigns - Create new campaign
 router.post("/campaigns", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, createCampaign);
 
+// Static /campaigns/* paths must be registered before /campaigns/:id, or
+// Express hands e.g. GET /campaigns/opportunities to getCampaign as an id.
+
+// POST /admin/campaigns/estimate-segment - Preview segment size
+router.post("/campaigns/estimate-segment", authenticateAdmin, requirePage("campaigns", "marketing-overview"), estimateSegmentSize);
+
+// GET /admin/campaigns/queue/stats - Get Bull queue stats
+router.get("/campaigns/queue/stats", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignQueueStats);
+
+// ─── Campaign Opportunity Engine ───────────────────────────────────────────────
+
+// GET /admin/campaigns/opportunities - List proposed/approved/dismissed opportunities
+router.get("/campaigns/opportunities", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getAllOpportunities);
+
+// POST /admin/campaigns/opportunities/run-now - Trigger an opportunity scan immediately
+router.post("/campaigns/opportunities/run-now", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, adminAiLimiter, runOpportunityScanNow);
+
+// POST /admin/campaigns/opportunities/:id/approve - Create a draft campaign from an opportunity
+router.post("/campaigns/opportunities/:id/approve", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, approveOpportunity);
+
+// POST /admin/campaigns/opportunities/:id/dismiss - Dismiss an opportunity
+router.post("/campaigns/opportunities/:id/dismiss", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, dismissOpportunity);
+
 // GET /admin/campaigns/:id - Get single campaign
 router.get("/campaigns/:id", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaign);
 
@@ -1469,6 +1515,9 @@ router.delete("/campaigns/:id", authenticateAdmin, requirePage("campaigns", "mar
 // POST /admin/campaigns/:id/send - Send campaign immediately (admin + marketing)
 router.post("/campaigns/:id/send", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, sendCampaignNow);
 
+// POST /admin/campaigns/:id/test-send - Send one [TEST] copy to a single address (admin + marketing)
+router.post("/campaigns/:id/test-send", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, adminTestSendLimiter, sendCampaignTest);
+
 // POST /admin/campaigns/:id/schedule - Schedule campaign for later (admin + marketing)
 router.post("/campaigns/:id/schedule", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, scheduleCampaign);
 
@@ -1480,12 +1529,6 @@ router.post("/campaigns/:id/resume", authenticateAdmin, requirePage("campaigns",
 
 // GET /admin/campaigns/:id/analytics - Get campaign metrics
 router.get("/campaigns/:id/analytics", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignAnalytics);
-
-// POST /admin/campaigns/estimate-segment - Preview segment size
-router.post("/campaigns/estimate-segment", authenticateAdmin, requirePage("campaigns", "marketing-overview"), estimateSegmentSize);
-
-// GET /admin/campaigns/queue/stats - Get Bull queue stats
-router.get("/campaigns/queue/stats", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getCampaignQueueStats);
 
 // POST /admin/campaigns/:id/ai-copy - Generate AI copy for a campaign
 router.post("/campaigns/:id/ai-copy", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, adminAiLimiter, generateAICopy);
@@ -1503,20 +1546,6 @@ router.post("/campaigns/:id/review/regenerate", authenticateAdmin, requirePage("
 
 // POST /admin/campaigns/:id/review/rerun-gate - Re-run just the compliance/style gate
 router.post("/campaigns/:id/review/rerun-gate", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, adminAiLimiter, rerunCampaignQualityGate);
-
-// ─── Campaign Opportunity Engine ───────────────────────────────────────────────
-
-// GET /admin/campaigns/opportunities - List proposed/approved/dismissed opportunities
-router.get("/campaigns/opportunities", authenticateAdmin, requirePage("campaigns", "marketing-overview"), getAllOpportunities);
-
-// POST /admin/campaigns/opportunities/run-now - Trigger an opportunity scan immediately
-router.post("/campaigns/opportunities/run-now", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireAdmin, adminAiLimiter, runOpportunityScanNow);
-
-// POST /admin/campaigns/opportunities/:id/approve - Create a draft campaign from an opportunity
-router.post("/campaigns/opportunities/:id/approve", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, approveOpportunity);
-
-// POST /admin/campaigns/opportunities/:id/dismiss - Dismiss an opportunity
-router.post("/campaigns/opportunities/:id/dismiss", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, dismissOpportunity);
 
 // ─── Drip Sequences ───────────────────────────────────────────────────────────
 

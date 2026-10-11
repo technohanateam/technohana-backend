@@ -6,8 +6,25 @@ import { scheduleCampaignJob, getQueueStats } from "../services/campaignQueue.js
 import { buildRegexQuery } from "../utils/escapeRegex.js";
 import { personalizeForRecipient } from "../services/emailMarketing/campaignPersonalizer.js";
 import { generateBlogPostEmail } from "../utils/emailTemplate.js";
+import { filterSuppressed, isSuppressed, withUnsubscribe } from "../services/emailSuppression.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+const EDITABLE_CAMPAIGN_FIELDS = [
+  "name",
+  "description",
+  "subject",
+  "htmlContent",
+  "previewText",
+  "fromName",
+  "fromEmail",
+  "variants",
+  "segments",
+  "triggerType",
+  "schedule",
+  "eventTrigger",
+  "personalize",
+];
 
 // Get all campaigns (with pagination & filters)
 export const getAllCampaigns = async (req, res) => {
@@ -34,7 +51,7 @@ export const getAllCampaigns = async (req, res) => {
       .skip(skip)
       .limit(limitNum)
       .select(
-        "name description subject status triggerType schedule metrics createdAt sentAt"
+        "name description subject status triggerType schedule metrics reviewState createdAt sentAt"
       )
       .lean();
 
@@ -219,7 +236,13 @@ export const updateCampaign = async (req, res) => {
       });
     }
 
-    Object.assign(campaign, updates);
+    // Whitelist: the admin form posts back the whole document it loaded, so a
+    // blanket Object.assign would let a stale reviewState (or metrics /
+    // recipientMetrics / status) overwrite what the AI review gate and the send
+    // pipeline have since written.
+    for (const key of EDITABLE_CAMPAIGN_FIELDS) {
+      if (updates[key] !== undefined) campaign[key] = updates[key];
+    }
     await campaign.save();
 
     return res.json({
@@ -263,6 +286,53 @@ export const deleteCampaign = async (req, res) => {
 };
 
 // Send campaign immediately (direct send via Resend, no queue required)
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// One copy to one address for QA. Deliberately skips the AI review gate (copy
+// is tested before it's approved) but not the suppression list, and never
+// touches campaign metrics or recipientMetrics. No campaign_id tag, so Resend
+// webhook events for it don't count toward the campaign's stats.
+export const sendCampaignTest = async (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim();
+    if (!EMAIL_PATTERN.test(email)) {
+      return res.status(400).json({ success: false, message: "Enter a valid email address." });
+    }
+
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: "Campaign not found" });
+    }
+
+    if (await isSuppressed(email)) {
+      return res.status(409).json({
+        success: false,
+        suppressed: true,
+        message: `${email} is on the do-not-email list (unsubscribed, complained or bounced), so it was skipped, as it would be in a real send.`,
+      });
+    }
+
+    const { html, headers } = withUnsubscribe(campaign.htmlContent, email);
+    // Resend's SDK reports API failures in `error` rather than throwing.
+    const { data, error } = await resend.emails.send({
+      from: `${campaign.fromName} <${campaign.fromEmail}>`,
+      to: email,
+      subject: `[TEST] ${campaign.subject}`,
+      html,
+      headers: { ...headers, "X-Campaign-ID": campaign._id.toString(), "X-Test-Send": "true" },
+      tags: [{ name: "test_send", value: "true" }],
+    });
+    if (error) {
+      return res.status(502).json({ success: false, message: `Resend rejected the email: ${error.message}` });
+    }
+
+    return res.json({ success: true, message: `Test email sent to ${email}`, data: { resendEmailId: data?.id } });
+  } catch (error) {
+    console.error("Error sending campaign test:", error);
+    return res.status(500).json({ success: false, message: "Error sending test email" });
+  }
+};
+
 export const sendCampaignNow = async (req, res) => {
   try {
     const { id } = req.params;
@@ -290,14 +360,25 @@ export const sendCampaignNow = async (req, res) => {
     }
 
     // Get all segmented users (no limit cap for actual send)
-    const { users, total } = await getSegmentedUsers(campaign.segments, {
+    const { users: matchedUsers } = await getSegmentedUsers(campaign.segments, {
       limit: 50000,
     });
+
+    if (matchedUsers.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No users matched the campaign segments",
+      });
+    }
+
+    const users = await filterSuppressed(matchedUsers);
+    const suppressedCount = matchedUsers.length - users.length;
+    const total = users.length;
 
     if (total === 0) {
       return res.status(400).json({
         success: false,
-        message: "No users matched the campaign segments",
+        message: `All ${matchedUsers.length} matched recipients have unsubscribed or bounced`,
       });
     }
 
@@ -328,12 +409,14 @@ export const sendCampaignNow = async (req, res) => {
               emailContent = personalized.htmlContent;
             }
 
+            const { html, headers: unsubscribeHeaders } = withUnsubscribe(emailContent, user.email);
             const response = await resend.emails.send({
               from: `${campaign.fromName} <${campaign.fromEmail}>`,
               to: user.email,
               subject: emailSubject,
-              html: emailContent,
+              html,
               headers: {
+                ...unsubscribeHeaders,
                 "X-Campaign-ID": campaign._id.toString(),
                 "X-User-ID": user._id?.toString() || user.email,
               },
@@ -371,8 +454,10 @@ export const sendCampaignNow = async (req, res) => {
 
     return res.json({
       success: true,
-      message: `Campaign sent: ${sentCount} delivered, ${failedCount} failed`,
-      data: { sentCount, failedCount, total },
+      message:
+        `Campaign sent: ${sentCount} delivered, ${failedCount} failed` +
+        (suppressedCount > 0 ? `, ${suppressedCount} skipped (unsubscribed/bounced)` : ""),
+      data: { sentCount, failedCount, suppressedCount, total },
     });
   } catch (error) {
     console.error("Error sending campaign:", error);

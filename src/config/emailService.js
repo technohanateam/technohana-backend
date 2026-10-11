@@ -18,7 +18,7 @@ export const fromAddresses = {
 // Make the 'from' address a parameter
 // Resolves with Resend's `{ data: { id }, error }`; callers that need the
 // message id (e.g. CRM sends, for delivery tracking) read data.id and check error.
-export const sendEmail = async ({ from, to, subject, html, text, attachments, replyTo, tags }) => {
+export const sendEmail = async ({ from, to, subject, html, text, attachments, replyTo, tags, headers }) => {
   try {
     const resendClient = getResend();
     const data = await resendClient.emails.send({
@@ -30,8 +30,15 @@ export const sendEmail = async ({ from, to, subject, html, text, attachments, re
       ...(attachments ? { attachments } : {}),
       ...(replyTo ? { replyTo } : {}),
       ...(tags ? { tags } : {}),
+      ...(headers ? { headers } : {}),
     });
-    console.log(`Email sent to ${to} with subject "${subject}"`);
+    // Resend reports rejections (unverified domain, bad key, invalid recipient) in
+    // `error` rather than throwing; callers that care check `result.error`.
+    if (data?.error) {
+      console.error(`Email to ${to} rejected by Resend ("${subject}"):`, data.error);
+    } else {
+      console.log(`Email sent to ${to} with subject "${subject}"`);
+    }
     return data;
   } catch (err) {
     console.error("Error sending email:", err);

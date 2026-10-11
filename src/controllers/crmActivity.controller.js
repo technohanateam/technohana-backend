@@ -4,6 +4,7 @@ import CRMLead from "../models/crm/crmLead.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMCompany from "../models/crm/crmCompany.model.js";
+import Subscription from "../models/subscription.model.js";
 import { parsePaging, attachRelated, isValidId, isOwnerScoped, ownerFilter, canAccessRelated, sendCrmError } from "../utils/crmQuery.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { escapeHtml } from "../utils/emailTemplate.js";
@@ -125,10 +126,14 @@ export const sendCrmEmail = async (req, res) => {
     if (!record) return res.status(404).json({ success: false, message: "Recipient not found" });
     if (!record.email) return res.status(400).json({ success: false, message: "This record has no email address" });
 
-    // Don't keep mailing an address that bounced or complained before.
-    const suppressed = await CRMActivity.exists({
-      type: "email", "metadata.to": record.email, "metadata.status": { $in: ["bounced", "complained"] },
-    });
+    // Don't keep mailing an address that bounced or complained before. A marketing
+    // unsubscribe alone doesn't block a rep's 1:1 email.
+    const [crmBounce, siteBounce] = await Promise.all([
+      CRMActivity.exists({ type: "email", "metadata.to": record.email, "metadata.status": { $in: ["bounced", "complained"] } }),
+      Subscription.exists({ email: record.email.trim().toLowerCase(), isActive: false, unsubscribeReason: { $in: ["bounced", "complained"] } })
+        .collation({ locale: "en", strength: 2 }),
+    ]);
+    const suppressed = crmBounce || siteBounce;
     if (suppressed) {
       return res.status(409).json({ success: false, message: `${record.email} bounced or marked a previous email as spam — not sending.` });
     }

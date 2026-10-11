@@ -1,6 +1,7 @@
 import { Webhook } from "svix";
 import Campaign from "../models/campaign.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
+import { suppressEmail } from "./emailSuppression.js";
 
 // CRM 1:1 emails (crm.technohana.in) log a CRMActivity whose metadata tracks delivery.
 const CRM_STATUS = {
@@ -28,6 +29,15 @@ async function recordCrmEmailEvent({ type, resendEmailId, activityId }) {
   await activity.save();
   return true;
 }
+
+// Resend's email.bounced is a permanent rejection; only skip suppression if a
+// bounce is explicitly marked transient.
+const suppressionReasonFor = (type, data) => {
+  if (type === "email.unsubscribed") return "unsubscribed";
+  if (type === "email.complained") return "complained";
+  if (type === "email.bounced" && !/transient/i.test(data?.bounce?.type || "")) return "bounced";
+  return null;
+};
 
 /**
  * Handle Resend webhook events
@@ -82,6 +92,13 @@ export const handleResendWebhook = async (req, res) => {
     const campaignId = tagValue("campaign_id");
     const resendEmailId = data?.email_id;
     const recipientEmail = Array.isArray(data?.to) ? data.to[0] : data?.to;
+
+    // Suppress before the campaign lookup: drips, newsletters and transactional
+    // mail carry no campaign_id tag but still bounce/complain.
+    const suppressionReason = suppressionReasonFor(type, data);
+    if (suppressionReason && recipientEmail) {
+      await suppressEmail(recipientEmail, suppressionReason);
+    }
 
     if (await recordCrmEmailEvent({ type, resendEmailId, activityId: tagValue("crm_activity") })) {
       return res.json({ success: true });

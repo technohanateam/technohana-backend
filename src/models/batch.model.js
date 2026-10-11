@@ -47,6 +47,12 @@ const batchSchema = new mongoose.Schema(
     batchType:    { type: String, enum: ["weekday-morning", "weekday-evening", "weekend", "custom"], default: "custom" },
     recurrence:   { type: recurrenceSchema, default: undefined },
 
+    // What the instructor is paid per delivered hour on this batch, negotiated per
+    // engagement. Snapshotted onto payout lines at statement time, so changing it
+    // never alters a statement already issued.
+    trainerHourlyRateMinor: { type: Number, min: 0 },
+    trainerRateCurrency:    { type: String, enum: ["INR", "USD", "AED", "GBP", "EUR"], default: "INR" },
+
     capacity:      { type: Number, default: 0 }, // 0 = unlimited
     enrolledCount: { type: Number, default: 0 }, // maintained by attach/detach; repairable via recount
     sessionCount:  { type: Number, default: 0 },

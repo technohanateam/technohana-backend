@@ -8,6 +8,7 @@ import { v2 as cloudinary } from "cloudinary";
 import Instructor from "../models/instructor.js";
 import Course from "../models/course.model.js";
 import { User } from "../models/user.model.js";
+import Batch from "../models/batch.model.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
 import InstructorReview from "../models/instructorReview.model.js";
@@ -64,11 +65,11 @@ router.post("/auth/login", instructorLoginLimiter, async (req, res) => {
 
     const instructor = await Instructor.findOne({ email: email.toLowerCase().trim() });
     if (!instructor || !instructor.isActive || !instructor.passwordHash)
-      return res.status(401).json({ success: false, message: "Invalid credentials or account not activated" });
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
 
     const match = await bcrypt.compare(password, instructor.passwordHash);
     if (!match)
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
 
     await Instructor.findByIdAndUpdate(instructor._id, { lastLogin: new Date() });
 
@@ -157,7 +158,7 @@ router.get("/me", authenticateInstructor, async (req, res) => {
 
 router.put("/me", authenticateInstructor, async (req, res) => {
   try {
-    const allowed = ["name", "phone", "expertise", "experience", "linkedinUrl", "dailyRate", "availability", "deliveryMode", "certifications", "picture"];
+    const allowed = ["name", "phone", "expertise", "experience", "linkedinUrl", "dailyRate", "availability", "deliveryMode", "certifications", "coverLetter", "picture"];
     const updates = Object.fromEntries(
       Object.entries(req.body).filter(([k]) => allowed.includes(k))
     );
@@ -373,12 +374,12 @@ router.get("/courses/:courseId/students", authenticateInstructor, requireComplia
     if (!course)
       return res.status(403).json({ success: false, message: "Course not found or not assigned to you" });
 
-    // Legacy roster: still joined on courseTitle, so it cannot distinguish two
-    // cohorts of the same course. Batch-scoped rosters live on the teaching router
-    // and join on batchId; batchId is projected here so the UI can flag learners
-    // who have not been assigned to a batch yet.
-    const students = await User.find({ courseTitle: course.courseTitle, status: { $ne: "rejected" } })
-      .select("name email phone status progress lessonsCompleted totalLessons batchId createdAt")
+    // Legacy course-level roster, limited to learners in batches this instructor
+    // runs. Joining on courseTitle alone exposed every cohort of the course,
+    // including ones taught by other instructors.
+    const batchIds = await Batch.find({ instructorId: req.instructor.id, courseId: course._id }).distinct("_id");
+    const students = await User.find({ batchId: { $in: batchIds }, status: { $ne: "rejected" } })
+      .select("name email status progress lessonsCompleted totalLessons batchId createdAt")
       .lean();
 
     return res.json({ success: true, data: students, courseTitle: course.courseTitle });
@@ -389,13 +390,15 @@ router.get("/courses/:courseId/students", authenticateInstructor, requireComplia
 
 // ── Earnings ──────────────────────────────────────────────────────────────────
 
+// Earnings come from delivered sessions at each batch's hourly rate, totalled in
+// the trainer's payout currency; see utils/instructorEarnings.js.
+const payoutCurrencyOf = async (instructorId) =>
+  (await Instructor.findById(instructorId).select("payoutCurrency").lean())?.payoutCurrency || "INR";
+
 router.get("/earnings", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
-    const { totalMinor, byMonth, byCourse } = await computeInstructorEarnings(req.instructor.id);
-    return res.json({
-      success: true,
-      data: { totalMinor, totalMajor: (totalMinor / 100).toFixed(2), byMonth, byCourse },
-    });
+    const earnings = await computeInstructorEarnings(req.instructor.id, await payoutCurrencyOf(req.instructor.id));
+    return res.json({ success: true, data: earnings });
   } catch {
     return res.status(500).json({ success: false, message: "Failed to fetch earnings" });
   }
@@ -457,20 +460,21 @@ router.put("/payout-details", authenticateInstructor, requireCompliance, async (
 
 router.get("/payouts", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
+    const currency = await payoutCurrencyOf(req.instructor.id);
     const [payouts, { totalMinor }] = await Promise.all([
       InstructorPayout.find({ instructorId: req.instructor.id })
         .select("-payoutDetailsSnapshotEncrypted")
         .sort({ requestedAt: -1 })
         .lean(),
-      computeInstructorEarnings(req.instructor.id),
+      computeInstructorEarnings(req.instructor.id, currency),
     ]);
 
     const committedMinor = payouts
-      .filter((p) => PAYOUT_PENDING_STATUSES.includes(p.status))
+      .filter((p) => PAYOUT_PENDING_STATUSES.includes(p.status) && p.currency === currency)
       .reduce((sum, p) => sum + p.amountMinor, 0);
     const availableMinor = Math.max(totalMinor - committedMinor, 0);
 
-    return res.json({ success: true, data: { payouts, availableMinor, totalMinor } });
+    return res.json({ success: true, data: { payouts, availableMinor, totalMinor, currency } });
   } catch {
     return res.status(500).json({ success: false, message: "Failed to fetch payouts" });
   }
@@ -488,9 +492,12 @@ router.post("/payouts", authenticateInstructor, requireCompliance, async (req, r
     if (!instructor?.payoutDetailsEncrypted)
       return res.status(400).json({ success: false, message: "Add your payout details before requesting a payout" });
 
+    const currency = instructor.payoutCurrency || "INR";
     const [{ totalMinor }, existingPayouts] = await Promise.all([
-      computeInstructorEarnings(req.instructor.id),
-      InstructorPayout.find({ instructorId: req.instructor.id, status: { $in: PAYOUT_PENDING_STATUSES } }).select("amountMinor").lean(),
+      computeInstructorEarnings(req.instructor.id, currency),
+      InstructorPayout.find({ instructorId: req.instructor.id, status: { $in: PAYOUT_PENDING_STATUSES }, currency })
+        .select("amountMinor")
+        .lean(),
     ]);
     const committedMinor = existingPayouts.reduce((sum, p) => sum + p.amountMinor, 0);
     const availableMinor = totalMinor - committedMinor;

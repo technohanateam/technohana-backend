@@ -953,6 +953,70 @@ export function applicationStatusEmail(name, requirementTitle, status, notes) {
   return emailShell({ label: 'Application Status', body });
 }
 
+// ─── TRAINER PORTAL — TEACHING NOTIFICATIONS ────────────────────────────────
+// Callers pass dates already formatted in the batch's timezone.
+
+export function trainerBatchAssignedEmail({ name, courseTitle, batchCode, startLabel, endLabel, deliveryMode, location, link }) {
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">New batch assigned</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${escapeHtml(name)}, you've been assigned to teach a new batch.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:24px;">
+      ${dataRow('Course', escapeHtml(courseTitle), false)}
+      ${dataRow('Batch', escapeHtml(batchCode), true)}
+      ${startLabel ? dataRow('Starts', startLabel, false) : ''}
+      ${endLabel ? dataRow('Ends', endLabel, true) : ''}
+      ${dataRow('Delivery', escapeHtml(deliveryMode === 'onsite' ? location || 'Onsite' : 'Online'), false)}
+    </table>
+    ${ctaButton('Open the batch', link)}`;
+
+  return emailShell({ label: 'Trainer Portal', body });
+}
+
+export function trainerSessionsScheduledEmail({ name, courseTitle, batchCode, count, firstLabel, link }) {
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">${count} session${count !== 1 ? 's' : ''} scheduled</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${escapeHtml(name)}, new sessions were added to <strong>${escapeHtml(courseTitle)}</strong> (${escapeHtml(batchCode)}).</p>
+    ${firstLabel ? `<p style="margin:0 0 20px;font-size:14px;color:#1e293b;">First session: <strong>${firstLabel}</strong></p>` : ''}
+    ${ctaButton('View your schedule', link)}`;
+
+  return emailShell({ label: 'Trainer Portal', body });
+}
+
+export function trainerSessionChangedEmail({ name, courseTitle, batchCode, sessionTitle, change, whenLabel, previousLabel, link }) {
+  const cancelled = change === 'cancelled';
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Session ${cancelled ? 'cancelled' : 'rescheduled'}</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${escapeHtml(name)}, a session in <strong>${escapeHtml(courseTitle)}</strong> (${escapeHtml(batchCode)}) has changed.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:24px;">
+      ${dataRow('Session', escapeHtml(sessionTitle), false)}
+      ${cancelled
+        ? dataRow('Was scheduled for', whenLabel, true)
+        : `${previousLabel ? dataRow('Previously', previousLabel, true) : ''}${dataRow('Now', `<strong>${whenLabel}</strong>`, false)}`}
+    </table>
+    ${ctaButton('View your schedule', link)}`;
+
+  return emailShell({ label: 'Trainer Portal', body });
+}
+
+export function trainerAttendanceReminderEmail({ name, sessions, more, link }) {
+  const rows = sessions.map((s, i) => dataRow(
+    escapeHtml(s.whenLabel),
+    `<a href="${s.link}" style="color:#7C3AED;text-decoration:none;font-weight:600;">${escapeHtml(s.courseTitle)}</a><br><span style="color:#64748b;">${escapeHtml(s.batchCode)} · ${escapeHtml(s.title)}</span>`,
+    i % 2 === 1
+  )).join('');
+
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Attendance is waiting</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${escapeHtml(name)}, these sessions have ended but attendance hasn't been taken yet. Sessions count towards your payout once attendance is marked.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:${more ? '8px' : '24px'};">
+      ${rows}
+    </table>
+    ${more ? `<p style="margin:0 0 24px;font-size:13px;color:#64748b;">…and ${more} more.</p>` : ''}
+    ${ctaButton('Take attendance', link)}`;
+
+  return emailShell({ label: 'Trainer Portal', body });
+}
+
 // ─── ENROLLMENT STATUS NOTIFICATIONS (learner) ───────────────────────────────
 
 export function enrollmentApprovedEmail({ name, courseTitle }) {

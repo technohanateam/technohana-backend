@@ -188,7 +188,7 @@ router.get("/schedule", async (req, res) => {
 
     const batchIds = [...new Set(sessions.map((s) => String(s.batchId)))];
     const batches = await Batch.find({ _id: { $in: batchIds } })
-      .select("batchCode courseTitle timezone deliveryMode location")
+      .select("batchCode courseTitle timezone deliveryMode location meetingLink")
       .lean();
     const byId = new Map(batches.map((b) => [String(b._id), b]));
 
@@ -604,6 +604,12 @@ router.get("/availability", async (req, res) => {
     const filter = { instructorId: req.instructor.id };
     if (range.$gte || range.$lte) filter.date = range;
 
+    // `date` is a midnight value, but startsAt is a timestamp: the session range has
+    // to run to the end of the `to` day, not its first instant.
+    const sessionRange = {};
+    if (range.$gte) sessionRange.$gte = range.$gte;
+    if (range.$lte) sessionRange.$lt = new Date(range.$lte.getTime() + 86_400_000);
+
     const [declared, booked] = await Promise.all([
       InstructorAvailability.find(filter).sort({ date: 1 }).lean(),
       // Booked days are derived from real sessions rather than stored, so the two
@@ -611,7 +617,7 @@ router.get("/availability", async (req, res) => {
       Session.find({
         instructorId: req.instructor.id,
         status: { $in: ["scheduled", "rescheduled"] },
-        ...(range.$gte || range.$lte ? { startsAt: range } : {}),
+        ...(range.$gte || range.$lte ? { startsAt: sessionRange } : {}),
       })
         .select("batchId startsAt endsAt title")
         .sort({ startsAt: 1 })
