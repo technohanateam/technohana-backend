@@ -44,5 +44,10 @@ crmActivitySchema.index({ relatedToType: 1, relatedToId: 1, createdAt: -1 });
 crmActivitySchema.index({ performedBy: 1 });
 crmActivitySchema.index({ type: 1 });
 crmActivitySchema.index({ createdAt: -1 });
+// Lookups by external ids kept in metadata: Resend message (delivery tracking),
+// Meta leadgen (webhook idempotency) and website order (paid-order sync).
+crmActivitySchema.index({ "metadata.resendId": 1 }, { sparse: true });
+crmActivitySchema.index({ "metadata.leadgenId": 1 }, { sparse: true });
+crmActivitySchema.index({ "metadata.orderId": 1 }, { sparse: true });
 
 export default mongoose.model("CRMActivity", crmActivitySchema);

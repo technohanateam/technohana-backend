@@ -30,7 +30,7 @@ import {
   getTasks, getTask, createTask, updateTask, deleteTask, addComment, toggleChecklistItem,
 } from "../controllers/crmTask.controller.js";
 import {
-  getActivities, logActivity, getTags, createTag, deleteTag,
+  getActivities, logActivity, getTags, createTag, deleteTag, sendCrmEmail,
 } from "../controllers/crmActivity.controller.js";
 import {
   listCrmUsers, listCrmUserOptions, createCrmUser, updateCrmUser,
@@ -54,6 +54,16 @@ const aiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "AI limit reached (30 per hour). Please try again later." },
+});
+
+// Outbound 1:1 email through Resend — capped per CRM user per day.
+const emailLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 100,
+  keyGenerator: (req) => `crm-email:${req.admin.uid}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Daily email limit reached (100). Send the rest from your mail client and log them." },
 });
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -139,6 +149,7 @@ router.patch("/tasks/:id/checklist/:itemId", crmWrite("tasks"),  toggleChecklist
 // ── Activities ────────────────────────────────────────────────────────────────
 router.get("/activities",  crmRead("activities"),  getActivities);
 router.post("/activities", crmWrite("activities"), logActivity);
+router.post("/email/send", crmWrite("activities"), emailLimiter, sendCrmEmail);
 
 // ── Tags ──────────────────────────────────────────────────────────────────────
 router.get("/tags",        crmRead("tags"),   getTags);
