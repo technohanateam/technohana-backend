@@ -11,6 +11,11 @@ import Instructor from "../models/instructor.js";
 import { User } from "../models/user.model.js";
 import { planSessions } from "../utils/sessionGenerator.js";
 import {
+  notifyBatchAssigned,
+  notifySessionsScheduled,
+  notifySessionChanged,
+} from "../services/trainerNotifications.js";
+import {
   perLearnerSummaryPipeline,
   batchMatrixPipeline,
   lowAttendancePipeline,
@@ -30,6 +35,21 @@ const canWrite = [authenticateAdmin, requirePage("batches"), requireAdmin];
 
 const clean = (v) => (typeof v === "string" ? xss(v.trim()) : v);
 const badId = (res) => res.status(400).json({ message: "Malformed id." });
+
+// Trainer pay is admin-only. Sales can read batches, so rates are stripped for them.
+const canSeePay = (req) => req.admin?.role === "admin" || req.admin?.crmRole === "super_admin";
+const withoutPay = ({ trainerHourlyRateMinor, trainerRateCurrency, ...rest }) => rest;
+
+const RATE_CURRENCIES = ["INR", "USD", "AED", "GBP", "EUR"];
+
+// Rates are entered in major units (1500 = ₹1,500 per hour) and stored in minor
+// units like every other amount. null or "" clears the rate.
+const parseRate = (value) => {
+  if (value === null || value === "") return { ok: true, minor: undefined };
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return { ok: false };
+  return { ok: true, minor: Math.round(n * 100) };
+};
 
 // Batch codes are human-facing (emails, invoices), so they are derived from the
 // course and start date rather than random, with a numeric suffix on collision.
@@ -75,7 +95,12 @@ router.get("/batches", canRead, async (req, res) => {
       Batch.find(filter).sort({ startDate: -1 }).skip(skip).limit(Number(limit)).lean(),
       Batch.countDocuments(filter),
     ]);
-    return res.json({ data, total, page: Number(page), limit: Number(limit) });
+    return res.json({
+      data: canSeePay(req) ? data : data.map(withoutPay),
+      total,
+      page: Number(page),
+      limit: Number(limit),
+    });
   } catch {
     return res.status(500).json({ message: "Server error" });
   }
@@ -84,7 +109,8 @@ router.get("/batches", canRead, async (req, res) => {
 router.post("/batches", canWrite, async (req, res) => {
   try {
     const { courseId, instructorId, name, batchType, startDate, endDate, recurrence,
-            deliveryMode, trainingType, location, meetingLink, timezone, capacity, notes } = req.body;
+            deliveryMode, trainingType, location, meetingLink, timezone, capacity, notes,
+            trainerHourlyRate, trainerRateCurrency } = req.body;
 
     if (!mongoose.isValidObjectId(courseId) || !mongoose.isValidObjectId(instructorId))
       return res.status(400).json({ message: "Valid courseId and instructorId are required." });
@@ -102,6 +128,11 @@ router.post("/batches", canWrite, async (req, res) => {
 
     if (startDate && endDate && new Date(endDate) < new Date(startDate))
       return res.status(400).json({ message: "endDate cannot precede startDate." });
+
+    const rate = parseRate(trainerHourlyRate ?? null);
+    if (!rate.ok) return res.status(400).json({ message: "trainerHourlyRate must be a non-negative number." });
+    if (trainerRateCurrency !== undefined && !RATE_CURRENCIES.includes(trainerRateCurrency))
+      return res.status(400).json({ message: `trainerRateCurrency must be one of ${RATE_CURRENCIES.join(", ")}.` });
 
     const batch = await Batch.create({
       batchCode: await generateBatchCode(course, startDate, batchType),
@@ -121,9 +152,12 @@ router.post("/batches", canWrite, async (req, res) => {
       timezone: timezone || "Asia/Kolkata",
       capacity,
       notes: clean(notes),
+      trainerHourlyRateMinor: rate.minor,
+      trainerRateCurrency: trainerRateCurrency || "INR",
       createdBy: req.admin?.email,
     });
 
+    notifyBatchAssigned(batch);
     return res.status(201).json({ data: batch });
   } catch (err) {
     if (err?.code === 11000) return res.status(409).json({ message: "That batch code already exists." });
@@ -145,7 +179,7 @@ router.get("/batches/:id", canRead, async (req, res) => {
         .lean(),
     ]);
 
-    return res.json({ data: { ...batch, sessions, learners } });
+    return res.json({ data: { ...(canSeePay(req) ? batch : withoutPay(batch)), sessions, learners } });
   } catch {
     return res.status(500).json({ message: "Server error" });
   }
@@ -162,6 +196,17 @@ router.patch("/batches/:id", canWrite, async (req, res) => {
                      "status", "cancelledReason", "notes"];
     for (const key of allowed) {
       if (req.body[key] !== undefined) batch[key] = clean(req.body[key]);
+    }
+
+    if (req.body.trainerHourlyRate !== undefined) {
+      const rate = parseRate(req.body.trainerHourlyRate);
+      if (!rate.ok) return res.status(400).json({ message: "trainerHourlyRate must be a non-negative number." });
+      batch.trainerHourlyRateMinor = rate.minor;
+    }
+    if (req.body.trainerRateCurrency !== undefined) {
+      if (!RATE_CURRENCIES.includes(req.body.trainerRateCurrency))
+        return res.status(400).json({ message: `trainerRateCurrency must be one of ${RATE_CURRENCIES.join(", ")}.` });
+      batch.trainerRateCurrency = req.body.trainerRateCurrency;
     }
 
     // Reassignment must cascade to the denormalized copy on Session, which serves
@@ -181,7 +226,10 @@ router.patch("/batches/:id", canWrite, async (req, res) => {
     }
 
     await batch.save();
-    if (reassigned) await Session.updateMany({ batchId: batch._id }, { instructorId: reassigned });
+    if (reassigned) {
+      await Session.updateMany({ batchId: batch._id }, { instructorId: reassigned });
+      notifyBatchAssigned(batch);
+    }
 
     return res.json({ data: batch });
   } catch {
@@ -407,6 +455,7 @@ router.post("/batches/:id/generate-sessions", canWrite, async (req, res) => {
     );
 
     await recount(batch._id);
+    notifySessionsScheduled(batch, created);
     return res.status(201).json({ data: created, total: created.length });
   } catch {
     return res.status(500).json({ message: "Server error" });
@@ -441,6 +490,7 @@ router.post("/batches/:id/sessions", canWrite, async (req, res) => {
     });
 
     await recount(batch._id);
+    notifySessionsScheduled(batch, [session]);
     return res.status(201).json({ data: session });
   } catch {
     return res.status(500).json({ message: "Server error" });
@@ -452,6 +502,8 @@ router.patch("/sessions/:id", canWrite, async (req, res) => {
   try {
     const session = await Session.findById(req.params.id);
     if (!session) return res.status(404).json({ message: "Session not found." });
+    const previousStartsAt = session.startsAt;
+    const previousStatus = session.status;
 
     const allowed = ["title", "agenda", "notes", "startsAt", "endsAt", "mode",
                      "meetingLink", "recordingUrl", "status", "sequence"];
@@ -465,6 +517,11 @@ router.patch("/sessions/:id", canWrite, async (req, res) => {
     }
 
     await session.save();
+    if (session.status === "cancelled" && previousStatus !== "cancelled") {
+      notifySessionChanged(session, "cancelled");
+    } else if (session.status !== "cancelled" && session.startsAt.getTime() !== previousStartsAt.getTime()) {
+      notifySessionChanged(session, "rescheduled", previousStartsAt);
+    }
     return res.json({ data: session });
   } catch (err) {
     if (err?.code === 11000) return res.status(409).json({ message: "Another session already uses that sequence number." });

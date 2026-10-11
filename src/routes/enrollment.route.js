@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import upload from '../middleware/upload.js';
-import { enrollUser, getUsersByStatus, getMyEnrollments, updateEnrollmentProgress, issueCertificate, updateEnrollment, deleteEnrollment, submitInstructorReview, getInstructorReviewForEnrollment } from '../controllers/enrollment.controller.js';
+import { enrollUser, getUsersByStatus, getMyEnrollments, updateEnrollmentProgress, issueCertificate, updateEnrollment, deleteEnrollment, submitInstructorReview, getInstructorReviewForEnrollment, getClassroom, openClassroomMaterial } from '../controllers/enrollment.controller.js';
 import { InstructorForm } from '../controllers/instructorForm.controller.js';
 import { submitInternApplication } from '../controllers/internApplication.controller.js';
 import { authenticateJWT } from '../middleware/authenticateJWT.js';
@@ -52,6 +52,10 @@ router.post('/enrollments/:enrollmentId/certificate', authenticateJWT, issueCert
 // Instructor rating/review (post-completion)
 router.post('/enrollments/:enrollmentId/review', authenticateJWT, submitInstructorReview);
 router.get('/enrollments/:enrollmentId/review', authenticateJWT, getInstructorReviewForEnrollment);
+
+// Classroom: the learner's batch schedule, join links, shared materials and own attendance
+router.get('/enrollments/:enrollmentId/classroom', authenticateJWT, getClassroom);
+router.get('/enrollments/:enrollmentId/materials/:materialId', authenticateJWT, openClassroomMaterial);
 
 router.post('/submit-instructor', applicationLimiter, (req, res, next) => {
   upload.single('resume')(req, res, (err) => {

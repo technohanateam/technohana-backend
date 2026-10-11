@@ -1451,6 +1451,11 @@ import("./services/crmDailyReportQueue.js")
   .then(({ scheduleCrmDailyReportRepeatable }) => scheduleCrmDailyReportRepeatable())
   .catch((err) => console.error("[CRM Daily Report Queue] failed to schedule repeatable:", err.message));
 
+// Trainer attendance reminder (10am IST): sessions ended 12h+ ago with no attendance.
+import("./services/trainerReminderQueue.js")
+  .then(({ scheduleTrainerReminderRepeatable }) => scheduleTrainerReminderRepeatable())
+  .catch((err) => console.error("[Trainer Reminder Queue] failed to schedule repeatable:", err.message));
+
 // ─── Automated Email Sequences ────────────────────────────────────────────────
 
 // Abandoned cart: check every 30 minutes, send re-engagement email after 2h
