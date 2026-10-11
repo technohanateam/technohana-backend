@@ -24,7 +24,7 @@ export const execReportQueue = new Bull("seo-exec-report", { redis: redisConfig,
 export const scoreRecalcQueue = new Bull("seo-score-recalc", { redis: redisConfig, ...QUEUE_SETTINGS });
 export const sitemapSubmitQueue = new Bull("seo-sitemap-submit", { redis: redisConfig, ...QUEUE_SETTINGS });
 
-const SITEMAP_URL = "https://technohana.in/sitemap.xml";
+const SITEMAP_URL = "https://www.technohana.in/sitemap.xml";
 
 async function getSettings() {
   let settings = await SeoIntelligenceSettings.findOne();

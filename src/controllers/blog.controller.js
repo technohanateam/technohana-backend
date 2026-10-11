@@ -144,8 +144,8 @@ export const getBlog = async (req, res) => {
             <title>Blog Not Found</title>
             <meta property="og:title" content="Blog Not Found" />
             <meta property="og:description" content="This blog does not exist." />
-            <meta property="og:image" content="https://technohana.in/og-image.png" />
-            <meta property="og:url" content="https://technohana.in/blog/${req.params.slug}" />
+            <meta property="og:image" content="https://www.technohana.in/og-image.png" />
+            <meta property="og:url" content="https://www.technohana.in/blog/${req.params.slug}" />
           </head>
           <body><div id="root"></div><script src="/main.js"></script></body>
         </html>
@@ -153,7 +153,7 @@ export const getBlog = async (req, res) => {
     }
 
     const cleanDesc = (blog.content || "").replace(/<\/?[^>]+(>|$)/g, "").slice(0, 150);
-    const ogImage = blog.img?.startsWith("http") ? blog.img : `https://technohana.in${blog.img || "/og-image.png"}`;
+    const ogImage = blog.img?.startsWith("http") ? blog.img : `https://www.technohana.in${blog.img || "/og-image.png"}`;
 
     res.send(`
       <!DOCTYPE html>
@@ -163,7 +163,7 @@ export const getBlog = async (req, res) => {
           <meta property="og:title" content="${blog.title}" />
           <meta property="og:description" content="${cleanDesc}..." />
           <meta property="og:image" content="${ogImage}" />
-          <meta property="og:url" content="https://technohana.in/blog/${blog.slug}" />
+          <meta property="og:url" content="https://www.technohana.in/blog/${blog.slug}" />
         </head>
         <body>
           <div id="root"></div>
