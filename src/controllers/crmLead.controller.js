@@ -2,11 +2,19 @@ import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMTask from "../models/crm/crmTask.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
+import CRMContact from "../models/crm/crmContact.model.js";
+import CRMCompany from "../models/crm/crmCompany.model.js";
+import CRMPipeline from "../models/crm/crmPipeline.model.js";
+import CrmUser from "../models/crmUser.model.js";
 import { hasCrmPermission } from "../middleware/crmPermission.js";
 import {
   parsePaging, isValidId, pick, isCrmAdmin, isOwnerScoped, crmRoleOf, ownerFilter, leadScope,
   findMissingRef, activeUserExists, sendCrmError,
 } from "../utils/crmQuery.js";
+import { pickAssignee, createAssigner } from "../services/crmLeadIntake.js";
+import { stageForLeadStatus, syncDealFromLead } from "../services/crmLifecycle.js";
+import { resolveRange } from "../services/crmDailyReport.js";
+import { normalizePhone } from "../utils/phone.js";
 import { callClaude } from "../services/aiAgent.service.js";
 import { computeQuote } from "../utils/pricing.js";
 
@@ -56,7 +64,7 @@ const notFound = (res) => res.status(404).json({ success: false, message: "Lead 
 export const getLeads = async (req, res) => {
   try {
     const { page, limit, skip } = parsePaging(req.query);
-    const { search, status, assignedTo, source, priority, pipeline, aiScoreBand, sort = "createdAt", order = "desc" } = req.query;
+    const { search, status, assignedTo, source, priority, pipeline, aiScoreBand, followUpDue, sort = "createdAt", order = "desc" } = req.query;
 
     if (pipeline && !isValidId(pipeline)) return res.status(400).json({ success: false, message: "Invalid pipeline id" });
     if (assignedTo && assignedTo !== "unassigned" && !isValidId(assignedTo)) {
@@ -71,6 +79,11 @@ export const getLeads = async (req, res) => {
     if (priority)    filter.priority    = priority;
     if (pipeline)    filter.pipeline    = pipeline;
     if (aiScoreBand) filter.aiScoreBand = aiScoreBand;
+    // Follow-ups due today or earlier (IST) on leads that are still open.
+    if (followUpDue === "true") {
+      filter.nextFollowUp = { $lt: resolveRange().end };
+      if (!status) filter.status = { $nin: ["won", "lost", "junk"] };
+    }
 
     if (search) {
       const re = new RegExp(escapeRegex(search), "i");
@@ -153,9 +166,11 @@ export const createLead = async (req, res) => {
       }
     }
 
-    // Only admins choose the owner; everyone else creates leads for themselves.
+    // Only admins choose the owner ("auto" = least-loaded rep); everyone else creates leads for themselves.
     let owner = req.admin._id;
-    if (isCrmAdmin(req) && assignedTo) {
+    if (isCrmAdmin(req) && assignedTo === "auto") {
+      owner = (await pickAssignee()) || req.admin._id;
+    } else if (isCrmAdmin(req) && assignedTo) {
       if (!(await activeUserExists(assignedTo))) return res.status(400).json({ success: false, message: "Invalid assignee" });
       owner = assignedTo;
     }
@@ -220,6 +235,7 @@ export const updateLead = async (req, res) => {
       await logActivity(lead._id, "status_change", "Status changed",
         `Status changed from ${prevStatus} to ${updates.status}${updates.lostReason ? ` (${updates.lostReason})` : ""}`,
         req.admin._id, { from: prevStatus, to: updates.status });
+      await syncDealFromLead(lead, req.admin._id);
     }
     if (updates.pipelineStage && updates.pipelineStage !== prevStage) {
       await logActivity(lead._id, "stage_change", "Stage moved",
@@ -320,6 +336,10 @@ export const bulkLeadAction = async (req, res) => {
           performedBy: req.admin._id,
           metadata: { from: l.status, to: payload.status, bulk: true },
         })));
+        if (isWon || payload.status === "lost") {
+          const withDeals = await CRMLead.find({ _id: { $in: changing.map((l) => l._id) }, dealId: { $ne: null } });
+          for (const l of withDeals) await syncDealFromLead(l, req.admin._id);
+        }
       }
       return res.json({ success: true, message: `${changing.length} leads status updated` });
     }
@@ -418,6 +438,93 @@ export const addNote = async (req, res) => {
   }
 };
 
+// POST /leads/:id/convert — turns a qualified lead into a contact (+ company) and
+// a deal in the chosen (or default) pipeline, and links all three to the lead.
+export const convertLead = async (req, res) => {
+  try {
+    const scope = leadScope(req, req.params.id);
+    const lead = scope && await CRMLead.findOne(scope);
+    if (!lead) return notFound(res);
+
+    if (lead.dealId && await CRMDeal.exists({ _id: lead.dealId, isDeleted: false })) {
+      return res.status(409).json({ success: false, message: "This lead already has a deal", data: { dealId: lead.dealId } });
+    }
+
+    const pipelineQuery = isValidId(String(req.body.pipeline || ""))
+      ? { _id: req.body.pipeline, isActive: true }
+      : { isActive: true };
+    const pipeline = await CRMPipeline.findOne(pipelineQuery).sort({ isDefault: -1, createdAt: 1 });
+    if (!pipeline?.stages?.length) return res.status(400).json({ success: false, message: "No usable pipeline" });
+    const stage = stageForLeadStatus(pipeline, lead.status);
+
+    const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    let company = lead.companyId && await CRMCompany.findOne({ _id: lead.companyId, isDeleted: false });
+    let companyCreated = false;
+    if (!company && lead.company?.trim()) {
+      company = await CRMCompany.findOne({ name: new RegExp(`^${escape(lead.company.trim())}$`, "i"), isDeleted: false });
+      if (!company) {
+        company = await CRMCompany.create({ name: lead.company.trim(), industry: lead.industry, website: lead.website, createdBy: req.admin._id });
+        companyCreated = true;
+      }
+    }
+
+    let contact = lead.contactId && await CRMContact.findOne({ _id: lead.contactId, isDeleted: false });
+    let contactCreated = false;
+    if (!contact && lead.email) contact = await CRMContact.findOne({ email: lead.email, isDeleted: false });
+    if (!contact) {
+      const [firstName, ...rest] = lead.name.trim().split(/\s+/);
+      contact = await CRMContact.create({
+        firstName, lastName: rest.join(" ") || undefined,
+        email: lead.email, phone: lead.phone, whatsApp: lead.whatsApp, designation: lead.designation,
+        linkedIn: lead.linkedIn, country: lead.country, state: lead.state, city: lead.city,
+        company: company?._id, isDecisionMaker: false, createdBy: req.admin._id,
+      });
+      contactCreated = true;
+    } else if (company && !contact.company) {
+      contact.company = company._id;
+      await contact.save();
+    }
+
+    const title = typeof req.body.title === "string" && req.body.title.trim()
+      ? req.body.title.trim()
+      : `${lead.company || lead.name} — ${lead.interest ? lead.interest.slice(0, 60) : "Training"}`;
+    const value = Number.isFinite(Number(req.body.value)) && req.body.value !== "" && req.body.value != null
+      ? Number(req.body.value)
+      : lead.expectedRevenue ?? lead.budget ?? 0;
+
+    const deal = await CRMDeal.create({
+      title, value, currency: lead.currency || "INR",
+      pipeline: pipeline._id, stageKey: stage.key, stageOrder: stage.order ?? 0,
+      probability: stage.probability ?? lead.probability ?? 20,
+      status: stage.isWon ? "won" : stage.isLost ? "lost" : "open",
+      ...(stage.isWon && { wonAt: new Date() }), ...(stage.isLost && { lostAt: new Date() }),
+      lead: lead._id, contact: contact._id, company: company?._id,
+      assignedTo: lead.assignedTo || req.admin._id, createdBy: req.admin._id,
+    });
+
+    lead.contactId = contact._id;
+    if (company) lead.companyId = company._id;
+    lead.dealId = deal._id;
+    lead.pipeline = pipeline._id;
+    lead.pipelineStage = stage.key;
+    await lead.save();
+
+    await Promise.all([
+      logActivity(lead._id, "note", "Converted to deal", `Deal "${deal.title}" created in ${pipeline.name}`, req.admin._id, { dealId: deal._id }),
+      CRMActivity.create({ type: "created", title: "Deal created", body: `${deal.title} created from lead ${lead.name}`, relatedToType: "deal", relatedToId: deal._id, performedBy: req.admin._id }),
+      contactCreated && CRMActivity.create({ type: "created", title: "Contact created", body: `${contact.firstName} created from lead ${lead.name}`, relatedToType: "contact", relatedToId: contact._id, performedBy: req.admin._id }),
+    ]);
+
+    res.status(201).json({
+      success: true,
+      data: { deal, contact, company: company || null, contactCreated, companyCreated },
+      message: "Lead converted",
+    });
+  } catch (err) {
+    sendCrmError(res, err, "Failed to convert lead");
+  }
+};
+
 export const getLeadActivities = async (req, res) => {
   try {
     const scope = leadScope(req, req.params.id);
@@ -493,28 +600,81 @@ export const importLeads = async (req, res) => {
       return res.status(400).json({ success: false, message: "Max 1000 leads per import" });
     }
 
-    const allowed = EDITABLE_FIELDS.filter((f) => !["assignedTo", "dealId", "proposalId", "leadScore"].includes(f));
+    // Plain-text columns only — refs, scores and ownership aren't importable.
+    const allowed = ["name", "email", "phone", "whatsApp", "designation", "company", "country", "state", "city",
+      "source", "website", "linkedIn", "interest", "budget", "currency", "teamSize", "industry",
+      "priority", "expectedRevenue", "probability", "status", "nextFollowUp"];
+    const text = (v) => (v == null ? undefined : String(v).trim() || undefined);
+    const num = (v) => (v == null || String(v).trim() === "" ? undefined : Number(String(v).replace(/[^\d.-]/g, "")));
+
+    // Admins may map an "owner email" column; otherwise leads go round-robin (admins) or to the importer.
+    const ownerEmails = isCrmAdmin(req)
+      ? [...new Set(rawLeads.map((r) => text(r?.ownerEmail)?.toLowerCase()).filter(Boolean))]
+      : [];
+    const owners = ownerEmails.length
+      ? new Map((await CrmUser.find({ email: { $in: ownerEmails }, active: true }).select("email").lean()).map((u) => [u.email, u._id]))
+      : new Map();
+
+    // One query for every email/phone in the file, plus in-file duplicate tracking.
+    const emails = rawLeads.map((r) => normEmail(text(r?.email))).filter(Boolean);
+    const phones = rawLeads.map((r) => normalizePhone(text(r?.phone), text(r?.country))).filter(Boolean);
+    const existing = await CRMLead.find({ isDeleted: false, $or: [{ email: { $in: emails } }, { phoneNormalized: { $in: phones } }] })
+      .select("email phoneNormalized").lean();
+    const seenEmails = new Set(existing.map((l) => l.email).filter(Boolean));
+    const seenPhones = new Set(existing.map((l) => l.phoneNormalized).filter(Boolean));
+
     const results = { created: 0, skipped: 0, errors: [] };
     const toInsert = [];
+    const nextOwner = isCrmAdmin(req) ? await createAssigner() : null;
 
-    for (const raw of rawLeads) {
-      if (!raw?.name) { results.errors.push({ row: raw, reason: "Missing name" }); continue; }
-      if (SITE_SOURCES.includes(raw.source)) { results.errors.push({ row: raw, reason: "Site-page source not allowed in CRM" }); continue; }
+    for (const [index, raw] of rawLeads.entries()) {
+      const row = index + 1;
+      if (!raw || typeof raw !== "object") { results.errors.push({ row, reason: "Not a row object" }); continue; }
+      const fields = Object.fromEntries(Object.entries(pick(raw, allowed)).map(([k, v]) => [k,
+        ["budget", "teamSize", "expectedRevenue", "probability"].includes(k) ? num(v) : text(v)]));
+      fields.email = normEmail(fields.email);
+      fields.source = fields.source ? fields.source.toLowerCase().replace(/\s+/g, "_") : "other";
+      fields.status = fields.status ? fields.status.toLowerCase().replace(/\s+/g, "_") : "new";
+      fields.priority = fields.priority ? fields.priority.toLowerCase() : "medium";
 
-      if (raw.email) {
-        const exists = await CRMLead.exists({ email: normEmail(String(raw.email)), isDeleted: false });
-        if (exists) { results.skipped++; continue; }
+      if (!fields.name) { results.errors.push({ row, reason: "Missing name" }); continue; }
+      if (SITE_SOURCES.includes(fields.source)) { results.errors.push({ row, reason: "Site-page source not allowed in CRM" }); continue; }
+
+      const phoneKey = normalizePhone(fields.phone, fields.country);
+      if ((fields.email && seenEmails.has(fields.email)) || (phoneKey && seenPhones.has(phoneKey))) { results.skipped++; continue; }
+
+      const ownerEmail = text(raw.ownerEmail)?.toLowerCase();
+      if (ownerEmail && isCrmAdmin(req) && !owners.has(ownerEmail)) {
+        results.errors.push({ row, reason: `Unknown owner email: ${ownerEmail}` });
+        continue;
       }
+      const assignedTo = owners.get(ownerEmail) || (nextOwner ? nextOwner() || req.admin._id : req.admin._id);
 
-      toInsert.push({ ...pick(raw, allowed), email: normEmail(raw.email), createdBy: req.admin._id, assignedTo: req.admin._id });
+      const doc = new CRMLead({ ...fields, assignedTo, createdBy: req.admin._id });
+      const invalid = doc.validateSync();
+      if (invalid) {
+        results.errors.push({ row, reason: Object.values(invalid.errors)[0]?.message || "Invalid row" });
+        continue;
+      }
+      if (fields.email) seenEmails.add(fields.email);
+      if (phoneKey) seenPhones.add(phoneKey);
+      toInsert.push(doc);
     }
 
     if (toInsert.length > 0) {
       const inserted = await CRMLead.insertMany(toInsert, { ordered: false });
       results.created = inserted.length;
+      await CRMActivity.insertMany(inserted.map((l) => ({
+        type: "created", title: "Lead imported", body: `${l.name} was imported from CSV`,
+        relatedToType: "lead", relatedToId: l._id, performedBy: req.admin._id,
+      })));
     }
 
-    res.json({ success: true, data: results, message: `Imported ${results.created} leads, skipped ${results.skipped} duplicates` });
+    res.json({
+      success: true,
+      data: results,
+      message: `Imported ${results.created} leads, skipped ${results.skipped} duplicates${results.errors.length ? `, ${results.errors.length} rows had errors` : ""}`,
+    });
   } catch (err) {
     sendCrmError(res, err, "Import failed");
   }
@@ -701,5 +861,45 @@ Keep total length under 400 words. Sign as "TechnoHana Corporate Learning Team".
     res.json({ success: true, data: { html, leadName: lead.name, company: lead.company }, message: "Proposal draft generated" });
   } catch (err) {
     sendCrmError(res, err, "Proposal generation failed");
+  }
+};
+
+// POST /ai/ask — free-form question for the sales assistant, optionally about one
+// lead the caller can see (its details and recent activity go in as context).
+export const aiAsk = async (req, res) => {
+  try {
+    const { question, leadId } = req.body;
+    if (typeof question !== "string" || !question.trim()) {
+      return res.status(400).json({ success: false, message: "Ask a question" });
+    }
+    if (question.length > 2000) return res.status(400).json({ success: false, message: "Question is too long" });
+
+    let leadContext = "No specific lead selected.";
+    if (leadId) {
+      const scope = leadScope(req, leadId);
+      const lead = scope && await CRMLead.findOne(scope).lean();
+      if (!lead) return notFound(res);
+      const recent = await CRMActivity.find({ relatedToType: "lead", relatedToId: lead._id })
+        .sort({ createdAt: -1 }).limit(10).select("type title body createdAt").lean();
+      leadContext = `Lead: ${lead.name}${lead.designation ? `, ${lead.designation}` : ""}${lead.company ? ` at ${lead.company}` : ""}
+Status: ${lead.status} · Priority: ${lead.priority} · Source: ${lead.source}
+Industry: ${lead.industry || "N/A"} · Team size: ${lead.teamSize || "N/A"} · Budget: ${lead.budget ? `${lead.currency || "INR"} ${lead.budget}` : "N/A"}
+Interest: ${lead.interest || "N/A"}
+Next follow-up: ${lead.nextFollowUp ? new Date(lead.nextFollowUp).toDateString() : "not set"}
+Recent activity (newest first):
+${recent.map((a) => `- ${new Date(a.createdAt).toDateString()} ${a.type}: ${(a.title || "")} ${(a.body || "").slice(0, 200)}`).join("\n") || "- none"}`;
+    }
+
+    const prompt = `You help TechnoHana's sales team (AI & corporate training) work their CRM.
+Answer the rep's question concisely and practically. Use only the context below for facts about the lead; say so if something isn't known rather than guessing.
+
+${leadContext}
+
+Question: ${question.trim()}`;
+
+    const { text } = await callClaude({ system: "You are a pragmatic B2B sales assistant inside a CRM.", prompt, maxTokens: 700 });
+    res.json({ success: true, data: { answer: text } });
+  } catch (err) {
+    sendCrmError(res, err, "AI request failed");
   }
 };

@@ -5,7 +5,8 @@ import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMCompany from "../models/crm/crmCompany.model.js";
 import { resolveRange, istMonthStart, istDateStr } from "../services/crmDailyReport.js";
-import { attachRelated, ownerFilter, sendCrmError } from "../utils/crmQuery.js";
+import { attachRelated, ownerFilter, dealOwnerFilter, sendCrmError } from "../utils/crmQuery.js";
+import { hasCrmPermission } from "../middleware/crmPermission.js";
 
 const STATUS_ORDER = [
   "new", "discovery", "needs_analysis", "skill_gap_assessed",
@@ -274,5 +275,85 @@ export const getCalendarEvents = async (req, res) => {
     res.json({ success: true, data: { month, tasks: tasksWithRelated, activities: activitiesWithRelated } });
   } catch (err) {
     sendCrmError(res, err, "Failed to load calendar");
+  }
+};
+
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const SEARCH_TYPES = ["lead", "contact", "company", "deal"];
+
+// GET /search?q=&types=lead,contact,company,deal — quick search for the top bar and
+// record pickers. Each type is limited by the caller's permissions and ownership.
+export const getSearch = async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (q.length < 2) return res.json({ success: true, data: [] });
+    const role = req.admin.crmRole;
+    const wanted = (req.query.types || SEARCH_TYPES.join(",")).split(",").filter((t) => SEARCH_TYPES.includes(t));
+    const re = new RegExp(escapeRegex(q.slice(0, 100)), "i");
+    const limit = 6;
+
+    const jobs = [];
+    if (wanted.includes("lead") && hasCrmPermission(role, "leads")) {
+      jobs.push(CRMLead.find({ isDeleted: false, ...ownerFilter(req), $or: [{ name: re }, { email: re }, { phone: re }, { company: re }] })
+        .select("name email company status").sort({ updatedAt: -1 }).limit(limit).lean()
+        .then((rows) => rows.map((x) => ({ type: "lead", id: x._id, label: x.name, sub: [x.company, x.email].filter(Boolean).join(" · ") }))));
+    }
+    if (wanted.includes("contact") && hasCrmPermission(role, "contacts")) {
+      jobs.push(CRMContact.find({ isDeleted: false, $or: [{ firstName: re }, { lastName: re }, { email: re }, { phone: re }] })
+        .select("firstName lastName email").sort({ updatedAt: -1 }).limit(limit).lean()
+        .then((rows) => rows.map((x) => ({ type: "contact", id: x._id, label: [x.firstName, x.lastName].filter(Boolean).join(" "), sub: x.email || "" }))));
+    }
+    if (wanted.includes("company") && hasCrmPermission(role, "companies")) {
+      jobs.push(CRMCompany.find({ isDeleted: false, name: re })
+        .select("name industry").sort({ updatedAt: -1 }).limit(limit).lean()
+        .then((rows) => rows.map((x) => ({ type: "company", id: x._id, label: x.name, sub: x.industry || "" }))));
+    }
+    if (wanted.includes("deal") && hasCrmPermission(role, "deals")) {
+      jobs.push(dealOwnerFilter(req).then((scope) => CRMDeal.find({ isDeleted: false, ...scope, title: re })
+        .select("title status value currency").sort({ updatedAt: -1 }).limit(limit).lean())
+        .then((rows) => rows.map((x) => ({ type: "deal", id: x._id, label: x.title, sub: x.status }))));
+    }
+
+    res.json({ success: true, data: (await Promise.all(jobs)).flat() });
+  } catch (err) {
+    sendCrmError(res, err, "Search failed");
+  }
+};
+
+// GET /notifications — what needs the caller's attention (IST days): their overdue
+// and due-today tasks, and their open leads whose follow-up date has arrived.
+export const getNotifications = async (req, res) => {
+  try {
+    const me = req.admin._id;
+    const role = req.admin.crmRole;
+    const { start, end } = resolveRange();
+    const OPEN_TASK = { isDeleted: false, assignedTo: me, status: { $in: ["open", "in_progress"] } };
+    const overdueQ = { ...OPEN_TASK, dueDate: { $lt: start } };
+    const todayQ = { ...OPEN_TASK, dueDate: { $gte: start, $lt: end } };
+    const followUpQ = { isDeleted: false, assignedTo: me, status: { $nin: ["won", "lost", "junk"] }, nextFollowUp: { $lt: end } };
+    const canTasks = hasCrmPermission(role, "tasks");
+    const canLeads = hasCrmPermission(role, "leads");
+    const none = Promise.resolve([]);
+    const zero = Promise.resolve(0);
+
+    const [overdueTasks, dueTodayTasks, followUps, overdueCount, dueTodayCount, followUpCount] = await Promise.all([
+      canTasks ? CRMTask.find(overdueQ).sort({ dueDate: 1 }).limit(10).select("title dueDate priority").lean() : none,
+      canTasks ? CRMTask.find(todayQ).sort({ dueDate: 1 }).limit(10).select("title dueDate priority").lean() : none,
+      canLeads ? CRMLead.find(followUpQ).sort({ nextFollowUp: 1 }).limit(10).select("name company nextFollowUp").lean() : none,
+      canTasks ? CRMTask.countDocuments(overdueQ) : zero,
+      canTasks ? CRMTask.countDocuments(todayQ) : zero,
+      canLeads ? CRMLead.countDocuments(followUpQ) : zero,
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        overdueTasks, dueTodayTasks, followUps,
+        counts: { overdue: overdueCount, dueToday: dueTodayCount, followUps: followUpCount },
+        total: overdueCount + dueTodayCount + followUpCount,
+      },
+    });
+  } catch (err) {
+    sendCrmError(res, err, "Failed to load notifications");
   }
 };

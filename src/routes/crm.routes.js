@@ -1,15 +1,17 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { crmRead, crmWrite, crmDelete, crmBulk, crmImport, crmExport } from "../middleware/crmPermission.js";
 import { crmInputGuard } from "../middleware/crmInputGuard.js";
 
-import { getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents } from "../controllers/crmDashboard.controller.js";
+import {
+  getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents, getSearch, getNotifications,
+} from "../controllers/crmDashboard.controller.js";
 import { getRevenueTrend, getRepStats, getConversionStats, getDailyReport, emailDailyReportToMe } from "../controllers/crmAnalytics.controller.js";
 import {
   getLeads, getLead, createLead, updateLead, deleteLead,
   bulkLeadAction, mergeLead, addNote, getLeadActivities,
   getLeadExport, importLeads, aiLeadSummary, aiScoreLead, aiEmailDraft,
-  draftProposal,
+  draftProposal, convertLead, aiAsk,
 } from "../controllers/crmLead.controller.js";
 import {
   getContacts, getContact, createContact, updateContact, deleteContact,
@@ -60,6 +62,8 @@ router.get("/dashboard/funnel",  crmRead("dashboard"),  getFunnelData);
 router.get("/dashboard/sources", crmRead("dashboard"),  getLeadSourcesBreakdown);
 router.get("/analytics",         crmRead("dashboard"),  getAnalytics);
 router.get("/calendar",          crmRead("dashboard"),  getCalendarEvents);
+router.get("/search",            crmRead("dashboard"),  getSearch);
+router.get("/notifications",     crmRead("dashboard"),  getNotifications);
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 router.get("/analytics/revenue-trend", crmRead("dashboard"), getRevenueTrend);
@@ -70,7 +74,8 @@ router.post("/analytics/daily-report/email", crmWrite("users"), emailDailyReport
 
 // ── Leads ─────────────────────────────────────────────────────────────────────
 router.get("/leads/export",         crmExport("leads"),       getLeadExport);
-router.post("/leads/import",        crmImport("leads"),       importLeads);
+// The global JSON parser skips this path (see index.js) so a CSV of up to 1000 rows fits.
+router.post("/leads/import",        express.json({ limit: "2mb" }), crmInputGuard, crmImport("leads"), importLeads);
 router.post("/leads/bulk",          crmBulk("leads"),         bulkLeadAction);
 router.get("/leads",                crmRead("leads"),         getLeads);
 router.post("/leads",               crmWrite("leads"),        createLead);
@@ -78,6 +83,7 @@ router.get("/leads/:id",            crmRead("leads"),         getLead);
 router.put("/leads/:id",            crmWrite("leads"),        updateLead);
 router.delete("/leads/:id",         crmDelete("leads"),       deleteLead);
 router.post("/leads/:id/merge",     crmWrite("leads"),        mergeLead);
+router.post("/leads/:id/convert",   crmWrite("deals"),        convertLead);
 router.post("/leads/:id/notes",     crmWrite("leads"),        addNote);
 router.get("/leads/:id/activities", crmRead("leads"),         getLeadActivities);
 
@@ -86,6 +92,7 @@ router.get("/leads/:id/ai-summary",      crmRead("ai"),  aiLimiter, aiLeadSummar
 router.post("/leads/:id/ai-score",       crmWrite("ai"), aiLimiter, aiScoreLead);
 router.post("/leads/:id/draft-proposal", crmWrite("ai"), aiLimiter, draftProposal);
 router.post("/ai/email-draft",           crmWrite("ai"), aiLimiter, aiEmailDraft);
+router.post("/ai/ask",                   crmWrite("ai"), aiLimiter, aiAsk);
 
 // ── Contacts ──────────────────────────────────────────────────────────────────
 router.get("/contacts",                  crmRead("contacts"),   getContacts);

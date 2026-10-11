@@ -81,6 +81,7 @@ import skillsGapRoutes from "./routes/skillsGap.routes.js";
 import crmRoutes from "./routes/crm.routes.js";
 import crmAuthRoutes from "./routes/crmAuth.routes.js";
 import { ensureDefaultPipelines } from "./controllers/crmPipeline.controller.js";
+import { backfillPhoneNormalized } from "./services/crmLeadIntake.js";
 import { authenticateCrm } from "./middleware/authenticateCrm.js";
 import careerRoutes from "./routes/career.routes.js";
 import Coupon from "./models/coupon.model.js";
@@ -181,8 +182,10 @@ app.use(cors(corsOptionsDelegate));
 // /webhooks/resend needs its raw, unparsed body to verify the svix signature
 // (see src/services/resendWebhook.js) — express.json() here would consume
 // the request stream first and hand the route only a parsed object.
+// /api/crm/leads/import parses its own (larger) JSON body on the route.
+const RAW_BODY_PATHS = new Set(['/webhooks/resend', '/api/crm/leads/import']);
 app.use((req, res, next) => {
-  if (req.path === '/webhooks/resend') {
+  if (RAW_BODY_PATHS.has(req.path)) {
     return next();
   }
   return express.json()(req, res, next);
@@ -231,6 +234,7 @@ app.use(passport.initialize());
 connectDb().then(() => {
   refreshPriceCatalog().catch((err) => console.error("Price catalog refresh failed:", err));
   ensureDefaultPipelines().catch((err) => console.error("CRM default pipeline seed failed:", err));
+  backfillPhoneNormalized().catch((err) => console.error("CRM phone backfill failed:", err));
 });
 
 
@@ -1407,6 +1411,11 @@ import("./services/emailMarketing/campaignOpportunityQueue.js")
 import("./services/crmDailyReportQueue.js")
   .then(({ scheduleCrmDailyReportRepeatable }) => scheduleCrmDailyReportRepeatable())
   .catch((err) => console.error("[CRM Daily Report Queue] failed to schedule repeatable:", err.message));
+
+// CRM task reminders (every 15 min) and each rep's 9am IST digest.
+import("./services/crmReminderQueue.js")
+  .then(({ scheduleCrmReminders }) => scheduleCrmReminders())
+  .catch((err) => console.error("[CRM Reminder Queue] failed to schedule repeatables:", err.message));
 
 // ─── Automated Email Sequences ────────────────────────────────────────────────
 

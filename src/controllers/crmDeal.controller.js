@@ -5,6 +5,7 @@ import {
   parsePaging, isValidId, pick, isCrmAdmin, dealOwnerFilter, canAccessRelated,
   findMissingRef, activeUserExists, sendCrmError,
 } from "../utils/crmQuery.js";
+import { syncLeadFromDeal } from "../services/crmLifecycle.js";
 
 const DEAL_FIELDS = ["title", "value", "currency", "probability", "expectedCloseDate", "lostReason",
   "lead", "contact", "company", "proposalId", "quotationRef", "purchaseOrderRef", "purchaseOrderUrl",
@@ -57,8 +58,8 @@ export const getDeals = async (req, res) => {
   try {
     const { page, limit, skip } = parsePaging(req.query, { max: 200 });
 
-    const { pipeline, status, assignedTo, company, search } = req.query;
-    for (const [key, val] of [["pipeline", pipeline], ["assignedTo", assignedTo], ["company", company]]) {
+    const { pipeline, status, assignedTo, company, lead, search } = req.query;
+    for (const [key, val] of [["pipeline", pipeline], ["assignedTo", assignedTo], ["company", company], ["lead", lead]]) {
       if (val && !isValidId(val)) return res.status(400).json({ success: false, message: `Invalid ${key} id` });
     }
 
@@ -68,6 +69,7 @@ export const getDeals = async (req, res) => {
     if (status)     filter.status     = status;
     if (assignedTo) filter.assignedTo = assignedTo;
     if (company)    filter.company    = company;
+    if (lead)       filter.lead       = lead;
 
     const [deals, total] = await Promise.all([
       CRMDeal.find(filter)
@@ -142,6 +144,7 @@ export const createDeal = async (req, res) => {
 
     await logActivity(deal._id, "created", "Deal created", `${deal.title} added to pipeline`, req.admin._id);
     if (statusActivity) await logActivity(deal._id, ...statusActivity, req.admin._id);
+    await syncLeadFromDeal(deal, req.admin._id);
 
     res.status(201).json({ success: true, data: deal, message: "Deal created" });
   } catch (err) {
@@ -191,6 +194,7 @@ export const updateDeal = async (req, res) => {
 
     await deal.save();
     for (const [type, title, body, metadata] of pending) await logActivity(deal._id, type, title, body, req.admin._id, metadata);
+    if (pending.length) await syncLeadFromDeal(deal, req.admin._id);
     res.json({ success: true, data: deal, message: "Deal updated" });
   } catch (err) {
     sendCrmError(res, err, "Failed to update deal");
@@ -225,6 +229,7 @@ export const moveDealStage = async (req, res) => {
     await logActivity(deal._id, "stage_change", "Stage moved",
       `Deal moved from ${prevStage} → ${stageKey}`, req.admin._id, { from: prevStage, to: stageKey });
     if (statusActivity) await logActivity(deal._id, ...statusActivity, req.admin._id);
+    await syncLeadFromDeal(deal, req.admin._id);
 
     res.json({ success: true, data: deal, message: "Stage updated" });
   } catch (err) {

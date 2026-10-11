@@ -146,7 +146,10 @@ export const updateTask = async (req, res) => {
     if (invalid) return res.status(400).json({ success: false, message: invalid });
 
     const prevStatus = task.status;
+    const prevReminder = task.reminderAt ? new Date(task.reminderAt).getTime() : null;
     Object.assign(task, fields);
+    const nextReminder = task.reminderAt ? new Date(task.reminderAt).getTime() : null;
+    if (nextReminder !== prevReminder) task.reminderSentAt = null;
     if (req.body.assignedTo) task.assignedTo = req.body.assignedTo;
 
     let completedActivity = null;

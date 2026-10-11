@@ -21,6 +21,8 @@ const crmTaskSchema = new mongoose.Schema(
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" },
     dueDate: { type: Date },
     reminderAt: { type: Date },
+    // Set once the reminder email goes out; cleared when reminderAt changes.
+    reminderSentAt: { type: Date, default: null },
     completedAt: { type: Date },
 
     isRecurring: { type: Boolean, default: false },
