@@ -32,7 +32,7 @@ import { getAllLeads, getLead, createLead, updateLead, deleteLead } from "../con
 import { quoteProposalLine, createProposal, updateProposal, getProposals, getProposal, deleteProposal } from "../controllers/proposal.controller.js";
 import { getContacts, getContactProfile } from "../controllers/crm.controller.js";
 import { getReferralAnalytics, getReferralsList, getReferrerDetails, getReferralMetrics } from "../controllers/admin-referral.controller.js";
-import { getAllCampaigns, getCampaign, createCampaign, createCampaignFromBlog, updateCampaign, deleteCampaign, sendCampaignNow, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy, approveCampaignReview, rejectCampaignReview, regenerateCampaignCopy, rerunCampaignQualityGate } from "../controllers/campaign.controller.js";
+import { getAllCampaigns, getCampaign, createCampaign, createCampaignFromBlog, updateCampaign, deleteCampaign, sendCampaignNow, sendCampaignTest, scheduleCampaign, pauseCampaign, resumeCampaign, getCampaignAnalytics, estimateSegmentSize, getCampaignQueueStats, generateAICopy, approveCampaignReview, rejectCampaignReview, regenerateCampaignCopy, rerunCampaignQualityGate } from "../controllers/campaign.controller.js";
 import { getAllOpportunities, runOpportunityScanNow, approveOpportunity, dismissOpportunity } from "../controllers/campaignOpportunity.controller.js";
 import { getAllDripSequences, getDripSequence, createDripSequence, updateDripSequence, deleteDripSequence, activateDripSequence, deactivateDripSequence } from "../controllers/dripSequence.controller.js";
 import Campaign from "../models/campaign.model.js";
@@ -105,6 +105,17 @@ const adminUploadLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => req.admin?.uid || ipKeyGenerator(req.ip),
   message: 'Upload rate limit reached. Try again later.',
+});
+
+// Test sends can go to any address, so cap them per admin. Object message so
+// the admin UI can show it (a string body has no .message).
+const adminTestSendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.admin?.uid || ipKeyGenerator(req.ip),
+  message: { success: false, message: "Test-send limit reached (20 per hour). Try again later." },
 });
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -1503,6 +1514,9 @@ router.delete("/campaigns/:id", authenticateAdmin, requirePage("campaigns", "mar
 
 // POST /admin/campaigns/:id/send - Send campaign immediately (admin + marketing)
 router.post("/campaigns/:id/send", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, sendCampaignNow);
+
+// POST /admin/campaigns/:id/test-send - Send one [TEST] copy to a single address (admin + marketing)
+router.post("/campaigns/:id/test-send", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, adminTestSendLimiter, sendCampaignTest);
 
 // POST /admin/campaigns/:id/schedule - Schedule campaign for later (admin + marketing)
 router.post("/campaigns/:id/schedule", authenticateAdmin, requirePage("campaigns", "marketing-overview"), requireMarketing, scheduleCampaign);

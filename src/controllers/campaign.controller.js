@@ -6,7 +6,7 @@ import { scheduleCampaignJob, getQueueStats } from "../services/campaignQueue.js
 import { buildRegexQuery } from "../utils/escapeRegex.js";
 import { personalizeForRecipient } from "../services/emailMarketing/campaignPersonalizer.js";
 import { generateBlogPostEmail } from "../utils/emailTemplate.js";
-import { filterSuppressed, withUnsubscribe } from "../services/emailSuppression.js";
+import { filterSuppressed, isSuppressed, withUnsubscribe } from "../services/emailSuppression.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -286,6 +286,53 @@ export const deleteCampaign = async (req, res) => {
 };
 
 // Send campaign immediately (direct send via Resend, no queue required)
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// One copy to one address for QA. Deliberately skips the AI review gate (copy
+// is tested before it's approved) but not the suppression list, and never
+// touches campaign metrics or recipientMetrics. No campaign_id tag, so Resend
+// webhook events for it don't count toward the campaign's stats.
+export const sendCampaignTest = async (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim();
+    if (!EMAIL_PATTERN.test(email)) {
+      return res.status(400).json({ success: false, message: "Enter a valid email address." });
+    }
+
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: "Campaign not found" });
+    }
+
+    if (await isSuppressed(email)) {
+      return res.status(409).json({
+        success: false,
+        suppressed: true,
+        message: `${email} is on the do-not-email list (unsubscribed, complained or bounced), so it was skipped, as it would be in a real send.`,
+      });
+    }
+
+    const { html, headers } = withUnsubscribe(campaign.htmlContent, email);
+    // Resend's SDK reports API failures in `error` rather than throwing.
+    const { data, error } = await resend.emails.send({
+      from: `${campaign.fromName} <${campaign.fromEmail}>`,
+      to: email,
+      subject: `[TEST] ${campaign.subject}`,
+      html,
+      headers: { ...headers, "X-Campaign-ID": campaign._id.toString(), "X-Test-Send": "true" },
+      tags: [{ name: "test_send", value: "true" }],
+    });
+    if (error) {
+      return res.status(502).json({ success: false, message: `Resend rejected the email: ${error.message}` });
+    }
+
+    return res.json({ success: true, message: `Test email sent to ${email}`, data: { resendEmailId: data?.id } });
+  } catch (error) {
+    console.error("Error sending campaign test:", error);
+    return res.status(500).json({ success: false, message: "Error sending test email" });
+  }
+};
+
 export const sendCampaignNow = async (req, res) => {
   try {
     const { id } = req.params;
