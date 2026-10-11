@@ -51,6 +51,7 @@ crmTaskSchema.index({ assignedTo: 1, status: 1 });
 crmTaskSchema.index({ dueDate: 1 });
 crmTaskSchema.index({ relatedToType: 1, relatedToId: 1 });
 crmTaskSchema.index({ status: 1, dueDate: 1 });
-crmTaskSchema.index({ isDeleted: 1 });
+crmTaskSchema.index({ completedAt: 1 }, { sparse: true });
+crmTaskSchema.index({ reminderAt: 1, reminderSentAt: 1 });
 
 export default mongoose.model("CRMTask", crmTaskSchema);

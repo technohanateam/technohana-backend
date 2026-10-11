@@ -130,12 +130,15 @@ crmLeadSchema.pre("validate", function syncPhoneNormalized(next) {
 crmLeadSchema.index({ email: 1 });
 crmLeadSchema.index({ phoneNormalized: 1 });
 crmLeadSchema.index({ metaLeadgenId: 1 }, { unique: true, sparse: true });
-crmLeadSchema.index({ status: 1 });
 crmLeadSchema.index({ assignedTo: 1 });
 crmLeadSchema.index({ pipeline: 1 });
 crmLeadSchema.index({ createdAt: -1 });
 crmLeadSchema.index({ leadScore: -1 });
 crmLeadSchema.index({ isDeleted: 1, status: 1 });
 crmLeadSchema.index({ status: 1, assignedTo: 1 });
+// A rep's list view (isDeleted + owner, newest first) and the won-leads report.
+crmLeadSchema.index({ isDeleted: 1, assignedTo: 1, createdAt: -1 });
+crmLeadSchema.index({ wonAt: 1 }, { sparse: true });
+crmLeadSchema.index({ assignedTo: 1, nextFollowUp: 1 });
 
 export default mongoose.model("CRMLead", crmLeadSchema);

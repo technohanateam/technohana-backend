@@ -16,12 +16,14 @@ metaLeadQueue.on("failed", (job, err) =>
 metaLeadQueue.on("error", (err) => console.error("[meta-leads] connection error:", err.message));
 
 // The jobId collapses concurrent redeliveries of the same lead into one job; retries
-// back off exponentially (30s, 1m, 2m, …) to ride out Graph API hiccups.
+// back off exponentially (30s, 1m, 2m, …) to ride out Graph API hiccups. Finished jobs
+// are removed so a later redelivery is processed again (processMetaLead is idempotent) —
+// a kept job with the same id would make that redelivery a silent no-op.
 export const enqueueMetaLeadgen = (event) =>
   metaLeadQueue.add(event, {
     jobId: `leadgen-${event.leadgenId}`,
     attempts: 5,
     backoff: { type: "exponential", delay: 30_000 },
-    removeOnComplete: 1000,
-    removeOnFail: 1000,
+    removeOnComplete: true,
+    removeOnFail: true,
   });

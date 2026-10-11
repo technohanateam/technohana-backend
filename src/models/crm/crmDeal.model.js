@@ -60,5 +60,9 @@ crmDealSchema.index({ lead: 1 });
 crmDealSchema.index({ company: 1 });
 crmDealSchema.index({ isDeleted: 1 });
 crmDealSchema.index({ expectedCloseDate: 1 });
+// Daily report, revenue trend and analytics range over these dates.
+crmDealSchema.index({ wonAt: 1 }, { sparse: true });
+crmDealSchema.index({ lostAt: 1 }, { sparse: true });
+crmDealSchema.index({ createdAt: -1 });
 
 export default mongoose.model("CRMDeal", crmDealSchema);

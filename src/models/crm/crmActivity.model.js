@@ -41,7 +41,7 @@ const crmActivitySchema = new mongoose.Schema(
 );
 
 crmActivitySchema.index({ relatedToType: 1, relatedToId: 1, createdAt: -1 });
-crmActivitySchema.index({ performedBy: 1 });
+crmActivitySchema.index({ performedBy: 1, createdAt: -1 });
 crmActivitySchema.index({ type: 1 });
 crmActivitySchema.index({ createdAt: -1 });
 // Lookups by external ids kept in metadata: Resend message (delivery tracking),
