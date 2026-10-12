@@ -31,7 +31,7 @@ function emailShell({ label, title = 'Technohana', body }) {
           <tr>
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
               <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Questions? <a href="mailto:connect@technohana.in" style="color:#27A8F5;text-decoration:none;">connect@technohana.in</a></p>
-              <p style="margin:0;font-size:11px;color:#94a3b8;">© ${new Date().getFullYear()} Technohana · <a href="https://technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
+              <p style="margin:0;font-size:11px;color:#94a3b8;">© ${new Date().getFullYear()} Technohana · <a href="https://www.technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
             </td>
           </tr>
 
@@ -129,7 +129,7 @@ export function generateEnquiryConfirmationEmail({ name, enquiryType, courseTitl
       ${timelineRow}
       ${dataRow('Next Step', 'Discovery call — we will send a calendar invite', selectedPackage ? true : false)}
     </table>
-    ${ctaButton('View Build Packages', `${process.env.FRONTEND_URL || 'https://technohana.in'}/build/ai-agent#packages`)}`;
+    ${ctaButton('View Build Packages', `${process.env.FRONTEND_URL || 'https://www.technohana.in'}/build/ai-agent#packages`)}`;
 
   return emailShell({ label: 'Enquiry Confirmation', body });
 }
@@ -149,7 +149,7 @@ export function generateSkillsGapPlanEmail({ name, currentRole, targetRole, summ
       ${dataRow('Target Role', targetRole, true)}
       ${summary ? dataRow('Summary', summary, false) : ''}
     </table>
-    ${ctaButton('Browse Courses', `${process.env.FRONTEND_URL || 'https://technohana.in'}/courses`)}`;
+    ${ctaButton('Browse Courses', `${process.env.FRONTEND_URL || 'https://www.technohana.in'}/courses`)}`;
 
   return emailShell({ label: 'Your Learning Path', body });
 }
@@ -171,7 +171,7 @@ export function generateEnrollmentConfirmationEmail({ name, courseTitle, trainin
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
       ${rows}
     </table>
-    ${ctaButton('View My Enrollments', `${process.env.FRONTEND_URL || 'https://technohana.in'}/my-enrollments`)}`;
+    ${ctaButton('View My Enrollments', `${process.env.FRONTEND_URL || 'https://www.technohana.in'}/my-enrollments`)}`;
 
   return emailShell({ label: 'Enrollment Confirmation', body });
 }
@@ -187,7 +187,7 @@ export function generateResumeAcknowledgementEmail({ name }) {
       ${dataRow('Next Step', 'Our team will reach out if your profile matches current opportunities', true)}
       ${dataRow('Expected Response', 'Within 5 business days', false)}
     </table>
-    ${ctaButton('Visit Technohana', 'https://technohana.in')}`;
+    ${ctaButton('Visit Technohana', 'https://www.technohana.in')}`;
 
   return emailShell({ label: 'Careers', body });
 }
@@ -204,7 +204,7 @@ export function generateInternshipAcknowledgementEmail({ name, department }) {
       ${dataRow('Status', 'Under Review', true)}
       ${dataRow('Next Step', 'Our team will reach out if your profile matches current openings', false)}
     </table>
-    ${ctaButton('Visit Technohana', 'https://technohana.in')}`;
+    ${ctaButton('Visit Technohana', 'https://www.technohana.in')}`;
 
   return emailShell({ label: 'Careers', body });
 }
@@ -221,7 +221,7 @@ export function generateCareerApplicationAcknowledgementEmail({ name, requiremen
       ${dataRow('Status', 'Under Review', true)}
       ${dataRow('Next Step', 'Our team will reach out if your profile is shortlisted', false)}
     </table>
-    ${ctaButton('Visit Technohana', 'https://technohana.in')}`;
+    ${ctaButton('Visit Technohana', 'https://www.technohana.in')}`;
 
   return emailShell({ label: 'Careers', body });
 }
@@ -301,7 +301,7 @@ export function generateUserConfirmationEmail({ name }) {
   const body = `
     <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Thank You${name ? `, ${name}` : ''}!</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">We've received your request for the AI Career Risk Report. Our team will connect with you shortly to provide your personalised report and further assistance.</p>
-    ${ctaButton('Explore Courses', 'https://technohana.in/courses')}`;
+    ${ctaButton('Explore Courses', 'https://www.technohana.in/courses')}`;
 
   return emailShell({ label: 'Career Shield', body });
 }
@@ -405,7 +405,7 @@ export function generateAiRiskReportEmail({ name, score, band, explanation }) {
         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;text-align:center;">
           <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#1e293b;">${c.title}</p>
           <p style="margin:0 0 10px;font-size:11px;color:#64748b;">${c.duration}</p>
-          <a href="https://technohana.in/courses/${c.id}" style="display:inline-block;background:#27A8F5;color:#fff;font-size:11px;font-weight:600;text-decoration:none;padding:5px 12px;border-radius:5px;">View Course</a>
+          <a href="https://www.technohana.in/courses/${c.id}" style="display:inline-block;background:#27A8F5;color:#fff;font-size:11px;font-weight:600;text-decoration:none;padding:5px 12px;border-radius:5px;">View Course</a>
         </div>
       </td>`
     )
@@ -490,7 +490,7 @@ export function generateAiRiskReportEmail({ name, score, band, explanation }) {
           <!-- CTA -->
           <tr>
             <td style="padding:8px 32px 32px;text-align:center;">
-              <a href="https://technohana.in/courses" style="display:inline-block;background:#27A8F5;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:8px;">Explore All AI-Proof Courses →</a>
+              <a href="https://www.technohana.in/courses" style="display:inline-block;background:#27A8F5;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:8px;">Explore All AI-Proof Courses →</a>
               <p style="margin:12px 0 0;font-size:12px;color:#94a3b8;">Live instructor-led · Regional pricing · 35% group discount</p>
             </td>
           </tr>
@@ -499,7 +499,7 @@ export function generateAiRiskReportEmail({ name, score, band, explanation }) {
           <tr>
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
               <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Questions? Email us at <a href="mailto:connect@technohana.in" style="color:#27A8F5;text-decoration:none;">connect@technohana.in</a></p>
-              <p style="margin:0;font-size:11px;color:#94a3b8;">Technohana · <a href="https://technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
+              <p style="margin:0;font-size:11px;color:#94a3b8;">Technohana · <a href="https://www.technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
             </td>
           </tr>
 
@@ -537,7 +537,7 @@ export function generatePaymentSuccessEmail({ name, courseTitle, amountMajor, cu
       ${batchTime ? dataRow('Batch Time', batchTime, formattedBatchDate ? false : true) : ''}
       ${trainingPeriod ? dataRow('Training Period', trainingPeriod, batchTime ? true : false) : ''}
     </table>
-    ${ctaButton('View My Dashboard', `${process.env.FRONTEND_URL || 'https://technohana.in'}/dashboard`)}`;
+    ${ctaButton('View My Dashboard', `${process.env.FRONTEND_URL || 'https://www.technohana.in'}/dashboard`)}`;
 
   return emailShell({ label: 'Payment Confirmation', body });
 }
@@ -582,7 +582,7 @@ export function generateEnrollmentDetailsForSales({ orderId, learner, courseInfo
 // ─── ABANDONED CART RECOVERY (learner) ───────────────────────────────────────
 
 export function generateAbandonedCartEmail({ name, courseTitle, couponCode = `${['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][new Date().getMonth()]}FLASH10` }) {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://www.technohana.in';
   const courseLine = courseTitle
     ? `<p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">You started enrolling in <strong style="color:#1e293b;">${courseTitle}</strong> but didn't complete your payment. Your spot is not confirmed yet.</p>`
     : `<p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">You started an enrollment but didn't complete your payment. Your spot is not confirmed yet.</p>`;
@@ -610,7 +610,7 @@ export function generateAbandonedCartEmail({ name, courseTitle, couponCode = `${
 // AI-personalized recovery email: trusted shell + server-side CTA around
 // model-generated body content (sanitized by the caller).
 export function generateAiRecoveryEmail({ bodyHtml }) {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://www.technohana.in';
   const body = `
     ${bodyHtml}
     ${ctaButton('Resume My Enrollment →', `${frontendUrl}/my-enrollments`)}`;
@@ -620,7 +620,7 @@ export function generateAiRecoveryEmail({ bodyHtml }) {
 // ─── POST-ENROLLMENT DAY 3 — Getting Started Tips (learner) ──────────────────
 
 export function generateDay3Email({ name, courseTitle }) {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://www.technohana.in';
   const body = `
     <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">3 days in — how's it going${name ? `, ${name}` : ''}?</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
@@ -644,7 +644,7 @@ export function generateDay3Email({ name, courseTitle }) {
 // ─── POST-ENROLLMENT DAY 7 — What's Next (learner) ───────────────────────────
 
 export function generateDay7Email({ name, courseTitle }) {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://www.technohana.in';
   const body = `
     <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">One week in — you're doing great${name ? `, ${name}` : ''}!</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
@@ -669,7 +669,7 @@ export function generateDay7Email({ name, courseTitle }) {
 // ─── PERSONA LEAD — Lead Magnet Delivery (user) ───────────────────────────────
 
 export function generateLeadMagnetEmail({ name, persona, downloadUrl, masterclassNote }) {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://www.technohana.in';
   const fullDownloadUrl = downloadUrl ? `${frontendUrl}${downloadUrl}` : null;
   const body = `
     <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Your free resource is ready, ${name}!</h2>
@@ -1032,7 +1032,7 @@ export function enrollmentApprovedEmail({ name, courseTitle }) {
       ${dataRow('Status', 'Enrolled — Welcome aboard!', true)}
       ${dataRow('Next Step', 'Watch your inbox for joining instructions', false)}
     </table>
-    ${ctaButton('View My Enrollments', `${process.env.FRONTEND_URL || 'https://technohana.in'}/my-enrollments`)}`;
+    ${ctaButton('View My Enrollments', `${process.env.FRONTEND_URL || 'https://www.technohana.in'}/my-enrollments`)}`;
 
   return emailShell({ label: 'Enrollment Approved', body });
 }
@@ -1049,7 +1049,7 @@ export function enrollmentRejectedEmail({ name, courseTitle, reason }) {
       ${dataRow('Status', 'Not approved', true)}
       ${reason ? dataRow('Reason', reason.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'), false) : ''}
     </table>
-    ${ctaButton('Contact Us', `${process.env.FRONTEND_URL || 'https://technohana.in'}/contact`)}`;
+    ${ctaButton('Contact Us', `${process.env.FRONTEND_URL || 'https://www.technohana.in'}/contact`)}`;
 
   return emailShell({ label: 'Enrollment Update', body });
 }
@@ -1091,7 +1091,7 @@ export function generateBacklinkAlertEmail({ website, liveUrl, alertType, descri
 // ─── BLOG POST CAMPAIGN (published post → subscribers/enrolled users) ───────
 
 export function generateBlogPostEmail({ title, excerpt, img, slug }) {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://www.technohana.in';
   const safeTitle = escapeHtml(title);
   const safeExcerpt = escapeHtml(excerpt);
   const postUrl = `${frontendUrl}/blog/${slug}`;

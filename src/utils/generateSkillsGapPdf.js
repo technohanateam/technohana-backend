@@ -83,7 +83,7 @@ function drawFooter(doc, pageNum) {
     .text("  ·  ", { continued: true })
     .fillColor(VIOLET)
     .text("technohana.in", {
-      link: "https://technohana.in",
+      link: "https://www.technohana.in",
       underline: true,
     });
 

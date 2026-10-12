@@ -86,14 +86,14 @@ export const createSubscription = async (req, res) => {
                 </tr>
               </table>
               <div style="text-align:center;margin-top:28px;">
-                <a href="https://technohana.in/courses" style="display:inline-block;background:#27A8F5;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:13px 32px;border-radius:8px;">Browse Courses →</a>
+                <a href="https://www.technohana.in/courses" style="display:inline-block;background:#27A8F5;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:13px 32px;border-radius:8px;">Browse Courses →</a>
               </div>
             </td>
           </tr>
           <tr>
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
               <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Questions? <a href="mailto:connect@technohana.in" style="color:#27A8F5;text-decoration:none;">connect@technohana.in</a></p>
-              <p style="margin:0;font-size:11px;color:#94a3b8;">© ${new Date().getFullYear()} Technohana · <a href="https://technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
+              <p style="margin:0;font-size:11px;color:#94a3b8;">© ${new Date().getFullYear()} Technohana · <a href="https://www.technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
             </td>
           </tr>
         </table>
@@ -175,7 +175,7 @@ export const sendNewsletter = async (req, res) => {
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
               <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Questions? <a href="mailto:connect@technohana.in" style="color:#27A8F5;text-decoration:none;">connect@technohana.in</a></p>
               <p style="margin:0 0 4px;font-size:11px;color:#94a3b8;">You're receiving this because you subscribed to the Technohana newsletter.</p>
-              <p style="margin:0;font-size:11px;color:#94a3b8;">© ${new Date().getFullYear()} Technohana · <a href="https://technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
+              <p style="margin:0;font-size:11px;color:#94a3b8;">© ${new Date().getFullYear()} Technohana · <a href="https://www.technohana.in" style="color:#94a3b8;text-decoration:none;">technohana.in</a></p>
             </td>
           </tr>
         </table>
@@ -272,7 +272,7 @@ export const confirmUnsubscribe = async (req, res) => {
   }
   try {
     await suppressEmail(e, 'unsubscribed');
-    const siteUrl = process.env.FRONTEND_URL || 'https://technohana.in';
+    const siteUrl = process.env.FRONTEND_URL || 'https://www.technohana.in';
     return res.type('html').send(
       unsubscribePage(
         'Unsubscribed',
