@@ -23,7 +23,12 @@ import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { instructorPasswordResetEmail, payoutRequestedEmail } from "../utils/emailTemplate.js";
 import { generateResetToken, hashToken } from "../utils/resetTokenUtil.js";
 import { resolveCourseSkills } from "../controllers/instructorForm.controller.js";
-import { computeInstructorEarnings } from "../utils/instructorEarnings.js";
+import {
+  computeInstructorEarnings,
+  computePayoutClaim,
+  OPEN_PAYOUT_STATUSES,
+  openPayoutKey,
+} from "../utils/instructorEarnings.js";
 import { encryptToken } from "../utils/tokenCrypto.js";
 
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -406,8 +411,6 @@ router.get("/earnings", authenticateInstructor, requireCompliance, async (req, r
 
 // ── Payouts ───────────────────────────────────────────────────────────────────
 
-const PAYOUT_PENDING_STATUSES = ["requested", "approved", "processing", "paid"];
-
 router.get("/payout-details", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const instructor = await Instructor.findById(req.instructor.id)
@@ -461,25 +464,42 @@ router.put("/payout-details", authenticateInstructor, requireCompliance, async (
 router.get("/payouts", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const currency = await payoutCurrencyOf(req.instructor.id);
-    const [payouts, { totalMinor }] = await Promise.all([
+    const [payouts, claim] = await Promise.all([
       InstructorPayout.find({ instructorId: req.instructor.id })
-        .select("-payoutDetailsSnapshotEncrypted")
+        .select("-payoutDetailsSnapshotEncrypted -openKey")
         .sort({ requestedAt: -1 })
         .lean(),
-      computeInstructorEarnings(req.instructor.id, currency),
+      computePayoutClaim(req.instructor.id, currency),
     ]);
+    const hasOpenRequest = payouts.some((p) => OPEN_PAYOUT_STATUSES.includes(p.status));
 
-    const committedMinor = payouts
-      .filter((p) => PAYOUT_PENDING_STATUSES.includes(p.status) && p.currency === currency)
-      .reduce((sum, p) => sum + p.amountMinor, 0);
-    const availableMinor = Math.max(totalMinor - committedMinor, 0);
-
-    return res.json({ success: true, data: { payouts, availableMinor, totalMinor, currency } });
+    return res.json({
+      success: true,
+      data: {
+        payouts,
+        currency,
+        availableMinor: Math.max(claim.amountMinor, 0),
+        hasOpenRequest,
+        claim: {
+          sessions: claim.lines.length,
+          periodStart: claim.periodStart,
+          periodEnd: claim.periodEnd,
+          grossMinor: claim.grossMinor,
+          tdsPercent: claim.tdsPercent,
+          tdsMinor: claim.tdsMinor,
+          absorbedLegacyMinor: claim.absorbedLegacyMinor,
+          unratedSessions: claim.unratedSessions,
+          otherCurrencySessions: claim.otherCurrencySessions,
+        },
+      },
+    });
   } catch {
     return res.status(500).json({ success: false, message: "Failed to fetch payouts" });
   }
 });
 
+// Claims every unbilled session. `amountMinor` is the amount the trainer was shown;
+// if the balance moved since (new attendance, a rate change) the request is refused.
 router.post("/payouts", authenticateInstructor, requireCompliance, async (req, res) => {
   try {
     const { amountMinor } = req.body;
@@ -493,35 +513,53 @@ router.post("/payouts", authenticateInstructor, requireCompliance, async (req, r
       return res.status(400).json({ success: false, message: "Add your payout details before requesting a payout" });
 
     const currency = instructor.payoutCurrency || "INR";
-    const [{ totalMinor }, existingPayouts] = await Promise.all([
-      computeInstructorEarnings(req.instructor.id, currency),
-      InstructorPayout.find({ instructorId: req.instructor.id, status: { $in: PAYOUT_PENDING_STATUSES }, currency })
-        .select("amountMinor")
-        .lean(),
-    ]);
-    const committedMinor = existingPayouts.reduce((sum, p) => sum + p.amountMinor, 0);
-    const availableMinor = totalMinor - committedMinor;
+    const open = await InstructorPayout.exists({ instructorId: req.instructor.id, status: { $in: OPEN_PAYOUT_STATUSES } });
+    if (open)
+      return res.status(409).json({ success: false, message: "You already have a payout request in progress" });
 
-    if (amountMinor > availableMinor)
-      return res.status(400).json({ success: false, message: "Requested amount exceeds available balance" });
+    const claim = await computePayoutClaim(req.instructor.id, currency);
+    if (claim.amountMinor <= 0)
+      return res.status(400).json({ success: false, message: "There is nothing to request yet" });
+    if (claim.amountMinor !== amountMinor)
+      return res.status(409).json({ success: false, message: "Your available balance has changed. Refresh and try again." });
 
-    const payout = await InstructorPayout.create({
-      instructorId: req.instructor.id,
-      amountMinor,
-      currency: instructor.payoutCurrency || "INR",
-      payoutMethod: instructor.payoutMethod,
-      payoutLastFour: instructor.payoutLastFour,
-      payoutDetailsSnapshotEncrypted: instructor.payoutDetailsEncrypted,
-    });
+    let payout;
+    try {
+      payout = await InstructorPayout.create({
+        instructorId: req.instructor.id,
+        amountMinor: claim.amountMinor,
+        currency,
+        periodStart: claim.periodStart,
+        periodEnd: claim.periodEnd,
+        ledger: true,
+        lines: claim.lines,
+        grossMinor: claim.grossMinor,
+        tdsPercent: claim.tdsPercent,
+        tdsMinor: claim.tdsMinor,
+        absorbedLegacyMinor: claim.absorbedLegacyMinor,
+        openKey: openPayoutKey(req.instructor.id),
+        payoutMethod: instructor.payoutMethod,
+        payoutLastFour: instructor.payoutLastFour,
+        payoutDetailsSnapshotEncrypted: instructor.payoutDetailsEncrypted,
+      });
+    } catch (err) {
+      // A concurrent request won the race for this trainer's open slot.
+      if (err?.code === 11000)
+        return res.status(409).json({ success: false, message: "You already have a payout request in progress" });
+      throw err;
+    }
 
     sendEmail({
       from: fromAddresses.careers,
       to: process.env.MAIL_TO,
       subject: `Payout requested by ${instructor.name}`,
-      html: payoutRequestedEmail(instructor.name, (amountMinor / 100).toFixed(2), instructor.payoutCurrency || "INR"),
+      html: payoutRequestedEmail(instructor.name, (claim.amountMinor / 100).toFixed(2), currency),
     }).catch(() => {});
 
-    return res.status(201).json({ success: true, data: payout });
+    const data = payout.toObject();
+    delete data.payoutDetailsSnapshotEncrypted;
+    delete data.openKey;
+    return res.status(201).json({ success: true, data });
   } catch {
     return res.status(500).json({ success: false, message: "Failed to submit payout request" });
   }

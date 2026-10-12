@@ -1,5 +1,6 @@
 import Session from "../models/session.model.js";
 import Batch from "../models/batch.model.js";
+import InstructorPayout from "../models/instructorPayout.model.js";
 
 // Shared by GET /instructor/earnings and the payout-request endpoints, so the
 // balance a trainer can withdraw is exactly what the Earnings page shows.
@@ -31,12 +32,7 @@ export const tdsFor = (grossMinor, currency) => {
 
 const round1 = (n) => Math.round(n * 10) / 10;
 
-/**
- * Amounts are totalled only for batches priced in `currency` (the trainer's
- * payout currency); sessions on batches priced in another currency or with no
- * rate yet are counted separately so the trainer can see why they're missing.
- */
-export const computeInstructorEarnings = async (instructorId, currency = "INR") => {
+const loadDeliveredSessions = async (instructorId) => {
   const sessions = await Session.find({
     attendanceMarkedBy: instructorId,
     attendanceMarkedAt: { $ne: null },
@@ -49,7 +45,16 @@ export const computeInstructorEarnings = async (instructorId, currency = "INR") 
   const batches = await Batch.find({ _id: { $in: [...new Set(sessions.map((s) => String(s.batchId)))] } })
     .select("batchCode courseTitle trainerHourlyRateMinor trainerRateCurrency")
     .lean();
-  const batchById = new Map(batches.map((b) => [String(b._id), b]));
+  return { sessions, batchById: new Map(batches.map((b) => [String(b._id), b])) };
+};
+
+/**
+ * Amounts are totalled only for batches priced in `currency` (the trainer's
+ * payout currency); sessions on batches priced in another currency or with no
+ * rate yet are counted separately so the trainer can see why they're missing.
+ */
+export const computeInstructorEarnings = async (instructorId, currency = "INR") => {
+  const { sessions, batchById } = await loadDeliveredSessions(instructorId);
 
   const months = new Map();
   const perBatch = new Map();
@@ -112,4 +117,99 @@ export const computeInstructorEarnings = async (instructorId, currency = "INR") 
     unratedSessions,
     otherCurrencySessions,
   };
+};
+
+// ── Payout ledger ─────────────────────────────────────────────────────────────
+// A payout request claims every delivered session not already on a live payout,
+// priced at the batch rate at that moment, so later rate changes or cancellations
+// never alter what was paid.
+
+export const LIVE_PAYOUT_STATUSES = ["requested", "approved", "processing", "paid"];
+export const OPEN_PAYOUT_STATUSES = ["requested", "approved", "processing"];
+
+export const openPayoutKey = (instructorId) => String(instructorId);
+
+/**
+ * `livePayouts`: the trainer's payouts in LIVE_PAYOUT_STATUSES. Pre-ledger payouts
+ * (no `ledger` flag) were bare amounts drawn from the lifetime balance, so whatever
+ * of them hasn't been netted off yet is subtracted from this claim.
+ * `claimedElsewhere`: session ids on another trainer's live payout. Re-marking
+ * attendance moves a session to whoever marked it last, so a session paid to the
+ * previous trainer must not become claimable again.
+ */
+export const buildPayoutClaim = ({ sessions, batchById, currency, livePayouts, claimedElsewhere = [] }) => {
+  const claimed = new Set(claimedElsewhere.map(String));
+  let legacyMinor = 0;
+  let absorbedMinor = 0;
+  for (const p of livePayouts) {
+    if (p.currency !== currency) continue;
+    if (p.ledger) {
+      for (const l of p.lines || []) claimed.add(String(l.sessionId));
+      absorbedMinor += p.absorbedLegacyMinor || 0;
+    } else {
+      legacyMinor += p.amountMinor;
+    }
+  }
+
+  const lines = [];
+  let unratedSessions = 0;
+  let otherCurrencySessions = 0;
+  for (const s of sessions) {
+    if (claimed.has(String(s._id))) continue;
+    const b = batchById.get(String(s.batchId));
+    if (!b) continue;
+    if (b.trainerHourlyRateMinor == null) { unratedSessions += 1; continue; }
+    if ((b.trainerRateCurrency || "INR") !== currency) { otherCurrencySessions += 1; continue; }
+    const minutes = sessionMinutes(s);
+    lines.push({
+      sessionId: s._id,
+      batchId: b._id,
+      batchCode: b.batchCode,
+      courseTitle: b.courseTitle,
+      startsAt: s.startsAt,
+      minutes,
+      rateMinor: b.trainerHourlyRateMinor,
+      amountMinor: Math.round((b.trainerHourlyRateMinor * minutes) / 60),
+    });
+  }
+  lines.sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt));
+
+  const grossMinor = lines.reduce((sum, l) => sum + l.amountMinor, 0);
+  const tds = tdsFor(grossMinor, currency);
+  const netMinor = grossMinor - tds.minor;
+  const absorbedLegacyMinor = Math.min(legacyMinor - absorbedMinor, netMinor);
+
+  return {
+    currency,
+    lines,
+    grossMinor,
+    tdsPercent: tds.percent,
+    tdsMinor: tds.minor,
+    absorbedLegacyMinor,
+    amountMinor: netMinor - absorbedLegacyMinor,
+    periodStart: lines[0]?.startsAt ?? null,
+    periodEnd: lines.at(-1)?.startsAt ?? null,
+    unratedSessions,
+    otherCurrencySessions,
+  };
+};
+
+export const computePayoutClaim = async (instructorId, currency) => {
+  const [{ sessions, batchById }, livePayouts] = await Promise.all([
+    loadDeliveredSessions(instructorId),
+    InstructorPayout.find({ instructorId, currency, status: { $in: LIVE_PAYOUT_STATUSES } })
+      .select("currency amountMinor ledger lines.sessionId absorbedLegacyMinor")
+      .lean(),
+  ]);
+  const sessionIds = sessions.map((s) => s._id);
+  const others = await InstructorPayout.find({
+    instructorId: { $ne: instructorId },
+    status: { $in: LIVE_PAYOUT_STATUSES },
+    "lines.sessionId": { $in: sessionIds },
+  })
+    .select("lines.sessionId")
+    .lean();
+  const ours = new Set(sessionIds.map(String));
+  const claimedElsewhere = others.flatMap((p) => p.lines.map((l) => l.sessionId)).filter((id) => ours.has(String(id)));
+  return buildPayoutClaim({ sessions, batchById, currency, livePayouts, claimedElsewhere });
 };
