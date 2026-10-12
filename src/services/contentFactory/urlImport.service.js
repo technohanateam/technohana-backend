@@ -55,8 +55,8 @@ export async function fetchAndBuildUrlPrompt({ urls, topic, category, focusKeywo
     ? relatedCourses.map(c => `  • <a href="/courses/${sanitize(c.id)}">${sanitize(c.title)}</a>`).join("\n")
     : "";
   const courseLinkInstruction = relatedCoursesBullets
-    ? `conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>. Also include internal links within the body prose (not in a separate list at the end): where topically relevant, link inline to 2–3 of these related Technohana courses using their exact URLs — do NOT invent a course or id that isn't in this list:\n${relatedCoursesBullets}\n  Do NOT add a standalone "Recommended Courses" section — all links must appear inside paragraph or list content`
-    : `conclusion with a call-to-action linking to <a href="https://technohana.in/courses">Technohana courses</a>`;
+    ? `conclusion with a call-to-action linking to <a href="https://www.technohana.in/courses">Technohana courses</a>. Also include internal links within the body prose (not in a separate list at the end): where topically relevant, link inline to 2–3 of these related Technohana courses using their exact URLs — do NOT invent a course or id that isn't in this list:\n${relatedCoursesBullets}\n  Do NOT add a standalone "Recommended Courses" section — all links must appear inside paragraph or list content`
+    : `conclusion with a call-to-action linking to <a href="https://www.technohana.in/courses">Technohana courses</a>`;
 
   const systemPrompt = `You are Technohana's Senior Technical Content Writer.
 
