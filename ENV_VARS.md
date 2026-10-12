@@ -37,6 +37,11 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `BACKLINK_STRATEGY_DIR` | `src/controllers/seoReport.controller.js` | SEO backlink strategy file location |
 | `FRONTEND_URL` | Many (email templates, OAuth redirects, CORS fallback) | Canonical frontend origin |
 | `WHITELISTED_URLS` | `src/index.js`, `src/routes/auth.routes.js` | Comma-separated CORS allowlist |
+| `CONTENT_FACTORY_SERVICE_KEY` | `src/middleware/requireContentFactoryServiceKey.js` | API key for the unattended weekly trend-research routine (no admin login). Unset → that one route 503s |
+| `HANA_ADMIN_TOKEN` | `src/routes/admin.routes.js` | Server-side token for calling the Hana agent's admin API. Must match the Hana service's own `HANA_ADMIN_TOKEN` |
+| `CHAT_API_URL` | `src/routes/admin.routes.js` | Hana agent origin, used to refresh its course cache after a catalog write. Needs `HANA_ADMIN_TOKEN` too — if either is missing the refresh is skipped |
+| `VERCEL_DEPLOY_HOOK_URL` | `src/routes/admin.routes.js` | Fire-and-forget frontend rebuild after a course-catalog write. Optional; failures are logged, never blocking |
+| `TTS_PROVIDER` / `TTS_VOICE` | `src/services/courseFactory/ttsService.js` | Course Factory lesson audio. Fall back to the per-course setting, then `"openai"` / `"alloy"` |
 
 ## CRM integrations (optional)
 
@@ -45,7 +50,7 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `CRM_SETUP_TOKEN` | `src/controllers/crmUser.controller.js` | Enables the one-time `POST /api/crm/auth/setup` owner bootstrap (send it as `setupToken`). Leave unset once the first CRM owner exists — setup is disabled without it |
 | `CRM_FROM_EMAIL` | `src/controllers/crmActivity.controller.js` | Sender for emails reps send from the CRM (`POST /api/crm/email/send`), e.g. `Technohana Sales <sales@technohana.in>`; must be on the verified Resend domain. Defaults to the sales address. Replies go to the rep |
 | `CRM_DAILY_REPORT_EXTRA_EMAILS` | `src/services/crmDailyReport.js` | Comma-separated extra recipients for the 7pm IST CRM report |
-| `RESEND_WEBHOOK_SECRET` | `src/services/resendWebhook.js` | Also powers CRM email delivery status (delivered/opened/bounced) on the lead timeline |
+| `RESEND_WEBHOOK_SECRET` | `src/services/resendWebhook.js` | Signature verification for Resend email events; also powers CRM email delivery status (delivered/opened/bounced) on the lead timeline. Unset → the webhook **rejects every event with 500**, so all delivery/open/click tracking stops |
 | `META_APP_SECRET` | `src/services/metaLeadAds.js` | Meta app secret — verifies `X-Hub-Signature-256` on `/webhooks/meta-leads` and signs Graph calls (`appsecret_proof`) |
 | `META_WEBHOOK_VERIFY_TOKEN` | `src/routes/metaWebhook.routes.js` | Any random string; enter the same value as the "Verify token" when subscribing the webhook in the Meta app |
 | `META_PAGE_ACCESS_TOKEN` | `src/services/metaLeadAds.js` | Long-lived Page access token with `leads_retrieval` + `pages_manage_metadata`, used to fetch each lead |
@@ -68,9 +73,26 @@ Meta Lead Ads setup: in the Meta app add the Webhooks product → Page → subsc
 | `NODE_ENV` | `src/index.js` | `production` tightens CORS (origin required) and silences `debug`-level logs (`src/utils/logger.js`) |
 | `PORT` | `src/index.js` | Defaults to `3000`; Railway sets this automatically in deployment |
 
-## Deprecated / not found in code
+## Dead config — set in `.env` but never read by `src/`
 
-None identified — every var previously documented in `CLAUDE.md` resolves to at least one live usage.
+Safe to delete. Listed so they don't get copied into a production environment and
+create false confidence that a feature is configured when nothing reads the value.
+
+| Variable | Why it's dead |
+|---|---|
+| `ADMIN_PASSWORD` | Superseded by `ADMIN_PASSWORD_HASH`; the plaintext form is never read |
+| `CLOUDINARY_NAME` | Real var is `CLOUDINARY_CLOUD_NAME` |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Superseded by Resend; no SMTP transport remains in `src/` |
+| `SOCIAL_WEBHOOK_URL` | No reader in `src/` |
+| `EXPO_PUBLIC_API_BASE_URL` | Belongs to `technohana-mobile`, not this service |
+
+## Naming traps
+
+`STRIPE_WEBHOOK_SECRET` is the name the code reads (`src/index.js`, Stripe webhook
+handler). A `.env` defining `STRIPE_WEBHOOKS` instead leaves `endpointSecret` undefined, so
+`stripe.webhooks.constructEvent` throws and **every** webhook returns 400 — payment
+confirmations never process, with no startup warning. This exact mistake was present in the
+local `.env` until 2026-09-28; check any deployed environment configured from the same list.
 
 ## Notes
 
