@@ -47,6 +47,7 @@ import TrainingRequirement from "../models/trainingRequirement.model.js";
 import InstructorApplication from "../models/instructorApplication.model.js";
 import InstructorReview, { recomputeInstructorRating } from "../models/instructorReview.model.js";
 import InstructorPayout from "../models/instructorPayout.model.js";
+import { LIVE_PAYOUT_STATUSES, OPEN_PAYOUT_STATUSES, openPayoutKey } from "../utils/instructorEarnings.js";
 import InstructorAgreement from "../models/instructorAgreement.model.js";
 import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptance.model.js";
 import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
@@ -1904,7 +1905,7 @@ router.get("/payouts", authenticateAdmin, requirePage("payouts"), async (req, re
     const { status } = req.query;
     const filter = status ? { status } : {};
     const payouts = await InstructorPayout.find(filter)
-      .select("-payoutDetailsSnapshotEncrypted")
+      .select("-payoutDetailsSnapshotEncrypted -openKey")
       .populate("instructorId", "name email")
       .sort({ requestedAt: -1 })
       .lean();
@@ -1938,13 +1939,41 @@ router.patch("/payouts/:id/status", authenticateAdmin, requirePage("payouts"), r
     if (status === "paid" && !paymentReference)
       return res.status(400).json({ message: "A payment reference is required when marking a payout as paid." });
 
-    const update = { status, processedAt: new Date(), processedBy: req.admin?.email || "admin" };
-    if (paymentReference !== undefined) update.paymentReference = paymentReference;
-    if (adminNotes !== undefined) update.adminNotes = adminNotes;
+    const existing = await InstructorPayout.findById(req.params.id)
+      .select("instructorId currency status ledger lines.sessionId")
+      .lean();
+    if (!existing) return res.status(404).json({ message: "Payout not found." });
 
-    const payout = await InstructorPayout.findByIdAndUpdate(req.params.id, update, { new: true })
-      .select("-payoutDetailsSnapshotEncrypted")
-      .populate("instructorId", "name email");
+    // A rejected ledger payout's sessions are free to be claimed again, so it can only
+    // come back if no newer payout has claimed them in the meantime.
+    if (existing.ledger && existing.status === "rejected" && status !== "rejected" && existing.lines?.length) {
+      const reclaimed = await InstructorPayout.exists({
+        _id: { $ne: existing._id },
+        status: { $in: LIVE_PAYOUT_STATUSES },
+        "lines.sessionId": { $in: existing.lines.map((l) => l.sessionId) },
+      });
+      if (reclaimed)
+        return res.status(409).json({ message: "These sessions are on a newer payout request, so this one must stay rejected." });
+    }
+
+    const set = { status, processedAt: new Date(), processedBy: req.admin?.email || "admin" };
+    if (paymentReference !== undefined) set.paymentReference = paymentReference;
+    if (adminNotes !== undefined) set.adminNotes = adminNotes;
+    const update = { $set: set };
+    if (existing.ledger && OPEN_PAYOUT_STATUSES.includes(status))
+      set.openKey = openPayoutKey(existing.instructorId);
+    else update.$unset = { openKey: 1 };
+
+    let payout;
+    try {
+      payout = await InstructorPayout.findByIdAndUpdate(req.params.id, update, { new: true })
+        .select("-payoutDetailsSnapshotEncrypted -openKey")
+        .populate("instructorId", "name email");
+    } catch (err) {
+      if (err?.code === 11000)
+        return res.status(409).json({ message: "This trainer already has another open payout request." });
+      throw err;
+    }
     if (!payout) return res.status(404).json({ message: "Payout not found." });
 
     sendEmail({
