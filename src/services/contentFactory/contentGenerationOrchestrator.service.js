@@ -279,6 +279,24 @@ async function runSteps({ opportunity, job, fromIndex, brief, articleDraft, imag
       opportunity.imageConcept = imageConcept || opportunity.imageConcept;
       await opportunity.save();
     } catch (err) {
+      // A pasted Claude Pro response that can't be parsed isn't a pipeline
+      // failure — put the same prompts back so the admin can fix the paste
+      // and resubmit, instead of losing every response for this step.
+      if (resumeForThisStep && err.code === "PASTE_PARSE") {
+        console.warn(`[content-factory] unparseable pasted response at ${stepName} for opportunity ${opportunity._id}:`, err.message);
+        job.pendingStep = stepName;
+        job.pendingPrompts = resumeForThisStep.prompts;
+        job.pendingKind = resumeForThisStep.kind;
+        job.pendingPasteError = err.message.slice(0, 500);
+        job.status = "AWAITING_INPUT";
+        await job.save();
+
+        opportunity.status = "AWAITING_INPUT";
+        await opportunity.save();
+
+        return { success: true, awaitingInput: true, pasteError: job.pendingPasteError, pendingStep: stepName, job, opportunity };
+      }
+
       console.error(`[content-factory] generation step ${stepName} failed for opportunity ${opportunity._id}:`, err.message);
       await markStepFailed(job, stepName, err);
 
@@ -423,6 +441,7 @@ export async function resumeStep(jobId, { responses }) {
   const resume = {
     stepName,
     kind: job.pendingKind,
+    prompts: job.pendingPrompts.map((p) => ({ label: p.label, system: p.system, prompt: p.prompt })),
     responses: providedResponses,
     linkCandidates: job.pendingLinkCandidates,
   };
@@ -430,6 +449,7 @@ export async function resumeStep(jobId, { responses }) {
   job.status = "RUNNING";
   job.pendingPrompts = [];
   job.pendingKind = null;
+  job.pendingPasteError = null;
   await job.save();
 
   return runSteps({ opportunity, job, fromIndex, brief, articleDraft, imageConcept, resume });

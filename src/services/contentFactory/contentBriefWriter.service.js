@@ -22,7 +22,7 @@ export function buildBriefFields(text, opportunity, model = null) {
   try {
     parsed = parseModelJson(text);
   } catch (err) {
-    throw new Error(`Failed to parse content brief AI response: ${err.message}`);
+    throw Object.assign(new Error(`Failed to parse content brief AI response: ${err.message}`), { code: err.code });
   }
 
   const depthGuidance = VALID_DEPTHS.includes(parsed.depthGuidance) ? parsed.depthGuidance : "STANDARD";

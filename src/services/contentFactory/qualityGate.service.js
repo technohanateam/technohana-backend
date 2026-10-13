@@ -167,7 +167,7 @@ export async function resolveQualityGate(opportunityId, articleDraft, { factChec
     try {
       return parseModelJson(qualityEvalText);
     } catch (err) {
-      throw new Error(`Failed to parse quality evaluator AI response: ${err.message}`);
+      throw Object.assign(new Error(`Failed to parse quality evaluator AI response: ${err.message}`), { code: err.code });
     }
   })();
 

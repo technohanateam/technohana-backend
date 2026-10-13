@@ -32,7 +32,7 @@ export function parseArticleResponse(finalText, brief, opportunity) {
   try {
     generated = parseModelJson(finalText);
   } catch (err) {
-    throw new Error(`Failed to parse article writer AI response: ${err.message}`);
+    throw Object.assign(new Error(`Failed to parse article writer AI response: ${err.message}`), { code: err.code });
   }
 
   const wordCount = String(generated.content || "").replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
