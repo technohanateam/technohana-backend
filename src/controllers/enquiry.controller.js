@@ -5,21 +5,28 @@ import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContact
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import { routeAdLead } from "../services/adLeadRouter.js";
 import { validateEmail, validateName } from "../utils/inputValidator.js";
+import { splitSubmission } from "../utils/enquirySubmission.js";
 
 export const createEnquiry = async (req, res) => {
   try {
-    const body = { ...req.body };
-    if (body.message   && !body.description)  body.description  = body.message;
-    if (body.type      && !body.enquiryType)   body.enquiryType  = body.type;
-    if (body.organization && !body.company)    body.company      = body.organization;
-    if (body.courseInterest && !body.courseTitle) body.courseTitle = body.courseInterest;
-    delete body.message; delete body.type; delete body.organization; delete body.courseInterest;
+    const raw = { ...req.body };
+    if (raw.message   && !raw.description)  raw.description  = raw.message;
+    if (raw.type      && !raw.enquiryType)   raw.enquiryType  = raw.type;
+    if (raw.organization && !raw.company)    raw.company      = raw.organization;
+    if (raw.courseInterest && !raw.courseTitle) raw.courseTitle = raw.courseInterest;
+    delete raw.message; delete raw.type; delete raw.organization; delete raw.courseInterest;
+    const { fields, details } = splitSubmission(raw);
+    const body = Object.keys(details).length ? { ...fields, details } : fields;
 
-    const { name, email, courseTitle, enquiryType, selectedPackage, timeline, nextDate, agenda } = body;
+    const { name, email, courseTitle, enquiryType, selectedPackage, timeline, nextDate, agenda } = raw;
 
+    // The schema requires a name; without this check a missing one surfaced as a 500.
+    if (!name) {
+      return res.status(400).json({ message: "Name is required" });
+    }
     // Format-only checks — some enquiry types (e.g. "Request a Callback")
     // legitimately omit an email, so absence is not rejected here.
-    if (name && !validateName(name)) {
+    if (!validateName(name)) {
       return res.status(400).json({ message: "Invalid name format" });
     }
     if (email && !validateEmail(email)) {
@@ -37,7 +44,7 @@ export const createEnquiry = async (req, res) => {
       name, email, phone: body.phone, company: body.company,
       interest: [courseTitle, body.description].filter(Boolean).join(" — ") || undefined,
       teamSize: body.teamSize, utm: body.utm, origin: "enquiry", originId: enquiry._id,
-      extra: { enquiryType, trainingType: body.trainingType, landingPage: body.landingPage },
+      extra: { ...details, enquiryType, trainingType: body.trainingType, landingPage: body.landingPage },
     });
 
     let subject;

@@ -95,9 +95,19 @@ export function generateEnquiryTable(data) {
     { label: 'Created At', key: 'createdAt' },
   ];
 
-  const rows = fields
-    .filter((f) => data[f.key])
-    .map((f, i) => dataRow(f.label, data[f.key], i % 2 === 1))
+  // Enquiries carry form answers without a schema field in `details` (a Map on a saved doc).
+  const details = data.details instanceof Map ? Object.fromEntries(data.details) : data.details || {};
+  const valueOf = (key) => data[key] ?? details[key];
+  const known = new Set(fields.map((f) => f.key));
+  const humanize = (key) =>
+    key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+
+  // Values come straight from public forms, so they are escaped here.
+  const rows = [
+    ...fields.filter((f) => valueOf(f.key)).map((f) => [f.label, valueOf(f.key)]),
+    ...Object.entries(details).filter(([key, v]) => !known.has(key) && v).map(([key, v]) => [humanize(key), v]),
+  ]
+    .map(([label, value], i) => dataRow(escapeHtml(label), escapeHtml(String(value)), i % 2 === 1))
     .join('');
 
   const body = `

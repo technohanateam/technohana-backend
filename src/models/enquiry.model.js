@@ -43,6 +43,9 @@ const enquirySchema = new mongoose.Schema({
   pipeline: { type: String },
   serviceLine: { type: String },
   utm: { type: Object },
+  // Form answers with no column of their own (budget, industry, participants, quiz
+  // answers…), kept as strings so nothing a visitor submits is silently dropped.
+  details: { type: Map, of: String, default: undefined },
   status: {
     type: String,
     enum: ["new", "contacted", "quoted", "won", "lost"],
