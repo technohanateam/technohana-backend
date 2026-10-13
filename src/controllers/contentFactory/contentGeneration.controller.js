@@ -87,6 +87,10 @@ export const submitStepResponse = async (req, res) => {
       return res.status(400).json({ success: false, message: result.error || "Failed to resume step" });
     }
 
+    if (result.pasteError) {
+      return res.json({ success: true, data: { job: result.job, opportunity: result.opportunity }, message: `Couldn't read one of the pasted responses: ${result.pasteError}` });
+    }
+
     return res.json({ success: true, data: { job: result.job, opportunity: result.opportunity }, message: result.awaitingInput ? "Awaiting next input" : "Step resumed" });
   } catch (err) {
     console.error("[ContentFactory] submitStepResponse error:", err);

@@ -3,14 +3,20 @@
 // values (e.g. HTML content), which JSON.parse rejects even though the
 // surrounding object structure is otherwise well-formed. This repairs that
 // before parsing, without touching structural JSON whitespace.
+function pasteParseError(message) {
+  const err = new Error(message);
+  err.code = "PASTE_PARSE";
+  return err;
+}
+
 export function parseModelJson(text) {
   if (!text || typeof text !== "string") {
-    throw new Error("No response text provided to parse");
+    throw pasteParseError("No response text provided to parse");
   }
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) {
-    throw new Error("No JSON object found in model response");
+    throw pasteParseError("No JSON object found in model response");
   }
   const sliced = text.slice(start, end + 1);
   const controlCharsFixed = escapeControlCharsInStrings(sliced);
@@ -28,9 +34,56 @@ export function parseModelJson(text) {
     try {
       return JSON.parse(escapeStrayQuotesInStrings(controlCharsFixed));
     } catch {
-      throw firstError;
+      // Pasted-from-chat-UI damage: curly quotes, single-quoted keys,
+      // comments, trailing commas. Normalized only after the passes above fail.
+      try {
+        return JSON.parse(repairPastedJson(sliced));
+      } catch {
+        const snippet = text.trim().slice(0, 80).replace(/\s+/g, " ");
+        throw pasteParseError(`${firstError.message} (response began: "${snippet}")`);
+      }
     }
   }
+}
+
+function repairPastedJson(str) {
+  const normalized = str
+    .replace(/[“”„‟]/g, '"')
+    .replace(/[‘’‚‛]/g, "'");
+  let result = "";
+  let quote = null;
+  for (let i = 0; i < normalized.length; i++) {
+    const ch = normalized[i];
+    if (quote) {
+      if (ch === "\\") {
+        result += ch + (normalized[i + 1] || "");
+        i += 1;
+      } else if (ch === quote) {
+        result += '"';
+        quote = null;
+      } else if (ch === '"') {
+        result += '\\"';
+      } else if (ch === "\n") result += "\\n";
+      else if (ch === "\r") result += "\\r";
+      else if (ch === "\t") result += "\\t";
+      else result += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      result += '"';
+    } else if (ch === "/" && normalized[i + 1] === "/") {
+      while (i < normalized.length && normalized[i] !== "\n") i += 1;
+    } else if (ch === "/" && normalized[i + 1] === "*") {
+      const close = normalized.indexOf("*/", i + 2);
+      i = close === -1 ? normalized.length : close + 1;
+    } else {
+      result += ch;
+    }
+  }
+  return result
+    .replace(/,\s*([}\]])/g, "$1")
+    .replace(/([{,]\s*)([A-Za-z_][\w]*)(\s*:)/g, '$1"$2"$3');
 }
 
 // Re-walks the string tracking JSON structural position; inside a string

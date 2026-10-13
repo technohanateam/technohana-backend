@@ -44,6 +44,9 @@ const contentGenerationJobSchema = new Schema(
     // response(s). Unused for the other steps (each of those only ever
     // pauses one way).
     pendingKind: { type: String, enum: ["CHECKS", "REVISION", "REVISION_STRONGER"], default: null },
+    // Set when the last pasted response couldn't be parsed — the job stays
+    // AWAITING_INPUT with the same prompts so the admin can fix and resubmit.
+    pendingPasteError: { type: String, default: null },
     // Transient state needed across a pause/resume round trip for the LINKS
     // step (candidate courses/blogs to validate the pasted response against)
     // and the QUALITY_GATE step (the gate result being revised, so a second

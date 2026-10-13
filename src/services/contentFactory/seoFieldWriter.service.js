@@ -12,7 +12,7 @@ export function parseSeoFieldsResponse(text, articleDraft, brief) {
   try {
     parsed = parseModelJson(text);
   } catch (err) {
-    throw new Error(`Failed to parse SEO field writer AI response: ${err.message}`);
+    throw Object.assign(new Error(`Failed to parse SEO field writer AI response: ${err.message}`), { code: err.code });
   }
 
   const seoFields = {
