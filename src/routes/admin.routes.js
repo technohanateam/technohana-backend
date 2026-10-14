@@ -1577,6 +1577,32 @@ const upload = multer({
   fileFilter: imageFileFilter,
 });
 
+const requirementPdfUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === "application/pdf") cb(null, true);
+    else cb(new Error("Only PDF files are allowed."), false);
+  },
+});
+const parseRequirementPdf = (req, res, next) => {
+  requirementPdfUpload.single("attachment")(req, res, (err) => {
+    if (err) return res.status(400).json({ success: false, message: err.message || "Upload error." });
+    next();
+  });
+};
+const uploadRequirementPdf = async (file) => {
+  const baseName = file.originalname.replace(/\.pdf$/i, "").replace(/[^\w-]+/g, "_").slice(0, 60) || "requirement";
+  const result = await new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: "technohana/training-requirements", resource_type: "raw", public_id: `${Date.now()}-${baseName}.pdf` },
+      (err, r) => (err ? reject(err) : resolve(r))
+    );
+    stream.end(file.buffer);
+  });
+  return { url: result.secure_url, publicId: result.public_id, name: file.originalname, size: file.size };
+};
+
 const XSS_OPTIONS = new xss.FilterXSS({
   whiteList: {
     p: ["class", "id"], h2: ["class", "id"], h3: ["class", "id"],
@@ -2083,13 +2109,16 @@ router.patch("/courses/:id/assign-instructor", authenticateAdmin, requirePage("c
 });
 
 // ─── Admin: Training Requirements ────────────────────────────────────────────
-router.post("/training-requirements", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
+router.post("/training-requirements", authenticateAdmin, requirePage("training-requirements"), adminUploadLimiter, parseRequirementPdf, async (req, res) => {
   try {
     const { title, description, topic, expertise, deliveryMode, duration, participants, budgetRange, startDate, deadline, location } = req.body;
     if (!title || !description)
       return res.status(400).json({ success: false, message: "Title and description are required" });
 
+    const attachment = req.file ? await uploadRequirementPdf(req.file) : null;
+
     const requirement = await TrainingRequirement.create({
+      ...(attachment && { attachment }),
       title,
       description,
       postedBy: req.admin?.name || "Admin",
@@ -2161,7 +2190,7 @@ router.get("/training-requirements", authenticateAdmin, requirePage("training-re
   }
 });
 
-router.patch("/training-requirements/:id", authenticateAdmin, requirePage("training-requirements"), async (req, res) => {
+router.patch("/training-requirements/:id", authenticateAdmin, requirePage("training-requirements"), adminUploadLimiter, parseRequirementPdf, async (req, res) => {
   try {
     const allowed = ["title", "description", "topic", "expertise", "deliveryMode", "duration", "participants", "budgetRange", "startDate", "deadline", "location", "status"];
     const dateFields = new Set(["startDate", "deadline"]);
@@ -2171,8 +2200,20 @@ router.patch("/training-requirements/:id", authenticateAdmin, requirePage("train
         .filter(([k]) => allowed.includes(k))
         .filter(([k, v]) => !(dateFields.has(k) || numberFields.has(k)) || (v !== "" && v != null))
     );
+    const existing = await TrainingRequirement.findById(req.params.id).select("attachment").lean();
+    if (!existing) return res.status(404).json({ success: false, message: "Requirement not found" });
+
+    let staleId = null;
+    if (req.file) {
+      updates.attachment = await uploadRequirementPdf(req.file);
+      staleId = existing.attachment?.publicId;
+    } else if (req.body.removeAttachment === "true" || req.body.removeAttachment === true) {
+      updates.$unset = { attachment: "" };
+      staleId = existing.attachment?.publicId;
+    }
+    if (staleId) cloudinary.uploader.destroy(staleId, { resource_type: "raw" }).catch(() => {});
+
     const requirement = await TrainingRequirement.findByIdAndUpdate(req.params.id, updates, { new: true }).lean();
-    if (!requirement) return res.status(404).json({ success: false, message: "Requirement not found" });
     return res.json({ success: true, data: requirement });
   } catch (err) {
     console.error("Update requirement error:", err);
@@ -2182,7 +2223,8 @@ router.patch("/training-requirements/:id", authenticateAdmin, requirePage("train
 
 router.delete("/training-requirements/:id", authenticateAdmin, requirePage("training-requirements"), requireAdmin, async (req, res) => {
   try {
-    await TrainingRequirement.findByIdAndDelete(req.params.id);
+    const deleted = await TrainingRequirement.findByIdAndDelete(req.params.id).lean();
+    if (deleted?.attachment?.publicId) cloudinary.uploader.destroy(deleted.attachment.publicId, { resource_type: "raw" }).catch(() => {});
     await InstructorApplication.deleteMany({ requirementId: req.params.id });
     return res.json({ success: true, message: "Requirement deleted" });
   } catch (err) {
