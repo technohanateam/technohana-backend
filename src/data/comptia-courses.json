@@ -1,0 +1,1365 @@
+[
+  {
+    "id": "CTIA101",
+    "courseSlug": "comptia-network-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA Network+ Certification Prep (N10-009)",
+    "category": "CompTIA",
+    "catdesc": "Master modern DevOps practices including containers, orchestration, CI/CD, and infrastructure as code. Build, deploy, and scale applications with industry-standard tools used by leading engineering teams.",
+    "catcls": "cat-sixteen",
+    "overview": "CompTIA Network+ validates the core skills to design, configure, manage and troubleshoot wired and wireless networks. This 5-day course covers every N10-009 domain with hands-on labs and full mock exams.",
+    "courseObjective": "Participants will master all Network+ N10-009 domains, configure and troubleshoot common network devices and services, and be ready to pass the exam first time.",
+    "courseOutcomes": "Upon completion, participants can design and support small-to-mid-size networks, troubleshoot connectivity issues methodically and sit the N10-009 exam with confidence.",
+    "prerequisites": "CompTIA A+ or 9–12 months of hands-on IT support experience recommended.",
+    "labs": "Packet Tracer and virtual lab environment with routers, switches, VLANs, DHCP/DNS services and Wireshark captures.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "15",
+    "instructor": "CompTIA Certified Network Engineers (Network+, CCNA)",
+    "price": 54999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "4.6",
+    "whatWillYouLearn": [
+      "Explain the OSI and TCP/IP models and common ports and protocols",
+      "Subnet IPv4 and configure IPv6 addressing",
+      "Configure switching, VLANs, routing and wireless networks",
+      "Deploy network services: DHCP, DNS, NTP and VPN",
+      "Apply network security controls and hardening",
+      "Monitor networks and troubleshoot using a structured methodology"
+    ],
+    "requirements": [
+      "Basic computer and operating system knowledge",
+      "Familiarity with basic IT support tasks"
+    ],
+    "targetAudience": [
+      "Help desk and IT support staff moving into networking",
+      "Aspiring network administrators and technicians",
+      "Professionals preparing for Security+ or CCNA"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Networking Concepts",
+        "content": [
+          "OSI and TCP/IP models and encapsulation",
+          "Ports, protocols and traffic types",
+          "Network topologies and architectures",
+          "Cloud connectivity concepts and virtual networks"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Network Implementation",
+        "content": [
+          "Routing technologies: static, OSPF, BGP basics",
+          "Switching: VLANs, trunking, STP and port security",
+          "Wireless standards, channels and site surveys",
+          "Lab: Build and segment a multi-VLAN network"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: IP Addressing & Services",
+        "content": [
+          "IPv4 subnetting, CIDR and VLSM",
+          "IPv6 addressing and transition methods",
+          "DHCP, DNS, NTP and IPAM",
+          "Lab: Configure DHCP and DNS services"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Network Operations",
+        "content": [
+          "Monitoring: SNMP, NetFlow, syslog and SIEM basics",
+          "Network documentation, diagrams and baselines",
+          "High availability, redundancy and disaster recovery",
+          "Remote access: VPN, SSH and jump hosts"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Network Security",
+        "content": [
+          "Threats, attacks and mitigation techniques",
+          "Firewalls, ACLs, IDS/IPS and zero trust",
+          "Device hardening and 802.1X authentication",
+          "Wireless security: WPA3 and rogue AP detection"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Troubleshooting & Mock Exams",
+        "content": [
+          "Seven-step troubleshooting methodology",
+          "Cable, interface and connectivity tools (ping, traceroute, nslookup, Wireshark)",
+          "Full 90-question timed N10-009 mock exam (x2)",
+          "Answer review and personal gap analysis"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 54999,
+      "usd": 719,
+      "aed": 3059,
+      "gbp": 639,
+      "eur": 759
+    },
+    "categoryGroup": "DevOps & Engineering"
+  },
+  {
+    "id": "CTIA102",
+    "courseSlug": "comptia-a-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA A+ Certification Prep (Core 1 & Core 2)",
+    "category": "CompTIA",
+    "catdesc": "Master modern DevOps practices including containers, orchestration, CI/CD, and infrastructure as code. Build, deploy, and scale applications with industry-standard tools used by leading engineering teams.",
+    "catcls": "cat-sixteen",
+    "overview": "CompTIA A+ is the industry standard for launching an IT support career. This 6-day course covers both exams — Core 1 (220-1201) and Core 2 (220-1202) — spanning hardware, mobile, networking, operating systems, security and troubleshooting.",
+    "courseObjective": "Participants will build and troubleshoot PCs, mobile devices and small networks, support Windows, macOS, Linux and mobile OSs, and pass both A+ exams.",
+    "courseOutcomes": "Upon completion, participants are job-ready for help desk and desktop support roles and ready to sit Core 1 and Core 2.",
+    "prerequisites": "No prior IT experience required. Basic computer literacy helps.",
+    "labs": "Hands-on hardware identification, virtual machines with Windows and Linux, command-line labs and ticket-based troubleshooting scenarios.",
+    "toc": "",
+    "courseDays": "06 Days",
+    "courseTime": "48 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "15",
+    "instructor": "CompTIA A+ Certified IT Support Trainers",
+    "price": 49999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "4.6",
+    "whatWillYouLearn": [
+      "Install and configure PC components, laptops and mobile devices",
+      "Troubleshoot hardware, printers and display problems",
+      "Configure small office/home networks and wireless",
+      "Install, configure and maintain Windows, macOS and Linux",
+      "Apply endpoint security and malware removal best practices",
+      "Use command-line tools, scripting basics and remote support tools"
+    ],
+    "requirements": [
+      "Basic computer literacy",
+      "Interest in an IT support career"
+    ],
+    "targetAudience": [
+      "Career starters and fresh graduates",
+      "Help desk and desktop support technicians",
+      "Professionals changing into IT"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Mobile Devices & Hardware",
+        "content": [
+          "Laptop and mobile hardware, connectors and accessories",
+          "Motherboards, CPUs, RAM, storage and power",
+          "Printers and multifunction devices",
+          "Lab: Identify and replace components"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Networking & Virtualization",
+        "content": [
+          "TCP/IP, ports and protocols, SOHO networking",
+          "Wi-Fi standards, network hardware and cable types",
+          "Virtualization and cloud concepts",
+          "Lab: Configure a SOHO router and wireless"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Hardware & Network Troubleshooting",
+        "content": [
+          "CompTIA troubleshooting methodology",
+          "Troubleshooting power, boot, storage and display faults",
+          "Network connectivity and wireless issues",
+          "Practice: Core 1 performance-based questions"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Operating Systems",
+        "content": [
+          "Windows editions, installation and upgrade paths",
+          "Windows tools: Control Panel, Settings, MMC, Task Manager",
+          "macOS and Linux essentials and file systems",
+          "Lab: Command-line tools and user/group management"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Security & Software Troubleshooting",
+        "content": [
+          "Threats, vulnerabilities and malware removal",
+          "Windows security, BitLocker, permissions and MFA",
+          "Mobile device and SOHO security",
+          "Troubleshooting OS, application and security issues"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Operational Procedures & Mock Exams",
+        "content": [
+          "Documentation, change management and ticketing",
+          "Backup, recovery and safety procedures",
+          "Professionalism, communication and scripting basics",
+          "Full Core 1 and Core 2 mock exams with answer review"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 49999,
+      "usd": 659,
+      "aed": 2779,
+      "gbp": 579,
+      "eur": 689
+    },
+    "categoryGroup": "DevOps & Engineering"
+  },
+  {
+    "id": "CTIA103",
+    "courseSlug": "comptia-linux-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA Linux+ Certification Prep (XK0-005)",
+    "category": "CompTIA",
+    "catdesc": "Master modern DevOps practices including containers, orchestration, CI/CD, and infrastructure as code. Build, deploy, and scale applications with industry-standard tools used by leading engineering teams.",
+    "catcls": "cat-sixteen",
+    "overview": "CompTIA Linux+ validates the skills to configure, manage, secure and troubleshoot Linux systems on-premises and in the cloud. This 5-day course follows the XK0-005 objectives with extensive command-line labs.",
+    "courseObjective": "Participants will administer Linux systems, automate tasks with shell scripts and containers, secure servers and pass the XK0-005 exam.",
+    "courseOutcomes": "Upon completion, participants can manage Linux servers confidently, automate routine administration and sit the Linux+ exam.",
+    "prerequisites": "CompTIA A+ and Network+ or 12 months of Linux administration experience recommended.",
+    "labs": "Cloud-hosted Linux VMs (RHEL and Ubuntu family) for storage, networking, SELinux, Bash scripting and container labs.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "15",
+    "instructor": "Linux Certified Engineers (LPIC, RHCE, Linux+)",
+    "price": 54999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.6",
+    "whatWillYouLearn": [
+      "Install, boot and manage Linux systems and services with systemd",
+      "Manage users, permissions, storage, LVM and file systems",
+      "Configure networking, firewalls and SSH hardening",
+      "Write Bash scripts and automate with cron and Git",
+      "Run containers with Podman/Docker and use IaC basics",
+      "Troubleshoot performance, boot and connectivity issues"
+    ],
+    "requirements": [
+      "Basic command-line familiarity",
+      "Understanding of networking fundamentals"
+    ],
+    "targetAudience": [
+      "Junior Linux and systems administrators",
+      "DevOps and cloud engineers",
+      "Support staff moving to server roles"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: System Management",
+        "content": [
+          "Boot process, GRUB, kernel modules and systemd",
+          "Package management: dnf, apt, rpm, dpkg",
+          "Storage, partitions, LVM and RAID",
+          "Lab: Build and extend an LVM volume"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Services & User Management",
+        "content": [
+          "Users, groups, sudo and PAM",
+          "File permissions, ACLs and special bits",
+          "Cron, systemd timers and service management",
+          "Lab: Configure services and scheduled jobs"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Security",
+        "content": [
+          "SELinux and AppArmor",
+          "Firewalld, iptables/nftables and SSH hardening",
+          "Encryption, certificates and auditing",
+          "Lab: Lock down a server against a checklist"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Scripting, Containers & Automation",
+        "content": [
+          "Bash scripting: variables, loops, conditionals and functions",
+          "Git version control basics",
+          "Containers: images, volumes and networking with Podman/Docker",
+          "Orchestration and IaC concepts: Ansible, Terraform"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Troubleshooting",
+        "content": [
+          "CPU, memory, disk I/O and process analysis",
+          "Network and DNS troubleshooting",
+          "Log analysis with journalctl and rsyslog",
+          "Recovering from boot and file system failures"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Full Review & Mock Exams",
+        "content": [
+          "Objective-by-objective review",
+          "Performance-based question practice",
+          "Full 90-question timed XK0-005 mock exam (x2)",
+          "Answer review and personal gap analysis"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 54999,
+      "usd": 719,
+      "aed": 3059,
+      "gbp": 639,
+      "eur": 759
+    },
+    "categoryGroup": "DevOps & Engineering"
+  },
+  {
+    "id": "CTIA104",
+    "courseSlug": "comptia-server-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA Server+ Certification Prep (SK0-005)",
+    "category": "CompTIA",
+    "catdesc": "Master modern DevOps practices including containers, orchestration, CI/CD, and infrastructure as code. Build, deploy, and scale applications with industry-standard tools used by leading engineering teams.",
+    "catcls": "cat-sixteen",
+    "overview": "CompTIA Server+ covers installing, managing, securing and troubleshooting server hardware and software in data centres and hybrid environments. This 5-day course prepares you for the SK0-005 exam.",
+    "courseObjective": "Participants will deploy and maintain physical and virtual servers, implement storage, security and disaster recovery, and pass SK0-005.",
+    "courseOutcomes": "Upon completion, participants can administer server infrastructure end to end and are ready to sit the Server+ exam.",
+    "prerequisites": "CompTIA A+ and Network+ or 18–24 months of server administration experience recommended.",
+    "labs": "Virtualized server lab covering RAID, storage, Windows Server and Linux administration, backup and recovery.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "15",
+    "instructor": "Data Centre & Systems Engineers (Server+, MCSA)",
+    "price": 54999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Install and configure server hardware, RAID and storage",
+      "Deploy and manage Windows Server and Linux servers",
+      "Implement virtualization and cloud server models",
+      "Apply server hardening, access control and encryption",
+      "Plan backup, replication and disaster recovery",
+      "Troubleshoot hardware, OS, storage and network faults"
+    ],
+    "requirements": [
+      "Familiarity with PC hardware and operating systems",
+      "Basic networking knowledge"
+    ],
+    "targetAudience": [
+      "Systems and server administrators",
+      "Data centre technicians",
+      "Infrastructure support engineers"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Server Hardware Installation & Management",
+        "content": [
+          "Form factors, racks, power and cooling",
+          "CPU, memory, NICs, HBAs and expansion cards",
+          "BIOS/UEFI, firmware and out-of-band management",
+          "Lab: Plan a rack and power design"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Storage",
+        "content": [
+          "RAID levels, DAS, NAS and SAN",
+          "Fibre Channel, iSCSI and NVMe",
+          "Capacity planning and storage tiering",
+          "Lab: Configure RAID and iSCSI storage"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Server Administration",
+        "content": [
+          "OS installation and deployment methods",
+          "Roles and services: AD, DNS, DHCP, file and web",
+          "Virtualization, hypervisors and cloud servers",
+          "Scripting and patch management"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Security",
+        "content": [
+          "Physical and logical access control",
+          "Hardening, firewalls and certificates",
+          "Data encryption and secure disposal",
+          "Compliance and monitoring"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Disaster Recovery",
+        "content": [
+          "Backup types, retention and testing",
+          "Replication, clustering and high availability",
+          "RTO, RPO and recovery planning",
+          "Lab: Back up and restore a server"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Troubleshooting & Mock Exams",
+        "content": [
+          "Structured troubleshooting methodology",
+          "Hardware, OS, network and storage faults",
+          "Full 90-question timed SK0-005 mock exam (x2)",
+          "Answer review and gap analysis"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 54999,
+      "usd": 719,
+      "aed": 3059,
+      "gbp": 639,
+      "eur": 759
+    },
+    "categoryGroup": "DevOps & Engineering"
+  },
+  {
+    "id": "CTIA105",
+    "courseSlug": "comptia-tech-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA Tech+ Certification Prep (FC0-U71)",
+    "category": "CompTIA",
+    "catdesc": "Master modern DevOps practices including containers, orchestration, CI/CD, and infrastructure as code. Build, deploy, and scale applications with industry-standard tools used by leading engineering teams.",
+    "catcls": "cat-sixteen",
+    "overview": "CompTIA Tech+ is the entry point into IT. This 3-day course introduces IT concepts, infrastructure, applications, software development, databases and security fundamentals — ideal before A+ or for non-technical roles.",
+    "courseObjective": "Participants will gain a broad understanding of IT fundamentals and pass the Tech+ FC0-U71 exam.",
+    "courseOutcomes": "Upon completion, participants understand core technology concepts, can communicate with IT teams and are ready to choose a specialist path.",
+    "prerequisites": "None. Suitable for absolute beginners.",
+    "labs": "Guided exercises on hardware identification, basic networking, spreadsheets/databases and security hygiene.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "20",
+    "instructor": "CompTIA Certified IT Trainers",
+    "price": 24999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Explain IT concepts, notational systems and data types",
+      "Identify hardware, peripherals and operating systems",
+      "Describe networking, cloud and mobile fundamentals",
+      "Understand programming logic and database basics",
+      "Apply basic security best practices",
+      "Use a structured approach to basic troubleshooting"
+    ],
+    "requirements": [
+      "No prior experience required"
+    ],
+    "targetAudience": [
+      "Students and career changers",
+      "Business and non-technical professionals",
+      "Anyone starting a path to A+ or Network+"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: IT Concepts & Terminology",
+        "content": [
+          "Notational systems, units and data types",
+          "Input, processing, output and storage",
+          "Troubleshooting methodology",
+          "Practice: terminology drill"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Infrastructure",
+        "content": [
+          "Hardware, peripherals and connectors",
+          "Networking basics and Wi-Fi",
+          "Operating systems and file management",
+          "Cloud and mobile fundamentals"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Applications & Software",
+        "content": [
+          "Application types and installation",
+          "Software licensing and updates",
+          "Productivity software and collaboration tools",
+          "Programming logic and languages overview"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Software Development & Databases",
+        "content": [
+          "Algorithms, flowcharts and pseudocode",
+          "Programming concepts: variables, loops, functions",
+          "Relational and non-relational databases",
+          "Basic SQL queries"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Security",
+        "content": [
+          "Confidentiality, integrity and availability",
+          "Authentication, passwords and MFA",
+          "Malware, phishing and safe browsing",
+          "Privacy and backup best practices"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Mock Exams",
+        "content": [
+          "Full 75-question timed FC0-U71 mock exam",
+          "Answer review and gap analysis",
+          "Next steps: A+, Network+, Security+ pathways",
+          "Exam-day strategy"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 24999,
+      "usd": 329,
+      "aed": 1389,
+      "gbp": 289,
+      "eur": 339
+    },
+    "categoryGroup": "DevOps & Engineering"
+  },
+  {
+    "id": "CTIA201",
+    "courseSlug": "comptia-cysa-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA CySA+ Certification Prep (CS0-003)",
+    "category": "CompTIA",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "overview": "CompTIA CySA+ validates the behavioural analytics skills to detect, prevent and respond to cyber threats. This 5-day course covers every CS0-003 domain with SIEM, vulnerability management and incident response labs.",
+    "courseObjective": "Participants will monitor and analyse security data, manage vulnerabilities, respond to incidents and pass CS0-003.",
+    "courseOutcomes": "Upon completion, participants can operate as security analysts, perform threat hunting and report effectively, and are ready to sit CySA+.",
+    "prerequisites": "CompTIA Security+ and Network+ or 4 years of hands-on security experience recommended.",
+    "labs": "Virtual SOC lab with SIEM, vulnerability scanners, packet analysis and malware triage scenarios.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "15",
+    "instructor": "SOC Analysts & Threat Hunters (CySA+, GCIA, CEH)",
+    "price": 74999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.7",
+    "whatWillYouLearn": [
+      "Analyse logs, network traffic and endpoint telemetry",
+      "Use threat intelligence and the MITRE ATT&CK framework",
+      "Run vulnerability scans and prioritise remediation (CVSS)",
+      "Detect and analyse malicious activity and IoCs",
+      "Execute incident response and forensic procedures",
+      "Report and communicate security findings"
+    ],
+    "requirements": [
+      "Security+ level security knowledge",
+      "Understanding of networking and operating systems"
+    ],
+    "targetAudience": [
+      "SOC and security analysts",
+      "Vulnerability and threat analysts",
+      "Security engineers moving into blue-team roles"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Security Operations",
+        "content": [
+          "System and network architecture concepts",
+          "Log analysis, SIEM and EDR",
+          "Threat intelligence and threat hunting",
+          "Lab: Triage alerts in a SIEM"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Vulnerability Management",
+        "content": [
+          "Scanning methods and tools",
+          "CVSS scoring and prioritisation",
+          "Mitigation, patching and compensating controls",
+          "Lab: Run and interpret a vulnerability scan"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Incident Response",
+        "content": [
+          "Incident response lifecycle and playbooks",
+          "Detection and analysis of indicators",
+          "Containment, eradication and recovery",
+          "Lab: Investigate a phishing-to-ransomware incident"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Malicious Activity Analysis",
+        "content": [
+          "Network, host and application attack indicators",
+          "Malware analysis basics",
+          "Email and social-engineering analysis",
+          "Lab: Packet capture analysis with Wireshark"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Reporting & Communication",
+        "content": [
+          "Vulnerability and incident reports",
+          "Metrics, KPIs and stakeholder communication",
+          "Process improvement and lessons learned",
+          "Compliance and governance considerations"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Mock Exams",
+        "content": [
+          "Performance-based question practice",
+          "Full 85-question timed CS0-003 mock exam (x2)",
+          "Answer review and gap analysis",
+          "Exam-day strategy"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 74999,
+      "usd": 979,
+      "aed": 4169,
+      "gbp": 869,
+      "eur": 1029
+    },
+    "categoryGroup": "Cybersecurity"
+  },
+  {
+    "id": "CTIA202",
+    "courseSlug": "comptia-pentest-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA PenTest+ Certification Prep (PT0-003)",
+    "category": "CompTIA",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "overview": "CompTIA PenTest+ validates hands-on penetration testing and vulnerability assessment skills. This 5-day course covers planning, reconnaissance, attacks and reporting aligned to PT0-003, with extensive lab time.",
+    "courseObjective": "Participants will plan and run ethical penetration tests, exploit common weaknesses, and produce actionable reports, while preparing for PT0-003.",
+    "courseOutcomes": "Upon completion, participants can scope and conduct pen tests responsibly and are ready to sit the PenTest+ exam.",
+    "prerequisites": "Security+ and Network+ or 3–4 years of hands-on information security experience recommended.",
+    "labs": "Isolated attack lab with Kali Linux, vulnerable web apps, Active Directory targets and cloud misconfigurations. All testing is authorised and contained.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "12",
+    "instructor": "Penetration Testers & Red Team Operators (OSCP, PenTest+, CEH)",
+    "price": 79999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.7",
+    "whatWillYouLearn": [
+      "Scope engagements and manage legal and ethical requirements",
+      "Perform reconnaissance and enumeration",
+      "Exploit network, wireless, web and cloud vulnerabilities",
+      "Attack Active Directory and perform privilege escalation",
+      "Use Python/Bash and common pen-test tooling",
+      "Write professional reports with remediation guidance"
+    ],
+    "requirements": [
+      "Security+ level knowledge",
+      "Comfort with Linux command line and basic scripting"
+    ],
+    "targetAudience": [
+      "Aspiring penetration testers",
+      "Security analysts moving to offensive roles",
+      "Red team and application security engineers"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Engagement Management",
+        "content": [
+          "Scoping, rules of engagement and legal considerations",
+          "Compliance and contractual requirements",
+          "Threat modelling and test planning",
+          "Documentation and communication"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Reconnaissance & Enumeration",
+        "content": [
+          "Passive and active reconnaissance, OSINT",
+          "Scanning with Nmap and service enumeration",
+          "Vulnerability scanning and analysis",
+          "Lab: Enumerate a target network"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Attacks & Exploits — Network & Hosts",
+        "content": [
+          "Network and wireless attacks",
+          "Metasploit and exploit selection",
+          "Privilege escalation on Windows and Linux",
+          "Lab: Compromise and pivot through a segmented network"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Attacks & Exploits — Web, Cloud & AD",
+        "content": [
+          "OWASP Top 10: injection, XSS, auth flaws",
+          "Cloud misconfiguration and credential attacks",
+          "Active Directory attacks: Kerberoasting and lateral movement",
+          "Lab: Exploit a vulnerable web application"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Post-Exploitation & Reporting",
+        "content": [
+          "Persistence, evasion concepts and cleanup",
+          "Findings, risk ratings and remediation",
+          "Executive and technical report writing",
+          "Retesting and handoff"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Tooling, Scripting & Mock Exams",
+        "content": [
+          "Python and Bash for pen-test automation",
+          "Tool selection and output analysis",
+          "Full 90-question timed PT0-003 mock exam (x2)",
+          "Answer review and gap analysis"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 79999,
+      "usd": 1049,
+      "aed": 4449,
+      "gbp": 929,
+      "eur": 1099
+    },
+    "categoryGroup": "Cybersecurity"
+  },
+  {
+    "id": "CTIA203",
+    "courseSlug": "comptia-securityx-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA SecurityX Certification Prep (CAS-005)",
+    "category": "CompTIA",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "overview": "CompTIA SecurityX (formerly CASP+) is the advanced certification for enterprise security architects and senior engineers. This 5-day course covers governance, security architecture, engineering and operations per CAS-005.",
+    "courseObjective": "Participants will design and implement resilient enterprise security solutions, manage risk and compliance, and pass CAS-005.",
+    "courseOutcomes": "Upon completion, participants can architect secure solutions across hybrid environments and are ready to sit the SecurityX exam.",
+    "prerequisites": "10 years of IT experience including 5 years of hands-on security, or CompTIA Security+ and CySA+ equivalent knowledge.",
+    "labs": "Scenario-based labs on zero-trust architecture, PKI, cloud security design, automation and risk assessment.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "12",
+    "instructor": "Security Architects (SecurityX/CASP+, CISSP, CISM)",
+    "price": 99999,
+    "language": "English",
+    "difficulty": "Advanced",
+    "rating": "4.7",
+    "whatWillYouLearn": [
+      "Apply governance, risk and compliance at enterprise scale",
+      "Design zero-trust and resilient security architectures",
+      "Engineer IAM, PKI, cryptography and endpoint controls",
+      "Secure cloud, containers and automation pipelines",
+      "Lead threat modelling, response and resilience planning",
+      "Evaluate emerging threats including AI-enabled attacks"
+    ],
+    "requirements": [
+      "Strong security fundamentals (Security+/CySA+ level)",
+      "Experience with enterprise infrastructure"
+    ],
+    "targetAudience": [
+      "Security architects and senior engineers",
+      "Security consultants and team leads",
+      "Professionals targeting DoD 8140 advanced roles"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Governance, Risk & Compliance",
+        "content": [
+          "Security program governance and policies",
+          "Risk management and third-party risk",
+          "Compliance frameworks and privacy regulation",
+          "AI governance and risk considerations"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Security Architecture",
+        "content": [
+          "Resilient and zero-trust architecture",
+          "Secure design patterns for hybrid/cloud",
+          "Data security and segmentation",
+          "Lab: Design a zero-trust reference architecture"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Security Engineering",
+        "content": [
+          "IAM, federation and privileged access",
+          "PKI, cryptography and key management",
+          "Endpoint, network and cloud security controls",
+          "Lab: Implement certificate-based authentication"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Security Operations",
+        "content": [
+          "Monitoring, detection engineering and automation",
+          "Incident response and threat hunting at scale",
+          "Vulnerability and attack-surface management",
+          "Security orchestration and scripting"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Resilience & Emerging Threats",
+        "content": [
+          "Business continuity and disaster recovery",
+          "Supply chain and software assurance",
+          "AI-enabled threats and defences",
+          "Quantum-safe cryptography awareness"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Mock Exams",
+        "content": [
+          "Performance-based scenario practice",
+          "Full 90-question timed CAS-005 mock exam (x2)",
+          "Answer review and gap analysis",
+          "Exam-day strategy"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 99999,
+      "usd": 1309,
+      "aed": 5559,
+      "gbp": 1159,
+      "eur": 1369
+    },
+    "categoryGroup": "Cybersecurity"
+  },
+  {
+    "id": "CTIA204",
+    "courseSlug": "comptia-secai-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA SecAI+ Certification Prep",
+    "category": "CompTIA",
+    "catdesc": "Build skills to identify, manage, and control IT risks. These courses prepare you for industry-recognized certifications and teach you how to protect organizations through governance, risk assessment, and security frameworks.",
+    "catcls": "cat-eight",
+    "overview": "CompTIA SecAI+ focuses on securing AI systems and using AI in security operations. This 4-day course covers AI threats, secure AI lifecycle, governance and AI-assisted defence. Confirm the current exam code with CompTIA before scheduling exam vouchers.",
+    "courseObjective": "Participants will identify and mitigate AI-specific risks, secure the ML lifecycle and use AI responsibly in security workflows.",
+    "courseOutcomes": "Upon completion, participants can assess AI system risk, apply controls such as guardrails and data protection, and are prepared for the SecAI+ exam.",
+    "prerequisites": "Security+ and basic familiarity with AI/ML concepts recommended.",
+    "labs": "Hands-on labs on prompt injection, model/data poisoning scenarios, guardrails and AI-assisted log analysis.",
+    "toc": "",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "15",
+    "instructor": "AI Security Specialists",
+    "price": 64999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Explain AI/ML and LLM fundamentals from a security viewpoint",
+      "Identify AI threats: prompt injection, poisoning, model theft",
+      "Secure data pipelines, models and AI supply chains",
+      "Implement guardrails, monitoring and access controls",
+      "Use AI to enhance detection and response safely",
+      "Apply AI governance, privacy and compliance requirements"
+    ],
+    "requirements": [
+      "Security+ level knowledge",
+      "Basic understanding of AI/ML concepts"
+    ],
+    "targetAudience": [
+      "Security analysts and engineers",
+      "AI/ML and platform engineers",
+      "GRC and risk professionals"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: AI & LLM Fundamentals for Security",
+        "content": [
+          "ML lifecycle and LLM architecture overview",
+          "AI system attack surface",
+          "Shared responsibility for AI services",
+          "Terminology and frameworks"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: AI Threats & Attacks",
+        "content": [
+          "Prompt injection and jailbreaks",
+          "Data and model poisoning, extraction, inversion",
+          "Adversarial inputs and deepfakes",
+          "Lab: Test an LLM app for prompt injection"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Securing AI Systems",
+        "content": [
+          "Secure data pipelines and training data governance",
+          "Model and API access control",
+          "Guardrails, filtering and output validation",
+          "AI supply chain and third-party model risk"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: AI in Security Operations",
+        "content": [
+          "AI-assisted detection, triage and reporting",
+          "Automation with human-in-the-loop controls",
+          "Limits, bias and hallucination risks",
+          "Lab: AI-assisted log analysis"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Governance, Risk & Compliance",
+        "content": [
+          "AI risk frameworks (NIST AI RMF) and regulation",
+          "Privacy, data residency and consent",
+          "Auditability and responsible AI",
+          "Policy and acceptable-use design"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Review & Mock Exam",
+        "content": [
+          "Objective-by-objective review",
+          "Scenario-based practice",
+          "Timed mock exam with answer review",
+          "Exam-day strategy"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 64999,
+      "usd": 849,
+      "aed": 3609,
+      "gbp": 749,
+      "eur": 889
+    },
+    "categoryGroup": "Cybersecurity"
+  },
+  {
+    "id": "CTIA301",
+    "courseSlug": "comptia-cloud-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA Cloud+ Certification Prep (CV0-004)",
+    "category": "CompTIA",
+    "catdesc": "Master Amazon Web Services to build scalable, reliable, and cost-effective cloud solutions. These courses prepare you for AWS certifications and equip you with hands-on skills for real-world cloud architecture and DevOps practices.",
+    "catcls": "cat-nine",
+    "overview": "CompTIA Cloud+ is the vendor-neutral certification for deploying, securing and managing cloud infrastructure across public, private and hybrid environments. This 5-day course follows CV0-004.",
+    "courseObjective": "Participants will plan, deploy, secure, automate and troubleshoot cloud environments and pass CV0-004.",
+    "courseOutcomes": "Upon completion, participants can operate multi-cloud workloads and are ready to sit the Cloud+ exam.",
+    "prerequisites": "Network+ and Server+ or 2–3 years of systems/network administration experience recommended.",
+    "labs": "Cloud labs on VPC networking, IAM, storage, containers, IaC and monitoring.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "15",
+    "instructor": "Multi-Cloud Architects (Cloud+, AWS, Azure)",
+    "price": 59999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.6",
+    "whatWillYouLearn": [
+      "Compare cloud service and deployment models",
+      "Provision compute, storage and networking in the cloud",
+      "Implement cloud security, IAM and compliance controls",
+      "Automate with IaC, CI/CD and containers",
+      "Plan backup, DR and high availability",
+      "Monitor, optimise cost and troubleshoot cloud issues"
+    ],
+    "requirements": [
+      "Networking and virtualization fundamentals",
+      "Basic familiarity with any cloud console"
+    ],
+    "targetAudience": [
+      "Cloud and systems administrators",
+      "Infrastructure engineers",
+      "Professionals moving to cloud roles"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Cloud Architecture",
+        "content": [
+          "Service and deployment models, shared responsibility",
+          "Compute, storage and network design",
+          "Containers, serverless and microservices",
+          "Cloud migration and cost models"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Deployment",
+        "content": [
+          "Provisioning compute, storage and networks",
+          "Virtual networks, VPNs and connectivity",
+          "Migrations and data transfer",
+          "Lab: Deploy a multi-tier application"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Cloud Security",
+        "content": [
+          "IAM, RBAC and federation",
+          "Data protection and encryption",
+          "Network security and compliance",
+          "Lab: Implement least-privilege access"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Operations",
+        "content": [
+          "Monitoring, logging and alerting",
+          "Backup, DR and high availability",
+          "Patching, scaling and lifecycle management",
+          "Cost optimisation and FinOps basics"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: DevOps Fundamentals",
+        "content": [
+          "IaC with Terraform and templates",
+          "CI/CD pipelines and source control",
+          "Container orchestration basics",
+          "Lab: Automate a deployment"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Troubleshooting & Mock Exams",
+        "content": [
+          "Deployment, connectivity and performance issues",
+          "Security and capacity issues",
+          "Full 90-question timed CV0-004 mock exam (x2)",
+          "Answer review and gap analysis"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 59999,
+      "usd": 789,
+      "aed": 3339,
+      "gbp": 699,
+      "eur": 819
+    },
+    "categoryGroup": "Cloud"
+  },
+  {
+    "id": "CTIA401",
+    "courseSlug": "comptia-data-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA Data+ Certification Prep",
+    "category": "CompTIA",
+    "catdesc": "Learn how to work with numbers and solve problems that matter. This course gives you the skills to understand and use data, with easy lessons and fun practice.",
+    "catcls": "cat-three",
+    "overview": "CompTIA Data+ validates the skills to mine, manipulate, visualise and report data to support business decisions. This 4-day course covers data concepts, mining, analysis, visualisation and governance. Confirm the current exam code with CompTIA before booking vouchers.",
+    "courseObjective": "Participants will collect, clean, analyse and visualise data using SQL and BI tools, and pass the Data+ exam.",
+    "courseOutcomes": "Upon completion, participants can produce reliable dashboards and reports and apply data governance practices.",
+    "prerequisites": "Basic spreadsheet familiarity. 18–24 months of data-related experience helpful but not required.",
+    "labs": "Hands-on SQL, Excel/Power BI dashboards, data cleaning and statistical analysis exercises.",
+    "toc": "",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "15",
+    "instructor": "Data Analysts & BI Specialists",
+    "price": 44999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Explain data schemas, types and structures",
+      "Query and transform data with SQL",
+      "Clean and prepare data for analysis",
+      "Apply descriptive statistics and trend analysis",
+      "Build clear dashboards and reports",
+      "Apply data governance, quality and privacy controls"
+    ],
+    "requirements": [
+      "Comfort with spreadsheets",
+      "Interest in data analysis"
+    ],
+    "targetAudience": [
+      "Aspiring data and business analysts",
+      "Reporting and MIS professionals",
+      "Managers who work with data"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Data Concepts & Environments",
+        "content": [
+          "Data types, structures and schemas",
+          "Relational and non-relational databases",
+          "Data warehouses, lakes and ETL/ELT",
+          "File formats and data sources"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Data Mining",
+        "content": [
+          "Data acquisition and integration",
+          "SQL: SELECT, JOIN, GROUP BY and subqueries",
+          "Data cleaning, profiling and transformation",
+          "Lab: Clean and merge multiple data sets"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Data Analysis",
+        "content": [
+          "Descriptive and inferential statistics",
+          "Trend, variance and correlation analysis",
+          "Selecting appropriate analysis methods",
+          "Lab: Analyse a business data set"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Visualization",
+        "content": [
+          "Chart selection and design principles",
+          "Dashboards and reports in Power BI/Excel",
+          "Storytelling with data",
+          "Lab: Build an executive dashboard"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Data Governance, Quality & Controls",
+        "content": [
+          "Data quality dimensions and validation",
+          "Security, privacy and access controls",
+          "Master data and metadata management",
+          "Compliance and data lifecycle"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Mock Exams",
+        "content": [
+          "Full timed Data+ mock exam",
+          "Answer review and gap analysis",
+          "Performance-based question practice",
+          "Exam-day strategy"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 44999,
+      "usd": 589,
+      "aed": 2499,
+      "gbp": 519,
+      "eur": 619
+    },
+    "categoryGroup": "Data & Analytics"
+  },
+  {
+    "id": "CTIA402",
+    "courseSlug": "comptia-datasys-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA DataSys+ Certification Prep (DS0-001)",
+    "category": "CompTIA",
+    "catdesc": "Learn how to work with numbers and solve problems that matter. This course gives you the skills to understand and use data, with easy lessons and fun practice.",
+    "catcls": "cat-three",
+    "overview": "CompTIA DataSys+ validates the skills to deploy, manage, secure and maintain database systems. This 5-day course covers database fundamentals, deployment, administration, security and business continuity per DS0-001.",
+    "courseObjective": "Participants will design, administer, secure and troubleshoot relational and non-relational databases and pass DS0-001.",
+    "courseOutcomes": "Upon completion, participants can manage production databases and are ready to sit the DataSys+ exam.",
+    "prerequisites": "Basic SQL knowledge and 2+ years of IT or data experience recommended.",
+    "labs": "Hands-on database lab with SQL, indexing, backup and restore, access control and performance tuning.",
+    "toc": "",
+    "courseDays": "05 Days",
+    "courseTime": "40 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "15",
+    "instructor": "Database Administrators (DataSys+, Oracle, SQL Server)",
+    "price": 54999,
+    "language": "English",
+    "difficulty": "Intermediate",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Write SQL and understand database design and normalisation",
+      "Deploy and configure database systems",
+      "Manage users, roles and access controls",
+      "Tune performance with indexing and query analysis",
+      "Back up, restore and plan for continuity",
+      "Secure data with encryption and auditing"
+    ],
+    "requirements": [
+      "Basic SQL familiarity",
+      "Understanding of operating systems and networking"
+    ],
+    "targetAudience": [
+      "Junior database administrators",
+      "Data and BI engineers",
+      "Application support engineers"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Database Fundamentals",
+        "content": [
+          "Relational vs non-relational models",
+          "SQL DDL, DML and joins",
+          "Normalisation and schema design",
+          "Lab: Design and build a schema"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Database Deployment",
+        "content": [
+          "Planning installation and configuration",
+          "Cloud vs on-premises deployments",
+          "Migration and data import/export",
+          "Lab: Deploy and populate a database"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Database Management & Maintenance",
+        "content": [
+          "Indexing and query optimisation",
+          "Monitoring and performance tuning",
+          "Patching and routine maintenance",
+          "Lab: Tune a slow query"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Data & Database Security",
+        "content": [
+          "Authentication, roles and least privilege",
+          "Encryption at rest and in transit",
+          "Auditing and SQL injection prevention",
+          "Lab: Configure roles and auditing"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Business Continuity",
+        "content": [
+          "Backup and recovery strategies",
+          "Replication, clustering and high availability",
+          "Disaster recovery planning",
+          "Lab: Backup and point-in-time restore"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Mock Exams",
+        "content": [
+          "Full 90-question timed DS0-001 mock exam (x2)",
+          "Performance-based question practice",
+          "Answer review and gap analysis",
+          "Exam-day strategy"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 54999,
+      "usd": 719,
+      "aed": 3059,
+      "gbp": 639,
+      "eur": 759
+    },
+    "categoryGroup": "Data & Analytics"
+  },
+  {
+    "id": "CTIA501",
+    "courseSlug": "comptia-project-plus-certification-prep",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "CompTIA Project+ Certification Prep (PK0-005)",
+    "category": "CompTIA",
+    "catdesc": "Master Agile, Scrum, and project management frameworks used by leading organizations worldwide. Earn globally recognized certifications and lead high-performing teams with confidence.",
+    "catcls": "cat-fifteen",
+    "overview": "CompTIA Project+ covers the essentials of managing small-to-medium projects using predictive and agile approaches. This 3-day course follows PK0-005 and suits team leads and coordinators.",
+    "courseObjective": "Participants will plan, execute, monitor and close projects, manage risks and stakeholders, and pass PK0-005.",
+    "courseOutcomes": "Upon completion, participants can run projects with confidence using core tools and are ready to sit Project+.",
+    "prerequisites": "No formal prerequisites. 6–12 months of project coordination experience helpful.",
+    "labs": "Case-based exercises: project charter, WBS, schedule, risk register and status reporting.",
+    "toc": "",
+    "courseDays": "03 Days",
+    "courseTime": "24 Hours",
+    "courseModules": "06 Modules",
+    "noStudents": "20",
+    "instructor": "PMP & Agile Certified Project Managers",
+    "price": 34999,
+    "language": "English",
+    "difficulty": "Beginner",
+    "rating": "4.5",
+    "whatWillYouLearn": [
+      "Explain project life cycles and methodologies",
+      "Write charters, scope statements and WBS",
+      "Build schedules, budgets and resource plans",
+      "Identify, assess and respond to risks",
+      "Manage stakeholders and communications",
+      "Close projects and capture lessons learned"
+    ],
+    "requirements": [
+      "No prior project management certification required"
+    ],
+    "targetAudience": [
+      "Team leads and project coordinators",
+      "IT professionals taking on project work",
+      "Aspiring project managers"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 1: Project Management Concepts",
+        "content": [
+          "Project vs operations; roles and structures",
+          "Predictive, agile and hybrid approaches",
+          "Project phases and life cycles",
+          "Stakeholder identification"
+        ]
+      },
+      {
+        "moduleTitle": "Module 2: Project Life Cycle Phases",
+        "content": [
+          "Initiation: charter and business case",
+          "Planning: scope, WBS, schedule and budget",
+          "Execution and monitoring",
+          "Closure and lessons learned"
+        ]
+      },
+      {
+        "moduleTitle": "Module 3: Project Tools & Documentation",
+        "content": [
+          "Gantt charts, network diagrams and kanban",
+          "Project management software",
+          "Status reports and dashboards",
+          "Lab: Build a project plan"
+        ]
+      },
+      {
+        "moduleTitle": "Module 4: Risk, Quality & Change",
+        "content": [
+          "Risk identification, analysis and response",
+          "Quality management basics",
+          "Change control and issue management",
+          "Lab: Create a risk register"
+        ]
+      },
+      {
+        "moduleTitle": "Module 5: Communication & Teams",
+        "content": [
+          "Communication planning and meetings",
+          "Team development and conflict resolution",
+          "Procurement and vendor management",
+          "Stakeholder engagement"
+        ]
+      },
+      {
+        "moduleTitle": "Module 6: Mock Exam",
+        "content": [
+          "Full timed PK0-005 mock exam",
+          "Answer review and gap analysis",
+          "Exam-day strategy",
+          "Next steps: PMP and Agile paths"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 34999,
+      "usd": 459,
+      "aed": 1949,
+      "gbp": 409,
+      "eur": 479
+    },
+    "categoryGroup": "Management"
+  }
+]
