@@ -29,11 +29,13 @@ npm test                          # no database needed
 
 ## Deploy (separate Railway service, same repo)
 
-- Install: `npm ci && npm ci --prefix public-mcp-server`
-- Start: `node public-mcp-server/server.js`
-- Healthcheck: `/health`
-- Env: `MONGO_DB_READONLY` (required), `PORT`. Nothing else; no JWT, Stripe, CRM or admin secrets.
-- Mongo user: read-only on the `Course` and `Coupon` collections only. The server connects with `autoIndex` and `autoCreate` off. `search_courses` needs the text index that the main backend already creates.
+The repo root `railway.json` starts the main backend, and config-as-code overrides dashboard settings, so this service must use its own config file.
+
+- Source: this repo, branch `master`. Root Directory stays empty (the code imports `../src/...`).
+- Settings -> Config-as-code path: `/public-mcp-server/railway.json`. It sets the build command (`npm ci --prefix public-mcp-server`), start command (`node public-mcp-server/server.js`), healthcheck (`/health`) and watch paths (this folder plus `src/utils/pricing.js` and the Course/Coupon models it imports).
+- Env: `MONGO_DB_READONLY` (required). `PORT` is injected by Railway. Optional `NODE_VERSION=22`. Nothing else; no JWT, Stripe, CRM or admin secrets.
+- Networking: generate a domain; the MCP endpoint is `https://<domain>/mcp`.
+- Mongo user: Atlas custom role with only the `find` action on the `courses` and `coupons` collections. Put the database name explicitly in the connection string. The server connects with `autoIndex` and `autoCreate` off. `search_courses` needs the text index that the main backend already creates.
 
 ## Limits
 
