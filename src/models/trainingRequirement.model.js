@@ -15,6 +15,12 @@ const trainingRequirementSchema = new mongoose.Schema({
   status:       { type: String, enum: ["open", "closed", "filled"], default: "open" },
   postedBy:     { type: String },
   notifiedCount: { type: Number, default: 0 },
+  attachment:   {
+    url:      { type: String },
+    publicId: { type: String },
+    name:     { type: String },
+    size:     { type: Number },
+  },
 }, { timestamps: true });
 
 export default mongoose.model("TrainingRequirement", trainingRequirementSchema);
