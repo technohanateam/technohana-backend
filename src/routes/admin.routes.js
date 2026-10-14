@@ -2155,6 +2155,7 @@ router.post("/training-requirements", authenticateAdmin, requirePage("training-r
     return res.status(201).json({ success: true, data: { ...requirement.toObject(), notifiedCount } });
   } catch (err) {
     console.error("Create requirement error:", err);
+    if (err.name === "ValidationError") return res.status(400).json({ success: false, message: err.message });
     return res.status(500).json({ success: false, message: "Failed to create requirement" });
   }
 });
@@ -2213,10 +2214,11 @@ router.patch("/training-requirements/:id", authenticateAdmin, requirePage("train
     }
     if (staleId) cloudinary.uploader.destroy(staleId, { resource_type: "raw" }).catch(() => {});
 
-    const requirement = await TrainingRequirement.findByIdAndUpdate(req.params.id, updates, { new: true }).lean();
+    const requirement = await TrainingRequirement.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true }).lean();
     return res.json({ success: true, data: requirement });
   } catch (err) {
     console.error("Update requirement error:", err);
+    if (err.name === "ValidationError") return res.status(400).json({ success: false, message: err.message });
     return res.status(500).json({ success: false, message: "Failed to update requirement" });
   }
 });
