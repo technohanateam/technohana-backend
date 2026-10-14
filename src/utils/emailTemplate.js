@@ -830,9 +830,25 @@ export function instructorOnboardEmail({ name, note, setPasswordLink }) {
       '<strong>Complete your profile</strong> and confirm the courses you can deliver, so we can match you to batches and training requests.',
     ])}
     ${setPasswordLink ? ctaButton('Set Your Password', setPasswordLink) : ctaButton('Go to Trainer Portal', loginLink)}
-    ${setPasswordLink ? `<p style="margin:20px 0 0;font-size:12px;color:#94a3b8;text-align:center;">After setting your password, log in any time at ${escapeHtml(loginLink)}</p>` : ''}`;
+    ${setPasswordLink ? `<p style="margin:20px 0 0;font-size:12px;color:#94a3b8;text-align:center;">After setting your password, log in any time at ${escapeHtml(loginLink)}</p>` : ''}
+    <p style="margin:20px 0 0;font-size:13px;color:#64748b;text-align:center;">Teaching daily? <a href="${trainersBaseUrl()}/install" style="color:#7C3AED;font-weight:600;">Install the Trainer app</a> on your phone or computer.</p>`;
 
   return emailShell({ label: 'Instructor Onboarding', body });
+}
+
+export function instructorInstallAppEmail({ name, note }) {
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">Get the Trainer app, ${escapeHtml(name)}</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">Your schedule, attendance, materials and earnings are one tap away when the Technohana Trainer app is on your phone or computer. It is free and takes under a minute.</p>
+    ${noteBlock(note)}
+    ${stepsList([
+      '<strong>Open the install page</strong> using the button below, on the phone or computer you will use for teaching.',
+      '<strong>Android or desktop (Chrome / Edge):</strong> tap <em>Download the Trainer app</em>. <strong>iPhone (Safari):</strong> tap Share, then <em>Add to Home Screen</em>.',
+      '<strong>Sign in once</strong> with your trainer login. Next time, just open the app.',
+    ])}
+    ${ctaButton('Install the Trainer App', `${trainersBaseUrl()}/install`)}`;
+
+  return emailShell({ label: 'Trainer App', body });
 }
 
 export function instructorCustomEmail({ name, note }) {

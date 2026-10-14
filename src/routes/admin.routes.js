@@ -53,7 +53,7 @@ import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptan
 import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
 import InstructorComplianceSettings from "../models/instructorComplianceSettings.model.js";
 import CareerApplication from "../models/careerApplication.model.js";
-import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail, payoutStatusUpdateEmail, instructorShortlistEmail, instructorRejectEmail, instructorOnboardEmail, instructorCustomEmail } from "../utils/emailTemplate.js";
+import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail, payoutStatusUpdateEmail, instructorShortlistEmail, instructorRejectEmail, instructorOnboardEmail, instructorInstallAppEmail, instructorCustomEmail } from "../utils/emailTemplate.js";
 import { decryptToken } from "../utils/tokenCrypto.js";
 import crypto from "crypto";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
@@ -1767,6 +1767,10 @@ router.post("/instructors/:id/email", authenticateAdmin, requirePage("instructor
       onboard: {
         subject: "Welcome to Technohana — Your Onboarding Steps",
         html: instructorOnboardEmail({ name, note, setPasswordLink }),
+      },
+      "install-app": {
+        subject: "Install the Technohana Trainer app",
+        html: instructorInstallAppEmail({ name, note }),
       },
       custom: {
         subject: "Message from Technohana",
