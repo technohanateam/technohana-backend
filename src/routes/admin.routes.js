@@ -1379,8 +1379,10 @@ router.post("/courses/seed", authenticateAdmin, requirePage("courses", "quote-ge
     const { force } = req.body || {};
     const dataPath = path.join(__dirname, "../data/courses.json");
     const playbookDataPath = path.join(__dirname, "../data/playbook-courses.json");
+    const comptiaDataPath = path.join(__dirname, "../data/comptia-courses.json");
     const courses = JSON.parse(fs.readFileSync(dataPath, "utf-8"))
-      .concat(JSON.parse(fs.readFileSync(playbookDataPath, "utf-8")));
+      .concat(JSON.parse(fs.readFileSync(playbookDataPath, "utf-8")))
+      .concat(JSON.parse(fs.readFileSync(comptiaDataPath, "utf-8")));
 
     if (force) {
       const ops = courses
