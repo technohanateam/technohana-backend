@@ -22,6 +22,22 @@ export function commentEventsFrom(payload) {
     })));
 }
 
+// Tokens from "Instagram API with Instagram login" only work on graph.instagram.com;
+// without one we fall back to the Page token on graph.facebook.com.
+async function igPost(path, body) {
+  const token = process.env.INSTAGRAM_ACCESS_TOKEN;
+  if (!token) return graphPost(path, body);
+
+  const res = await fetch(`https://graph.instagram.com/${process.env.META_GRAPH_VERSION || "v21.0"}/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error?.message || `Instagram API responded ${res.status}`);
+  return data;
+}
+
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export async function matchTrigger({ text, mediaId }) {
@@ -75,8 +91,8 @@ export async function handleInstagramComment(event) {
 
   const dm = [trigger.dmText, trigger.linkUrl].filter(Boolean).join("\n\n");
   const results = await Promise.allSettled([
-    trigger.replyText && graphPost(`${event.commentId}/replies`, { message: trigger.replyText }),
-    graphPost(`${event.igId}/messages`, { recipient: { comment_id: event.commentId }, message: { text: dm } }),
+    trigger.replyText && igPost(`${event.commentId}/replies`, { message: trigger.replyText }),
+    igPost(`${event.igId}/messages`, { recipient: { comment_id: event.commentId }, message: { text: dm } }),
   ]);
   results.filter((r) => r.status === "rejected")
     .forEach((r) => console.error(`[instagram] comment ${event.commentId} reply/DM failed:`, r.reason.message));
