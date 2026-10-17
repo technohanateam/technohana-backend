@@ -32,8 +32,7 @@ export function leadgenEventsFrom(payload) {
 
 const appSecretProof = (token) => crypto.createHmac("sha256", process.env.META_APP_SECRET || "").update(token).digest("hex");
 
-export async function graphGet(path, params = {}) {
-  const token = process.env.META_PAGE_ACCESS_TOKEN;
+export async function graphGet(path, params = {}, token = process.env.META_PAGE_ACCESS_TOKEN) {
   if (!token) throw new Error("META_PAGE_ACCESS_TOKEN is not set");
   const qs = new URLSearchParams({ ...params, access_token: token, appsecret_proof: appSecretProof(token) });
   const res = await fetch(`${graphBase()}/${path}?${qs}`);
@@ -46,7 +45,25 @@ export async function graphGet(path, params = {}) {
   return body;
 }
 
-export const fetchMetaLead = (leadgenId) => graphGet(encodeURIComponent(leadgenId), { fields: LEAD_FIELDS });
+export async function graphPost(path, body = {}) {
+  const token = process.env.META_PAGE_ACCESS_TOKEN;
+  if (!token) throw new Error("META_PAGE_ACCESS_TOKEN is not set");
+  const qs = new URLSearchParams({ access_token: token, appsecret_proof: appSecretProof(token) });
+  const res = await fetch(`${graphBase()}/${path}?${qs}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data?.error?.message || `Graph API responded ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+export const fetchMetaLead =(leadgenId) => graphGet(encodeURIComponent(leadgenId), { fields: LEAD_FIELDS });
 
 const STANDARD_KEYS = new Set([
   "full_name", "name", "first_name", "last_name", "email", "phone_number", "phone",

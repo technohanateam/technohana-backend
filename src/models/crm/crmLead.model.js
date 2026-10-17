@@ -139,6 +139,8 @@ crmLeadSchema.index({ status: 1, assignedTo: 1 });
 // A rep's list view (isDeleted + owner, newest first) and the won-leads report.
 crmLeadSchema.index({ isDeleted: 1, assignedTo: 1, createdAt: -1 });
 crmLeadSchema.index({ wonAt: 1 }, { sparse: true });
+crmLeadSchema.index({ "utm.utm_campaign": 1, createdAt: -1 }, { sparse: true });
+crmLeadSchema.index({ "utm.meta_ad_id": 1 }, { sparse: true });
 crmLeadSchema.index({ assignedTo: 1, nextFollowUp: 1 });
 
 export default mongoose.model("CRMLead", crmLeadSchema);

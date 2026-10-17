@@ -1,7 +1,8 @@
-// Meta Lead Ads webhook — mounted at /webhooks/meta-leads. The global JSON
+// Meta webhook (Lead Ads + Instagram comments) — mounted at /webhooks/meta-leads. The global JSON
 // parser skips this path (index.js) because the signature covers the raw bytes.
 import express, { Router } from "express";
 import { verifyMetaSignature, leadgenEventsFrom, processMetaLeadgen } from "../services/metaLeadAds.js";
+import { commentEventsFrom, handleInstagramComment } from "../services/instagramComments.js";
 
 const router = Router();
 const QUEUE_TIMEOUT_MS = 5000;
@@ -39,6 +40,9 @@ router.post("/", express.raw({ type: "*/*", limit: "1mb" }), (req, res) => {
   // Acknowledge first — Meta retries deliveries that are slow or non-200.
   res.sendStatus(200);
   for (const event of leadgenEventsFrom(payload)) dispatch(event);
+  for (const event of commentEventsFrom(payload)) {
+    handleInstagramComment(event).catch((e) => console.error(`[instagram] comment ${event.commentId} failed:`, e.message));
+  }
 });
 
 export default router;

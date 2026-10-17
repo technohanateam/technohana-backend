@@ -138,6 +138,18 @@ router.post("/setup", (req, res, next) => {
 
 // ─── Admin team user management (admin role only) ─────────────────────────────
 // Declared before /users/:id-shaped routes so "page-registry" is never read as an id.
+// Smoke test for the WhatsApp Cloud API: sends an approved template (default Meta's hello_world) to one number.
+router.post("/whatsapp/test", authenticateAdmin, requireAdmin, requirePage("team"), async (req, res) => {
+  const { phone, template = "hello_world", language = "en_US" } = req.body || {};
+  if (!phone) return res.status(400).json({ message: "phone is required" });
+  try {
+    const { sendTemplate } = await import("../services/whatsapp.js");
+    const msg = await sendTemplate({ phone, name: template, language });
+    res.json({ id: msg.waMessageId, status: msg.status, to: msg.phone });
+  } catch (err) {
+    res.status(502).json({ message: err.message, code: err.code });
+  }
+});
 router.get("/users/page-registry", authenticateAdmin, requireAdmin, requirePage("team"), getAdminPageRegistry);
 router.get("/users", authenticateAdmin, requireAdmin, requirePage("team"), listAdminUsers);
 router.post("/users", authenticateAdmin, requireAdmin, requirePage("team"), createAdminUser);
