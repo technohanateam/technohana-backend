@@ -57,6 +57,7 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `META_GRAPH_VERSION` | `src/services/metaLeadAds.js` | Graph API version, default `v21.0` |
 | `META_AD_ACCOUNT_ID` | `src/services/metaAdInsights.js` | Ad account id (with or without `act_`) — enables spend/clicks on the CRM Ads page and admin UTM report; without it only CRM lead counts show |
 | `META_ADS_ACCESS_TOKEN` | `src/services/metaAdInsights.js` | Optional token with `ads_read` (system-user token recommended); falls back to `META_PAGE_ACCESS_TOKEN` |
+| `INSTAGRAM_ACCESS_TOKEN` | `src/services/instagramComments.js` | Token from the app's Instagram product (API setup with Instagram login → Generate token) for the `@technohana` account. When set, comment replies and DMs go through `graph.instagram.com` with it; when unset they fall back to `META_PAGE_ACCESS_TOKEN` on `graph.facebook.com`. Long-lived tokens expire after ~60 days |
 | `WHATSAPP_TOKEN` | `src/services/whatsapp.js` | Permanent system-user token with `whatsapp_business_messaging`. Unset → sends throw "not configured" |
 | `WHATSAPP_PHONE_NUMBER_ID` | `src/services/whatsapp.js` | Phone number ID of the WhatsApp Business number (from Meta → WhatsApp → API setup) |
 | `WHATSAPP_VERIFY_TOKEN` | `src/routes/whatsappWebhook.routes.js` | Verify token for the `/webhooks/whatsapp` subscription; falls back to `META_WEBHOOK_VERIFY_TOKEN`. Webhook signatures use `META_APP_SECRET` |
