@@ -18,7 +18,7 @@ function getClient() {
 
 const MODELS_BY_TIER = {
   cheap: "claude-haiku-4-5-20251001",
-  standard: "claude-sonnet-5",
+  standard: "claude-sonnet-5-5",
   // Used where a wrong answer is expensive rather than merely unhelpful — e.g.
   // Global Search AI mode, which turns free text into a database query.
   reasoning: "claude-opus-5",

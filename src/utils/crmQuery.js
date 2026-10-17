@@ -113,5 +113,12 @@ export function sendCrmError(res, err, message) {
     return res.status(400).json({ success: false, message: first?.message || "Invalid input" });
   }
   console.error(`${message}:`, err);
+  if (err?.message?.includes("ANTHROPIC_API_KEY")) {
+    return res.status(503).json({ success: false, message: `${message}: AI is not configured on the server (ANTHROPIC_API_KEY missing)` });
+  }
+  if (typeof err?.status === "number" && err.error?.error) {
+    const detail = err.error?.error?.message || err.message;
+    return res.status(502).json({ success: false, message: `${message}: ${detail}` });
+  }
   return res.status(500).json({ success: false, message });
 }
