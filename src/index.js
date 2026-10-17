@@ -81,6 +81,9 @@ import skillsGapRoutes from "./routes/skillsGap.routes.js";
 import crmRoutes from "./routes/crm.routes.js";
 import crmAuthRoutes from "./routes/crmAuth.routes.js";
 import metaWebhookRoutes from "./routes/metaWebhook.routes.js";
+import whatsappWebhookRoutes from "./routes/whatsappWebhook.routes.js";
+import igCommentTriggerRoutes from "./routes/igCommentTrigger.routes.js";
+import { getAdPerformanceHandler } from "./controllers/adPerformance.controller.js";
 import { ensureDefaultPipelines } from "./controllers/crmPipeline.controller.js";
 import { backfillPhoneNormalized } from "./services/crmLeadIntake.js";
 import { syncCrmOnOrderPaidSafely } from "./services/crmOrderSync.js";
@@ -130,6 +133,7 @@ const noOriginRequiredPaths = [
   '/stripe/webhook',
   '/webhooks/resend',
   '/webhooks/meta-leads',
+  '/webhooks/whatsapp',
   '/admin/content-factory-external/import/external-trend',
 ];
 
@@ -194,7 +198,7 @@ app.use(cors(corsOptionsDelegate));
 // the request stream first and hand the route only a parsed object.
 // /api/crm/leads/import parses its own (larger) JSON body on the route, and the
 // Meta webhook needs the raw bytes to check its signature.
-const RAW_BODY_PATHS = new Set(['/webhooks/resend', '/webhooks/meta-leads', '/api/crm/leads/import']);
+const RAW_BODY_PATHS = new Set(['/webhooks/resend', '/webhooks/meta-leads', '/webhooks/whatsapp', '/api/crm/leads/import']);
 app.use((req, res, next) => {
   if (RAW_BODY_PATHS.has(req.path)) {
     return next();
@@ -1265,6 +1269,8 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
 
 // ─── UTM Attribution Report ───────────────────────────────────────────────────
 
+app.get('/admin/ads/performance', authenticateAdmin, requirePage("utm-report"), getAdPerformanceHandler);
+
 app.get('/admin/utm-report', authenticateAdmin, requirePage("utm-report"), async (req, res) => {
   try {
     const { from, to } = req.query;
@@ -1414,6 +1420,7 @@ if (process.env.COURSE_FACTORY_ENABLED === "true") {
 }
 app.use("/admin/ad-creative-factory", adCreativeFactoryRoutes);
 app.use("/admin/social-factory", socialFactoryRoutes);
+app.use("/admin/instagram-triggers", igCommentTriggerRoutes);
 app.use("/admin/global-search", globalSearchRoutes);
 app.use("/admin/marketing-calendar", marketingCalendarRoutes);
 app.use("/academy", academyRoutes);
@@ -1436,6 +1443,7 @@ app.post("/webhooks/resend", express.raw({ type: "application/json" }), handleRe
 
 // Meta Lead Ads (Facebook/Instagram instant forms) → CRM leads
 app.use("/webhooks/meta-leads", metaWebhookRoutes);
+app.use("/webhooks/whatsapp", whatsappWebhookRoutes);
 
 // Register campaign event listeners (enrollment, referral, payment, etc.)
 registerCampaignEventListeners();

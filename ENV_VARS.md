@@ -55,6 +55,11 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `META_WEBHOOK_VERIFY_TOKEN` | `src/routes/metaWebhook.routes.js` | Any random string; enter the same value as the "Verify token" when subscribing the webhook in the Meta app |
 | `META_PAGE_ACCESS_TOKEN` | `src/services/metaLeadAds.js` | Long-lived Page access token with `leads_retrieval` + `pages_manage_metadata`, used to fetch each lead |
 | `META_GRAPH_VERSION` | `src/services/metaLeadAds.js` | Graph API version, default `v21.0` |
+| `META_AD_ACCOUNT_ID` | `src/services/metaAdInsights.js` | Ad account id (with or without `act_`) — enables spend/clicks on the CRM Ads page and admin UTM report; without it only CRM lead counts show |
+| `META_ADS_ACCESS_TOKEN` | `src/services/metaAdInsights.js` | Optional token with `ads_read` (system-user token recommended); falls back to `META_PAGE_ACCESS_TOKEN` |
+| `WHATSAPP_TOKEN` | `src/services/whatsapp.js` | Permanent system-user token with `whatsapp_business_messaging`. Unset → sends throw "not configured" |
+| `WHATSAPP_PHONE_NUMBER_ID` | `src/services/whatsapp.js` | Phone number ID of the WhatsApp Business number (from Meta → WhatsApp → API setup) |
+| `WHATSAPP_VERIFY_TOKEN` | `src/routes/whatsappWebhook.routes.js` | Verify token for the `/webhooks/whatsapp` subscription; falls back to `META_WEBHOOK_VERIFY_TOKEN`. Webhook signatures use `META_APP_SECRET` |
 
 Meta Lead Ads setup: in the Meta app add the Webhooks product → Page → subscribe to `leadgen` with callback `https://<api-host>/webhooks/meta-leads` and the verify token above; subscribe the app to the Page (`POST /{page-id}/subscribed_apps?subscribed_fields=leadgen`). Leads already submitted can be pulled with `node scripts/backfill-meta-leads.js --form <formId> --since YYYY-MM-DD --apply`.
 

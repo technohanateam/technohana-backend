@@ -79,6 +79,9 @@ export const getLeads = async (req, res) => {
     if (priority)    filter.priority    = priority;
     if (pipeline)    filter.pipeline    = pipeline;
     if (aiScoreBand) filter.aiScoreBand = aiScoreBand;
+    if (typeof req.query.campaign === "string" && req.query.campaign) filter["utm.utm_campaign"] = req.query.campaign;
+    const PLATFORM_SOURCES = { instagram: ["instagram", "ig"], facebook: ["facebook", "fb"] };
+    if (PLATFORM_SOURCES[req.query.platform]) filter["utm.utm_source"] = { $in: PLATFORM_SOURCES[req.query.platform] };
     // Follow-ups due today or earlier (IST) on leads that are still open.
     if (followUpDue === "true") {
       filter.nextFollowUp = { $lt: resolveRange().end };

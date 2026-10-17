@@ -6,6 +6,7 @@ import { crmInputGuard } from "../middleware/crmInputGuard.js";
 import {
   getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents, getSearch, getNotifications,
 } from "../controllers/crmDashboard.controller.js";
+import { getAdPerformanceHandler } from "../controllers/adPerformance.controller.js";
 import { getRevenueTrend, getRepStats, getConversionStats, getDailyReport, emailDailyReportToMe } from "../controllers/crmAnalytics.controller.js";
 import {
   getLeads, getLead, createLead, updateLead, deleteLead,
@@ -80,6 +81,7 @@ router.get("/analytics/revenue-trend", crmRead("dashboard"), getRevenueTrend);
 router.get("/analytics/rep-stats",     crmRead("dashboard"), getRepStats);
 router.get("/analytics/conversions",   crmRead("dashboard"), getConversionStats);
 router.get("/analytics/daily-report",  crmRead("dashboard"), getDailyReport);
+router.get("/ads/performance",         crmRead("ads"),       getAdPerformanceHandler);
 router.post("/analytics/daily-report/email", crmWrite("users"), emailDailyReportToMe);
 
 // ── Leads ─────────────────────────────────────────────────────────────────────
