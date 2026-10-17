@@ -8,13 +8,16 @@ const graphBase = () => `https://graph.facebook.com/${process.env.META_GRAPH_VER
 export const LEAD_FIELDS = "created_time,field_data,ad_id,ad_name,adset_name,campaign_name,form_id,platform,is_organic";
 
 // X-Hub-Signature-256 is "sha256=" + HMAC-SHA256(raw request body, app secret).
+// Instagram-login webhooks are signed with the Instagram app's own secret, so
+// either the Meta app secret or INSTAGRAM_APP_SECRET is accepted.
 export function verifyMetaSignature(rawBody, header) {
-  const secret = process.env.META_APP_SECRET;
-  if (!secret || !Buffer.isBuffer(rawBody) || typeof header !== "string" || !header.startsWith("sha256=")) return false;
-  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+  const secrets = [process.env.META_APP_SECRET, process.env.INSTAGRAM_APP_SECRET].filter(Boolean);
+  if (!secrets.length || !Buffer.isBuffer(rawBody) || typeof header !== "string" || !header.startsWith("sha256=")) return false;
   const given = header.slice("sha256=".length);
   if (!/^[a-f0-9]{64}$/i.test(given)) return false;
-  return crypto.timingSafeEqual(Buffer.from(given, "hex"), Buffer.from(expected, "hex"));
+  const givenBuf = Buffer.from(given, "hex");
+  return secrets.some((secret) =>
+    crypto.timingSafeEqual(givenBuf, crypto.createHmac("sha256", secret).update(rawBody).digest()));
 }
 
 // [{ leadgenId, formId, adId, pageId }] from a Page webhook payload.
