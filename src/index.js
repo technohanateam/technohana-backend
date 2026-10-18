@@ -1473,6 +1473,11 @@ import("./services/emailMarketing/campaignOpportunityQueue.js")
   .then(({ scheduleCampaignOpportunityRepeatable }) => scheduleCampaignOpportunityRepeatable())
   .catch((err) => console.error("[Campaign Opportunity Queue] failed to schedule repeatables:", err.message));
 
+// Refresh the Instagram long-lived token before it expires (daily 10am IST + shortly after boot).
+import("./services/instagramTokenQueue.js")
+  .then(({ scheduleInstagramTokenRepeatable }) => scheduleInstagramTokenRepeatable())
+  .catch((err) => console.error("[Instagram Token Queue] failed to schedule repeatable:", err.message));
+
 // CRM daily report email to admins (7pm IST), same dedupe-safe Bull pattern.
 import("./services/crmDailyReportQueue.js")
   .then(({ scheduleCrmDailyReportRepeatable }) => scheduleCrmDailyReportRepeatable())
