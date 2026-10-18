@@ -4,6 +4,7 @@ import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import IgCommentTrigger from "../models/igCommentTrigger.model.js";
 import { graphPost } from "./metaLeadAds.js";
+import { getInstagramToken } from "./instagramToken.js";
 import { upsertCrmLead } from "./crmLeadIntake.js";
 
 // [{ commentId, text, fromId, username, mediaId, igId }] from an Instagram webhook payload.
@@ -25,7 +26,7 @@ export function commentEventsFrom(payload) {
 // Tokens from "Instagram API with Instagram login" only work on graph.instagram.com;
 // without one we fall back to the Page token on graph.facebook.com.
 async function igPost(path, body) {
-  const token = process.env.INSTAGRAM_ACCESS_TOKEN;
+  const token = await getInstagramToken();
   if (!token) return graphPost(path, body);
 
   const res = await fetch(`https://graph.instagram.com/${process.env.META_GRAPH_VERSION || "v21.0"}/${path}`, {
