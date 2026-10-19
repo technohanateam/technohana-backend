@@ -102,6 +102,8 @@ const crmLeadSchema = new mongoose.Schema(
 
     // Meta Lead Ads leadgen id — makes webhook redeliveries idempotent.
     metaLeadgenId: { type: String },
+    // LinkedIn Lead Gen Form response id — same idempotency role for the LinkedIn poller.
+    linkedinLeadId: { type: String },
 
     // Dedup
     isDuplicate: { type: Boolean, default: false },
@@ -130,6 +132,7 @@ crmLeadSchema.pre("validate", function syncPhoneNormalized(next) {
 crmLeadSchema.index({ email: 1 });
 crmLeadSchema.index({ phoneNormalized: 1 });
 crmLeadSchema.index({ metaLeadgenId: 1 }, { unique: true, sparse: true });
+crmLeadSchema.index({ linkedinLeadId: 1 }, { unique: true, sparse: true });
 crmLeadSchema.index({ assignedTo: 1 });
 crmLeadSchema.index({ pipeline: 1 });
 crmLeadSchema.index({ createdAt: -1 });

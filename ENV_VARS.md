@@ -50,6 +50,10 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `CRM_SETUP_TOKEN` | `src/controllers/crmUser.controller.js` | Enables the one-time `POST /api/crm/auth/setup` owner bootstrap (send it as `setupToken`). Leave unset once the first CRM owner exists — setup is disabled without it |
 | `CRM_FROM_EMAIL` | `src/controllers/crmActivity.controller.js` | Sender for emails reps send from the CRM (`POST /api/crm/email/send`), e.g. `Technohana Sales <sales@technohana.in>`; must be on the verified Resend domain. Defaults to the sales address. Replies go to the rep |
 | `CRM_DAILY_REPORT_EXTRA_EMAILS` | `src/services/crmDailyReport.js` | Comma-separated extra recipients for the 7pm IST CRM report |
+| `ZOHO_CLIENT_ID` / `ZOHO_CLIENT_SECRET` / `ZOHO_REDIRECT_URI` | `src/config/zohoClient.js` | Zoho Mail + Meeting OAuth (server-based client from api-console.zoho.in). Redirect URI = `<backend>/api/crm/zoho/callback`. Unset → CRM "Connect Zoho" returns 503; email keeps using Resend |
+| `ZOHO_MEETING_ENABLED` | `src/config/zohoClient.js` | Set `true` to request Zoho Meeting scopes and enable "Schedule meeting". Needs Zoho Meeting **Professional** (API access is not on the free plan). Default off: Mail only. Reps must reconnect after changing it |
+| `ZOHO_MEETING_MAX_MINUTES` | `src/controllers/crmZoho.controller.js` | Longest meeting the CRM will schedule. Default `60` (Zoho Meeting free plan limit) |
+| `ZOHO_DC` | `src/config/zohoClient.js` | Zoho data centre suffix, default `in` (accounts.zoho.in). Use `com`, `eu`, etc. for other regions |
 | `RESEND_WEBHOOK_SECRET` | `src/services/resendWebhook.js` | Signature verification for Resend email events; also powers CRM email delivery status (delivered/opened/bounced) on the lead timeline. Unset → the webhook **rejects every event with 500**, so all delivery/open/click tracking stops |
 | `META_APP_SECRET` | `src/services/metaLeadAds.js` | Meta app secret — verifies `X-Hub-Signature-256` on `/webhooks/meta-leads` and signs Graph calls (`appsecret_proof`) |
 | `META_WEBHOOK_VERIFY_TOKEN` | `src/routes/metaWebhook.routes.js` | Any random string; enter the same value as the "Verify token" when subscribing the webhook in the Meta app |
@@ -59,9 +63,16 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `META_ADS_ACCESS_TOKEN` | `src/services/metaAdInsights.js` | Optional token with `ads_read` (system-user token recommended); falls back to `META_PAGE_ACCESS_TOKEN` |
 | `INSTAGRAM_APP_SECRET` | `src/services/metaLeadAds.js` | Instagram app secret (Meta app → Instagram → API setup with Instagram login, top of page → Show). Instagram-login webhooks are signed with it, so `/webhooks/meta-leads` accepts either this or `META_APP_SECRET` |
 | `INSTAGRAM_ACCESS_TOKEN` | `src/services/instagramComments.js` | Token from the app's Instagram product (API setup with Instagram login → Generate token) for the `@technohana` account. When set, comment replies and DMs go through `graph.instagram.com` with it; when unset they fall back to `META_PAGE_ACCESS_TOKEN` on `graph.facebook.com`. Long-lived tokens expire after ~60 days |
+| `LINKEDIN_CLIENT_ID` | `src/config/linkedinClient.js` | LinkedIn app client id (developer.linkedin.com). Unset → the CRM Integrations LinkedIn card shows "not configured" |
+| `LINKEDIN_CLIENT_SECRET` | `src/config/linkedinClient.js` | LinkedIn app client secret |
+| `LINKEDIN_REDIRECT_URI` | `src/config/linkedinClient.js` | Must match the app's authorised redirect URL exactly: `https://<api-host>/api/crm/linkedin/callback` |
+| `LINKEDIN_API_VERSION` | `src/config/linkedinClient.js` | `LinkedIn-Version` header, default `202405` |
+| `LINKEDIN_OAUTH_SCOPES` | `src/config/linkedinClient.js` | Space-separated, default `r_ads r_ads_reporting r_ads_leadgen_automation r_organization_admin`. Needs Marketing Developer Platform approval |
 | `WHATSAPP_TOKEN` | `src/services/whatsapp.js` | Permanent system-user token with `whatsapp_business_messaging`. Unset → sends throw "not configured" |
 | `WHATSAPP_PHONE_NUMBER_ID` | `src/services/whatsapp.js` | Phone number ID of the WhatsApp Business number (from Meta → WhatsApp → API setup) |
 | `WHATSAPP_VERIFY_TOKEN` | `src/routes/whatsappWebhook.routes.js` | Verify token for the `/webhooks/whatsapp` subscription; falls back to `META_WEBHOOK_VERIFY_TOKEN`. Webhook signatures use `META_APP_SECRET` |
+
+LinkedIn Ads setup: an admin connects once from CRM → Integrations → LinkedIn Ads (OAuth), picks the ad account, and Lead Gen Form responses are polled every 10 minutes into CRM leads (`source=linkedin_ads`). Tokens are stored encrypted (`ENROLLMENT_TOKEN_KEY`); access tokens last ~60 days and refresh automatically until the refresh token expires (~1 year).
 
 Meta Lead Ads setup: in the Meta app add the Webhooks product → Page → subscribe to `leadgen` with callback `https://<api-host>/webhooks/meta-leads` and the verify token above; subscribe the app to the Page (`POST /{page-id}/subscribed_apps?subscribed_fields=leadgen`). Leads already submitted can be pulled with `node scripts/backfill-meta-leads.js --form <formId> --since YYYY-MM-DD --apply`.
 

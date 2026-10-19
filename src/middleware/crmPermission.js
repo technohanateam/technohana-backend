@@ -47,6 +47,8 @@ const CRM_PERMISSIONS = {
   // Ad spend is commercially sensitive, so it's narrower than the dashboard.
   ads: {
     read:   ["super_admin", "admin", "marketing"],
+    // Connecting/disconnecting ad platforms (LinkedIn).
+    write:  ["super_admin", "admin", "marketing"],
   },
   ai: {
     read:   ["super_admin", "admin", "sales"],

@@ -37,6 +37,10 @@ import {
   listCrmUsers, listCrmUserOptions, createCrmUser, updateCrmUser,
   resetCrmUserPassword, setCrmUserActive, deleteCrmUser,
 } from "../controllers/crmUser.controller.js";
+import { getZohoStatus, getZohoConnectUrl, disconnectZoho, scheduleMeeting } from "../controllers/crmZoho.controller.js";
+import {
+  getLinkedinStatus, getLinkedinConnectUrl, getLinkedinAdAccounts, selectLinkedinAdAccount, disconnectLinkedin,
+} from "../controllers/crmLinkedin.controller.js";
 import {
   getInternApplications, getInternApplication, updateInternApplication,
   updateInternApplicationStatus, deleteInternApplication, emailInternApplicant,
@@ -152,6 +156,19 @@ router.patch("/tasks/:id/checklist/:itemId", crmWrite("tasks"),  toggleChecklist
 router.get("/activities",  crmRead("activities"),  getActivities);
 router.post("/activities", crmWrite("activities"), logActivity);
 router.post("/email/send", crmWrite("activities"), emailLimiter, sendCrmEmail);
+
+// ── Zoho Mail + Meeting (per-rep connection) ─────────────────────────────────
+router.get("/zoho/status", getZohoStatus);
+router.get("/zoho/connect", getZohoConnectUrl);
+router.delete("/zoho/connection", disconnectZoho);
+router.post("/meetings", crmWrite("activities"), scheduleMeeting);
+
+// ── LinkedIn Ads (org-wide connection) ───────────────────────────────────────
+router.get("/linkedin/status", crmRead("ads"), getLinkedinStatus);
+router.get("/linkedin/connect", crmWrite("ads"), getLinkedinConnectUrl);
+router.get("/linkedin/ad-accounts", crmWrite("ads"), getLinkedinAdAccounts);
+router.put("/linkedin/ad-account", crmWrite("ads"), selectLinkedinAdAccount);
+router.delete("/linkedin/connection", crmWrite("ads"), disconnectLinkedin);
 
 // ── Tags ──────────────────────────────────────────────────────────────────────
 router.get("/tags",        crmRead("tags"),   getTags);

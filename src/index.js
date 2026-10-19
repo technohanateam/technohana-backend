@@ -80,6 +80,8 @@ import adminTrainingRoutes from "./routes/adminTraining.routes.js";
 import skillsGapRoutes from "./routes/skillsGap.routes.js";
 import crmRoutes from "./routes/crm.routes.js";
 import crmAuthRoutes from "./routes/crmAuth.routes.js";
+import { handleZohoCallback } from "./controllers/crmZoho.controller.js";
+import { handleLinkedinCallback } from "./controllers/crmLinkedin.controller.js";
 import metaWebhookRoutes from "./routes/metaWebhook.routes.js";
 import whatsappWebhookRoutes from "./routes/whatsappWebhook.routes.js";
 import igCommentTriggerRoutes from "./routes/igCommentTrigger.routes.js";
@@ -130,6 +132,8 @@ const noOriginRequiredPaths = [
   '/api/auth/google',
   '/api/auth/google/callback',
   '/admin/seo-intel/oauth/callback',
+  '/api/crm/zoho/callback',
+  '/api/crm/linkedin/callback',
   '/stripe/webhook',
   '/webhooks/resend',
   '/webhooks/meta-leads',
@@ -1433,6 +1437,10 @@ app.use("/instructor", instructorTeachingRoutes);
 app.use("/", skillsGapRoutes);
 app.use("/", careerRoutes);
 app.use("/api/crm/auth", crmAuthRoutes);
+// Zoho redirects the browser here (no Bearer token) — the signed `state` authenticates it.
+app.get("/api/crm/zoho/callback", handleZohoCallback);
+// LinkedIn redirects the browser here the same way — signed `state` authenticates it.
+app.get("/api/crm/linkedin/callback", handleLinkedinCallback);
 app.use("/api/crm", authenticateCrm, crmRoutes);
 
 // ─── Campaign Automation ───────────────────────────────────────────────────────
@@ -1477,6 +1485,16 @@ import("./services/emailMarketing/campaignOpportunityQueue.js")
 import("./services/crmDailyReportQueue.js")
   .then(({ scheduleCrmDailyReportRepeatable }) => scheduleCrmDailyReportRepeatable())
   .catch((err) => console.error("[CRM Daily Report Queue] failed to schedule repeatable:", err.message));
+
+// Zoho Mail inbound sync (replies from leads → CRM timeline), every 2 minutes. No-op without connections.
+import("./services/zohoMailSyncQueue.js")
+  .then(({ scheduleZohoMailSyncRepeatable }) => scheduleZohoMailSyncRepeatable())
+  .catch((err) => console.error("[Zoho Mail Sync Queue] failed to schedule repeatable:", err.message));
+
+// LinkedIn Lead Gen Form polling, every 10 minutes. No-op until an ad account is connected.
+import("./services/linkedinLeadQueue.js")
+  .then(({ scheduleLinkedInLeadSyncRepeatable }) => scheduleLinkedInLeadSyncRepeatable())
+  .catch((err) => console.error("[LinkedIn Lead Queue] failed to schedule repeatable:", err.message));
 
 // CRM task reminders (every 15 min) and each rep's 9am IST digest.
 import("./services/crmReminderQueue.js")

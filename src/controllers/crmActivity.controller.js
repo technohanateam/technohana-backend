@@ -7,7 +7,9 @@ import CRMCompany from "../models/crm/crmCompany.model.js";
 import Subscription from "../models/subscription.model.js";
 import { parsePaging, attachRelated, isValidId, isOwnerScoped, ownerFilter, canAccessRelated, sendCrmError } from "../utils/crmQuery.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
+import { buildSignatureHtml } from "./crmUser.controller.js";
 import { escapeHtml } from "../utils/emailTemplate.js";
+import { getActiveConnection, sendZohoMail } from "../services/zohoService.js";
 
 // System events (deal_won, stage_change, …) are written by the server; people log these.
 const LOGGABLE_TYPES = ["note", "call", "email", "meeting", "whatsapp"];
@@ -94,9 +96,9 @@ const toHtmlParagraphs = (text) => text
   .map((p) => `<p style="margin:0 0 14px">${escapeHtml(p).replace(/\r?\n/g, "<br/>")}</p>`)
   .join("");
 
-const emailLayout = ({ body, repName }) => `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#1e293b;max-width:600px">
+const emailLayout = ({ body, admin }) => `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#1e293b;max-width:600px">
   ${toHtmlParagraphs(body)}
-  <p style="margin:24px 0 0;color:#64748b;font-size:12px">${escapeHtml(repName)} · Technohana</p>
+  ${buildSignatureHtml(admin)}
 </div>`;
 
 // POST /email/send — emails a lead or contact from the CRM sales address (replies
@@ -149,6 +151,25 @@ export const sendCrmEmail = async (req, res) => {
       metadata: { to: record.email, subject: subject.trim(), status: "sending", events: [] },
     });
 
+    // Prefer the rep's own Zoho mailbox; fall back to Resend if unconnected or Zoho fails.
+    const zoho = await getActiveConnection(req.admin._id);
+    if (zoho?.zohoMailAccountId) {
+      try {
+        const sent = await sendZohoMail(zoho, {
+          to: record.email,
+          subject: subject.trim(),
+          html: emailLayout({ body: body.trim(), admin: req.admin }),
+        });
+        await CRMActivity.updateOne({ _id: activity._id }, {
+          "metadata.status": "sent", "metadata.provider": "zoho", "metadata.direction": "out",
+          "metadata.zohoMessageId": sent.messageId, "metadata.from": zoho.emailAddress, "metadata.sentAt": new Date(),
+        });
+        return res.status(201).json({ success: true, data: { activityId: activity._id }, message: `Email sent to ${record.email} from ${zoho.emailAddress}` });
+      } catch (err) {
+        console.error("Zoho send failed, falling back to Resend:", err.message);
+      }
+    }
+
     let result;
     try {
       result = await sendEmail({
@@ -156,8 +177,8 @@ export const sendCrmEmail = async (req, res) => {
         to: record.email,
         replyTo: req.admin.email,
         subject: subject.trim(),
-        html: emailLayout({ body: body.trim(), repName: req.admin.name || "Technohana Sales" }),
-        text: `${body.trim()}\n\n${req.admin.name || "Technohana Sales"} · Technohana`,
+        html: emailLayout({ body: body.trim(), admin: req.admin }),
+        text: `${body.trim()}\n\n${[req.admin.name || "Technohana Sales", req.admin.title, "Technohana", req.admin.phone, req.admin.signature].filter(Boolean).join("\n")}`,
         tags: [{ name: "source", value: "crm" }, { name: "crm_activity", value: String(activity._id) }],
       });
       if (result?.error) throw new Error(result.error.message || "Resend rejected the email");
