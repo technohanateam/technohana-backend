@@ -161,7 +161,7 @@ export async function researchTrends() {
         apiKey,
         system,
         prompt,
-        model: "claude-sonnet-5",
+        model: "claude-sonnet-5-5",
         maxTokens: 3072,
         maxTurns: 4,
         timeout: 90000,

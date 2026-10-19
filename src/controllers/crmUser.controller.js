@@ -114,9 +114,43 @@ export const setupCrmOwner = async (req, res) => {
   }
 };
 
+// Email-client-safe signature (table layout, inline styles, no images) used for CRM
+// sends and offered on the profile page to paste into Gmail / Outlook / Zoho.
+export const buildSignatureHtml = ({ name, title, phone, email, signature }) => {
+  const line = (html, style = "") => `<tr><td style="padding:0 0 0 12px;font:13px/1.5 Arial,Helvetica,sans-serif;color:#475569;${style}">${html}</td></tr>`;
+  const rows = [
+    line(escapeHtml(name || "Technohana Sales"), "font-size:15px;font-weight:bold;color:#1e293b"),
+    title && line(escapeHtml(title)),
+    line("Technohana", "font-weight:bold;color:#7C3AED"),
+    phone && line(`<a href="tel:${escapeHtml(phone.replace(/[^+\d]/g, ""))}" style="color:#475569;text-decoration:none">${escapeHtml(phone)}</a>`),
+    email && line(`<a href="mailto:${escapeHtml(email)}" style="color:#475569;text-decoration:none">${escapeHtml(email)}</a>`),
+    line(`<a href="https://www.technohana.in" style="color:#7C3AED;text-decoration:none">www.technohana.in</a>`),
+    signature && line(escapeHtml(signature).replace(/\r?\n/g, "<br/>"), "padding-top:8px;font-size:12px;color:#64748b"),
+  ].filter(Boolean).join("");
+  return `<table cellpadding="0" cellspacing="0" border="0" style="border-left:3px solid #8B5CF6;margin-top:24px"><tbody>${rows}</tbody></table>`;
+};
+
 // GET /api/crm/auth/me
-export const crmMe = (req, res) =>
-  res.json({ success: true, data: { _id: req.admin._id, email: req.admin.email, name: req.admin.name, crmRole: req.admin.crmRole } });
+export const crmMe = (req, res) => {
+  const { _id, email, name, title, phone, signature, crmRole } = req.admin;
+  res.json({ success: true, data: { _id, email, name, title, phone, signature, crmRole, signatureHtml: buildSignatureHtml(req.admin) } });
+};
+
+// PATCH /api/crm/auth/profile
+export const updateCrmProfile = async (req, res) => {
+  const { signature = "", title = "", phone = "" } = req.body;
+  if ([signature, title, phone].some((v) => typeof v !== "string") || signature.length > 1000 || title.length > 100 || phone.length > 40) {
+    return res.status(400).json({ success: false, message: "Check your title, phone and note — one is too long." });
+  }
+  try {
+    const update = { signature: signature.trim(), title: title.trim(), phone: phone.trim() };
+    await CrmUser.updateOne({ _id: req.admin._id }, update);
+    res.json({ success: true, data: { ...update, signatureHtml: buildSignatureHtml({ ...req.admin, ...update }) } });
+  } catch (error) {
+    console.error("CRM profile update error:", error);
+    res.status(500).json({ success: false, message: "Couldn't save your profile." });
+  }
+};
 
 // POST /api/crm/auth/forgot-password
 export const forgotCrmPassword = async (req, res) => {

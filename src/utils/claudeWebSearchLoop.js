@@ -16,7 +16,7 @@ export async function runClaudeWebSearchLoop({
   apiKey,
   system,
   prompt,
-  model = "claude-sonnet-5",
+  model = "claude-sonnet-5-5",
   maxTokens = 8192,
   maxTurns = 5,
   timeout = 120000,

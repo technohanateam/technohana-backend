@@ -49,5 +49,7 @@ crmActivitySchema.index({ createdAt: -1 });
 crmActivitySchema.index({ "metadata.resendId": 1 }, { sparse: true });
 crmActivitySchema.index({ "metadata.leadgenId": 1 }, { sparse: true });
 crmActivitySchema.index({ "metadata.orderId": 1 }, { sparse: true });
+crmActivitySchema.index({ "metadata.zohoMessageId": 1 }, { sparse: true });
+crmActivitySchema.index({ "metadata.meetingKey": 1 }, { sparse: true });
 
 export default mongoose.model("CRMActivity", crmActivitySchema);

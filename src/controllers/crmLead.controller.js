@@ -80,7 +80,7 @@ export const getLeads = async (req, res) => {
     if (pipeline)    filter.pipeline    = pipeline;
     if (aiScoreBand) filter.aiScoreBand = aiScoreBand;
     if (typeof req.query.campaign === "string" && req.query.campaign) filter["utm.utm_campaign"] = req.query.campaign;
-    const PLATFORM_SOURCES = { instagram: ["instagram", "ig"], facebook: ["facebook", "fb"] };
+    const PLATFORM_SOURCES = { instagram: ["instagram", "ig"], facebook: ["facebook", "fb"], linkedin: ["linkedin", "li"] };
     if (PLATFORM_SOURCES[req.query.platform]) filter["utm.utm_source"] = { $in: PLATFORM_SOURCES[req.query.platform] };
     // Follow-ups due today or earlier (IST) on leads that are still open.
     if (followUpDue === "true") {
@@ -789,9 +789,10 @@ Interest: ${lead.interest || "AI/Corporate Training"}
 Status: ${lead.status}
 ${extra ? `Additional context: ${extra}` : ""}
 
-Write subject line and email body. Keep it concise (under 150 words). Focus on value, not features. Sign as "TechnoHana Sales Team".`;
+Write subject line and email body. Keep it concise (under 150 words). Focus on value, not features. End with a short closing line such as "Best regards," but no name or signature block — the sender's signature is added automatically. Output plain text only (no markdown, no ** or #); start with "Subject: ...".`;
 
-    const { text: draft } = await callClaude({ system: "You are a B2B sales email writer.", prompt, maxTokens: 400 });
+    const { text } = await callClaude({ system: "You are a B2B sales email writer.", prompt, maxTokens: 1000 });
+    const draft = text.replace(/\*\*/g, "");
     res.json({ success: true, data: { draft } });
   } catch (err) {
     sendCrmError(res, err, "AI email draft failed");

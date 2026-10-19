@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 import { authenticateCrm } from "../middleware/authenticateCrm.js";
 import { crmInputGuard } from "../middleware/crmInputGuard.js";
 import {
-  crmLogin, setupCrmOwner, crmMe, forgotCrmPassword, resetCrmPasswordViaToken,
+  crmLogin, setupCrmOwner, crmMe, updateCrmProfile, forgotCrmPassword, resetCrmPasswordViaToken,
 } from "../controllers/crmUser.controller.js";
 
 const router = Router();
@@ -30,5 +30,6 @@ router.post("/setup", setupLimiter, setupCrmOwner);
 router.post("/forgot-password", passwordLimiter, forgotCrmPassword);
 router.post("/reset-password", passwordLimiter, resetCrmPasswordViaToken);
 router.get("/me", authenticateCrm, crmMe);
+router.patch("/profile", authenticateCrm, updateCrmProfile);
 
 export default router;

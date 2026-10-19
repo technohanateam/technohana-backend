@@ -55,10 +55,10 @@ const logIntake = (leadId, title, body, metadata) =>
  * Returns { lead, created }.
  */
 export async function upsertCrmLead({
-  fields, externalId, activityTitle, activityBody, repeatTitle, metadata = {},
+  fields, externalId, externalField = "metaLeadgenId", activityTitle, activityBody, repeatTitle, metadata = {},
 }) {
   if (externalId) {
-    const already = await CRMLead.findOne({ metaLeadgenId: externalId }).select("_id name assignedTo");
+    const already = await CRMLead.findOne({ [externalField]: externalId }).select("_id name assignedTo");
     if (already) return { lead: already, created: false };
   }
 
@@ -72,7 +72,7 @@ export async function upsertCrmLead({
     status: "new",
     ...fields,
     email: typeof fields.email === "string" ? fields.email.toLowerCase().trim() : undefined,
-    ...(externalId && { metaLeadgenId: externalId }),
+    ...(externalId && { [externalField]: externalId }),
     assignedTo: fields.assignedTo || await pickAssignee(),
   });
   await logIntake(lead._id, activityTitle, activityBody, metadata);

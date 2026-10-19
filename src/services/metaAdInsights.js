@@ -80,7 +80,7 @@ async function crmAttribution(since, until) {
   return byKey;
 }
 
-const withRatios = (r) => ({
+export const withRatios = (r) => ({
   ...r,
   cpl: r.leads && r.spend != null ? r.spend / r.leads : null,
   costPerWon: r.won && r.spend != null ? r.spend / r.won : null,
