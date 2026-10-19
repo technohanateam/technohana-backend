@@ -4,7 +4,7 @@
 import crypto from "crypto";
 import { normalizePhone } from "../utils/phone.js";
 
-const DEFAULT_PIXEL_ID = "1304214271144571";
+const DEFAULT_PIXEL_ID = "1327222791931119";
 const sha256 = (v) => crypto.createHash("sha256").update(v).digest("hex");
 
 const accessToken = () => process.env.META_CAPI_ACCESS_TOKEN || process.env.META_ADS_ACCESS_TOKEN || process.env.META_PAGE_ACCESS_TOKEN;
