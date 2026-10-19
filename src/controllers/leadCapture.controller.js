@@ -3,6 +3,7 @@ import { routeAdLead } from "../services/adLeadRouter.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateLeadMagnetEmail, generateLeadAdminEmail } from "../utils/emailTemplate.js";
 import { validateEmail, validateName } from "../utils/inputValidator.js";
+import { sendMetaLead } from "../services/metaConversions.js";
 
 export const capturePersonaLead = async (req, res) => {
   const { name, email, persona, phone, jobTitle, downloadUrl, utm = {} } = req.body;
@@ -14,6 +15,8 @@ export const capturePersonaLead = async (req, res) => {
   try {
     const lead = new Lead({ name, email, persona, phone, jobTitle, utm });
     await lead.save();
+
+    sendMetaLead({ req, user: { name, email, phone }, contentName: persona, contentCategory: "persona_lead" });
 
     routeAdLead({ name, email, phone, interest: persona, utm, origin: "persona_lead", originId: lead._id, extra: { jobTitle } });
 
