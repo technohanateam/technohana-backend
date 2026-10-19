@@ -86,6 +86,7 @@ import metaWebhookRoutes from "./routes/metaWebhook.routes.js";
 import whatsappWebhookRoutes from "./routes/whatsappWebhook.routes.js";
 import igCommentTriggerRoutes from "./routes/igCommentTrigger.routes.js";
 import { getAdPerformanceHandler } from "./controllers/adPerformance.controller.js";
+import { sendMetaPurchase } from "./services/metaConversions.js";
 import { ensureDefaultPipelines } from "./controllers/crmPipeline.controller.js";
 import { backfillPhoneNormalized } from "./services/crmLeadIntake.js";
 import { syncCrmOnOrderPaidSafely } from "./services/crmOrderSync.js";
@@ -784,6 +785,7 @@ app.post('/razorpay/cart-verify', checkoutLimiter, async (req, res) => {
 
     const paidAt = Date.now();
     let firstOrderId = primaryOrderId || orderIds[0];
+    const cartPurchase = { valueMinor: 0, contentIds: [], currency: null, learner: null };
     for (const orderId of orderIds) {
       const order = await PendingOrder.findOne({ orderId }).lean();
       if (!order || order.status === 'paid') continue;
@@ -793,6 +795,10 @@ app.post('/razorpay/cart-verify', checkoutLimiter, async (req, res) => {
         await Order.create({ ...order, _id: undefined, invoiceNumber, status: 'paid', paidAt, razorpayPaymentId: razorpay_payment_id });
       } catch { /* duplicate, skip */ }
       syncCrmOnOrderPaidSafely(order);
+      cartPurchase.valueMinor += Number(order.expectedTotalMinor) || 0;
+      cartPurchase.contentIds.push(order.courseId);
+      cartPurchase.currency ||= order.currency;
+      cartPurchase.learner ||= order.learner;
       if (order.couponCode) await incrementCouponUsage(order.couponCode).catch(() => {});
       const enrollmentToken = encryptToken({ orderId, email: order.learner.email, paidAt });
       const amountMajorStr = (order.expectedTotalMinor / 100).toFixed(2);
@@ -807,6 +813,14 @@ app.post('/razorpay/cart-verify', checkoutLimiter, async (req, res) => {
           await sendEmail({ from: fromAddresses.sales, to: order.learner.email, subject: `Payment Received - ${order.courseInfo?.title || 'Technohana Course'}`, html: generatePaymentSuccessEmail({ name: order.learner.fullName, courseTitle: order.courseInfo?.title, amountMajor: amountMajorStr, currency: order.currency, enrollmentType: order.enrollmentType, participants: order.participants, trainingLocation: order.learner.trainingLocation }) });
         } catch { /* non-blocking */ }
       }
+    }
+
+    if (cartPurchase.contentIds.length) {
+      sendMetaPurchase({
+        req, eventId: firstOrderId, valueMinor: cartPurchase.valueMinor, currency: cartPurchase.currency,
+        contentIds: cartPurchase.contentIds, numItems: cartPurchase.contentIds.length,
+        user: { name: cartPurchase.learner?.fullName, email: cartPurchase.learner?.email, phone: cartPurchase.learner?.phone, country: cartPurchase.learner?.country },
+      });
     }
 
     return res.json({ success: true, primaryOrderId: firstOrderId });
@@ -854,6 +868,11 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
         console.error('Failed to archive Order:', archiveErr);
       }
       syncCrmOnOrderPaidSafely(order);
+      sendMetaPurchase({
+        req, eventId: orderId, valueMinor: order.expectedTotalMinor, currency: order.currency,
+        contentIds: [order.courseId], numItems: 1,
+        user: { name: order.learner?.fullName, email: order.learner?.email, phone: order.learner?.phone, country: order.learner?.country },
+      });
 
       // Increment coupon usage if a coupon was applied
       if (order.couponCode) {
@@ -1480,6 +1499,11 @@ import("./services/contentFactory/contentFactoryQueue.js")
 import("./services/emailMarketing/campaignOpportunityQueue.js")
   .then(({ scheduleCampaignOpportunityRepeatable }) => scheduleCampaignOpportunityRepeatable())
   .catch((err) => console.error("[Campaign Opportunity Queue] failed to schedule repeatables:", err.message));
+
+// Refresh the Instagram long-lived token before it expires (daily 10am IST + shortly after boot).
+import("./services/instagramTokenQueue.js")
+  .then(({ scheduleInstagramTokenRepeatable }) => scheduleInstagramTokenRepeatable())
+  .catch((err) => console.error("[Instagram Token Queue] failed to schedule repeatable:", err.message));
 
 // CRM daily report email to admins (7pm IST), same dedupe-safe Bull pattern.
 import("./services/crmDailyReportQueue.js")

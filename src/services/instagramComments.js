@@ -4,6 +4,7 @@ import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import IgCommentTrigger from "../models/igCommentTrigger.model.js";
 import { graphPost } from "./metaLeadAds.js";
+import { getInstagramToken } from "./instagramToken.js";
 import { upsertCrmLead } from "./crmLeadIntake.js";
 
 // [{ commentId, text, fromId, username, mediaId, igId }] from an Instagram webhook payload.
@@ -25,7 +26,7 @@ export function commentEventsFrom(payload) {
 // Tokens from "Instagram API with Instagram login" only work on graph.instagram.com;
 // without one we fall back to the Page token on graph.facebook.com.
 async function igPost(path, body) {
-  const token = process.env.INSTAGRAM_ACCESS_TOKEN;
+  const token = await getInstagramToken();
   if (!token) return graphPost(path, body);
 
   const res = await fetch(`https://graph.instagram.com/${process.env.META_GRAPH_VERSION || "v21.0"}/${path}`, {
@@ -36,6 +37,29 @@ async function igPost(path, body) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error?.message || `Instagram API responded ${res.status}`);
   return data;
+}
+
+// Instagram button templates allow up to 640 characters of text and a 20-character label.
+const BUTTON_TEXT_MAX = 640;
+const BUTTON_LABEL = "View details";
+
+const buttonMessage = (trigger) => trigger.linkUrl && trigger.dmText.length <= BUTTON_TEXT_MAX
+  ? { attachment: { type: "template", payload: { template_type: "button", text: trigger.dmText, buttons: [{ type: "web_url", url: trigger.linkUrl, title: BUTTON_LABEL }] } } }
+  : null;
+
+// A tappable button keeps the message clean; if Instagram refuses it, send the link as plain text.
+async function sendDm(event, trigger) {
+  const to = { comment_id: event.commentId };
+  const button = buttonMessage(trigger);
+  if (button) {
+    try {
+      return await igPost(`${event.igId}/messages`, { recipient: to, message: button });
+    } catch (err) {
+      console.warn(`[instagram] comment ${event.commentId} button DM refused (${err.message}) — sending text instead`);
+    }
+  }
+  const text = [trigger.dmText, trigger.linkUrl].filter(Boolean).join("\n\n");
+  return igPost(`${event.igId}/messages`, { recipient: to, message: { text } });
 }
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -89,10 +113,9 @@ export async function handleInstagramComment(event) {
   await captureLead(event, trigger);
   await IgCommentTrigger.updateOne({ _id: trigger._id }, { $inc: { triggerCount: 1 } });
 
-  const dm = [trigger.dmText, trigger.linkUrl].filter(Boolean).join("\n\n");
   const results = await Promise.allSettled([
     trigger.replyText && igPost(`${event.commentId}/replies`, { message: trigger.replyText }),
-    igPost(`${event.igId}/messages`, { recipient: { comment_id: event.commentId }, message: { text: dm } }),
+    sendDm(event, trigger),
   ]);
   results.filter((r) => r.status === "rejected")
     .forEach((r) => console.error(`[instagram] comment ${event.commentId} reply/DM failed:`, r.reason.message));

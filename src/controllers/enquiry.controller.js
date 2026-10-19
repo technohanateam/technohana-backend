@@ -6,10 +6,12 @@ import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import { routeAdLead } from "../services/adLeadRouter.js";
 import { validateEmail, validateName } from "../utils/inputValidator.js";
 import { splitSubmission } from "../utils/enquirySubmission.js";
+import { sendMetaLead } from "../services/metaConversions.js";
 
 export const createEnquiry = async (req, res) => {
   try {
-    const raw = { ...req.body };
+    const { meta: _meta, ...rawBody } = req.body; // `meta` carries pixel cookies for tracking, not enquiry data
+    const raw = { ...rawBody };
     if (raw.message   && !raw.description)  raw.description  = raw.message;
     if (raw.type      && !raw.enquiryType)   raw.enquiryType  = raw.type;
     if (raw.organization && !raw.company)    raw.company      = raw.organization;
@@ -38,6 +40,11 @@ export const createEnquiry = async (req, res) => {
 
     // AI lead scoring — fire and forget, never blocks the submission
     scoreEnquiry(enquiry._id).catch((err) => console.error("Lead scoring failed (enquiry already saved):", err));
+
+    sendMetaLead({
+      req, user: { name, email, phone: body.phone },
+      contentName: courseTitle || body.description || enquiryType, contentCategory: enquiryType,
+    });
 
     // Paid-ad submissions also become CRM leads (organic ones stay in the admin panel only)
     routeAdLead({
@@ -124,6 +131,8 @@ export const contactUs = async (req, res) => {
     await enquiry.save();
 
     scoreEnquiry(enquiry._id).catch((err) => console.error("Lead scoring failed (enquiry already saved):", err));
+
+    sendMetaLead({ req, user: { name, email, phone }, contentName: subject, contentCategory: "Contact Us" });
 
     routeAdLead({
       name, email, phone, interest: [subject, message].filter(Boolean).join(" — "),
