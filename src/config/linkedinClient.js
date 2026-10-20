@@ -22,7 +22,7 @@ export class LinkedinAuthError extends Error {
 }
 
 export const getLinkedinScopes = () =>
-  (process.env.LINKEDIN_OAUTH_SCOPES || "r_ads r_ads_reporting r_ads_leadgen_automation r_organization_admin").split(/[\s,]+/).filter(Boolean);
+  (process.env.LINKEDIN_OAUTH_SCOPES || "r_ads r_ads_reporting").split(/[\s,]+/).filter(Boolean);
 
 const apiVersion = () => process.env.LINKEDIN_API_VERSION || "202405";
 
