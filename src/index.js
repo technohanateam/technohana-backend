@@ -1002,9 +1002,8 @@ app.post('/payments/confirm', checkoutLimiter, async (req, res) => {
       const paidAt = Date.now();
       let firstInvoiceNumber = '';
       for (const oid of parsedIds) {
-        const o = await PendingOrder.findOne({ orderId: oid }).lean();
-        if (!o || o.status === 'paid') continue;
-        await PendingOrder.updateOne({ orderId: oid }, { $set: { status: 'paid', paidAt } });
+        const o = await PendingOrder.findOneAndUpdate({ orderId: oid, status: { $ne: 'paid' } }, { $set: { status: 'paid', paidAt } }).lean();
+        if (!o) continue;
         const inv = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${oid.slice(-6).toUpperCase()}`;
         if (!firstInvoiceNumber) firstInvoiceNumber = inv;
         try { await Order.create({ ...o, _id: undefined, invoiceNumber: inv, status: 'paid', paidAt }); } catch { /* dup */ }
@@ -1035,9 +1034,9 @@ app.post('/payments/confirm', checkoutLimiter, async (req, res) => {
 
     // Mark order paid if not already
     let invoiceNumber = '';
-    if (order.status !== 'paid') {
-      const paidAt = Date.now();
-      await PendingOrder.updateOne({ orderId }, { $set: { status: 'paid', paidAt } });
+    const paidAt = Date.now();
+    const claimed = await PendingOrder.findOneAndUpdate({ orderId, status: { $ne: 'paid' } }, { $set: { status: 'paid', paidAt } });
+    if (claimed) {
 
       // Archive to permanent Order collection
       invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${orderId.slice(-6).toUpperCase()}`;

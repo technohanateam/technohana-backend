@@ -5,6 +5,7 @@ import passport from "passport";
 import rateLimit from "express-rate-limit";
 import { generateToken, verifyToken } from "../config/jwt.js";
 import { User } from "../models/user.model.js";
+import { authenticateJWT } from "../middleware/authenticateJWT.js";
 
 const router = express.Router();
 
@@ -72,16 +73,9 @@ router.get("/auth/me", async (req, res) => {
 });
 
 
-router.put("/kyc", async (req, res) => { // Changed from POST to PUT and simplified the path
+router.put("/kyc", authenticateJWT, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
-    if (!token) return res.status(401).json({ message: "Unauthorized" });
-
-    const payload = verifyToken(token); // Assuming you have a verifyToken function
-    if (!payload) return res.status(401).json({ message: "Invalid token" });
+    const payload = req.user;
 
     const { phone, userType, company } = req.body || {};
     if (!phone || !userType) {

@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import geoip from "geoip-lite";
 import { CourseView } from "../models/courseView.model.js";
 import { authenticateAdmin, requirePage } from "../middleware/authenticateAdmin.js";
@@ -13,7 +14,9 @@ function resolveCountryFromIp(req) {
 }
 
 // POST /api/course-views — record a view (public, no auth)
-router.post("/course-views", async (req, res) => {
+const courseViewLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
+
+router.post("/course-views", courseViewLimiter, async (req, res) => {
   try {
     const { courseId, courseTitle, userEmail, country, currency } = req.body;
     if (!courseId) return res.status(400).json({ success: false, message: "courseId is required" });
