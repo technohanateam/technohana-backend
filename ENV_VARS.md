@@ -70,7 +70,7 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `LINKEDIN_CLIENT_ID` | `src/config/linkedinClient.js` | LinkedIn app client id (developer.linkedin.com). Unset → the CRM Integrations LinkedIn card shows "not configured" |
 | `LINKEDIN_CLIENT_SECRET` | `src/config/linkedinClient.js` | LinkedIn app client secret |
 | `LINKEDIN_REDIRECT_URI` | `src/config/linkedinClient.js` | Must match the app's authorised redirect URL exactly: `https://<api-host>/api/crm/linkedin/callback` |
-| `LINKEDIN_API_VERSION` | `src/config/linkedinClient.js` | `LinkedIn-Version` header, default `202405` |
+| `LINKEDIN_API_VERSION` | `src/config/linkedinClient.js` | `LinkedIn-Version` header (YYYYMM), default `202604`. LinkedIn retires versions after about a year; "Requested version … is not active" (HTTP 426) means bump this |
 | `LINKEDIN_OAUTH_SCOPES` | `src/config/linkedinClient.js` | Space-separated, default `r_ads r_ads_reporting` (needs the Advertising API product). For Lead Gen Form import add `r_marketing_leadgen_automation` once the Lead Sync API product is approved. Requesting a scope the app hasn't been granted makes LinkedIn show "Bummer, something went wrong" |
 | `WHATSAPP_TOKEN` | `src/services/whatsapp.js` | Permanent system-user token with `whatsapp_business_messaging`. Unset → sends throw "not configured" |
 | `WHATSAPP_PHONE_NUMBER_ID` | `src/services/whatsapp.js` | Phone number ID of the WhatsApp Business number (from Meta → WhatsApp → API setup) |
