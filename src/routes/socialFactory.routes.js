@@ -9,6 +9,7 @@ import {
   approvePost,
   rejectPost,
   schedulePost,
+  publishPost,
   deletePost,
 } from "../controllers/socialFactory/socialPost.controller.js";
 
@@ -25,6 +26,7 @@ router.post("/posts/:id/submit-response", requireMarketing, submitResponse);
 router.post("/posts/:id/approve", requireMarketing, approvePost);
 router.post("/posts/:id/reject", requireMarketing, rejectPost);
 router.post("/posts/:id/schedule", requireMarketing, schedulePost);
+router.post("/posts/:id/publish", requireMarketing, publishPost);
 router.delete("/posts/:id", requireAdmin, deletePost);
 
 export default router;

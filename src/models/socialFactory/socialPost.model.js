@@ -65,6 +65,8 @@ const socialPostSchema = new Schema(
 
     scheduledAt: { type: Date, default: null },
     publishedAt: { type: Date, default: null },
+    publishedUrn: { type: String, default: null },
+    publishError: { type: String, default: null },
   },
   { timestamps: true }
 );

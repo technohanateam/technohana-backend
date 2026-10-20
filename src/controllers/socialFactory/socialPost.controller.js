@@ -4,6 +4,7 @@ import { Blogs } from "../../models/blogs.model.js";
 import ContentOpportunity from "../../models/contentOpportunity.model.js";
 import { SOCIAL_PLATFORMS, PLATFORM_RULES } from "../../services/socialFactory/socialPromptBuilder.service.js";
 import { parseSocialPostResponse } from "../../services/socialFactory/socialPostParser.service.js";
+import { publishLinkedinPost } from "../../services/linkedinPublish.js";
 import { createSocialPostForSource } from "../../services/socialFactory/socialPostCreation.service.js";
 
 // GET /admin/social-factory/posts
@@ -196,6 +197,37 @@ export const schedulePost = async (req, res) => {
     return res.json({ success: true, data: post, message: "Scheduled" });
   } catch (err) {
     console.error("[SocialFactory] schedulePost error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /admin/social-factory/posts/:id/publish — LinkedIn text posts only.
+export const publishPost = async (req, res) => {
+  try {
+    const post = await SocialPost.findById(req.params.id);
+    if (!post) return res.status(404).json({ success: false, message: "Post not found" });
+    if (post.platform !== "LINKEDIN") {
+      return res.status(400).json({ success: false, message: "Only LINKEDIN posts can be published from here" });
+    }
+    if (!["APPROVED", "SCHEDULED"].includes(post.status)) {
+      return res.status(409).json({ success: false, message: "Only an APPROVED or SCHEDULED post can be published" });
+    }
+
+    try {
+      post.publishedUrn = await publishLinkedinPost(post.post);
+      post.publishedAt = new Date();
+      post.publishError = null;
+      post.status = "PUBLISHED";
+    } catch (err) {
+      post.publishError = err.message;
+      await post.save();
+      return res.status(err.statusCode || err.status || 502).json({ success: false, message: err.message });
+    }
+
+    await post.save();
+    return res.json({ success: true, data: post, message: "Published to LinkedIn" });
+  } catch (err) {
+    console.error("[SocialFactory] publishPost error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
