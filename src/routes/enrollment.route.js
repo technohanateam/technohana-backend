@@ -37,7 +37,9 @@ const requireCaptcha = (routeName) => async (req, res, next) => {
   next();
 };
 
-router.post('/enroll', enrollUser);
+const enrollLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
+
+router.post('/enroll', enrollLimiter, enrollUser);
 router.get('/status', authenticateJWT, getUsersByStatus);
 router.get('/enrollments/mine', authenticateJWT, getMyEnrollments);
 

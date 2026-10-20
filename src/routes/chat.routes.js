@@ -25,6 +25,18 @@ if (!process.env.ANTHROPIC_API_KEY) {
 // In-memory session store: sessionId -> message[]
 const sessions = new Map();
 
+// Public endpoints let the client choose session_id, so bound the stores (oldest evicted first).
+const MAX_SESSIONS = 5000;
+const MAX_MESSAGE_CHARS = 2000;
+const isValidChatInput = (session_id, message) =>
+  typeof session_id === "string" && session_id.length > 0 && session_id.length <= 100 &&
+  typeof message === "string" && message.trim().length > 0 && message.length <= MAX_MESSAGE_CHARS;
+const storeSession = (map, id, value) => {
+  map.delete(id);
+  map.set(id, value);
+  if (map.size > MAX_SESSIONS) map.delete(map.keys().next().value);
+};
+
 // --- Build system prompt from course catalog ---
 function buildCatalogText(courses) {
   return courses
@@ -135,8 +147,8 @@ router.get("/api/chat/greet", (req, res) => {
 // POST /api/chat
 router.post("/api/chat", publicChatLimiter, async (req, res) => {
   const { session_id, message } = req.body || {};
-  if (!session_id || !message?.trim()) {
-    return res.status(400).json({ error: "session_id and message are required" });
+  if (!isValidChatInput(session_id, message)) {
+    return res.status(400).json({ error: "A session_id and a message of up to 2000 characters are required" });
   }
 
   const messages = sessions.get(session_id) || [];
@@ -153,7 +165,8 @@ router.post("/api/chat", publicChatLimiter, async (req, res) => {
     const raw = response.choices[0].message.content;
     const result = parseResponse(raw);
     messages.push({ role: "assistant", content: raw });
-    sessions.set(session_id, messages);
+    if (messages.length > 40) messages.splice(0, 2);
+    storeSession(sessions, session_id, messages);
     return res.json(result);
   } catch (err) {
     console.error("Chat error:", err.message);
@@ -805,8 +818,8 @@ router.get("/api/chat/corporate/greet", (req, res) => {
 // POST /api/chat/corporate
 router.post("/api/chat/corporate", publicChatLimiter, async (req, res) => {
   const { session_id, message } = req.body || {};
-  if (!session_id || !message?.trim()) {
-    return res.status(400).json({ error: "session_id and message are required" });
+  if (!isValidChatInput(session_id, message)) {
+    return res.status(400).json({ error: "A session_id and a message of up to 2000 characters are required" });
   }
 
   const history = corporateSessions.get(session_id) || [];
@@ -824,7 +837,7 @@ router.post("/api/chat/corporate", publicChatLimiter, async (req, res) => {
     const result = parseCorporateResponse(raw);
     history.push({ role: "assistant", content: raw });
     if (history.length > 40) history.splice(0, 2);
-    corporateSessions.set(session_id, history);
+    storeSession(corporateSessions, session_id, history);
     return res.json(result);
   } catch (err) {
     console.error("Corporate chat error:", err.message);
