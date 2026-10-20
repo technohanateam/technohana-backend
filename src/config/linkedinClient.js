@@ -108,17 +108,22 @@ const markDisconnected = (connection, message) =>
   CrmLinkedinConnection.updateOne({ _id: connection._id }, { isActive: false, lastSyncStatus: "error", lastSyncError: message });
 
 // Parsed JSON; throws with `.status` on HTTP errors. 401 → LinkedinAuthError.
-export async function linkedinFetch(connection, path, { params, headers } = {}) {
+export async function linkedinFetch(connection, path, { params, headers, method = "GET", body } = {}) {
   const token = await getAccessToken(connection);
   const query = params ? `?${Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")}` : "";
   const res = await fetch(`${API_BASE}${path}${query}`, {
+    method,
     headers: {
       Authorization: `Bearer ${token}`,
       "LinkedIn-Version": apiVersion(),
       "X-Restli-Protocol-Version": "2.0.0",
+      ...(body !== undefined && { "Content-Type": "application/json" }),
       ...headers,
     },
+    ...(body !== undefined && { body: JSON.stringify(body) }),
   });
+  // Create calls (e.g. POST /posts) return 201 with an empty body; the new id is in this header.
+  if (res.status === 201) return { id: res.headers.get("x-restli-id") };
   const json = await res.json().catch(() => ({}));
   if (res.status === 401) {
     await markDisconnected(connection, "LinkedIn rejected the access token — reconnect");
