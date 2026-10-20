@@ -1,6 +1,6 @@
 import { test, mock, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolve, dirname } from "node:path";
 
 // Resolve absolute paths for mock.module — must match the specifiers the
@@ -52,7 +52,7 @@ let apiBriefCalled = false;
 let apiBriefShouldFail = false;
 const FAKE_BRIEF = { angle: "Career switchers", keySellingPoints: ["Live mentors"], tone: "Confident", targetAudience: "Adults", painPoint: null, proofPoint: null };
 
-mock.module(resolve(SRC, "../../models/adCreativeFactory/adCreativeOpportunity.model.js"), {
+mock.module(pathToFileURL(resolve(SRC, "../../models/adCreativeFactory/adCreativeOpportunity.model.js")).href, {
   defaultExport: { findById: async (id) => db.opportunities.get(id) || null },
 });
 
@@ -82,11 +82,11 @@ FakeAdCreativeGenerationJob.findOne = (query) => ({
   },
 });
 
-mock.module(resolve(SRC, "../../models/adCreativeFactory/adCreativeGenerationJob.model.js"), {
+mock.module(pathToFileURL(resolve(SRC, "../../models/adCreativeFactory/adCreativeGenerationJob.model.js")).href, {
   defaultExport: FakeAdCreativeGenerationJob,
 });
 
-mock.module(resolve(SRC, "../../models/adCreativeFactory/adCreativeFactorySettings.model.js"), {
+mock.module(pathToFileURL(resolve(SRC, "../../models/adCreativeFactory/adCreativeFactorySettings.model.js")).href, {
   namedExports: { getOrCreateAdCreativeFactorySettings: async () => FAKE_SETTINGS },
 });
 
@@ -94,7 +94,7 @@ mock.module(resolve(SRC, "../../models/adCreativeFactory/adCreativeFactorySettin
 // parseAdCopyDraftResponse just JSON.parse the pasted text directly so tests
 // can control exact draft content (including blocklisted phrases), rather
 // than re-testing the real parsers (already covered in adCopyWriter.test.js).
-mock.module(resolve(SRC, "adCopyWriter.service.js"), {
+mock.module(pathToFileURL(resolve(SRC, "adCopyWriter.service.js")).href, {
   namedExports: {
     buildAdBriefPrompt: () => ({ system: "s", prompt: "p" }),
     parseAdBriefResponse: (text) => JSON.parse(text),

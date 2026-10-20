@@ -1,6 +1,6 @@
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolve, dirname } from "node:path";
 
 // Resolve absolute paths for mock.module — must match the specifiers
@@ -27,11 +27,11 @@ const makeBlog = (overrides = {}) => ({
 let opportunityDoc;
 let blogFindByIdResult;
 
-mock.module(resolve(SRC, "../../models/contentOpportunity.model.js"), {
+mock.module(pathToFileURL(resolve(SRC, "../../models/contentOpportunity.model.js")).href, {
   defaultExport: { findById: async () => opportunityDoc },
 });
 
-mock.module(resolve(SRC, "../../models/blogs.model.js"), {
+mock.module(pathToFileURL(resolve(SRC, "../../models/blogs.model.js")).href, {
   namedExports: { Blogs: { findById: async () => blogFindByIdResult } },
 });
 

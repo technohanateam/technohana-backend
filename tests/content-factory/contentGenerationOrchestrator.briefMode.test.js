@@ -1,6 +1,6 @@
 import { test, mock, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolve, dirname } from "node:path";
 
 // Resolve absolute paths for mock.module — must match the specifiers the
@@ -47,7 +47,7 @@ const makeSaveableFakeJob = () => ({
 });
 
 // Mock all Mongoose model imports that the orchestrator uses
-mock.module(resolve(SRC, "../../models/contentOpportunity.model.js"), {
+mock.module(pathToFileURL(resolve(SRC, "../../models/contentOpportunity.model.js")).href, {
   defaultExport: { findById: async () => makeSaveableFakeOpp() },
 });
 
@@ -59,16 +59,16 @@ FakeContentGenerationJob.findById = async () => null;
 FakeContentGenerationJob.findOne = () => ({ sort: async () => null });
 FakeContentGenerationJob.create = async (data) => new FakeContentGenerationJob(data);
 
-mock.module(resolve(SRC, "../../models/contentGenerationJob.model.js"), {
+mock.module(pathToFileURL(resolve(SRC, "../../models/contentGenerationJob.model.js")).href, {
   defaultExport: FakeContentGenerationJob,
 });
 
-mock.module(resolve(SRC, "../../models/contentBrief.model.js"), {
+mock.module(pathToFileURL(resolve(SRC, "../../models/contentBrief.model.js")).href, {
   defaultExport: { findOne: async () => null },
 });
 
 // Mock the content brief writer — the module under indirect test
-mock.module(resolve(SRC, "contentBriefWriter.service.js"), {
+mock.module(pathToFileURL(resolve(SRC, "contentBriefWriter.service.js")).href, {
   namedExports: {
     buildContentBriefPrompt: () => ({ system: "test system", prompt: "test prompt" }),
     parseContentBriefResponse: async () => ({ brief: fakeBrief, model: "test" }),
@@ -81,31 +81,31 @@ mock.module(resolve(SRC, "contentBriefWriter.service.js"), {
 });
 
 // Stub remaining pipeline services
-mock.module(resolve(SRC, "articleWriter.service.js"), {
+mock.module(pathToFileURL(resolve(SRC, "articleWriter.service.js")).href, {
   namedExports: {
     buildArticleWriterPrompt: async () => ({ system: "s", prompt: "p" }),
     parseArticleResponse: () => ({ articleDraft: {} }),
   },
 });
-mock.module(resolve(SRC, "seoFieldWriter.service.js"), {
+mock.module(pathToFileURL(resolve(SRC, "seoFieldWriter.service.js")).href, {
   namedExports: {
     buildSeoFieldWriterPrompt: () => ({ system: "s", prompt: "p" }),
     parseSeoFieldsResponse: () => ({ seoFields: {} }),
   },
 });
-mock.module(resolve(SRC, "internalLinker.service.js"), {
+mock.module(pathToFileURL(resolve(SRC, "internalLinker.service.js")).href, {
   namedExports: {
     buildInternalLinkerPromptForOpportunity: async () => ({ prompt: null, candidateCourses: [], candidateBlogs: [] }),
     parseInternalLinksResponse: () => ({ content: "", suggestedInternalLinks: [] }),
   },
 });
-mock.module(resolve(SRC, "imagePromptWriter.service.js"), {
+mock.module(pathToFileURL(resolve(SRC, "imagePromptWriter.service.js")).href, {
   namedExports: {
     buildImagePromptWriterPrompt: () => ({ system: "s", prompt: "p" }),
     parseImageConceptResponse: () => ({ imageConcept: {} }),
   },
 });
-mock.module(resolve(SRC, "qualityGate.service.js"), {
+mock.module(pathToFileURL(resolve(SRC, "qualityGate.service.js")).href, {
   namedExports: {
     buildQualityGatePrompts: async () => ({
       factCheck: { system: "s", prompt: "p" },
@@ -116,7 +116,7 @@ mock.module(resolve(SRC, "qualityGate.service.js"), {
     computeQualityGateResult: () => ({ flaggedForRevision: false, overallScore: 85, flagReasons: [] }),
   },
 });
-mock.module(resolve(SRC, "revisionAgent.service.js"), {
+mock.module(pathToFileURL(resolve(SRC, "revisionAgent.service.js")).href, {
   namedExports: {
     buildRevisionPrompt: () => ({ system: "s", prompt: "p" }),
     parseRevisionResponse: () => ({ revised: {}, tooSimilar: false, similarity: 0 }),
