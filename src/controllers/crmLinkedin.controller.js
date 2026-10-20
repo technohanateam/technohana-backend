@@ -43,6 +43,7 @@ export const getLinkedinConnectUrl = async (req, res) => {
       process.env.CRM_JWT_SECRET,
       { expiresIn: "10m" }
     );
+    console.log(`[linkedin] consent scopes="${getLinkedinScopes().join(" ")}" redirect_uri=${process.env.LINKEDIN_REDIRECT_URI}`);
     res.json({ success: true, data: { url: buildConsentUrl(state) } });
   } catch (err) {
     if (err instanceof LinkedinNotConfiguredError) {
