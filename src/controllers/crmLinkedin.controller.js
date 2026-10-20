@@ -103,6 +103,10 @@ export const getLinkedinAdAccounts = async (req, res) => {
     if (err.status === 403) {
       return res.status(502).json({ success: false, message: "LinkedIn denied access to ad accounts. Check the app's Marketing Developer Platform approval." });
     }
+    if (err.status) {
+      console.error("[linkedin] ad accounts failed:", err.status, err.message);
+      return res.status(502).json({ success: false, message: `LinkedIn returned ${err.status}: ${err.message}` });
+    }
     sendCrmError(res, err, "Failed to load LinkedIn ad accounts");
   }
 };

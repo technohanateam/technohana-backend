@@ -24,7 +24,7 @@ export class LinkedinAuthError extends Error {
 export const getLinkedinScopes = () =>
   (process.env.LINKEDIN_OAUTH_SCOPES || "r_ads r_ads_reporting").split(/[\s,]+/).filter(Boolean);
 
-const apiVersion = () => process.env.LINKEDIN_API_VERSION || "202405";
+const apiVersion = () => process.env.LINKEDIN_API_VERSION || "202604";
 
 export const isLinkedinConfigured = () =>
   Boolean(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET && process.env.LINKEDIN_REDIRECT_URI);
