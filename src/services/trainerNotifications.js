@@ -2,6 +2,7 @@ import Instructor from "../models/instructor.js";
 import Batch from "../models/batch.model.js";
 import Session from "../models/session.model.js";
 import TrainingRequirement from "../models/trainingRequirement.model.js";
+import InstructorApplication from "../models/instructorApplication.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import {
   newRequirementNotificationEmail,
@@ -40,8 +41,8 @@ const fireAndForget = (label, fn) => {
 };
 
 // Only trainers who passed compliance can open gigs (requireCompliance), so anyone
-// else would land on a 403. Returns the recipient count; sending runs in the background.
-export async function notifyNewRequirement(requirement) {
+// else would land on a 403. Trainers who already applied are skipped when asked.
+async function requirementRecipients(requirement, { excludeApplied = false } = {}) {
   const instructors = await Instructor.find({
     isActive: true,
     "complianceStatus.ndaAccepted": true,
@@ -49,24 +50,75 @@ export async function notifyNewRequirement(requirement) {
   })
     .select("name email")
     .lean();
-  const link = portalUrl("/instructor/opportunities");
+  if (!excludeApplied) return instructors;
+  const applied = new Set(
+    (await InstructorApplication.find({ requirementId: requirement._id }).select("instructorId").lean()).map((a) => String(a.instructorId))
+  );
+  return instructors.filter((i) => !applied.has(String(i._id)));
+}
 
+async function sendRequirementEmails(instructors, requirement, { subject, heading, intro }) {
+  const link = portalUrl("/instructor/opportunities");
+  const results = await Promise.allSettled(
+    instructors.map((inst) =>
+      send(inst.email, subject, newRequirementNotificationEmail(inst.name, requirement, link, { heading, intro }))
+    )
+  );
+  const failures = results.filter((r) => r.status === "rejected" || r.value?.error);
+  if (failures.length) {
+    const first = failures[0];
+    const reason = first.status === "rejected" ? first.reason?.message : first.value.error?.message;
+    console.error(`[trainer-notify] "${subject}": ${failures.length}/${results.length} emails failed (first: ${reason})`);
+  }
+  return results.length - failures.length;
+}
+
+// Returns the recipient count; sending runs in the background.
+export async function notifyNewRequirement(requirement) {
+  const instructors = await requirementRecipients(requirement);
   fireAndForget("new requirement", async () => {
-    const results = await Promise.allSettled(
-      instructors.map((inst) =>
-        send(inst.email, `New Training Opportunity: ${requirement.title}`, newRequirementNotificationEmail(inst.name, requirement, link))
-      )
-    );
-    const failures = results.filter((r) => r.status === "rejected" || r.value?.error);
-    if (failures.length) {
-      const first = failures[0];
-      const reason = first.status === "rejected" ? first.reason?.message : first.value.error?.message;
-      console.error(`[trainer-notify] new requirement: ${failures.length}/${results.length} emails failed (first: ${reason})`);
-    }
-    await TrainingRequirement.findByIdAndUpdate(requirement._id, { notifiedCount: results.length - failures.length });
+    const sent = await sendRequirementEmails(instructors, requirement, { subject: `New Training Opportunity: ${requirement.title}` });
+    await TrainingRequirement.findByIdAndUpdate(requirement._id, { notifiedCount: sent });
+  });
+  return instructors.length;
+}
+
+// kind: "reopened" | "deadline-extended". Closed or already-expired gigs are not worth an alert.
+export const notifyRequirementUpdated = (requirement, kind) =>
+  fireAndForget(`requirement ${kind}`, async () => {
+    if (requirement.status !== "open" || (requirement.deadline && new Date(requirement.deadline) < new Date())) return;
+    const instructors = await requirementRecipients(requirement, { excludeApplied: true });
+    const reopened = kind === "reopened";
+    await sendRequirementEmails(instructors, requirement, {
+      subject: `${reopened ? "Reopened" : "Deadline extended"}: ${requirement.title}`,
+      heading: reopened ? "Training Opportunity Reopened" : "Deadline Extended",
+      intro: reopened ? "this training requirement has been reopened for applications." : "the deadline for this training requirement has been extended.",
+    });
   });
 
-  return instructors.length;
+const CLOSING_SOON_MS = 48 * 3_600_000;
+
+// Daily: gigs closing within 48h get one reminder, only to trainers who haven't applied.
+export async function sendGigClosingReminders() {
+  const now = new Date();
+  const requirements = await TrainingRequirement.find({
+    status: "open",
+    deadline: { $gt: now, $lte: new Date(now.getTime() + CLOSING_SOON_MS) },
+    closingReminderSentAt: null,
+  }).lean();
+
+  let sent = 0;
+  for (const requirement of requirements) {
+    // Marked before sending so a retry never double-emails the same gig.
+    await TrainingRequirement.updateOne({ _id: requirement._id }, { closingReminderSentAt: now });
+    const instructors = await requirementRecipients(requirement, { excludeApplied: true });
+    sent += await sendRequirementEmails(instructors, requirement, {
+      subject: `Closing soon: ${requirement.title}`,
+      heading: "Closing Soon",
+      intro: "this training requirement closes soon and you have not applied yet.",
+    });
+  }
+  return { sent };
 }
 
 export const notifyBatchAssigned = (batch) =>
