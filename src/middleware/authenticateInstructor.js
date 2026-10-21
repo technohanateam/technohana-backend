@@ -1,6 +1,8 @@
 import jwt from "jsonwebtoken";
 import Instructor from "../models/instructor.js";
 
+const ACTIVITY_WRITE_INTERVAL_MS = 10 * 60 * 1000;
+
 export const authenticateInstructor = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -17,9 +19,13 @@ export const authenticateInstructor = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "Instructor role required" });
     }
 
-    const instructor = await Instructor.findById(payload.id).select("isActive complianceStatus").lean();
+    const instructor = await Instructor.findById(payload.id).select("isActive complianceStatus lastActiveAt").lean();
     if (!instructor || !instructor.isActive) {
       return res.status(401).json({ success: false, message: "Account is not active" });
+    }
+
+    if (!instructor.lastActiveAt || Date.now() - instructor.lastActiveAt.getTime() > ACTIVITY_WRITE_INTERVAL_MS) {
+      Instructor.updateOne({ _id: payload.id }, { lastActiveAt: new Date() }).catch(() => {});
     }
 
     req.instructor = { ...payload, isActive: instructor.isActive, complianceStatus: instructor.complianceStatus };
