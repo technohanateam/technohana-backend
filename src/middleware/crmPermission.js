@@ -49,6 +49,8 @@ const CRM_PERMISSIONS = {
     read:   ["super_admin", "admin", "marketing"],
     // Connecting/disconnecting ad platforms (LinkedIn).
     write:  ["super_admin", "admin", "marketing"],
+    // Deleting Instagram comment triggers.
+    delete: ["super_admin", "admin"],
   },
   ai: {
     read:   ["super_admin", "admin", "sales"],

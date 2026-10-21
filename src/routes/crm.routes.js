@@ -42,6 +42,9 @@ import {
   getLinkedinStatus, getLinkedinConnectUrl, getLinkedinAdAccounts, selectLinkedinAdAccount, disconnectLinkedin,
 } from "../controllers/crmLinkedin.controller.js";
 import {
+  listIgTriggers, createIgTrigger, updateIgTrigger, deleteIgTrigger, sendInstagramReply,
+} from "../controllers/crmInstagram.controller.js";
+import {
   getInternApplications, getInternApplication, updateInternApplication,
   updateInternApplicationStatus, deleteInternApplication, emailInternApplicant,
   getInternResumeProxy,
@@ -86,6 +89,12 @@ router.get("/analytics/rep-stats",     crmRead("dashboard"), getRepStats);
 router.get("/analytics/conversions",   crmRead("dashboard"), getConversionStats);
 router.get("/analytics/daily-report",  crmRead("dashboard"), getDailyReport);
 router.get("/ads/performance",         crmRead("ads"),       getAdPerformanceHandler);
+
+// ── Instagram comment-to-DM triggers ──────────────────────────────────────────
+router.get("/instagram/triggers",        crmRead("ads"),   listIgTriggers);
+router.post("/instagram/triggers",       crmWrite("ads"),  createIgTrigger);
+router.patch("/instagram/triggers/:id",  crmWrite("ads"),  updateIgTrigger);
+router.delete("/instagram/triggers/:id", crmDelete("ads"), deleteIgTrigger);
 router.post("/analytics/daily-report/email", crmWrite("users"), emailDailyReportToMe);
 
 // ── Leads ─────────────────────────────────────────────────────────────────────
@@ -102,6 +111,7 @@ router.post("/leads/:id/merge",     crmWrite("leads"),        mergeLead);
 router.post("/leads/:id/convert",   crmWrite("deals"),        convertLead);
 router.post("/leads/:id/notes",     crmWrite("leads"),        addNote);
 router.get("/leads/:id/activities", crmRead("leads"),         getLeadActivities);
+router.post("/leads/:id/instagram-reply", crmWrite("activities"), sendInstagramReply);
 
 // ── AI on Leads ───────────────────────────────────────────────────────────────
 router.get("/leads/:id/ai-summary",      crmRead("ai"),  aiLimiter, aiLeadSummary);
