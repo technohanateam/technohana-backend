@@ -56,6 +56,7 @@ const instructorSchema = new Schema({
     resetTokenExpiry : { type : Date },
     isActive : { type : Boolean, default : false },
     lastLogin : { type : Date },
+    lastActiveAt : { type : Date },
     picture : { type : String },
     avgRating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
