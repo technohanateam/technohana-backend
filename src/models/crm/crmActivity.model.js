@@ -10,7 +10,7 @@ const crmActivitySchema = new mongoose.Schema(
         "task_done", "stage_change", "status_change", "created",
         "file_upload", "proposal_sent", "quote_sent", "deal_won",
         "deal_lost", "batch_created", "trainer_assigned", "certificate_issued",
-        "merged", "ai_draft", "assigned",
+        "merged", "ai_draft", "assigned", "instagram_dm",
       ],
     },
     title: { type: String, trim: true },
@@ -51,5 +51,6 @@ crmActivitySchema.index({ "metadata.leadgenId": 1 }, { sparse: true });
 crmActivitySchema.index({ "metadata.orderId": 1 }, { sparse: true });
 crmActivitySchema.index({ "metadata.zohoMessageId": 1 }, { sparse: true });
 crmActivitySchema.index({ "metadata.meetingKey": 1 }, { sparse: true });
+crmActivitySchema.index({ "metadata.igMessageMid": 1 }, { sparse: true });
 
 export default mongoose.model("CRMActivity", crmActivitySchema);

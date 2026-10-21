@@ -23,9 +23,22 @@ export function commentEventsFrom(payload) {
     })));
 }
 
+// [{ mid, text, fromId, igId }] for DMs people send to our account (webhook `messages` field).
+export function messageEventsFrom(payload) {
+  if (payload?.object !== "instagram" || !Array.isArray(payload.entry)) return [];
+  return payload.entry.flatMap((entry) => (entry.messaging || [])
+    .filter((m) => m.message?.mid && m.sender?.id && !m.message.is_echo && String(m.sender.id) !== String(entry.id))
+    .map((m) => ({
+      mid: String(m.message.mid),
+      text: String(m.message.text || (m.message.attachments?.length ? "[attachment]" : "")),
+      fromId: String(m.sender.id),
+      igId: String(entry.id),
+    })));
+}
+
 // Tokens from "Instagram API with Instagram login" only work on graph.instagram.com;
 // without one we fall back to the Page token on graph.facebook.com.
-async function igPost(path, body) {
+export async function igPost(path, body) {
   const token = await getInstagramToken();
   if (!token) return graphPost(path, body);
 
@@ -110,14 +123,47 @@ export async function handleInstagramComment(event) {
   const trigger = await matchTrigger(event);
   if (!trigger) return { skipped: "no-match" };
 
-  await captureLead(event, trigger);
+  const lead = await captureLead(event, trigger);
   await IgCommentTrigger.updateOne({ _id: trigger._id }, { $inc: { triggerCount: 1 } });
 
   const results = await Promise.allSettled([
     trigger.replyText && igPost(`${event.commentId}/replies`, { message: trigger.replyText }),
-    sendDm(event, trigger),
+    sendDm(event, trigger).then(async (sent) => {
+      await CRMActivity.create({
+        type: "instagram_dm", title: "Instagram DM sent (auto)", body: [trigger.dmText, trigger.linkUrl].filter(Boolean).join("\n\n"),
+        relatedToType: "lead", relatedToId: lead._id,
+        metadata: { direction: "out", automated: true, igUserId: event.fromId, igMessageMid: sent?.message_id, triggerId: trigger._id },
+      });
+    }),
   ]);
   results.filter((r) => r.status === "rejected")
     .forEach((r) => console.error(`[instagram] comment ${event.commentId} reply/DM failed:`, r.reason.message));
   return { triggered: trigger._id };
+}
+
+// A person replied to our DM: add it to their lead's timeline (creating the lead if we haven't met them).
+export async function handleInstagramMessage(event) {
+  if (await CRMActivity.exists({ "metadata.igMessageMid": event.mid })) return { skipped: "duplicate" };
+
+  let lead = await CRMLead.findOne({ "customFields.igUserId": event.fromId, isDeleted: false }).select("_id");
+  if (!lead) {
+    ({ lead } = await upsertCrmLead({
+      fields: {
+        name: "Instagram lead",
+        source: "social",
+        utm: { utm_source: "instagram", utm_medium: "social", utm_campaign: "direct_message" },
+        customFields: { origin: "instagram_dm", igUserId: event.fromId },
+      },
+      activityTitle: "Lead captured from Instagram DM",
+      activityBody: event.text.slice(0, 120),
+      metadata: { igUserId: event.fromId },
+    }));
+  }
+
+  await CRMActivity.create({
+    type: "instagram_dm", title: "Instagram DM received", body: event.text,
+    relatedToType: "lead", relatedToId: lead._id,
+    metadata: { direction: "in", igUserId: event.fromId, igId: event.igId, igMessageMid: event.mid },
+  });
+  return { logged: lead._id };
 }
