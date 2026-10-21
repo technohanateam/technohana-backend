@@ -57,13 +57,25 @@ async function requirementRecipients(requirement, { excludeApplied = false } = {
   return instructors.filter((i) => !applied.has(String(i._id)));
 }
 
+// Resend allows only a few requests per second, so a big blast in one go gets rate-limited.
+const EMAIL_BATCH_SIZE = 2;
+const EMAIL_BATCH_GAP_MS = 1100;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function sendRequirementEmails(instructors, requirement, { subject, heading, intro }) {
   const link = portalUrl("/instructor/opportunities");
-  const results = await Promise.allSettled(
-    instructors.map((inst) =>
-      send(inst.email, subject, newRequirementNotificationEmail(inst.name, requirement, link, { heading, intro }))
-    )
-  );
+  const results = [];
+  for (let i = 0; i < instructors.length; i += EMAIL_BATCH_SIZE) {
+    if (i > 0) await sleep(EMAIL_BATCH_GAP_MS);
+    const batch = instructors.slice(i, i + EMAIL_BATCH_SIZE);
+    results.push(
+      ...(await Promise.allSettled(
+        batch.map((inst) =>
+          send(inst.email, subject, newRequirementNotificationEmail(inst.name, requirement, link, { heading, intro }))
+        )
+      ))
+    );
+  }
   const failures = results.filter((r) => r.status === "rejected" || r.value?.error);
   if (failures.length) {
     const first = failures[0];
