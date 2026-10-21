@@ -1,8 +1,10 @@
 import Instructor from "../models/instructor.js";
 import Batch from "../models/batch.model.js";
 import Session from "../models/session.model.js";
+import TrainingRequirement from "../models/trainingRequirement.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import {
+  newRequirementNotificationEmail,
   trainerBatchAssignedEmail,
   trainerSessionsScheduledEmail,
   trainerSessionChangedEmail,
@@ -36,6 +38,36 @@ const send = (to, subject, html) => sendEmail({ from: fromAddresses.careers, to,
 const fireAndForget = (label, fn) => {
   fn().catch((err) => console.error(`[trainer-notify] ${label} failed:`, err.message));
 };
+
+// Only trainers who passed compliance can open gigs (requireCompliance), so anyone
+// else would land on a 403. Returns the recipient count; sending runs in the background.
+export async function notifyNewRequirement(requirement) {
+  const instructors = await Instructor.find({
+    isActive: true,
+    "complianceStatus.ndaAccepted": true,
+    "complianceStatus.quizPassed": true,
+  })
+    .select("name email")
+    .lean();
+  const link = portalUrl("/instructor/opportunities");
+
+  fireAndForget("new requirement", async () => {
+    const results = await Promise.allSettled(
+      instructors.map((inst) =>
+        send(inst.email, `New Training Opportunity: ${requirement.title}`, newRequirementNotificationEmail(inst.name, requirement, link))
+      )
+    );
+    const failures = results.filter((r) => r.status === "rejected" || r.value?.error);
+    if (failures.length) {
+      const first = failures[0];
+      const reason = first.status === "rejected" ? first.reason?.message : first.value.error?.message;
+      console.error(`[trainer-notify] new requirement: ${failures.length}/${results.length} emails failed (first: ${reason})`);
+    }
+    await TrainingRequirement.findByIdAndUpdate(requirement._id, { notifiedCount: results.length - failures.length });
+  });
+
+  return instructors.length;
+}
 
 export const notifyBatchAssigned = (batch) =>
   fireAndForget("batch assigned", async () => {

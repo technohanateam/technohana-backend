@@ -53,7 +53,8 @@ import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptan
 import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
 import InstructorComplianceSettings from "../models/instructorComplianceSettings.model.js";
 import CareerApplication from "../models/careerApplication.model.js";
-import { instructorSetPasswordEmail, newRequirementNotificationEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail, payoutStatusUpdateEmail, instructorShortlistEmail, instructorRejectEmail, instructorOnboardEmail, instructorInstallAppEmail, instructorCustomEmail } from "../utils/emailTemplate.js";
+import { notifyNewRequirement } from "../services/trainerNotifications.js";
+import { instructorSetPasswordEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail, payoutStatusUpdateEmail, instructorShortlistEmail, instructorRejectEmail, instructorOnboardEmail, instructorInstallAppEmail, instructorCustomEmail } from "../utils/emailTemplate.js";
 import { decryptToken } from "../utils/tokenCrypto.js";
 import crypto from "crypto";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
@@ -2147,24 +2148,7 @@ router.post("/training-requirements", authenticateAdmin, requirePage("training-r
       ...(deadline     && { deadline }),
     });
 
-    // Notify all active instructors — fire and forget so the response returns immediately
-    const activeInstructors = await Instructor.find({ isActive: true }).select("name email").lean();
-    const portalLink = `${process.env.TRAINERS_FRONTEND_URL || process.env.FRONTEND_URL}/instructor/opportunities`;
-    const notifiedCount = activeInstructors.length;
-
-    Promise.allSettled(
-      activeInstructors.map((inst) =>
-        sendEmail({
-          from: fromAddresses.careers,
-          to: inst.email,
-          subject: `New Training Opportunity: ${title}`,
-          html: newRequirementNotificationEmail(inst.name, requirement, portalLink),
-        })
-      )
-    ).then((results) => {
-      const sent = results.filter((r) => r.status === "fulfilled").length;
-      TrainingRequirement.findByIdAndUpdate(requirement._id, { notifiedCount: sent }).catch(() => {});
-    }).catch(() => {});
+    const notifiedCount = await notifyNewRequirement(requirement);
 
     return res.status(201).json({ success: true, data: { ...requirement.toObject(), notifiedCount } });
   } catch (err) {

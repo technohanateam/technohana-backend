@@ -943,15 +943,15 @@ export function newRequirementNotificationEmail(name, requirement, portalLink) {
 
   const body = `
     <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">New Training Opportunity</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${name}, a new training requirement matching your profile is available. Apply before the deadline.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${escapeHtml(name)}, a new training requirement is open for applications.${deadlineStr ? ` Apply before ${deadlineStr}.` : ''}</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:24px;">
-      ${dataRow('Title', title, false)}
-      ${topic ? dataRow('Topic', topic, true) : ''}
-      ${expertise ? dataRow('Expertise Needed', expertise, false) : ''}
-      ${deliveryMode ? dataRow('Delivery Mode', deliveryMode, true) : ''}
-      ${duration ? dataRow('Duration', duration, false) : ''}
-      ${location ? dataRow('Location', location, true) : ''}
-      ${budgetRange ? dataRow('Budget Range', budgetRange, false) : ''}
+      ${dataRow('Title', escapeHtml(title), false)}
+      ${topic ? dataRow('Topic', escapeHtml(topic), true) : ''}
+      ${expertise ? dataRow('Expertise Needed', escapeHtml(expertise), false) : ''}
+      ${deliveryMode ? dataRow('Delivery Mode', escapeHtml(deliveryMode), true) : ''}
+      ${duration ? dataRow('Duration', escapeHtml(duration), false) : ''}
+      ${location ? dataRow('Location', escapeHtml(location), true) : ''}
+      ${budgetRange ? dataRow('Budget Range', escapeHtml(budgetRange), false) : ''}
       ${deadlineStr ? dataRow('Apply By', deadlineStr, true) : ''}
     </table>
     ${ctaButton('View & Apply', portalLink)}`;
