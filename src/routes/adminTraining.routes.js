@@ -8,6 +8,7 @@ import CourseMaterial from "../models/courseMaterial.model.js";
 import InstructorAvailability from "../models/instructorAvailability.model.js";
 import Course from "../models/course.model.js";
 import Instructor from "../models/instructor.js";
+import InstructorReview from "../models/instructorReview.model.js";
 import { User } from "../models/user.model.js";
 import { planSessions } from "../utils/sessionGenerator.js";
 import {
@@ -694,6 +695,59 @@ router.get("/instructors/:id/availability", authenticateAdmin, requirePage("inst
     ]);
 
     return res.json({ data: { declared, booked } });
+  } catch {
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Read-only mirror of the trainer portal dashboard, for "View as trainer" in admin.
+// Issues no instructor token: admin sees the same data under its own auth.
+router.get("/instructors/:id/dashboard", authenticateAdmin, requirePage("instructors"), async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return badId(res);
+  try {
+    const instructorId = req.params.id;
+    const now = new Date();
+    const instructor = await Instructor.findById(instructorId)
+      .select("name email phone status isActive complianceStatus lastLoginAt averageRating")
+      .lean();
+    if (!instructor) return res.status(404).json({ message: "Instructor not found." });
+
+    const [batches, upcoming, pending, reviews] = await Promise.all([
+      Batch.find({ instructorId }).sort({ startDate: -1 }).limit(50).lean(),
+      Session.find({
+        instructorId,
+        endsAt: { $gte: now },
+        startsAt: { $lte: new Date(now.getTime() + 8 * 86_400_000) },
+        status: { $ne: "cancelled" },
+      }).sort({ startsAt: 1 }).lean(),
+      Session.countDocuments({
+        instructorId,
+        endsAt: { $lt: now },
+        status: { $ne: "cancelled" },
+        attendanceMarkedAt: null,
+      }),
+      InstructorReview.find({ instructorId, status: "approved" }).select("rating").lean(),
+    ]);
+
+    const batchById = new Map(batches.map((b) => [String(b._id), b]));
+    const sessions = upcoming.map((s) => {
+      const b = batchById.get(String(s.batchId));
+      return { ...s, batch: b ? { batchCode: b.batchCode, courseTitle: b.courseTitle, location: b.location } : null };
+    });
+    const avgRating = reviews.length
+      ? Number((reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1))
+      : null;
+
+    return res.json({
+      data: {
+        instructor,
+        sessions,
+        pendingAttendance: pending,
+        batches: canSeePay(req) ? batches : batches.map(withoutPay),
+        avgRating,
+        reviewCount: reviews.length,
+      },
+    });
   } catch {
     return res.status(500).json({ message: "Server error" });
   }
