@@ -53,7 +53,7 @@ import InstructorAgreementAcceptance from "../models/instructorAgreementAcceptan
 import InstructorComplianceQuiz from "../models/instructorComplianceQuiz.model.js";
 import InstructorComplianceSettings from "../models/instructorComplianceSettings.model.js";
 import CareerApplication from "../models/careerApplication.model.js";
-import { notifyNewRequirement } from "../services/trainerNotifications.js";
+import { notifyNewRequirement, notifyRequirementUpdated } from "../services/trainerNotifications.js";
 import { instructorSetPasswordEmail, applicationStatusEmail, enrollmentApprovedEmail, enrollmentRejectedEmail, complianceReminderEmail, payoutStatusUpdateEmail, instructorShortlistEmail, instructorRejectEmail, instructorOnboardEmail, instructorInstallAppEmail, instructorCustomEmail } from "../utils/emailTemplate.js";
 import { decryptToken } from "../utils/tokenCrypto.js";
 import crypto from "crypto";
@@ -2199,7 +2199,7 @@ router.patch("/training-requirements/:id", authenticateAdmin, requirePage("train
         .filter(([k]) => allowed.includes(k))
         .filter(([k, v]) => !(dateFields.has(k) || numberFields.has(k)) || (v !== "" && v != null))
     );
-    const existing = await TrainingRequirement.findById(req.params.id).select("attachment").lean();
+    const existing = await TrainingRequirement.findById(req.params.id).select("attachment status deadline").lean();
     if (!existing) return res.status(404).json({ success: false, message: "Requirement not found" });
 
     let staleId = null;
@@ -2211,8 +2211,15 @@ router.patch("/training-requirements/:id", authenticateAdmin, requirePage("train
       staleId = existing.attachment?.publicId;
     }
     if (staleId) cloudinary.uploader.destroy(staleId, { resource_type: "raw" }).catch(() => {});
+    if (updates.deadline && new Date(updates.deadline).getTime() !== new Date(existing.deadline || 0).getTime()) updates.closingReminderSentAt = null;
 
     const requirement = await TrainingRequirement.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true }).lean();
+
+    const reopened = existing.status !== "open" && requirement.status === "open";
+    const extended = existing.deadline && requirement.deadline && new Date(requirement.deadline) > new Date(existing.deadline);
+    if (reopened) notifyRequirementUpdated(requirement, "reopened");
+    else if (extended) notifyRequirementUpdated(requirement, "deadline-extended");
+
     return res.json({ success: true, data: requirement });
   } catch (err) {
     console.error("Update requirement error:", err);

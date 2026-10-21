@@ -15,6 +15,7 @@ const trainingRequirementSchema = new mongoose.Schema({
   status:       { type: String, enum: ["open", "closed", "filled"], default: "open" },
   postedBy:     { type: String },
   notifiedCount: { type: Number, default: 0 },
+  closingReminderSentAt: { type: Date },
   attachment:   {
     url:      { type: String },
     publicId: { type: String },

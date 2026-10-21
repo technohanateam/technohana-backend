@@ -937,13 +937,13 @@ export function payoutStatusUpdateEmail(name, status, amountMajor, currency) {
 
 // ─── INSTRUCTOR PORTAL — NEW TRAINING REQUIREMENT ────────────────────────────
 
-export function newRequirementNotificationEmail(name, requirement, portalLink) {
+export function newRequirementNotificationEmail(name, requirement, portalLink, { heading = 'New Training Opportunity', intro = 'a new training requirement is open for applications.' } = {}) {
   const { title, topic, expertise, deliveryMode, budgetRange, duration, location, deadline } = requirement;
   const deadlineStr = deadline ? new Date(deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
 
   const body = `
-    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">New Training Opportunity</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${escapeHtml(name)}, a new training requirement is open for applications.${deadlineStr ? ` Apply before ${deadlineStr}.` : ''}</p>
+    <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">${heading}</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">Hi ${escapeHtml(name)}, ${intro}${deadlineStr ? ` Apply before ${deadlineStr}.` : ''}</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:24px;">
       ${dataRow('Title', escapeHtml(title), false)}
       ${topic ? dataRow('Topic', escapeHtml(topic), true) : ''}
