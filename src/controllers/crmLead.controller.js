@@ -13,6 +13,7 @@ import {
 } from "../utils/crmQuery.js";
 import { pickAssignee, createAssigner } from "../services/crmLeadIntake.js";
 import { stageForLeadStatus, syncDealFromLead } from "../services/crmLifecycle.js";
+import { startOutreach, cancelOutreach, reassignOutreach } from "../services/crmOutreach.js";
 import { resolveRange } from "../services/crmDailyReport.js";
 import { normalizePhone } from "../utils/phone.js";
 import { callClaude } from "../services/aiAgent.service.js";
@@ -239,6 +240,7 @@ export const updateLead = async (req, res) => {
         `Status changed from ${prevStatus} to ${updates.status}${updates.lostReason ? ` (${updates.lostReason})` : ""}`,
         req.admin._id, { from: prevStatus, to: updates.status });
       await syncDealFromLead(lead, req.admin._id);
+      if (["won", "lost", "junk"].includes(updates.status)) await cancelOutreach(lead._id);
     }
     if (updates.pipelineStage && updates.pipelineStage !== prevStage) {
       await logActivity(lead._id, "stage_change", "Stage moved",
@@ -248,6 +250,7 @@ export const updateLead = async (req, res) => {
     if (updates.assignedTo !== undefined && String(updates.assignedTo || "") !== String(prevOwner || "")) {
       await logActivity(lead._id, "assigned", "Lead reassigned", "Lead owner changed",
         req.admin._id, { from: prevOwner, to: updates.assignedTo || null });
+      if (updates.assignedTo) await reassignOutreach(lead._id, updates.assignedTo);
     }
 
     res.json({ success: true, data: lead, message: "Lead updated" });
@@ -303,6 +306,7 @@ export const bulkLeadAction = async (req, res) => {
       const moving = await CRMLead.find({ ...inScope, assignedTo: { $ne: payload.assignedTo } }).select("assignedTo").lean();
       if (moving.length) {
         await CRMLead.updateMany({ _id: { $in: moving.map((l) => l._id) } }, { assignedTo: payload.assignedTo });
+        await reassignOutreach(moving.map((l) => l._id), payload.assignedTo);
         await CRMActivity.insertMany(moving.map((l) => ({
           type: "assigned",
           title: "Lead reassigned",
@@ -339,6 +343,7 @@ export const bulkLeadAction = async (req, res) => {
           performedBy: req.admin._id,
           metadata: { from: l.status, to: payload.status, bulk: true },
         })));
+        if (isWon || isLost) await cancelOutreach(changing.map((l) => l._id));
         if (isWon || payload.status === "lost") {
           const withDeals = await CRMLead.find({ _id: { $in: changing.map((l) => l._id) }, dealId: { $ne: null } });
           for (const l of withDeals) await syncDealFromLead(l, req.admin._id);
@@ -353,6 +358,16 @@ export const bulkLeadAction = async (req, res) => {
       }
       const result = await CRMLead.updateMany(inScope, { priority: payload.priority });
       return res.json({ success: true, message: `${result.modifiedCount} leads priority updated` });
+    }
+
+    if (action === "start_outreach") {
+      const leads = await CRMLead.find(inScope).select("name phone country status assignedTo").populate("assignedTo", "name").lean();
+      const result = await startOutreach(leads, req.admin._id);
+      return res.json({
+        success: true,
+        message: `Outreach started for ${result.started} leads (${result.tasks} tasks)${result.skipped.length ? `, ${result.skipped.length} skipped` : ""}`,
+        data: result,
+      });
     }
 
     res.status(400).json({ success: false, message: "Unknown bulk action" });

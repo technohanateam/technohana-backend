@@ -46,7 +46,7 @@ export const createEnquiry = async (req, res) => {
       contentName: courseTitle || body.description || enquiryType, contentCategory: enquiryType,
     });
 
-    // Paid-ad submissions also become CRM leads (organic ones stay in the admin panel only)
+    // Paid-ad and outbound-outreach submissions also become CRM leads (organic ones stay in the admin panel only)
     routeAdLead({
       name, email, phone: body.phone, company: body.company,
       interest: [courseTitle, body.description].filter(Boolean).join(" — ") || undefined,
