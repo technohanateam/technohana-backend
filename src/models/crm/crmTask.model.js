@@ -38,6 +38,9 @@ const crmTaskSchema = new mongoose.Schema(
       default: "follow_up",
     },
 
+    // Set on tasks created by an automated outreach sequence, so the sequence can be cancelled as a group.
+    sequenceKey: { type: String },
+
     checklist: [checklistItemSchema],
     comments: [commentSchema],
 
@@ -50,6 +53,7 @@ const crmTaskSchema = new mongoose.Schema(
 crmTaskSchema.index({ assignedTo: 1, status: 1 });
 crmTaskSchema.index({ dueDate: 1 });
 crmTaskSchema.index({ relatedToType: 1, relatedToId: 1 });
+crmTaskSchema.index({ sequenceKey: 1, status: 1 }, { sparse: true });
 crmTaskSchema.index({ status: 1, dueDate: 1 });
 crmTaskSchema.index({ completedAt: 1 }, { sparse: true });
 crmTaskSchema.index({ reminderAt: 1, reminderSentAt: 1 });

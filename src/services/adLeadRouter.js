@@ -9,11 +9,14 @@ const PLATFORM_BY_SOURCE = [
 // organic outbound links as well, so Meta leads need a paid utm_medium.
 const PLATFORM_BY_CLICK_ID = [["gclid", "google_ads"]];
 const PAID_MEDIUM = /^(paid|cpc|ppc|paid[_-]?social|paidsocial|sponsored|display|ads?)$/i;
-const PLATFORM_LABEL = { meta_ads: "Meta (Instagram/Facebook)", google_ads: "Google", linkedin_ads: "LinkedIn" };
+const OUTREACH_MEDIUM = /^(outreach|outbound)$/i;
+const PLATFORM_LABEL = { meta_ads: "Meta (Instagram/Facebook)", google_ads: "Google", linkedin_ads: "LinkedIn", campaign: "outbound outreach" };
 
-// Organic links (utm_medium=social/organic/email) are not ad leads.
+// Organic links (utm_medium=social/organic/email) are not ad leads. Outbound outreach (our own
+// WhatsApp/call lists) is a CRM source too, so people we message and who sign up are tracked.
 export const adSourceFromUtm = (utm) => {
   if (!utm || typeof utm !== "object") return null;
+  if (OUTREACH_MEDIUM.test(String(utm.utm_medium || ""))) return "campaign";
 
   const clickId = PLATFORM_BY_CLICK_ID.find(([key]) => utm[key]);
   const bySource = PLATFORM_BY_SOURCE.find(([re]) => re.test(String(utm.utm_source || "")));
@@ -50,9 +53,9 @@ export const routeAdLead = async ({ name, email, phone, company, interest, teamS
         priority: size >= 10 ? "high" : "medium",
         customFields: { origin, originId: originId ? String(originId) : undefined, ...extra },
       },
-      activityTitle: `Lead captured from ${label} ad`,
+      activityTitle: `Lead captured from ${label}${source === "campaign" ? "" : " ad"}`,
       activityBody: `Campaign: ${campaign} · content: ${utm.utm_content || "-"} · via ${origin}`,
-      repeatTitle: `Submitted again from ${label} ad`,
+      repeatTitle: `Submitted again from ${label}${source === "campaign" ? "" : " ad"}`,
       metadata: { utm },
     });
     return lead;

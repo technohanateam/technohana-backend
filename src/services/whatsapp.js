@@ -1,5 +1,7 @@
 import WhatsAppMessage from "../models/whatsappMessage.model.js";
 import { normalizePhone } from "../utils/phone.js";
+import { findDuplicateLead, upsertCrmLead } from "./crmLeadIntake.js";
+import { cancelOutreach } from "./crmOutreach.js";
 
 const GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v21.0";
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -77,7 +79,8 @@ export function eventsFrom(payload) {
   for (const entry of payload.entry) {
     for (const change of entry.changes || []) {
       if (change.field !== "messages") continue;
-      out.messages.push(...(change.value?.messages || []));
+      const names = new Map((change.value?.contacts || []).map((c) => [c.wa_id, c.profile?.name]));
+      out.messages.push(...(change.value?.messages || []).map((m) => ({ ...m, profileName: names.get(m.from) })));
       out.statuses.push(...(change.value?.statuses || []));
     }
   }
@@ -102,12 +105,45 @@ export async function applyStatus(s) {
   await msg.save();
 }
 
+// A chat that starts from a Click-to-WhatsApp ad carries `referral`. Those chats become CRM leads;
+// any other inbound message only logs an activity if the sender is already a lead (e.g. a reply to outreach).
+async function captureWhatsAppLead(m, text) {
+  const phone = `+${m.from}`;
+  const ad = m.referral;
+  if (!ad && !(await findDuplicateLead({ phone }))) return;
+
+  const adLabel = ad?.headline || ad?.source_id || "-";
+  const { lead, created } = await upsertCrmLead({
+    fields: {
+      name: m.profileName || `WhatsApp ${phone}`,
+      phone,
+      whatsApp: phone,
+      source: "meta_ads",
+      interest: ad ? `WhatsApp ad enquiry: ${adLabel}` : undefined,
+      customFields: ad ? { origin: "whatsapp_ad", adId: ad.source_id, adUrl: ad.source_url, ctwaClid: ad.ctwa_clid } : undefined,
+    },
+    activityTitle: "Lead captured from WhatsApp ad",
+    activityBody: `Ad: ${adLabel} · first message: ${text.slice(0, 200) || `(${m.type})`}`,
+    repeatTitle: ad ? "Messaged again from WhatsApp ad" : "Replied on WhatsApp",
+    metadata: { waMessageId: m.id },
+  });
+  // They answered, so the scheduled nudges stop.
+  if (!created) await cancelOutreach(lead._id);
+}
+
 export async function recordInbound(m) {
   if (await WhatsAppMessage.exists({ waMessageId: m.id })) return; // webhook retries
   const text = m.text?.body || m.button?.text || m.interactive?.button_reply?.title || "";
   const isOptOut = m.type === "text" && OPT_OUT_WORDS.has(text.trim().toLowerCase());
+  const startsConversation = !(await isInServiceWindow(String(m.from)));
   await WhatsAppMessage.create({
     direction: "in", phone: String(m.from), waMessageId: m.id,
     type: isOptOut ? "opt_out" : m.type, body: text, status: "received",
   });
+  if (isOptOut) {
+    const lead = await findDuplicateLead({ phone: `+${m.from}` });
+    if (lead) await cancelOutreach(lead._id);
+  } else if (startsConversation) {
+    await captureWhatsAppLead(m, text);
+  }
 }
