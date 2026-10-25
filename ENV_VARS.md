@@ -75,6 +75,8 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `LINKEDIN_OAUTH_SCOPES` | `src/config/linkedinClient.js` | Space-separated, default `r_ads r_ads_reporting` (needs the Advertising API product). For Lead Gen Form import add `r_marketing_leadgen_automation` once the Lead Sync API product is approved. Requesting a scope the app hasn't been granted makes LinkedIn show "Bummer, something went wrong" |
 | `WHATSAPP_TOKEN` | `src/services/whatsapp.js` | Permanent system-user token with `whatsapp_business_messaging`. Unset → sends throw "not configured" |
 | `WHATSAPP_PHONE_NUMBER_ID` | `src/services/whatsapp.js` | Phone number ID of the WhatsApp Business number (from Meta → WhatsApp → API setup) |
+| `WHATSAPP_OTP_TEMPLATE` | `src/services/whatsapp.js` (`sendLoginCode`) | Name of the approved **Authentication** template with a copy-code button (e.g. `technohana_login_code`). Unset → `/auth/whatsapp/otp` returns 503 |
+| `WHATSAPP_OTP_LANG` | `src/services/whatsapp.js` | Language code of that template, default `en` |
 | `WHATSAPP_VERIFY_TOKEN` | `src/routes/whatsappWebhook.routes.js` | Verify token for the `/webhooks/whatsapp` subscription; falls back to `META_WEBHOOK_VERIFY_TOKEN`. Webhook signatures use `META_APP_SECRET` |
 
 LinkedIn Ads setup: an admin connects once from CRM → Integrations → LinkedIn Ads (OAuth), picks the ad account, and Lead Gen Form responses are polled every 10 minutes into CRM leads (`source=linkedin_ads`). Tokens are stored encrypted (`ENROLLMENT_TOKEN_KEY`); access tokens last ~60 days and refresh automatically until the refresh token expires (~1 year).

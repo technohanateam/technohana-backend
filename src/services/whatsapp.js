@@ -66,6 +66,18 @@ export const sendTemplate = ({ phone, country, name, language = "en", components
     record: { type: "template", templateName: name, ...link },
   });
 
+// Approved Authentication template with a copy-code button; the code goes in both the body and the button.
+export const sendLoginCode = ({ phone, code }) =>
+  sendTemplate({
+    phone,
+    name: process.env.WHATSAPP_OTP_TEMPLATE,
+    language: process.env.WHATSAPP_OTP_LANG || "en",
+    components: [
+      { type: "body", parameters: [{ type: "text", text: code }] },
+      { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: code }] },
+    ],
+  });
+
 export async function sendText({ phone, country, body, ...link }) {
   const waId = toWaId(phone, country);
   if (!waId || !(await isInServiceWindow(waId))) throw new Error("Outside the 24h reply window — send an approved template instead");
