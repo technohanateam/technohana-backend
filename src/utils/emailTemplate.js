@@ -186,6 +186,18 @@ export function generateEnrollmentConfirmationEmail({ name, courseTitle, trainin
   return emailShell({ label: 'Enrollment Confirmation', body });
 }
 
+// ─── SIGN-IN MAGIC LINK ───────────────────────────────────────────────────────
+
+export function generateMagicLinkEmail({ magicUrl }) {
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">Sign in to Technohana</h2>
+    <p style="margin:0 0 4px;font-size:14px;color:#64748b;line-height:1.6;">Click the button below to sign in. This link works once and expires in 15 minutes.</p>
+    ${ctaButton('Sign in', magicUrl)}
+    <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">If you didn't ask for this, you can safely ignore this email.</p>`;
+
+  return emailShell({ label: 'Sign In', body });
+}
+
 // ─── INSTRUCTOR APPLICATION ACK (applicant) ───────────────────────────────────
 
 export function generateResumeAcknowledgementEmail({ name }) {

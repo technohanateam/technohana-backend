@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose"
+import { normalizePhone } from "../utils/phone.js"
 //this schema is only used when user has submitted a enrollment form 
 const userSchema = new Schema({
     name: {
@@ -16,6 +17,10 @@ const userSchema = new Schema({
     },
     phone: {                               //kyc
         type: String,
+    },
+    phoneE164: {                           // derived from phone by the hooks below; used for WhatsApp OTP sign-in
+        type: String,
+        index: true
     },
     company: {                              //kyc
         type: String,
@@ -188,5 +193,20 @@ userSchema.index({ email: 1 });
 userSchema.index({ phone: 1 });
 userSchema.index({ createdAt: -1 });
 userSchema.index({ batchId: 1, status: 1 });
+
+// Keep phoneE164 in step with phone however it gets written (create, save, findByIdAndUpdate...).
+userSchema.pre("save", function () {
+    if (this.isModified("phone")) this.phoneE164 = normalizePhone(this.phone);
+});
+for (const op of ["findOneAndUpdate", "updateOne"]) {
+    userSchema.pre(op, function () {
+        const update = this.getUpdate() || {};
+        const target = update.$set || update;
+        if (target.phone !== undefined) {
+            target.phoneE164 = normalizePhone(target.phone);
+            if (update.$set) update.$set = target; else this.setUpdate(update);
+        }
+    });
+}
 
 export const User = mongoose.model("User", userSchema);

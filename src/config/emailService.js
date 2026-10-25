@@ -13,6 +13,7 @@ export const fromAddresses = {
   connect: "Corporate Training <corporate@technohana.in>",
   sales: "Sales <sales@technohana.in>",
   careers: "Careers <careers@technohana.in>",
+  auth: "Technohana <login@technohana.in>",
 };
 
 // Make the 'from' address a parameter
