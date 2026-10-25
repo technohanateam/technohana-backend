@@ -25,18 +25,22 @@ export async function listCampaigns(connection) {
   return new Map((json.elements || []).map((c) => [String(c.id), { name: c.name, urn: `urn:li:sponsoredCampaign:${c.id}` }]));
 }
 
-export async function listLeadGenForms(connection) {
-  const json = await linkedinFetch(connection, "/leadForms", { params: { q: "account", account: enc(connection.adAccountUrn) } });
-  return json.elements || [];
-}
+const ownerParam = (connection) => `(sponsoredAccount:${enc(connection.adAccountUrn)})`;
 
-// Lead Gen Form responses for one form, newest pages first, stopping once older than `sinceMs`.
-export async function listFormResponses(connection, formUrn, sinceMs = 0, maxPages = 10) {
+// All sponsored Lead Gen Form responses for the connected ad account submitted after `sinceMs`.
+export async function listFormResponses(connection, sinceMs = 0, maxPages = 10) {
   const pageSize = 100;
   const out = [];
   for (let page = 0; page < maxPages; page++) {
     const json = await linkedinFetch(connection, "/leadFormResponses", {
-      params: { q: "form", form: enc(formUrn), start: page * pageSize, count: pageSize },
+      params: {
+        q: "owner",
+        owner: ownerParam(connection),
+        leadType: "(leadType:SPONSORED)",
+        submittedAtTimeRange: `(start:${Math.floor(sinceMs)})`,
+        start: page * pageSize,
+        count: pageSize,
+      },
     });
     const els = json.elements || [];
     out.push(...els.filter((e) => (e.submittedAt || 0) > sinceMs));

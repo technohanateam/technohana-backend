@@ -140,6 +140,7 @@ const noOriginRequiredPaths = [
   '/webhooks/meta-leads',
   '/webhooks/whatsapp',
   '/admin/content-factory-external/import/external-trend',
+  '/api/coupons/public', // Hana Agent's server-to-server coupon lookup (public, read-only)
 ];
 
 // GET /blog/:slug is the server-rendered OG-tag HTML crawled by social-media

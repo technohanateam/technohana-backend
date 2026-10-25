@@ -2,7 +2,7 @@
 import CrmLinkedinConnection from "../models/crm/crmLinkedinConnection.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import { upsertCrmLead } from "./crmLeadIntake.js";
-import { listLeadGenForms, listFormResponses, listCampaigns } from "./linkedinService.js";
+import { listFormResponses, listCampaigns } from "./linkedinService.js";
 import { LinkedinAuthError } from "../config/linkedinClient.js";
 
 const STANDARD_KEYS = new Set([
@@ -91,18 +91,14 @@ export async function syncLinkedInLeads() {
   let imported = 0;
   let failed = 0;
   try {
-    const [forms, campaigns] = await Promise.all([listLeadGenForms(conn), listCampaigns(conn).catch(() => new Map())]);
-    for (const form of forms) {
-      const formUrn = form.id && String(form.id).startsWith("urn:") ? form.id : `urn:li:adForm:${form.id}`;
-      const responses = await listFormResponses(conn, formUrn, sinceMs);
-      for (const raw of responses.sort((a, b) => a.submittedAt - b.submittedAt)) {
-        try {
-          const result = await processLinkedInLead(raw, campaigns.get(idOf(raw.associatedCampaign))?.name);
-          if (result.created) imported++;
-        } catch (err) {
-          failed++;
-          console.error(`[linkedin-leads] lead ${raw.id} failed:`, err.message);
-        }
+    const [responses, campaigns] = await Promise.all([listFormResponses(conn, sinceMs), listCampaigns(conn).catch(() => new Map())]);
+    for (const raw of responses.sort((a, b) => a.submittedAt - b.submittedAt)) {
+      try {
+        const result = await processLinkedInLead(raw, campaigns.get(idOf(raw.associatedCampaign))?.name);
+        if (result.created) imported++;
+      } catch (err) {
+        failed++;
+        console.error(`[linkedin-leads] lead ${raw.id} failed:`, err.message);
       }
     }
     // Hold the cursor back if any lead failed so the next run retries it (dedupe makes that safe).
