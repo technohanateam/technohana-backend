@@ -62,38 +62,45 @@ const logActivity = async (leadId, type, title, body, performedBy, metadata = {}
 
 const notFound = (res) => res.status(404).json({ success: false, message: "Lead not found" });
 
+const buildLeadFilter = (req) => {
+  const { search, status, assignedTo, source, priority, pipeline, aiScoreBand, followUpDue } = req.query;
+  if (pipeline && !isValidId(pipeline)) return { error: "Invalid pipeline id" };
+  if (assignedTo && assignedTo !== "unassigned" && !isValidId(assignedTo)) {
+    return { error: "Invalid assignedTo id" };
+  }
+
+  const filter = { isDeleted: false, ...ownerFilter(req) };
+  if (!filter.assignedTo && assignedTo) filter.assignedTo = assignedTo === "unassigned" ? null : assignedTo;
+
+  if (status)      filter.status      = status;
+  if (source)      filter.source      = source;
+  if (typeof req.query.referredBy === "string" && req.query.referredBy) filter.referredBy = req.query.referredBy;
+  if (priority)    filter.priority    = priority;
+  if (pipeline)    filter.pipeline    = pipeline;
+  if (aiScoreBand) filter.aiScoreBand = aiScoreBand;
+  if (typeof req.query.campaign === "string" && req.query.campaign) filter["utm.utm_campaign"] = req.query.campaign;
+  const PLATFORM_SOURCES = { instagram: ["instagram", "ig"], facebook: ["facebook", "fb"], linkedin: ["linkedin", "li"] };
+  if (PLATFORM_SOURCES[req.query.platform]) filter["utm.utm_source"] = { $in: PLATFORM_SOURCES[req.query.platform] };
+  // Follow-ups due today or earlier (IST) on leads that are still open.
+  if (followUpDue === "true") {
+    filter.nextFollowUp = { $lt: resolveRange().end };
+    if (!status) filter.status = { $nin: ["won", "lost", "junk"] };
+  }
+
+  if (search) {
+    const re = new RegExp(escapeRegex(search), "i");
+    filter.$or = [{ name: re }, { email: re }, { phone: re }, { company: re }, { referredBy: re }];
+  }
+  return { filter };
+};
+
 export const getLeads = async (req, res) => {
   try {
     const { page, limit, skip } = parsePaging(req.query);
-    const { search, status, assignedTo, source, priority, pipeline, aiScoreBand, followUpDue, sort = "createdAt", order = "desc" } = req.query;
+    const { sort = "createdAt", order = "desc" } = req.query;
 
-    if (pipeline && !isValidId(pipeline)) return res.status(400).json({ success: false, message: "Invalid pipeline id" });
-    if (assignedTo && assignedTo !== "unassigned" && !isValidId(assignedTo)) {
-      return res.status(400).json({ success: false, message: "Invalid assignedTo id" });
-    }
-
-    const filter = { isDeleted: false, ...ownerFilter(req) };
-    if (!filter.assignedTo && assignedTo) filter.assignedTo = assignedTo === "unassigned" ? null : assignedTo;
-
-    if (status)      filter.status      = status;
-    if (source)      filter.source      = source;
-    if (typeof req.query.referredBy === "string" && req.query.referredBy) filter.referredBy = req.query.referredBy;
-    if (priority)    filter.priority    = priority;
-    if (pipeline)    filter.pipeline    = pipeline;
-    if (aiScoreBand) filter.aiScoreBand = aiScoreBand;
-    if (typeof req.query.campaign === "string" && req.query.campaign) filter["utm.utm_campaign"] = req.query.campaign;
-    const PLATFORM_SOURCES = { instagram: ["instagram", "ig"], facebook: ["facebook", "fb"], linkedin: ["linkedin", "li"] };
-    if (PLATFORM_SOURCES[req.query.platform]) filter["utm.utm_source"] = { $in: PLATFORM_SOURCES[req.query.platform] };
-    // Follow-ups due today or earlier (IST) on leads that are still open.
-    if (followUpDue === "true") {
-      filter.nextFollowUp = { $lt: resolveRange().end };
-      if (!status) filter.status = { $nin: ["won", "lost", "junk"] };
-    }
-
-    if (search) {
-      const re = new RegExp(escapeRegex(search), "i");
-      filter.$or = [{ name: re }, { email: re }, { phone: re }, { company: re }, { referredBy: re }];
-    }
+    const { filter, error } = buildLeadFilter(req);
+    if (error) return res.status(400).json({ success: false, message: error });
 
     const sortObj = { [SORT_FIELDS.includes(sort) ? sort : "createdAt"]: order === "asc" ? 1 : -1 };
 
@@ -571,15 +578,8 @@ const EXPORT_LIMIT = 10000;
 
 export const getLeadExport = async (req, res) => {
   try {
-    const { status, assignedTo, source, priority } = req.query;
-    if (assignedTo && !isValidId(assignedTo)) {
-      return res.status(400).json({ success: false, message: "Invalid assignedTo id" });
-    }
-    const filter = { isDeleted: false, ...ownerFilter(req) };
-    if (status)     filter.status     = status;
-    if (source)     filter.source     = source;
-    if (priority)   filter.priority   = priority;
-    if (assignedTo && !filter.assignedTo) filter.assignedTo = assignedTo;
+    const { filter, error } = buildLeadFilter(req);
+    if (error) return res.status(400).json({ success: false, message: error });
 
     const leads = await CRMLead.find(filter)
       .sort({ createdAt: -1 })
