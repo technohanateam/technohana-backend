@@ -43,6 +43,7 @@ const crmLeadSchema = new mongoose.Schema(
       ],
       default: "other",
     },
+    referredBy: { type: String, trim: true },
     website: { type: String, trim: true },
     linkedIn: { type: String, trim: true },
     utm: { type: Object, default: {} },
@@ -145,5 +146,6 @@ crmLeadSchema.index({ wonAt: 1 }, { sparse: true });
 crmLeadSchema.index({ "utm.utm_campaign": 1, createdAt: -1 }, { sparse: true });
 crmLeadSchema.index({ "utm.meta_ad_id": 1 }, { sparse: true });
 crmLeadSchema.index({ assignedTo: 1, nextFollowUp: 1 });
+crmLeadSchema.index({ referredBy: 1 }, { sparse: true });
 
 export default mongoose.model("CRMLead", crmLeadSchema);

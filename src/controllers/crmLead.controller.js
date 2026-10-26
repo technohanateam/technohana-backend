@@ -30,7 +30,7 @@ const SORT_FIELDS = ["createdAt", "updatedAt", "name", "leadScore", "aiScore", "
 
 const EDITABLE_FIELDS = [
   "name", "email", "phone", "whatsApp", "designation", "company",
-  "country", "state", "city", "source", "website", "linkedIn", "utm",
+  "country", "state", "city", "source", "referredBy", "website", "linkedIn", "utm",
   "interest", "budget", "currency", "teamSize", "industry",
   "priority", "leadScore", "expectedRevenue", "probability",
   "status", "lostReason", "pipeline", "pipelineStage", "assignedTo",
@@ -77,6 +77,7 @@ export const getLeads = async (req, res) => {
 
     if (status)      filter.status      = status;
     if (source)      filter.source      = source;
+    if (typeof req.query.referredBy === "string" && req.query.referredBy) filter.referredBy = req.query.referredBy;
     if (priority)    filter.priority    = priority;
     if (pipeline)    filter.pipeline    = pipeline;
     if (aiScoreBand) filter.aiScoreBand = aiScoreBand;
@@ -91,7 +92,7 @@ export const getLeads = async (req, res) => {
 
     if (search) {
       const re = new RegExp(escapeRegex(search), "i");
-      filter.$or = [{ name: re }, { email: re }, { phone: re }, { company: re }];
+      filter.$or = [{ name: re }, { email: re }, { phone: re }, { company: re }, { referredBy: re }];
     }
 
     const sortObj = { [SORT_FIELDS.includes(sort) ? sort : "createdAt"]: order === "asc" ? 1 : -1 };
@@ -588,7 +589,7 @@ export const getLeadExport = async (req, res) => {
       .lean();
 
     const fields = ["name", "email", "phone", "company", "designation", "country", "state", "city",
-      "source", "status", "priority", "leadScore", "budget", "teamSize", "industry",
+      "source", "referredBy", "status", "priority", "leadScore", "budget", "teamSize", "industry",
       "expectedRevenue", "probability", "assignedTo", "createdAt"];
 
     const header = fields.join(",");
@@ -620,7 +621,7 @@ export const importLeads = async (req, res) => {
 
     // Plain-text columns only — refs, scores and ownership aren't importable.
     const allowed = ["name", "email", "phone", "whatsApp", "designation", "company", "country", "state", "city",
-      "source", "website", "linkedIn", "interest", "budget", "currency", "teamSize", "industry",
+      "source", "referredBy", "website", "linkedIn", "interest", "budget", "currency", "teamSize", "industry",
       "priority", "expectedRevenue", "probability", "status", "nextFollowUp"];
     const text = (v) => (v == null ? undefined : String(v).trim() || undefined);
     const num = (v) => (v == null || String(v).trim() === "" ? undefined : Number(String(v).replace(/[^\d.-]/g, "")));
@@ -651,7 +652,7 @@ export const importLeads = async (req, res) => {
       const fields = Object.fromEntries(Object.entries(pick(raw, allowed)).map(([k, v]) => [k,
         ["budget", "teamSize", "expectedRevenue", "probability"].includes(k) ? num(v) : text(v)]));
       fields.email = normEmail(fields.email);
-      fields.source = fields.source ? fields.source.toLowerCase().replace(/\s+/g, "_") : "other";
+      fields.source = fields.source ? fields.source.toLowerCase().replace(/\s+/g, "_") : fields.referredBy ? "referral" : "other";
       fields.status = fields.status ? fields.status.toLowerCase().replace(/\s+/g, "_") : "new";
       fields.priority = fields.priority ? fields.priority.toLowerCase() : "medium";
 
