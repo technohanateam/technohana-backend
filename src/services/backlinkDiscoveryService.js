@@ -39,8 +39,19 @@ function buildDiscoveryCandidatesPrompt({ category, count }) {
   return { system, prompt };
 }
 
+// extractJson slices from the first "{" to the last "}", so a top-level array
+// reply ("[ {...}, {...} ]") reaches JSON.parse as "{...}, {...}" and fails.
+// Wrapping the array in an object lets it reuse all of extractJson's repair passes.
+function extractJsonArray(text, extractJsonFn) {
+  const start = typeof text === "string" ? text.indexOf("[") : -1;
+  const end = typeof text === "string" ? text.lastIndexOf("]") : -1;
+  if (start === -1 || end <= start) return extractJsonFn(text);
+  const wrapped = extractJsonFn(`{"items":${text.slice(start, end + 1)}}`);
+  return Array.isArray(wrapped) ? wrapped : wrapped?.items ?? wrapped;
+}
+
 function parseDiscoveryCandidatesResponse(text, { count, extractJsonFn = extractJson }) {
-  const parsed = extractJsonFn(text);
+  const parsed = extractJsonArray(text, extractJsonFn);
   if (!Array.isArray(parsed)) {
     throw new Error("AI discovery response was not a JSON array");
   }
