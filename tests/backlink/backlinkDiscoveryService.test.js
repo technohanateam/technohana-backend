@@ -35,6 +35,16 @@ test("proposeDiscoveryCandidates parses and caps the AI response", async () => {
   assert.equal(callClaudeFn.mock.callCount(), 1);
 });
 
+test("proposeDiscoveryCandidates parses a real top-level JSON array reply with the default parser", async () => {
+  const text =
+    'Here you go:\n[ {"domain":"classcentral.com","organizationName":"Class Central","opportunityType":"directory","rationale":"Lists courses."},\n' +
+    ' {"domain":"themuse.com","organizationName":"The Muse","opportunityType":"guest post blog","rationale":"Career advice."} ]';
+  const callClaudeFn = async () => ({ text });
+
+  const result = await proposeDiscoveryCandidates({ category: "career-blogs", count: 10, callClaudeFn });
+  assert.deepEqual(result.map((c) => c.domain), ["classcentral.com", "themuse.com"]);
+});
+
 test("proposeDiscoveryCandidates throws on a non-array AI response", async () => {
   const callClaudeFn = async () => ({ text: "not json array" });
   const extractJsonFn = () => ({ not: "an array" });
