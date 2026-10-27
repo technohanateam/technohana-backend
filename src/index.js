@@ -69,6 +69,7 @@ import adCreativeFactoryRoutes from "./routes/adCreativeFactory.routes.js";
 import socialFactoryRoutes from "./routes/socialFactory.routes.js";
 import globalSearchRoutes from "./routes/globalSearch.routes.js";
 import marketingCalendarRoutes from "./routes/marketingCalendar.routes.js";
+import newsRadarRoutes from "./routes/newsRadar.routes.js";
 import academyRoutes from "./routes/academy.routes.js";
 import seoTopicClusterRoutes from "./routes/seoTopicCluster.routes.js";
 import internalLinkRecommendationRoutes from "./routes/internalLinkRecommendation.routes.js";
@@ -1446,6 +1447,7 @@ app.use("/admin/social-factory", socialFactoryRoutes);
 app.use("/admin/instagram-triggers", igCommentTriggerRoutes);
 app.use("/admin/global-search", globalSearchRoutes);
 app.use("/admin/marketing-calendar", marketingCalendarRoutes);
+app.use("/admin/news-radar", newsRadarRoutes);
 app.use("/academy", academyRoutes);
 app.use("/admin/seo/topic-clusters", seoTopicClusterRoutes);
 app.use("/admin/seo/internal-links", internalLinkRecommendationRoutes);
@@ -1493,6 +1495,11 @@ import("./services/backlinkQueue.js")
 import("./services/contentFactory/contentFactoryQueue.js")
   .then(({ scheduleContentFactoryRepeatables }) => scheduleContentFactoryRepeatables())
   .catch((err) => console.error("[Content Factory Queue] failed to schedule repeatables:", err.message));
+
+// Hourly AI news collection for the News Radar (Social Factory).
+import("./services/newsRadarQueue.js")
+  .then(({ scheduleNewsRadarRepeatable }) => scheduleNewsRadarRepeatable())
+  .catch((err) => console.error("[News Radar Queue] failed to schedule repeatable:", err.message));
 
 // Schedule Campaign Opportunity Engine background job (daily scan at 6am).
 // Same dedupe-safe pattern as the content factory's planning queue.
