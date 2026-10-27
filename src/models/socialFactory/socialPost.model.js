@@ -7,7 +7,7 @@ import mongoose, { Schema } from "mongoose";
 // and socialPostParser.service.js.
 const socialPostSchema = new Schema(
   {
-    sourceType: { type: String, enum: ["COURSE", "BLOG", "OPPORTUNITY"], required: true },
+    sourceType: { type: String, enum: ["COURSE", "BLOG", "OPPORTUNITY", "NEWS"], required: true },
     sourceId: { type: Schema.Types.ObjectId, required: true },
     sourceSlug: { type: String, default: null },
     sourceTitle: { type: String, default: null },
@@ -51,6 +51,9 @@ const socialPostSchema = new Schema(
       altText: { type: String, default: null },
       cta: { type: String, default: null },
       characterCount: { type: Number, default: 0 },
+      // Cloudinary URLs of the rendered graphics, in slide order (a single
+      // entry for single-image platforms).
+      imageUrls: { type: [String], default: [] },
       // Populated only for LINKEDIN_CAROUSEL / INSTAGRAM_CAROUSEL — empty
       // array for every single-image platform.
       slides: {

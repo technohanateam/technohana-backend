@@ -95,6 +95,22 @@ function buildSourceBrief(sourceType, source) {
     return lines.join("\n");
   }
 
+  if (sourceType === "NEWS") {
+    const lines = [
+      `Headline: ${source.title}`,
+      `Source: ${source.source}`,
+      source.snippet ? `Summary: ${source.snippet}` : null,
+      source.whyItMatters ? `Why it matters: ${source.whyItMatters}` : null,
+      source.angle ? `Suggested angle: ${source.angle}` : null,
+      `Link: ${source.url}`,
+      source.kind === "VIDEO"
+        ? `This is an official video from ${source.source} on YouTube. Write our own commentary and tell people to watch it at the link. Never imply the video is ours or describe scenes you cannot see.`
+        : null,
+      "Write in your own words for working professionals in India. Do not copy the source text. Do not invent facts beyond what is stated here.",
+    ].filter(Boolean);
+    return lines.join("\n");
+  }
+
   // BLOG
   const lines = [
     `Blog title: ${source.title}`,
@@ -119,7 +135,7 @@ export function buildSocialPrompt({ sourceType, source, platform }) {
 
   const sourceBrief = buildSourceBrief(sourceType, source);
 
-  const sourceNoun = sourceType === "COURSE" ? "course" : sourceType === "OPPORTUNITY" ? "trending topic, discussed from Technohana's perspective" : "blog article";
+  const sourceNoun = sourceType === "COURSE" ? "course" : sourceType === "OPPORTUNITY" ? "trending topic, discussed from Technohana's perspective" : sourceType === "NEWS" ? "AI news item, explained for working professionals" : "blog article";
   const postNoun = rules.isCarousel ? `${rules.slideCount}-slide carousel` : "post";
   const responseShape = rules.isCarousel ? carouselResponseShape(rules.slideCount) : RESPONSE_SHAPE;
   const prompt = `Write a single ${rules.label} ${postNoun} promoting the following ${sourceNoun}.

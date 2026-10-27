@@ -117,7 +117,10 @@ export const updatePost = async (req, res) => {
     const post = await SocialPost.findById(req.params.id);
     if (!post) return res.status(404).json({ success: false, message: "Post not found" });
 
-    const { caption, hashtags, imagePromptSuggestion, altText, cta, slides } = req.body || {};
+    const { caption, hashtags, imagePromptSuggestion, altText, cta, slides, imageUrls } = req.body || {};
+    if (Array.isArray(imageUrls)) {
+      post.post.imageUrls = imageUrls.filter((u) => typeof u === "string" && /^https:\/\//.test(u)).slice(0, 12);
+    }
     if (caption !== undefined) post.post.caption = caption;
     if (hashtags !== undefined) post.post.hashtags = Array.isArray(hashtags) ? hashtags : post.post.hashtags;
     if (imagePromptSuggestion !== undefined) post.post.imagePromptSuggestion = imagePromptSuggestion;
