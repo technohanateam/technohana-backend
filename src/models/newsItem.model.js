@@ -23,6 +23,15 @@ const newsItemSchema = new Schema(
     angle: { type: String, default: null },
     scoredAt: { type: Date, default: null },
 
+    // Local-only "Make video" re-edit (LOCAL_VIDEO_TOOLS). Rights must be confirmed
+    // by an admin before any download; the render is a credited, branded cut.
+    rightsConfirmedBy: { type: String, default: null },
+    rightsNote: { type: String, default: null },
+    rightsConfirmedAt: { type: Date, default: null },
+    videoStatus: { type: String, enum: ["NONE", "RENDERING", "READY", "FAILED"], default: "NONE" },
+    videoPath: { type: String, default: null },
+    videoError: { type: String, default: null },
+
     breaking: { type: Boolean, default: false },
     status: { type: String, enum: ["NEW", "SHORTLISTED", "DRAFTED", "DISMISSED"], default: "NEW", index: true },
     socialPostIds: { type: [Schema.Types.ObjectId], default: [] },
