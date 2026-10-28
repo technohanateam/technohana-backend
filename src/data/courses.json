@@ -43111,5 +43111,238 @@
       "eur": 639
     },
     "categoryGroup": "Cloud"
+  },
+  {
+    "id": "AI-103",
+    "courseSlug": "developing-ai-apps-agents-azure",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "AI-103: Developing AI Apps and Agents on Azure",
+    "category": "Microsoft AI",
+    "catcls": "cat-six",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "06 Modules",
+    "price": 63999,
+    "rating": "4.5",
+    "noStudents": "25+",
+    "instructor": "Microsoft AI Experts",
+    "language": "English",
+    "difficulty": "Intermediate",
+    "overview": "AI-103 prepares you for the Microsoft Certified: Azure AI Apps and Agents Developer Associate certification. You will build, deploy and manage generative AI applications and agents with Microsoft Foundry, covering RAG, multi-agent orchestration, computer vision, text and speech analysis, and information extraction with Azure Content Understanding and Azure AI Search.",
+    "courseObjective": "To equip Azure AI engineers with the skills to plan and manage AI solutions in Microsoft Foundry, build generative and agentic applications in Python, and implement vision, text analysis and information extraction solutions responsibly and at scale.",
+    "courseOutcomes": "Participants will be able to choose and deploy models in Foundry, build RAG applications and orchestrated agents, implement image, video, speech and document-understanding solutions, apply responsible AI guardrails, and monitor and secure AI workloads in production.",
+    "prerequisites": [
+      "Experience developing applications in Python",
+      "Familiarity with general AI and generative AI concepts",
+      "Working knowledge of core Azure services"
+    ],
+    "labs": "Hands-on labs with Microsoft Foundry, Azure OpenAI, Azure AI Search, Azure Content Understanding, Azure AI Speech and Translator, and the Foundry SDKs in Python.",
+    "toc": "AI-103-Developing-AI-Apps-and-Agents-on-Azure.pdf",
+    "whatWillYouLearn": [
+      "Choose and deploy the right models and Foundry services for each task",
+      "Build RAG applications with vector, hybrid and semantic search",
+      "Build single and multi-agent solutions with tools, memory and approval flows",
+      "Implement image and video generation and multimodal understanding",
+      "Implement speech, translation and text analysis solutions",
+      "Apply guardrails, evaluators, tracing and security to AI systems"
+    ],
+    "requirements": [
+      "Azure subscription with Microsoft Foundry access",
+      "Python 3 and VS Code installed",
+      "Basic understanding of REST APIs and JSON"
+    ],
+    "targetAudience": [
+      "Azure AI engineers and software developers building AI apps",
+      "Developers moving from AI-102 to agent-based solutions",
+      "Solution architects designing Foundry-based AI systems",
+      "Professionals preparing for the AI-103 exam"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: Plan and Manage an Azure AI Solution",
+        "content": [
+          "Choosing LLMs, small language models, multimodal models and Foundry tools",
+          "Designing Azure infrastructure and deployment options for AI apps and agents",
+          "Configuring model and agent deployments; CI/CD for Foundry projects",
+          "Managing quotas, scaling, rate limits and cost",
+          "Security: managed identity, private networking, keyless credentials, role policies"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: Build Generative AI Applications with Foundry",
+        "content": [
+          "Deploying and consuming LLMs, code models and multimodal models",
+          "Implementing retrieval-augmented generation (RAG)",
+          "Workflows, tool-augmented flows and multistep reasoning pipelines",
+          "Evaluating apps for groundedness, relevance, quality and safety",
+          "Connecting apps to Foundry projects with the Foundry SDKs"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Build Agents with Foundry",
+        "content": [
+          "Defining agent roles, goals, conversation tracking and tool schemas",
+          "Function calling, retrieval and conversation memory",
+          "Integrating APIs, search, knowledge stores and Content Understanding",
+          "Orchestrated multi-agent solutions",
+          "Autonomous workflows with safeguards, approvals, monitoring and error analysis"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: Optimize, Operationalize and Govern AI Systems",
+        "content": [
+          "Prompt engineering and model parameter tuning",
+          "Reflection, self-critique loops and chain-of-thought evaluation",
+          "Observability: tracing, token analytics, safety signals, latency",
+          "Safety filters, guardrails, risk detection and content moderation",
+          "Auditing, provenance and governing agent behavior"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Implement Computer Vision Solutions",
+        "content": [
+          "Text-to-image and text-to-video generation, inpainting and editing workflows",
+          "Multimodal image understanding, captions, alt-text and visual Q&A",
+          "Video analysis and Content Understanding pipelines",
+          "Detecting objects and regions in images and video",
+          "Responsible AI for multimodal content, including image-based prompt injection"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Text Analysis, Speech and Information Extraction",
+        "content": [
+          "Entity, topic, summary and structured JSON extraction; sentiment and safety detection",
+          "Translation with Azure Translator and LLM-powered flows",
+          "Speech-to-text, text-to-speech and speech as an agent modality",
+          "Ingesting and indexing content; semantic, hybrid and vector search",
+          "Document extraction with OCR, layout analysis and Content Understanding analyzers"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "categoryGroup": "Microsoft"
+  },
+  {
+    "id": "DP-700",
+    "courseSlug": "fabric-data-engineer-associate-dp-700",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "DP-700: Implementing Data Engineering Solutions Using Microsoft Fabric",
+    "category": "Microsoft Azure",
+    "catdesc": "Build and manage data engineering solutions on Microsoft Fabric: lakehouses, warehouses, pipelines, Spark and real-time analytics.",
+    "catcls": "cat-seven",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "06 Modules",
+    "price": 63999,
+    "rating": "4.5",
+    "noStudents": "25+",
+    "instructor": "Azure Experts",
+    "language": "English",
+    "difficulty": "Intermediate",
+    "overview": "DP-700 prepares you for the Microsoft Certified: Fabric Data Engineer Associate certification. You will design and implement loading patterns, ingest and transform batch and streaming data with PySpark, SQL and KQL, secure and govern Fabric items, and monitor and optimize analytics solutions end to end.",
+    "courseObjective": "To equip data engineers with the skills to implement and manage analytics solutions in Microsoft Fabric, ingest and transform batch and streaming data, and monitor, troubleshoot and optimize performance.",
+    "courseOutcomes": "Participants will be able to configure Fabric workspaces and lifecycle management, orchestrate pipelines and notebooks, implement full and incremental loads, process streaming data with Eventstream and Spark, apply security controls, and tune Lakehouse, warehouse and Spark workloads.",
+    "prerequisites": [
+      "Experience with SQL, PySpark and basic KQL",
+      "Understanding of data loading patterns and data architectures",
+      "Familiarity with data engineering concepts such as ETL/ELT"
+    ],
+    "labs": "Hands-on labs in Microsoft Fabric: Lakehouse, Data Warehouse, Data Factory pipelines, Dataflows Gen2, notebooks, Eventstream, Eventhouse and deployment pipelines.",
+    "toc": "DP-700-Fabric-Data-Engineer.pdf",
+    "whatWillYouLearn": [
+      "Configure Fabric workspaces, version control and deployment pipelines",
+      "Implement workspace, item, row, column and OneLake security with masking and labels",
+      "Choose between Dataflows Gen2, pipelines and notebooks for orchestration",
+      "Implement full, incremental and streaming loading patterns",
+      "Transform data with PySpark, T-SQL and KQL",
+      "Monitor, troubleshoot and optimize Fabric items"
+    ],
+    "requirements": [
+      "Access to a Microsoft Fabric capacity or trial",
+      "Basic SQL and Python knowledge",
+      "Microsoft Entra / Microsoft 365 account"
+    ],
+    "targetAudience": [
+      "Data engineers moving to Microsoft Fabric",
+      "Azure data engineers upgrading from DP-203",
+      "Analytics engineers and BI developers handling data pipelines",
+      "Professionals preparing for the DP-700 exam"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: Configure and Manage a Fabric Analytics Solution",
+        "content": [
+          "Spark, domain, OneLake and Apache Airflow workspace settings",
+          "Version control and database projects",
+          "Deployment pipelines and lifecycle management",
+          "Choosing Lakehouse, Warehouse or Eventhouse",
+          "Capacity and workspace planning"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: Security and Governance in Fabric",
+        "content": [
+          "Workspace-level and item-level access controls",
+          "Row-level, column-level, object-level and file-level security",
+          "Dynamic data masking and sensitivity labels",
+          "OneLake security and item endorsement",
+          "Audit logs in Microsoft Fabric"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Orchestrate Data Processes",
+        "content": [
+          "Choosing Dataflows Gen2, pipelines or notebooks",
+          "Schedules and event-based triggers",
+          "Orchestration with parameters and dynamic expressions",
+          "Notebook and pipeline orchestration patterns",
+          "Apache Airflow jobs in Fabric"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: Loading Patterns and Batch Ingestion",
+        "content": [
+          "Full and incremental loads",
+          "Preparing data for a dimensional model",
+          "OneLake shortcuts and mirroring",
+          "Ingesting with pipelines and Dataflows Gen2",
+          "Choosing the right data store"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Transform Batch and Streaming Data",
+        "content": [
+          "Transforming with PySpark, T-SQL and KQL",
+          "Denormalizing, grouping and aggregating data",
+          "Handling duplicate, missing and late-arriving data",
+          "Eventstream, Spark structured streaming and KQL",
+          "Windowing functions and Real-Time Intelligence shortcuts"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Monitor, Troubleshoot and Optimize",
+        "content": [
+          "Monitoring ingestion, transformation and semantic model refresh",
+          "Configuring alerts",
+          "Resolving pipeline, Dataflow, notebook, Eventhouse and Eventstream errors",
+          "Resolving T-SQL and OneLake shortcut errors",
+          "Optimizing Lakehouse tables, warehouses, Spark and queries"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "categoryGroup": "Microsoft"
   }
 ]
