@@ -11,6 +11,9 @@ const socialPostSchema = new Schema(
     sourceId: { type: Schema.Types.ObjectId, required: true },
     sourceSlug: { type: String, default: null },
     sourceTitle: { type: String, default: null },
+    // NEWS video items: official thumbnail URL (hotlinked, not stored) + channel credit for the slide background.
+    sourceImageUrl: { type: String, default: null },
+    sourceCredit: { type: String, default: null },
 
     platform: {
       type: String,

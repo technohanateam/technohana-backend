@@ -4,6 +4,7 @@ import NewsItem from "../models/newsItem.model.js";
 import { SOCIAL_PLATFORMS } from "../services/socialFactory/socialPromptBuilder.service.js";
 import { createSocialPostForSource } from "../services/socialFactory/socialPostCreation.service.js";
 import { enqueueNewsRadarRunNow } from "../services/newsRadarQueue.js";
+import { localVideoToolsEnabled, makeBrandedVideo } from "../services/socialFactory/videoDownload.service.js";
 
 const router = express.Router();
 
@@ -68,6 +69,57 @@ router.post("/items/:id/draft", async (req, res) => {
   } catch (err) {
     console.error("[NewsRadar] draft error:", err);
     return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : "Server error" });
+  }
+});
+
+// Local-only branded re-edit. Hidden (404) unless LOCAL_VIDEO_TOOLS=true so it can't run on the live server.
+const requireLocalVideo = (req, res, next) =>
+  localVideoToolsEnabled() ? next() : res.status(404).json({ success: false, message: "Not found" });
+
+// POST /admin/news-radar/items/:id/video  { rightsConfirmed: true, rightsNote }
+router.post("/items/:id/video", requireLocalVideo, async (req, res) => {
+  try {
+    const { rightsConfirmed, rightsNote } = req.body || {};
+    if (rightsConfirmed !== true || !String(rightsNote || "").trim()) {
+      return res.status(400).json({ success: false, message: "Confirm you have permission to reuse this video and add a note (licence / who allowed it)" });
+    }
+    const item = await NewsItem.findById(req.params.id);
+    if (!item) return res.status(404).json({ success: false, message: "Item not found" });
+    if (item.kind !== "VIDEO") return res.status(400).json({ success: false, message: "Only video items can be re-edited" });
+    if (item.videoStatus === "RENDERING") return res.status(409).json({ success: false, message: "Already rendering" });
+
+    item.rightsConfirmedBy = req.admin?.email || req.user?.email || "admin";
+    item.rightsNote = String(rightsNote).trim().slice(0, 500);
+    item.rightsConfirmedAt = new Date();
+    item.videoStatus = "RENDERING";
+    item.videoError = null;
+    await item.save();
+
+    makeBrandedVideo(item.toObject())
+      .then((file) => NewsItem.findByIdAndUpdate(item._id, { videoStatus: "READY", videoPath: file }))
+      .catch((err) => {
+        console.error("[NewsRadar] video error:", err);
+        return NewsItem.findByIdAndUpdate(item._id, { videoStatus: "FAILED", videoError: String(err.message || err).slice(0, 300) });
+      });
+
+    return res.status(202).json({ success: true, message: "Rendering started" });
+  } catch (err) {
+    console.error("[NewsRadar] video start error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET /admin/news-radar/items/:id/video/file — streams the finished MP4
+router.get("/items/:id/video/file", requireLocalVideo, async (req, res) => {
+  try {
+    const item = await NewsItem.findById(req.params.id).lean();
+    if (!item || item.videoStatus !== "READY" || !item.videoPath) {
+      return res.status(404).json({ success: false, message: "Video not ready" });
+    }
+    return res.sendFile(item.videoPath);
+  } catch (err) {
+    console.error("[NewsRadar] video file error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

@@ -15,6 +15,9 @@ export async function createSocialPostForSource({ sourceType, sourceId, source, 
     sourceId,
     sourceSlug: sourceType === "COURSE" ? source.courseSlug || source.id || null : source.slug || null,
     sourceTitle: sourceType === "COURSE" ? source.courseTitle : source.title,
+    ...(sourceType === "NEWS" && source.kind === "VIDEO" && source.thumbnailUrl
+      ? { sourceImageUrl: source.thumbnailUrl, sourceCredit: source.source }
+      : {}),
     platform,
     status: "AWAITING_PASTE",
     generatedPrompt,
