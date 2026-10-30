@@ -2,6 +2,7 @@ import CRMTask from "../models/crm/crmTask.model.js";
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import { normalizePhone } from "../utils/phone.js";
+import { isDoNotContact } from "./emailSuppression.js";
 
 // Follow-up cadence for the "AI for Data Analysts" free session. The CRM schedules the tasks
 // (they reach reps in the 9 AM digest); the rep taps the wa.me link and sends the message.
@@ -87,6 +88,7 @@ export async function startOutreach(leads, performedBy, now = new Date()) {
 
   for (const lead of leads) {
     const skip = (reason) => result.skipped.push({ id: lead._id, name: lead.name, reason });
+    if (isDoNotContact(lead)) { skip("Marked do not contact"); continue; }
     if (!lead.phone || !normalizePhone(lead.phone, lead.country)) { skip("No valid phone"); continue; }
     if (["won", "lost", "junk"].includes(lead.status)) { skip(`Lead is ${lead.status}`); continue; }
     if (busy.has(String(lead._id))) { skip("Sequence already running"); continue; }

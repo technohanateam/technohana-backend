@@ -63,8 +63,9 @@ const logActivity = async (leadId, type, title, body, performedBy, metadata = {}
 const notFound = (res) => res.status(404).json({ success: false, message: "Lead not found" });
 
 const buildLeadFilter = (req) => {
-  const { search, status, assignedTo, source, priority, pipeline, aiScoreBand, followUpDue } = req.query;
+  const { search, status, assignedTo, source, priority, pipeline, aiScoreBand, followUpDue, tag } = req.query;
   if (pipeline && !isValidId(pipeline)) return { error: "Invalid pipeline id" };
+  if (tag && !isValidId(tag)) return { error: "Invalid tag id" };
   if (assignedTo && assignedTo !== "unassigned" && !isValidId(assignedTo)) {
     return { error: "Invalid assignedTo id" };
   }
@@ -78,6 +79,7 @@ const buildLeadFilter = (req) => {
   if (priority)    filter.priority    = priority;
   if (pipeline)    filter.pipeline    = pipeline;
   if (aiScoreBand) filter.aiScoreBand = aiScoreBand;
+  if (tag)         filter.tags        = tag;
   if (typeof req.query.campaign === "string" && req.query.campaign) filter["utm.utm_campaign"] = req.query.campaign;
   const PLATFORM_SOURCES = { instagram: ["instagram", "ig"], facebook: ["facebook", "fb"], linkedin: ["linkedin", "li"] };
   if (PLATFORM_SOURCES[req.query.platform]) filter["utm.utm_source"] = { $in: PLATFORM_SOURCES[req.query.platform] };
@@ -369,7 +371,8 @@ export const bulkLeadAction = async (req, res) => {
     }
 
     if (action === "start_outreach") {
-      const leads = await CRMLead.find(inScope).select("name phone country status assignedTo").populate("assignedTo", "name").lean();
+      const leads = await CRMLead.find(inScope).select("name phone country status assignedTo tags")
+        .populate("assignedTo", "name").populate("tags", "name").lean();
       const result = await startOutreach(leads, req.admin._id);
       return res.json({
         success: true,

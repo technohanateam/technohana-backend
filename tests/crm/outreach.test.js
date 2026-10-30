@@ -82,3 +82,15 @@ test("closed leads, leads without a phone and leads already in a sequence are sk
   assert.deepEqual(res.skipped.map((s) => s.reason), ["Lead is junk", "No valid phone", "Sequence already running"]);
   assert.equal(inserted.length, 0);
 });
+
+test("a lead marked do not contact never enters the sequence", async () => {
+  const res = await startOutreach([lead({ tags: [{ name: "legacy-2024" }, { name: "do-not-contact" }] })], "admin1", START);
+  assert.equal(res.started, 0);
+  assert.deepEqual(res.skipped.map((s) => s.reason), ["Marked do not contact"]);
+  assert.equal(inserted.length, 0);
+});
+
+test("other tags don't block the sequence", async () => {
+  const res = await startOutreach([lead({ tags: [{ name: "legacy-2024" }] })], "admin1", START);
+  assert.equal(res.started, 1);
+});
