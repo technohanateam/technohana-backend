@@ -10,6 +10,7 @@ import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { buildSignatureHtml } from "./crmUser.controller.js";
 import { escapeHtml } from "../utils/emailTemplate.js";
 import { getActiveConnection, sendZohoMail } from "../services/zohoService.js";
+import { isDoNotContact } from "../services/emailSuppression.js";
 
 // System events (deal_won, stage_change, …) are written by the server; people log these.
 const LOGGABLE_TYPES = ["note", "call", "email", "meeting", "whatsapp"];
@@ -118,15 +119,18 @@ export const sendCrmEmail = async (req, res) => {
     if (leadId) {
       relatedToType = "lead";
       record = await CRMLead.findOne({ _id: isValidId(String(leadId)) ? leadId : null, isDeleted: false, ...ownerFilter(req) })
-        .select("name email").lean();
+        .select("name email tags").populate("tags", "name").lean();
     } else if (contactId) {
       relatedToType = "contact";
       record = isValidId(String(contactId)) && await CRMContact.findOne({ _id: contactId, isDeleted: false })
-        .select("firstName lastName email").lean();
+        .select("firstName lastName email tags").populate("tags", "name").lean();
       if (record) record.name = [record.firstName, record.lastName].filter(Boolean).join(" ");
     }
     if (!record) return res.status(404).json({ success: false, message: "Recipient not found" });
     if (!record.email) return res.status(400).json({ success: false, message: "This record has no email address" });
+    if (isDoNotContact(record)) {
+      return res.status(409).json({ success: false, message: `${record.name} is marked do not contact — not sending.` });
+    }
 
     // Don't keep mailing an address that bounced or complained before. A marketing
     // unsubscribe alone doesn't block a rep's 1:1 email.
