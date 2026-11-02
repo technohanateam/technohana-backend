@@ -12,6 +12,8 @@ const crmDealSchema = new mongoose.Schema(
     currency: { type: String, default: "INR" },
 
     status: { type: String, enum: ["open", "won", "lost"], default: "open" },
+    // Derived from the pipeline type; null shows as "Unassigned" in reports.
+    businessUnit: { type: String, enum: ["b2c", "b2b", "ai"], default: null },
     lostReason: { type: String, trim: true },
     wonAt: { type: Date },
     lostAt: { type: Date },
@@ -55,6 +57,7 @@ const crmDealSchema = new mongoose.Schema(
 
 crmDealSchema.index({ pipeline: 1, stageKey: 1 });
 crmDealSchema.index({ status: 1 });
+crmDealSchema.index({ businessUnit: 1, status: 1 });
 crmDealSchema.index({ assignedTo: 1 });
 crmDealSchema.index({ lead: 1 });
 crmDealSchema.index({ company: 1 });

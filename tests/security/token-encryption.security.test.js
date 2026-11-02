@@ -1,3 +1,5 @@
+process.env.ENROLLMENT_TOKEN_KEY ||= "test-only-key-not-a-secret-0123456789abcdef";
+import { describe, test, expect } from "../helpers/jestCompat.js";
 import { encryptToken, decryptToken } from '../../src/utils/tokenCrypto.js';
 
 describe('Security: Token Encryption', () => {

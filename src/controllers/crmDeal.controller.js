@@ -6,6 +6,7 @@ import {
   findMissingRef, activeUserExists, sendCrmError,
 } from "../utils/crmQuery.js";
 import { syncLeadFromDeal } from "../services/crmLifecycle.js";
+import { businessUnitForPipelineType } from "../constants/businessUnit.js";
 
 const DEAL_FIELDS = ["title", "value", "currency", "probability", "expectedCloseDate", "lostReason",
   "lead", "contact", "company", "proposalId", "quotationRef", "purchaseOrderRef", "purchaseOrderUrl",
@@ -133,6 +134,7 @@ export const createDeal = async (req, res) => {
       ...fields,
       title: title.trim(),
       pipeline: pipe._id,
+      businessUnit: businessUnitForPipelineType(pipe.type),
       stageKey: stage.key,
       stageOrder: stage.order ?? 0,
       probability: fields.probability ?? stage.probability ?? 20,

@@ -2,10 +2,13 @@ import express, { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { crmRead, crmWrite, crmDelete, crmBulk, crmImport, crmExport } from "../middleware/crmPermission.js";
 import { crmInputGuard } from "../middleware/crmInputGuard.js";
+import { crmAudit } from "../middleware/crmAudit.js";
 
 import {
   getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents, getSearch, getNotifications,
 } from "../controllers/crmDashboard.controller.js";
+import { execSummary, execTrend, execDrilldown } from "../controllers/crmExec.controller.js";
+import { getKpis, createKpi, updateKpi } from "../controllers/crmKpi.controller.js";
 import { getAdPerformanceHandler } from "../controllers/adPerformance.controller.js";
 import { getRevenueTrend, getRepStats, getConversionStats, getDailyReport, emailDailyReportToMe } from "../controllers/crmAnalytics.controller.js";
 import {
@@ -53,6 +56,7 @@ import {
 const router = Router();
 
 router.use(crmInputGuard);
+router.use(crmAudit);
 
 // Each AI call costs a Claude request — cap it per CRM user, not per IP.
 const aiLimiter = rateLimit({
@@ -73,6 +77,15 @@ const emailLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, message: "Daily email limit reached (100). Send the rest from your mail client and log them." },
 });
+
+// ── Executive dashboard ───────────────────────────────────────────────────────
+router.get("/exec/summary",   crmRead("exec"), execSummary);
+router.get("/exec/trend",     crmRead("exec"), execTrend);
+router.get("/exec/drilldown", crmRead("exec"), execDrilldown);
+
+router.get("/kpis",      crmRead("kpi"),  getKpis);
+router.post("/kpis",     crmWrite("kpi"), createKpi);
+router.put("/kpis/:id",  crmWrite("kpi"), updateKpi);
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 router.get("/dashboard/stats",   crmRead("dashboard"),  getDashboardStats);

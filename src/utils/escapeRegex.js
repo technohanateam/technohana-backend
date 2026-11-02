@@ -21,7 +21,8 @@ export const buildRegexQuery = (searchTerm) => {
 
 export const buildMultiFieldRegexQuery = (searchTerm, fields = []) => {
   const regex = buildRegexQuery(searchTerm);
-  if (!regex) {
+  // Mongo rejects an empty $or, so there is no valid query to build without fields.
+  if (!regex || !fields.length) {
     return null;
   }
 

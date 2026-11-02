@@ -78,6 +78,7 @@ const crmLeadSchema = new mongoose.Schema(
     lostAt: { type: Date },
 
     // Pipeline linkage
+    businessUnit: { type: String, enum: ["b2c", "b2b", "ai"], default: null },
     pipeline: { type: mongoose.Schema.Types.ObjectId, ref: "CRMPipeline" },
     pipelineStage: { type: String },
 
@@ -130,6 +131,7 @@ crmLeadSchema.pre("validate", function syncPhoneNormalized(next) {
   next();
 });
 
+crmLeadSchema.index({ businessUnit: 1, createdAt: -1 });
 crmLeadSchema.index({ email: 1 });
 crmLeadSchema.index({ phoneNormalized: 1 });
 crmLeadSchema.index({ metaLeadgenId: 1 }, { unique: true, sparse: true });
