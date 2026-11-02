@@ -18,6 +18,7 @@ import { resolveRange } from "../services/crmDailyReport.js";
 import { normalizePhone } from "../utils/phone.js";
 import { callClaude } from "../services/aiAgent.service.js";
 import { computeQuote } from "../utils/pricing.js";
+import { businessUnitForPipelineType } from "../constants/businessUnit.js";
 
 // Site-page leads (forms, chat) belong to the admin panel, not the CRM.
 const SITE_SOURCES = ["website", "enquiry_form", "chat"];
@@ -520,7 +521,8 @@ export const convertLead = async (req, res) => {
 
     const deal = await CRMDeal.create({
       title, value, currency: lead.currency || "INR",
-      pipeline: pipeline._id, stageKey: stage.key, stageOrder: stage.order ?? 0,
+      pipeline: pipeline._id, businessUnit: businessUnitForPipelineType(pipeline.type),
+      stageKey: stage.key, stageOrder: stage.order ?? 0,
       probability: stage.probability ?? lead.probability ?? 20,
       status: stage.isWon ? "won" : stage.isLost ? "lost" : "open",
       ...(stage.isWon && { wonAt: new Date() }), ...(stage.isLost && { lostAt: new Date() }),
@@ -533,6 +535,7 @@ export const convertLead = async (req, res) => {
     lead.dealId = deal._id;
     lead.pipeline = pipeline._id;
     lead.pipelineStage = stage.key;
+    lead.businessUnit = businessUnitForPipelineType(pipeline.type);
     await lead.save();
 
     await Promise.all([

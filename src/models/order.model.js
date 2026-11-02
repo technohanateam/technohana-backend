@@ -20,6 +20,7 @@ const OrderSchema = new mongoose.Schema({
   referralDiscountPercent: { type: Number },
   totalDiscountPercent: { type: Number },
   status: { type: String, default: 'paid' },
+  businessUnit: { type: String, enum: ['b2c', 'b2b', 'ai'], default: 'b2c' },
   paidAt: { type: Number },
   razorpayPaymentId: { type: String },
   learner: { type: Object },
