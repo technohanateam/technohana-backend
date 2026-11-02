@@ -10,6 +10,7 @@ import mongoose from "mongoose";
 
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import crypto from "crypto";
 import passport from "passport";
 import Stripe from "stripe";
@@ -205,6 +206,8 @@ app.use(cors(corsOptionsDelegate));
 // the request stream first and hand the route only a parsed object.
 // /api/crm/leads/import parses its own (larger) JSON body on the route, and the
 // Meta webhook needs the raw bytes to check its signature.
+// Security headers. CORP is cross-origin so the sites can still embed media served from this API.
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 const RAW_BODY_PATHS = new Set(['/webhooks/resend', '/webhooks/meta-leads', '/webhooks/whatsapp', '/api/crm/leads/import']);
 app.use((req, res, next) => {
   if (RAW_BODY_PATHS.has(req.path)) {
@@ -244,7 +247,8 @@ const PendingOrderSchema = new mongoose.Schema({
 });
 const PendingOrder = mongoose.model('PendingOrder', PendingOrderSchema);
 
-const generateOrderId = () => `ord_${Math.random().toString(36).slice(2, 10)}`;
+// Same shape as before (8 base-36 chars; invoice numbers use the last 6), but from a CSPRNG.
+const generateOrderId = () => `ord_${crypto.randomBytes(8).readBigUInt64BE().toString(36).padStart(8, "0").slice(-8)}`;
 
 // --- Pricing utilities ---
 

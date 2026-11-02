@@ -1,3 +1,4 @@
+import { describe, test, expect } from "../helpers/jestCompat.js";
 import { validateEmail, validatePhone, validateName, validateEnrollmentForm, sanitizeString } from '../../src/utils/inputValidator.js';
 
 describe('Security: Input Validation', () => {
@@ -45,9 +46,17 @@ describe('Security: Input Validation', () => {
 
   describe('XSS prevention', () => {
     test('Dangerous characters should be removed', () => {
-      expect(sanitizeString('Hello<script>alert("xss")</script>')).toBe('Helloscriptalertxssscript');
+      expect(sanitizeString('Hello<script>alert("xss")</script>')).toBe('Helloscriptalert(xss)/script');
       expect(sanitizeString('Test"injection')).toBe('Testinjection');
-      expect(sanitizeString("Bob's<div>Hack</div>")).toBe('BobsdiHackdiv');
+      expect(sanitizeString("Bob's<div>Hack</div>")).toBe('Bobsdiv' + 'Hack/div');
+    });
+
+    test('validateName rejects dangerous characters on every call, not every other call', () => {
+      for (let i = 0; i < 6; i++) {
+        expect(validateName('<script>')).toBe(false);
+        expect(validateName('Abcdef<x')).toBe(false);
+      }
+      expect(validateName('Priya Sharma')).toBe(true);
     });
   });
 

@@ -1,6 +1,8 @@
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[0-9+\-\s()]{10,}$/;
-const XSS_CHARS_REGEX = /[<>\"'`]/g;
+// Two regexes on purpose: .test() on a /g regex keeps lastIndex between calls and misses matches.
+const XSS_CHARS_REGEX = /[<>\"'`]/;
+const XSS_CHARS_GLOBAL = /[<>\"'`]/g;
 
 export const validateEmail = (email) => {
   if (!email || typeof email !== 'string') return false;
@@ -26,7 +28,7 @@ export const validateString = (str, minLength = 1, maxLength = 500) => {
 
 export const sanitizeString = (str) => {
   if (typeof str !== 'string') return '';
-  return str.trim().replace(XSS_CHARS_REGEX, '');
+  return str.trim().replace(XSS_CHARS_GLOBAL, '');
 };
 
 export const validateEnrollmentForm = (data) => {

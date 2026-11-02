@@ -1,10 +1,11 @@
+import { describe, test, expect } from "../helpers/jestCompat.js";
 import { buildRegexQuery, buildMultiFieldRegexQuery } from '../../src/utils/escapeRegex.js';
 
 describe('Security: NoSQL Injection Prevention', () => {
   test('Escaped regex should handle special regex characters', () => {
     const dangerousInput = '.*';
     const regex = buildRegexQuery(dangerousInput);
-    expect(regex.source).toBe('\\.\\ *');
+    expect(regex.source).toBe('\\.\\*');
   });
 
   test('Escaped regex should handle all special regex characters', () => {
