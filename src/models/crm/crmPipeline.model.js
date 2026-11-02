@@ -9,6 +9,8 @@ const stageSchema = new mongoose.Schema(
     color: { type: String, default: "#8B5CF6" },
     isWon: { type: Boolean, default: false },
     isLost: { type: Boolean, default: false },
+    // Canonical name so legacy and newer stages group together in cross-pipeline funnels.
+    alias: { type: String, trim: true, match: /^[a-z0-9_]{1,40}$/ },
   },
   { _id: false }
 );

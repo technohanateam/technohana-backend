@@ -6,7 +6,7 @@ const PIPELINE_FIELDS = ["name", "type", "description", "isDefault", "isActive",
 const notFound = (res) => res.status(404).json({ success: false, message: "Pipeline not found" });
 
 // Returns cleaned stages, or an error message string.
-const cleanStages = (stages) => {
+export const cleanStages = (stages) => {
   if (!Array.isArray(stages) || stages.length === 0) return "At least one stage is required";
   if (stages.length > 30) return "A pipeline can have at most 30 stages";
   const cleaned = stages.map((s, i) => ({
@@ -17,13 +17,15 @@ const cleanStages = (stages) => {
     color: typeof s?.color === "string" && /^#[0-9a-f]{6}$/i.test(s.color) ? s.color : "#8B5CF6",
     isWon: !!s?.isWon,
     isLost: !!s?.isLost && !s?.isWon,
+    // Optional; dropping it here would silently erase aliases every time a pipeline is saved.
+    ...(typeof s?.alias === "string" && /^[a-z0-9_]{1,40}$/.test(s.alias) ? { alias: s.alias } : {}),
   }));
   if (cleaned.some((s) => !s.key || !s.label)) return "Every stage needs a key and a label";
   if (new Set(cleaned.map((s) => s.key)).size !== cleaned.length) return "Stage keys must be unique";
   return cleaned;
 };
 
-const DEFAULT_PIPELINES = [
+export const DEFAULT_PIPELINES = [
   {
     name: "Corporate Training",
     type: "corporate",
