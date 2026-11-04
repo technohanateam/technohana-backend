@@ -62,11 +62,7 @@ export const getRevenueTrend = async (req, res) => {
 
 export const getRepStats = async (req, res) => {
   try {
-    const adminId = req.admin._id;
-    const role    = req.crmRole || req.admin.role;
-    const matchFilter = role === "sales"
-      ? { isDeleted: false, assignedTo: adminId }
-      : { isDeleted: false };
+    const matchFilter = { isDeleted: false, ...ownerFilter(req) };
 
     const [leadStats, dealStats] = await Promise.all([
       CRMLead.aggregate([
@@ -113,7 +109,7 @@ export const getRepStats = async (req, res) => {
         {
           $match: {
             isDeleted: false,
-            ...(role === "sales" ? { assignedTo: adminId } : {}),
+            ...ownerFilter(req),
           },
         },
         {
@@ -150,9 +146,7 @@ export const getRepStats = async (req, res) => {
 
 export const getConversionStats = async (req, res) => {
   try {
-    const adminId = req.admin._id;
-    const role    = req.crmRole || req.admin.role;
-    const assignedFilter = role === "sales" ? { assignedTo: adminId } : {};
+    const assignedFilter = ownerFilter(req);
 
     const STATUS_ORDER = [
       "new", "discovery", "needs_analysis", "skill_gap_assessed",

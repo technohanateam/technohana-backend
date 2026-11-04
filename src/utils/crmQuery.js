@@ -17,16 +17,20 @@ export const pick = (obj, fields) =>
   Object.fromEntries(fields.filter((f) => obj?.[f] !== undefined).map((f) => [f, obj[f]]));
 
 // ── Ownership ────────────────────────────────────────────────────────────────
-// Sales reps work only their own book. Admins see everything; marketing and
-// readonly keep read access to all records (they don't own leads).
+// Sales and marketing work only their own book. Admins see everything; readonly
+// keeps view-only access to all records.
 
 export const CRM_ADMIN_ROLES = ["super_admin", "admin"];
+export const CRM_OWNER_SCOPED_ROLES = ["sales", "marketing"];
 export const crmRoleOf = (req) => req.crmRole || req.admin?.crmRole || req.admin?.role;
 export const isCrmAdmin = (req) => CRM_ADMIN_ROLES.includes(crmRoleOf(req));
-export const isOwnerScoped = (req) => crmRoleOf(req) === "sales";
+export const isOwnerScoped = (req) => CRM_OWNER_SCOPED_ROLES.includes(crmRoleOf(req));
 
 export const ownerFilter = (req, field = "assignedTo") =>
   (isOwnerScoped(req) ? { [field]: req.admin._id } : {});
+
+// Contacts and companies have no assignee, so their owner is whoever created them.
+export const createdByFilter = (req) => ownerFilter(req, "createdBy");
 
 // Filter for one lead the caller may see, or null when the id is malformed.
 export const leadScope = (req, id) =>
@@ -53,7 +57,7 @@ export async function canAccessRelated(req, type, id) {
   if (!RELATED[type] || !isValidId(String(id))) return false;
   if (type === "lead") return !!(await CRMLead.exists({ _id: id, isDeleted: false, ...ownerFilter(req) }));
   if (type === "deal") return !!(await CRMDeal.exists({ _id: id, isDeleted: false, ...(await dealOwnerFilter(req)) }));
-  return !!(await RELATED[type].model.exists({ _id: id, isDeleted: false }));
+  return !!(await RELATED[type].model.exists({ _id: id, isDeleted: false, ...createdByFilter(req) }));
 }
 
 // Tasks and activities point at other records via relatedToType + relatedToId

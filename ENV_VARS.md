@@ -49,6 +49,7 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 |---|---|---|
 | `CRM_SETUP_TOKEN` | `src/controllers/crmUser.controller.js` | Enables the one-time `POST /api/crm/auth/setup` owner bootstrap (send it as `setupToken`). Leave unset once the first CRM owner exists — setup is disabled without it |
 | `CRM_FROM_EMAIL` | `src/controllers/crmActivity.controller.js` | Sender for emails reps send from the CRM (`POST /api/crm/email/send`), e.g. `Technohana Sales <sales@technohana.in>`; must be on the verified Resend domain. Defaults to the sales address. Replies go to the rep |
+| `CRM_COPY_EMAIL` | `src/config/emailService.js` | Address CC'd on every CRM rep email (Zoho and Resend sends, meeting invites) and sent a copy of each reply imported from a rep's Zoho inbox. Defaults to `abdul@technohana.in` |
 | `CRM_DAILY_REPORT_EXTRA_EMAILS` | `src/services/crmDailyReport.js` | Comma-separated extra recipients for the 7pm IST CRM report |
 | `ZOHO_CLIENT_ID` / `ZOHO_CLIENT_SECRET` / `ZOHO_REDIRECT_URI` | `src/config/zohoClient.js` | Zoho Mail + Meeting OAuth (server-based client from api-console.zoho.in). Redirect URI = `<backend>/api/crm/zoho/callback`. Unset → CRM "Connect Zoho" returns 503; email keeps using Resend |
 | `ZOHO_MEETING_ENABLED` | `src/config/zohoClient.js` | Set `true` to request Zoho Meeting scopes and enable "Schedule meeting". Needs Zoho Meeting **Professional** (API access is not on the free plan). Default off: Mail only. Reps must reconnect after changing it |

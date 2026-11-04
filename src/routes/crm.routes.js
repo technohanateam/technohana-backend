@@ -40,7 +40,8 @@ import {
   listCrmUsers, listCrmUserOptions, createCrmUser, updateCrmUser,
   resetCrmUserPassword, setCrmUserActive, deleteCrmUser,
 } from "../controllers/crmUser.controller.js";
-import { getZohoStatus, getZohoConnectUrl, disconnectZoho, scheduleMeeting } from "../controllers/crmZoho.controller.js";
+import { getZohoStatus, getZohoConnectUrl, disconnectZoho, scheduleMeeting, syncZohoMailNow } from "../controllers/crmZoho.controller.js";
+import { getCourses } from "../controllers/crmCourse.controller.js";
 import {
   getLinkedinStatus, getLinkedinConnectUrl, getLinkedinAdAccounts, selectLinkedinAdAccount, disconnectLinkedin,
 } from "../controllers/crmLinkedin.controller.js";
@@ -76,6 +77,16 @@ const emailLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Daily email limit reached (100). Send the rest from your mail client and log them." },
+});
+
+// Manual inbox sync hits Zoho on the rep's behalf — cap it per CRM user.
+const syncLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 6,
+  keyGenerator: (req) => `crm-sync:${req.admin.uid}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Syncing too often — wait a minute and try again." },
 });
 
 // ── Executive dashboard ───────────────────────────────────────────────────────
@@ -184,6 +195,9 @@ router.post("/email/send", crmWrite("activities"), emailLimiter, sendCrmEmail);
 router.get("/zoho/status", getZohoStatus);
 router.get("/zoho/connect", getZohoConnectUrl);
 router.delete("/zoho/connection", disconnectZoho);
+router.post("/zoho/sync-now", crmRead("activities"), syncLimiter, syncZohoMailNow);
+
+router.get("/courses", crmRead("courses"), getCourses);
 router.post("/meetings", crmWrite("activities"), scheduleMeeting);
 
 // ── LinkedIn Ads (org-wide connection) ───────────────────────────────────────

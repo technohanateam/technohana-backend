@@ -12,6 +12,8 @@ import {
 import { fetchMailAccount, fetchMeetingUser, createZohoMeeting, getActiveConnection, sendZohoMail } from "../services/zohoService.js";
 import { isValidId, ownerFilter, dealOwnerFilter, sendCrmError } from "../utils/crmQuery.js";
 import { escapeHtml } from "../utils/emailTemplate.js";
+import { crmCopyAddress } from "../config/emailService.js";
+import { syncMailForConnection } from "../services/zohoMailSync.js";
 
 const crmAppUrl = () => process.env.CRM_FRONTEND_URL || "/";
 const redirectToApp = (res, query) => res.redirect(`${crmAppUrl()}/integrations?${query}`);
@@ -36,6 +38,20 @@ export const getZohoStatus = async (req, res) => {
     });
   } catch (err) {
     sendCrmError(res, err, "Failed to load Zoho status");
+  }
+};
+
+// POST /zoho/sync-now — pulls the caller's own inbox immediately instead of waiting for the cron.
+export const syncZohoMailNow = async (req, res) => {
+  try {
+    const conn = await getActiveConnection(req.admin._id);
+    if (!conn?.zohoMailAccountId) {
+      return res.status(409).json({ success: false, message: "Connect your Zoho mailbox first (Integrations)." });
+    }
+    const imported = await syncMailForConnection(conn);
+    res.json({ success: true, data: { imported }, message: imported ? `${imported} new repl${imported === 1 ? "y" : "ies"}` : "No new replies" });
+  } catch (err) {
+    sendCrmError(res, err, "Could not sync your inbox");
   }
 };
 
@@ -203,6 +219,7 @@ export const scheduleMeeting = async (req, res) => {
       try {
         await sendZohoMail(conn, {
           to: inviteTo,
+          cc: crmCopyAddress(inviteTo, req.admin.email, conn.emailAddress),
           subject: `Meeting: ${topic.trim()}`,
           html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#1e293b">
             <p>Hi ${escapeHtml(record.name || "there")},</p>

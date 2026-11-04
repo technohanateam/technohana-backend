@@ -5,7 +5,7 @@ import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMCompany from "../models/crm/crmCompany.model.js";
 import { resolveRange, istMonthStart, istDateStr } from "../services/crmDailyReport.js";
-import { attachRelated, ownerFilter, dealOwnerFilter, sendCrmError } from "../utils/crmQuery.js";
+import { attachRelated, ownerFilter, createdByFilter, dealOwnerFilter, sendCrmError } from "../utils/crmQuery.js";
 import { hasCrmPermission } from "../middleware/crmPermission.js";
 
 const STATUS_ORDER = [
@@ -88,8 +88,8 @@ export const getDashboardStats = async (req, res) => {
         ...assignedFilter,
       }),
 
-      CRMContact.countDocuments({ isDeleted: false }),
-      CRMCompany.countDocuments({ isDeleted: false }),
+      CRMContact.countDocuments({ isDeleted: false, ...createdByFilter(req) }),
+      CRMCompany.countDocuments({ isDeleted: false, ...createdByFilter(req) }),
 
       CRMLead.aggregate([
         { $match: { isDeleted: false, ...assignedFilter } },
@@ -299,12 +299,12 @@ export const getSearch = async (req, res) => {
         .then((rows) => rows.map((x) => ({ type: "lead", id: x._id, label: x.name, sub: [x.company, x.email].filter(Boolean).join(" · ") }))));
     }
     if (wanted.includes("contact") && hasCrmPermission(role, "contacts")) {
-      jobs.push(CRMContact.find({ isDeleted: false, $or: [{ firstName: re }, { lastName: re }, { email: re }, { phone: re }] })
+      jobs.push(CRMContact.find({ isDeleted: false, ...createdByFilter(req), $or: [{ firstName: re }, { lastName: re }, { email: re }, { phone: re }] })
         .select("firstName lastName email").sort({ updatedAt: -1 }).limit(limit).lean()
         .then((rows) => rows.map((x) => ({ type: "contact", id: x._id, label: [x.firstName, x.lastName].filter(Boolean).join(" "), sub: x.email || "" }))));
     }
     if (wanted.includes("company") && hasCrmPermission(role, "companies")) {
-      jobs.push(CRMCompany.find({ isDeleted: false, name: re })
+      jobs.push(CRMCompany.find({ isDeleted: false, ...createdByFilter(req), name: re })
         .select("name industry").sort({ updatedAt: -1 }).limit(limit).lean()
         .then((rows) => rows.map((x) => ({ type: "company", id: x._id, label: x.name, sub: x.industry || "" }))));
     }
