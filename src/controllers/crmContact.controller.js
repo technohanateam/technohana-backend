@@ -1,7 +1,7 @@
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
-import { parsePaging, isValidId, pick, dealOwnerFilter, findMissingRef, sendCrmError } from "../utils/crmQuery.js";
+import { parsePaging, isValidId, pick, dealOwnerFilter, createdByFilter, findMissingRef, sendCrmError } from "../utils/crmQuery.js";
 
 // Notes go through POST /contacts/:id/notes so their author can't be forged.
 const CONTACT_FIELDS = ["firstName", "lastName", "email", "phone", "whatsApp", "company", "designation",
@@ -24,7 +24,7 @@ export const getContacts = async (req, res) => {
     const { page, limit, skip } = parsePaging(req.query);
 
     const { search, company, isDecisionMaker } = req.query;
-    const filter = { isDeleted: false };
+    const filter = { isDeleted: false, ...createdByFilter(req) };
 
     if (company) {
       if (!isValidId(company)) return res.status(400).json({ success: false, message: "Invalid company id" });
@@ -56,7 +56,7 @@ export const getContacts = async (req, res) => {
 export const getContact = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return notFound(res);
-    const contact = await CRMContact.findOne({ _id: req.params.id, isDeleted: false })
+    const contact = await CRMContact.findOne({ _id: req.params.id, isDeleted: false, ...createdByFilter(req) })
       .populate("company", "name industry website")
       .populate("tags", "name color")
       .lean();
@@ -100,7 +100,7 @@ export const createContact = async (req, res) => {
 
 export const updateContact = async (req, res) => {
   try {
-    const contact = isValidId(req.params.id) && await CRMContact.findOne({ _id: req.params.id, isDeleted: false });
+    const contact = isValidId(req.params.id) && await CRMContact.findOne({ _id: req.params.id, isDeleted: false, ...createdByFilter(req) });
     if (!contact) return notFound(res);
 
     const fields = pick(req.body, CONTACT_FIELDS);
@@ -132,7 +132,7 @@ export const addContactNote = async (req, res) => {
   try {
     const { body } = req.body;
     if (!body?.trim()) return res.status(400).json({ success: false, message: "Note body required" });
-    const contact = await CRMContact.findOne({ _id: req.params.id, isDeleted: false });
+    const contact = isValidId(req.params.id) && await CRMContact.findOne({ _id: req.params.id, isDeleted: false, ...createdByFilter(req) });
     if (!contact) return res.status(404).json({ success: false, message: "Contact not found" });
     contact.notes.push({ body: body.trim(), createdBy: req.admin._id });
     await contact.save();
@@ -145,7 +145,7 @@ export const addContactNote = async (req, res) => {
 
 export const getContactActivities = async (req, res) => {
   try {
-    if (!isValidId(req.params.id)) return notFound(res);
+    if (!isValidId(req.params.id) || !(await CRMContact.exists({ _id: req.params.id, isDeleted: false, ...createdByFilter(req) }))) return notFound(res);
     const activities = await CRMActivity.find({ relatedToType: "contact", relatedToId: req.params.id })
       .sort({ createdAt: -1 }).limit(50).populate("performedBy", "name email").lean();
     res.json({ success: true, data: activities });
