@@ -137,7 +137,8 @@ export const sendCrmEmail = async (req, res) => {
 
 // Shared by POST /email/send and recommend-course: checks suppression, logs the
 // activity, then sends via the rep's Zoho mailbox (or Resend). Returns { status, json }.
-export const deliverCrmEmail = async (req, { record, relatedToType, subject, body }) => {
+// `requireZoho`: send only from the rep's own connected Zoho mailbox, never the shared Resend address.
+export const deliverCrmEmail = async (req, { record, relatedToType, subject, body, requireZoho = false }) => {
   const fail = (status, message) => ({ status, json: { success: false, message } });
   if (!record.email) return fail(400, "This record has no email address");
   if (isDoNotContact(record)) return fail(409, `${record.name} is marked do not contact — not sending.`);
@@ -151,6 +152,11 @@ export const deliverCrmEmail = async (req, { record, relatedToType, subject, bod
   ]);
   if (crmBounce || siteBounce) return fail(409, `${record.email} bounced or marked a previous email as spam — not sending.`);
 
+  const zoho = await getActiveConnection(req.admin._id);
+  if (requireZoho && !zoho?.zohoMailAccountId) {
+    return fail(409, "Connect your Zoho Mail account (Profile) to send from your own mailbox.");
+  }
+
   // Log first so the Resend tag can point back at this activity.
   const activity = await CRMActivity.create({
     type: "email",
@@ -163,7 +169,6 @@ export const deliverCrmEmail = async (req, { record, relatedToType, subject, bod
   });
 
   // Prefer the rep's own Zoho mailbox; fall back to Resend if unconnected or Zoho fails.
-  const zoho = await getActiveConnection(req.admin._id);
   if (zoho?.zohoMailAccountId) {
     try {
       const sent = await sendZohoMail(zoho, {
@@ -177,7 +182,11 @@ export const deliverCrmEmail = async (req, { record, relatedToType, subject, bod
       });
       return { status: 201, json: { success: true, data: { activityId: activity._id }, message: `Email sent to ${record.email} from ${zoho.emailAddress}` } };
     } catch (err) {
-      console.error("Zoho send failed, falling back to Resend:", err.message);
+      console.error(requireZoho ? "Zoho send failed:" : "Zoho send failed, falling back to Resend:", err.message);
+      if (requireZoho) {
+        await CRMActivity.updateOne({ _id: activity._id }, { "metadata.status": "failed", "metadata.error": err.message });
+        return fail(502, "Zoho couldn't send the email. Reconnect your Zoho account in Profile and try again.");
+      }
     }
   }
 

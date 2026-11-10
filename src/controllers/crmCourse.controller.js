@@ -5,6 +5,7 @@ import CRMActivity from "../models/crm/crmActivity.model.js";
 import { leadScope, sendCrmError } from "../utils/crmQuery.js";
 import { generateCoursePdf } from "../utils/generateCoursePdf.js";
 import { deliverCrmEmail } from "./crmActivity.controller.js";
+import { getActiveConnection } from "../services/zohoService.js";
 
 const SITE = "https://www.technohana.in";
 
@@ -145,9 +146,13 @@ export const draftRecommendationEmail = async (req, res) => {
     if (!course) return res.status(404).json({ success: false, message: "Course not found" });
 
     const draft = buildDraft({ lead, course, reason: str(req.body.reason, 300) });
+    const zoho = await getActiveConnection(req.admin._id);
     res.json({
       success: true,
-      data: { ...draft, to: lead.email || null, leadName: lead.name, leadStatus: lead.status },
+      data: {
+        ...draft, to: lead.email || null, leadName: lead.name, leadStatus: lead.status,
+        from: zoho?.zohoMailAccountId ? zoho.emailAddress : null,
+      },
       message: "Email draft ready for review",
     });
   } catch (err) {
@@ -190,7 +195,7 @@ export const recommendCourse = async (req, res) => {
       return res.json({ success: true, data: { added, status, emailed: false }, message: added ? `Recommended to ${lead.name}` : `Already recommended to ${lead.name}` });
     }
 
-    const out = await deliverCrmEmail(req, { record: lead, relatedToType: "lead", subject, body });
+    const out = await deliverCrmEmail(req, { record: lead, relatedToType: "lead", subject, body, requireZoho: true });
     if (out.status >= 400) {
       return res.status(out.status).json({
         success: false,
