@@ -66,6 +66,9 @@ const CRM_PERMISSIONS = {
     write:  ["super_admin", "admin", "sales", "marketing", "hr"],
     delete: ["super_admin", "admin"],
   },
+  courses: {
+    read:   ["super_admin", "admin", "sales", "marketing", "readonly"],
+  },
   // Executive dashboard: cross-business-unit revenue and pipeline.
   exec: {
     read:   ["super_admin", "admin"],
