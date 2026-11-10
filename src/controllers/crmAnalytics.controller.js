@@ -155,9 +155,9 @@ export const getConversionStats = async (req, res) => {
     const assignedFilter = role === "sales" ? { assignedTo: adminId } : {};
 
     const STATUS_ORDER = [
-      "new", "discovery", "needs_analysis", "skill_gap_assessed",
-      "course_recommended", "proposal_sent", "negotiation",
-      "quotation_sent", "purchase_order", "won",
+      "new", "contacted", "discovery", "needs_analysis", "skill_gap_assessed",
+      "course_recommended", "demo_scheduled", "demo_done", "proposal_sent", "negotiation",
+      "quotation_sent", "purchase_order", "payment_pending", "won", "enrolled",
     ];
 
     const raw = await CRMLead.aggregate([

@@ -9,9 +9,9 @@ import { attachRelated, ownerFilter, dealOwnerFilter, sendCrmError } from "../ut
 import { hasCrmPermission } from "../middleware/crmPermission.js";
 
 const STATUS_ORDER = [
-  "new", "discovery", "needs_analysis", "skill_gap_assessed",
-  "course_recommended", "proposal_sent", "negotiation",
-  "quotation_sent", "purchase_order", "won", "lost", "junk",
+  "new", "contacted", "discovery", "needs_analysis", "skill_gap_assessed",
+  "course_recommended", "demo_scheduled", "demo_done", "proposal_sent", "negotiation",
+  "quotation_sent", "purchase_order", "payment_pending", "won", "enrolled", "lost", "junk",
 ];
 
 export const getDashboardStats = async (req, res) => {

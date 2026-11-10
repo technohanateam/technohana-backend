@@ -89,7 +89,7 @@ import whatsappWebhookRoutes from "./routes/whatsappWebhook.routes.js";
 import igCommentTriggerRoutes from "./routes/igCommentTrigger.routes.js";
 import { getAdPerformanceHandler } from "./controllers/adPerformance.controller.js";
 import { sendMetaPurchase } from "./services/metaConversions.js";
-import { ensureDefaultPipelines } from "./controllers/crmPipeline.controller.js";
+import { ensureDefaultPipelines, ensureCorporateStages } from "./controllers/crmPipeline.controller.js";
 import { backfillPhoneNormalized } from "./services/crmLeadIntake.js";
 import { syncCrmOnOrderPaidSafely } from "./services/crmOrderSync.js";
 import { authenticateCrm } from "./middleware/authenticateCrm.js";
@@ -259,7 +259,9 @@ app.use(passport.initialize());
 // Connect to the database
 connectDb().then(() => {
   refreshPriceCatalog().catch((err) => console.error("Price catalog refresh failed:", err));
-  ensureDefaultPipelines().catch((err) => console.error("CRM default pipeline seed failed:", err));
+  ensureDefaultPipelines()
+    .then(() => ensureCorporateStages())
+    .catch((err) => console.error("CRM default pipeline seed failed:", err));
   backfillPhoneNormalized().catch((err) => console.error("CRM phone backfill failed:", err));
 });
 

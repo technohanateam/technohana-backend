@@ -69,8 +69,9 @@ const crmLeadSchema = new mongoose.Schema(
     // CRM State — this is the spine field connecting all lifecycle stages
     status: {
       type: String,
-      enum: ["new", "discovery", "needs_analysis", "skill_gap_assessed", "course_recommended",
-             "proposal_sent", "negotiation", "quotation_sent", "purchase_order", "won", "lost", "junk"],
+      enum: ["new", "contacted", "discovery", "needs_analysis", "skill_gap_assessed", "course_recommended",
+             "demo_scheduled", "demo_done", "proposal_sent", "negotiation", "quotation_sent", "purchase_order",
+             "payment_pending", "won", "enrolled", "lost", "junk"],
       default: "new",
     },
     lostReason: { type: String, trim: true },
