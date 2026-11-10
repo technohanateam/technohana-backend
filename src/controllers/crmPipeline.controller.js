@@ -32,16 +32,20 @@ export const DEFAULT_PIPELINES = [
     isDefault: true,
     stages: [
       { key: "lead",              label: "Lead",              order: 1,  probability: 10, color: "#6B7280" },
-      { key: "discovery",         label: "Discovery",         order: 2,  probability: 20, color: "#3B82F6" },
-      { key: "needs_analysis",    label: "Needs Analysis",    order: 3,  probability: 30, color: "#8B5CF6" },
-      { key: "skill_gap",         label: "Skill Gap",         order: 4,  probability: 35, color: "#A78BFA" },
-      { key: "course_recommended",label: "Course Recommended",order: 5,  probability: 40, color: "#7C3AED" },
-      { key: "proposal_sent",     label: "Proposal Sent",     order: 6,  probability: 55, color: "#F59E0B" },
-      { key: "negotiation",       label: "Negotiation",       order: 7,  probability: 65, color: "#F97316" },
-      { key: "quotation_sent",    label: "Quotation Sent",    order: 8,  probability: 75, color: "#EF4444" },
-      { key: "purchase_order",    label: "Purchase Order",    order: 9,  probability: 85, color: "#10B981" },
-      { key: "won",               label: "Won",               order: 10, probability: 100, color: "#059669", isWon: true },
-      { key: "lost",              label: "Lost",              order: 11, probability: 0,   color: "#DC2626", isLost: true },
+      { key: "contacted",         label: "Contacted",         order: 2,  probability: 15, color: "#0EA5E9" },
+      { key: "discovery",         label: "Discovery",         order: 3,  probability: 20, color: "#3B82F6" },
+      { key: "needs_analysis",    label: "Needs Analysis",    order: 4,  probability: 30, color: "#8B5CF6" },
+      { key: "skill_gap",         label: "Skill Gap",         order: 5,  probability: 35, color: "#A78BFA" },
+      { key: "course_recommended",label: "Course Recommended",order: 6,  probability: 40, color: "#7C3AED" },
+      { key: "demo_scheduled",    label: "Demo Scheduled",    order: 7,  probability: 45, color: "#C084FC" },
+      { key: "demo_done",         label: "Demo Done",         order: 8,  probability: 50, color: "#A855F7" },
+      { key: "proposal_sent",     label: "Proposal Sent",     order: 9,  probability: 55, color: "#F59E0B" },
+      { key: "negotiation",       label: "Negotiation",       order: 10, probability: 65, color: "#F97316" },
+      { key: "quotation_sent",    label: "Quotation Sent",    order: 11, probability: 75, color: "#EF4444" },
+      { key: "purchase_order",    label: "Purchase Order",    order: 12, probability: 85, color: "#10B981" },
+      { key: "payment_pending",   label: "Payment Pending",   order: 13, probability: 92, color: "#14B8A6" },
+      { key: "won",               label: "Won",               order: 14, probability: 100, color: "#059669", isWon: true },
+      { key: "lost",              label: "Lost",              order: 15, probability: 0,   color: "#DC2626", isLost: true },
     ],
   },
   {
@@ -76,6 +80,44 @@ export async function ensureDefaultPipelines() {
   await Promise.all(DEFAULT_PIPELINES.map((p) =>
     CRMPipeline.updateOne({ type: p.type }, { $setOnInsert: p }, { upsert: true })
   ));
+}
+
+// Inserts any default stage the pipeline lacks right after its nearest preceding default
+// stage, keeps every existing stage as is, and renumbers `order`. Returns null if nothing is missing.
+export const mergeMissingStages = (existing, defaults) => {
+  const result = existing.slice().sort((a, b) => a.order - b.order);
+  const has = (key) => result.some((s) => s.key === key);
+  let changed = false;
+  defaults.forEach((def, i) => {
+    if (has(def.key)) return;
+    let at = 0;
+    for (let j = i - 1; j >= 0; j--) {
+      const idx = result.findIndex((s) => s.key === defaults[j].key);
+      if (idx !== -1) { at = idx + 1; break; }
+    }
+    result.splice(at, 0, { ...def });
+    changed = true;
+  });
+  return changed ? result.map((s, i) => ({ ...s, order: i + 1 })) : null;
+};
+
+// Called at server start, after the seed. Databases created before the Contacted / Demo /
+// Payment Pending stages existed get them added to the stock Corporate pipeline; custom
+// pipelines are never touched. A no-op (no writes) once the stages are present.
+export async function ensureCorporateStages() {
+  const stock = DEFAULT_PIPELINES[0];
+  const pipeline = await CRMPipeline.findOne({ type: "corporate", isDefault: true });
+  if (!pipeline || !pipeline.stages.some((s) => s.key === "discovery")) return;
+
+  const merged = mergeMissingStages(pipeline.stages.map((s) => s.toObject()), stock.stages);
+  if (!merged) return;
+
+  pipeline.stages = merged;
+  await pipeline.save();
+  await CRMDeal.bulkWrite(merged.map((s) => ({
+    updateMany: { filter: { pipeline: pipeline._id, stageKey: s.key }, update: { $set: { stageOrder: s.order } } },
+  })));
+  console.log(`CRM pipeline "${pipeline.name}": added missing lifecycle stages`);
 }
 
 export const getPipelines = async (req, res) => {

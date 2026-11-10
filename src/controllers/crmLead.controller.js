@@ -240,7 +240,8 @@ export const updateLead = async (req, res) => {
     Object.assign(lead, updates);
 
     if (updates.status && updates.status !== prevStatus) {
-      lead.wonAt  = updates.status === "won" ? new Date() : undefined;
+      // "enrolled" follows "won", so it keeps the original win date.
+      lead.wonAt  = updates.status === "won" ? new Date() : updates.status === "enrolled" ? (lead.wonAt || new Date()) : undefined;
       lead.lostAt = ["lost", "junk"].includes(updates.status) ? new Date() : undefined;
     }
 
@@ -251,7 +252,7 @@ export const updateLead = async (req, res) => {
         `Status changed from ${prevStatus} to ${updates.status}${updates.lostReason ? ` (${updates.lostReason})` : ""}`,
         req.admin._id, { from: prevStatus, to: updates.status });
       await syncDealFromLead(lead, req.admin._id);
-      if (["won", "lost", "junk"].includes(updates.status)) await cancelOutreach(lead._id);
+      if (["won", "enrolled", "lost", "junk"].includes(updates.status)) await cancelOutreach(lead._id);
     }
     if (updates.pipelineStage && updates.pipelineStage !== prevStage) {
       await logActivity(lead._id, "stage_change", "Stage moved",
@@ -339,10 +340,11 @@ export const bulkLeadAction = async (req, res) => {
       if (changing.length) {
         const now = new Date();
         const isWon = payload.status === "won";
+        const isEnrolled = payload.status === "enrolled";
         const isLost = ["lost", "junk"].includes(payload.status);
         const update = {
           $set: { status: payload.status, ...(isWon && { wonAt: now }), ...(isLost && { lostAt: now }) },
-          $unset: { ...(!isWon && { wonAt: 1 }), ...(!isLost && { lostAt: 1 }) },
+          $unset: { ...(!isWon && !isEnrolled && { wonAt: 1 }), ...(!isLost && { lostAt: 1 }) },
         };
         await CRMLead.updateMany({ _id: { $in: changing.map((l) => l._id) } }, update);
         await CRMActivity.insertMany(changing.map((l) => ({
@@ -354,7 +356,7 @@ export const bulkLeadAction = async (req, res) => {
           performedBy: req.admin._id,
           metadata: { from: l.status, to: payload.status, bulk: true },
         })));
-        if (isWon || isLost) await cancelOutreach(changing.map((l) => l._id));
+        if (isWon || isEnrolled || isLost) await cancelOutreach(changing.map((l) => l._id));
         if (isWon || payload.status === "lost") {
           const withDeals = await CRMLead.find({ _id: { $in: changing.map((l) => l._id) }, dealId: { $ne: null } });
           for (const l of withDeals) await syncDealFromLead(l, req.admin._id);

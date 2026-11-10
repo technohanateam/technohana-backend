@@ -127,78 +127,82 @@ export const sendCrmEmail = async (req, res) => {
       if (record) record.name = [record.firstName, record.lastName].filter(Boolean).join(" ");
     }
     if (!record) return res.status(404).json({ success: false, message: "Recipient not found" });
-    if (!record.email) return res.status(400).json({ success: false, message: "This record has no email address" });
-    if (isDoNotContact(record)) {
-      return res.status(409).json({ success: false, message: `${record.name} is marked do not contact — not sending.` });
-    }
 
-    // Don't keep mailing an address that bounced or complained before. A marketing
-    // unsubscribe alone doesn't block a rep's 1:1 email.
-    const [crmBounce, siteBounce] = await Promise.all([
-      CRMActivity.exists({ type: "email", "metadata.to": record.email, "metadata.status": { $in: ["bounced", "complained"] } }),
-      Subscription.exists({ email: record.email.trim().toLowerCase(), isActive: false, unsubscribeReason: { $in: ["bounced", "complained"] } })
-        .collation({ locale: "en", strength: 2 }),
-    ]);
-    const suppressed = crmBounce || siteBounce;
-    if (suppressed) {
-      return res.status(409).json({ success: false, message: `${record.email} bounced or marked a previous email as spam — not sending.` });
-    }
-
-    // Log first so the Resend tag can point back at this activity.
-    const activity = await CRMActivity.create({
-      type: "email",
-      title: subject.trim(),
-      body: body.trim(),
-      relatedToType,
-      relatedToId: record._id,
-      performedBy: req.admin._id,
-      metadata: { to: record.email, subject: subject.trim(), status: "sending", events: [] },
-    });
-
-    // Prefer the rep's own Zoho mailbox; fall back to Resend if unconnected or Zoho fails.
-    const zoho = await getActiveConnection(req.admin._id);
-    if (zoho?.zohoMailAccountId) {
-      try {
-        const sent = await sendZohoMail(zoho, {
-          to: record.email,
-          subject: subject.trim(),
-          html: emailLayout({ body: body.trim(), admin: req.admin }),
-        });
-        await CRMActivity.updateOne({ _id: activity._id }, {
-          "metadata.status": "sent", "metadata.provider": "zoho", "metadata.direction": "out",
-          "metadata.zohoMessageId": sent.messageId, "metadata.from": zoho.emailAddress, "metadata.sentAt": new Date(),
-        });
-        return res.status(201).json({ success: true, data: { activityId: activity._id }, message: `Email sent to ${record.email} from ${zoho.emailAddress}` });
-      } catch (err) {
-        console.error("Zoho send failed, falling back to Resend:", err.message);
-      }
-    }
-
-    let result;
-    try {
-      result = await sendEmail({
-        from: process.env.CRM_FROM_EMAIL || fromAddresses.sales,
-        to: record.email,
-        replyTo: req.admin.email,
-        subject: subject.trim(),
-        html: emailLayout({ body: body.trim(), admin: req.admin }),
-        text: `${body.trim()}\n\n${[req.admin.name || "Technohana Sales", req.admin.title, "Technohana", req.admin.phone, req.admin.signature].filter(Boolean).join("\n")}`,
-        tags: [{ name: "source", value: "crm" }, { name: "crm_activity", value: String(activity._id) }],
-      });
-      if (result?.error) throw new Error(result.error.message || "Resend rejected the email");
-    } catch (err) {
-      await CRMActivity.updateOne({ _id: activity._id }, { "metadata.status": "failed", "metadata.error": err.message });
-      console.error("CRM email send failed:", err.message);
-      return res.status(502).json({ success: false, message: "The email couldn't be sent. It's logged as failed — try again shortly." });
-    }
-
-    await CRMActivity.updateOne({ _id: activity._id }, {
-      "metadata.status": "sent", "metadata.resendId": result?.data?.id, "metadata.sentAt": new Date(),
-    });
-    res.status(201).json({ success: true, data: { activityId: activity._id, resendId: result?.data?.id }, message: `Email sent to ${record.email}` });
+    const out = await deliverCrmEmail(req, { record, relatedToType, subject, body });
+    res.status(out.status).json(out.json);
   } catch (err) {
     sendCrmError(res, err, "Failed to send email");
   }
+};
+
+// Shared by POST /email/send and recommend-course: checks suppression, logs the
+// activity, then sends via the rep's Zoho mailbox (or Resend). Returns { status, json }.
+export const deliverCrmEmail = async (req, { record, relatedToType, subject, body }) => {
+  const fail = (status, message) => ({ status, json: { success: false, message } });
+  if (!record.email) return fail(400, "This record has no email address");
+  if (isDoNotContact(record)) return fail(409, `${record.name} is marked do not contact — not sending.`);
+
+  // Don't keep mailing an address that bounced or complained before. A marketing
+  // unsubscribe alone doesn't block a rep's 1:1 email.
+  const [crmBounce, siteBounce] = await Promise.all([
+    CRMActivity.exists({ type: "email", "metadata.to": record.email, "metadata.status": { $in: ["bounced", "complained"] } }),
+    Subscription.exists({ email: record.email.trim().toLowerCase(), isActive: false, unsubscribeReason: { $in: ["bounced", "complained"] } })
+      .collation({ locale: "en", strength: 2 }),
+  ]);
+  if (crmBounce || siteBounce) return fail(409, `${record.email} bounced or marked a previous email as spam — not sending.`);
+
+  // Log first so the Resend tag can point back at this activity.
+  const activity = await CRMActivity.create({
+    type: "email",
+    title: subject.trim(),
+    body: body.trim(),
+    relatedToType,
+    relatedToId: record._id,
+    performedBy: req.admin._id,
+    metadata: { to: record.email, subject: subject.trim(), status: "sending", events: [] },
+  });
+
+  // Prefer the rep's own Zoho mailbox; fall back to Resend if unconnected or Zoho fails.
+  const zoho = await getActiveConnection(req.admin._id);
+  if (zoho?.zohoMailAccountId) {
+    try {
+      const sent = await sendZohoMail(zoho, {
+        to: record.email,
+        subject: subject.trim(),
+        html: emailLayout({ body: body.trim(), admin: req.admin }),
+      });
+      await CRMActivity.updateOne({ _id: activity._id }, {
+        "metadata.status": "sent", "metadata.provider": "zoho", "metadata.direction": "out",
+        "metadata.zohoMessageId": sent.messageId, "metadata.from": zoho.emailAddress, "metadata.sentAt": new Date(),
+      });
+      return { status: 201, json: { success: true, data: { activityId: activity._id }, message: `Email sent to ${record.email} from ${zoho.emailAddress}` } };
+    } catch (err) {
+      console.error("Zoho send failed, falling back to Resend:", err.message);
+    }
+  }
+
+  let result;
+  try {
+    result = await sendEmail({
+      from: process.env.CRM_FROM_EMAIL || fromAddresses.sales,
+      to: record.email,
+      replyTo: req.admin.email,
+      subject: subject.trim(),
+      html: emailLayout({ body: body.trim(), admin: req.admin }),
+      text: `${body.trim()}\n\n${[req.admin.name || "Technohana Sales", req.admin.title, "Technohana", req.admin.phone, req.admin.signature].filter(Boolean).join("\n")}`,
+      tags: [{ name: "source", value: "crm" }, { name: "crm_activity", value: String(activity._id) }],
+    });
+    if (result?.error) throw new Error(result.error.message || "Resend rejected the email");
+  } catch (err) {
+    await CRMActivity.updateOne({ _id: activity._id }, { "metadata.status": "failed", "metadata.error": err.message });
+    console.error("CRM email send failed:", err.message);
+    return fail(502, "The email couldn't be sent. It's logged as failed — try again shortly.");
+  }
+
+  await CRMActivity.updateOne({ _id: activity._id }, {
+    "metadata.status": "sent", "metadata.resendId": result?.data?.id, "metadata.sentAt": new Date(),
+  });
+  return { status: 201, json: { success: true, data: { activityId: activity._id, resendId: result?.data?.id }, message: `Email sent to ${record.email}` } };
 };
 
 // ── Tags ─────────────────────────────────────────────────────────────────────

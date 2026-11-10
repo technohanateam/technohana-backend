@@ -4,6 +4,7 @@ import { crmRead, crmWrite, crmDelete, crmBulk, crmImport, crmExport } from "../
 import Course from "../models/course.model.js";
 import { crmInputGuard } from "../middleware/crmInputGuard.js";
 import { crmAudit } from "../middleware/crmAudit.js";
+import { getCoursePdf, runSkillsGap, draftRecommendationEmail, recommendCourse } from "../controllers/crmCourse.controller.js";
 
 import {
   getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents, getSearch, getNotifications,
@@ -107,6 +108,7 @@ router.get("/courses", crmRead("courses"), async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
+router.get("/courses/:id/pdf", crmRead("courses"), getCoursePdf);
 router.get("/notifications",     crmRead("dashboard"),  getNotifications);
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
@@ -131,6 +133,9 @@ router.post("/leads/bulk",          crmBulk("leads"),         bulkLeadAction);
 router.get("/leads",                crmRead("leads"),         getLeads);
 router.post("/leads",               crmWrite("leads"),        createLead);
 router.get("/leads/:id",            crmRead("leads"),         getLead);
+router.post("/leads/:id/skills-gap",                   crmWrite("leads"), aiLimiter, runSkillsGap);
+router.post("/leads/:id/recommend-course/draft",       crmWrite("leads"), draftRecommendationEmail);
+router.post("/leads/:id/recommend-course",             crmWrite("leads"), emailLimiter, recommendCourse);
 router.put("/leads/:id",            crmWrite("leads"),        updateLead);
 router.delete("/leads/:id",         crmDelete("leads"),       deleteLead);
 router.post("/leads/:id/merge",     crmWrite("leads"),        mergeLead);
