@@ -1,6 +1,7 @@
 import express, { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { crmRead, crmWrite, crmDelete, crmBulk, crmImport, crmExport } from "../middleware/crmPermission.js";
+import Course from "../models/course.model.js";
 import { crmInputGuard } from "../middleware/crmInputGuard.js";
 import { crmAudit } from "../middleware/crmAudit.js";
 
@@ -94,6 +95,18 @@ router.get("/dashboard/sources", crmRead("dashboard"),  getLeadSourcesBreakdown)
 router.get("/analytics",         crmRead("dashboard"),  getAnalytics);
 router.get("/calendar",          crmRead("dashboard"),  getCalendarEvents);
 router.get("/search",            crmRead("dashboard"),  getSearch);
+router.get("/courses", crmRead("courses"), async (req, res) => {
+  try {
+    const data = await Course.find({})
+      .select("id courseTitle courseSlug category difficulty courseDays")
+      .sort({ category: 1, id: 1 })
+      .lean();
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error("CRM courses error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 router.get("/notifications",     crmRead("dashboard"),  getNotifications);
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
