@@ -1,4 +1,5 @@
 import axios from "axios";
+import crypto from "crypto";
 import Course from "../models/course.model.js";
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
@@ -11,7 +12,7 @@ const SITE = "https://www.technohana.in";
 
 // Statuses before a course has been recommended; recommending / running the
 // skills-gap analysis moves a lead forward from these, never backwards.
-const BEFORE_SKILL_GAP = ["new", "contacted", "discovery", "needs_analysis"];
+export const BEFORE_SKILL_GAP = ["new", "contacted", "discovery", "needs_analysis"];
 const BEFORE_RECOMMENDED = [...BEFORE_SKILL_GAP, "skill_gap_assessed"];
 
 // Price may only appear in a recommendation email from the proposal stage on.
@@ -20,7 +21,7 @@ const PRICE_STAGES = ["proposal_sent", "negotiation", "quotation_sent", "purchas
 const CURRENCY_PREFIX = { inr: "INR ", usd: "USD ", aed: "AED ", gbp: "GBP ", eur: "EUR " };
 const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
-const logStatusChange = (leadId, from, to, performedBy, why) =>
+export const logStatusChange = (leadId, from, to, performedBy, why) =>
   CRMActivity.create({
     type: "status_change", title: "Status changed", body: `Status changed from ${from} to ${to} (${why})`,
     relatedToType: "lead", relatedToId: leadId, performedBy, metadata: { from, to },
@@ -89,6 +90,44 @@ export const runSkillsGap = async (req, res) => {
     res.json({ success: true, data: { analysis, status: advance ? "skill_gap_assessed" : lead.status }, message: "Skills-gap analysis saved to the lead" });
   } catch (err) {
     sendCrmError(res, err, "Skills-gap analysis failed");
+  }
+};
+
+// POST /leads/:id/skills-gap-link — gives the lead a personal Skills Gap link. With
+// `send: true` it is emailed to the lead; otherwise it is only returned so the rep can
+// paste it into WhatsApp. A submission through the link is attached back to the lead.
+export const sendSkillsGapLink = async (req, res) => {
+  try {
+    const scope = leadScope(req, req.params.id);
+    const lead = scope && await CRMLead.findOne(scope).select("name email tags publicToken").populate("tags", "name").lean();
+    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+
+    let token = lead.publicToken;
+    if (!token) {
+      token = crypto.randomBytes(18).toString("base64url");
+      // Conditional set: two reps clicking at once can't replace each other's token.
+      const set = await CRMLead.updateOne({ _id: lead._id, publicToken: null }, { $set: { publicToken: token } });
+      if (!set.modifiedCount) token = (await CRMLead.findById(lead._id).select("publicToken").lean())?.publicToken || token;
+    }
+    const link = `${SITE}/skills-gap?cl=${token}`;
+
+    if (req.body.send !== true) {
+      return res.json({ success: true, data: { link, emailed: false }, message: "Skills Gap link ready" });
+    }
+
+    const body = [
+      `Hi ${firstName(lead.name)},`,
+      "To suggest the right learning path for you, could you take a couple of minutes to try our free Skills Gap tool? Tell us your current role and the role you're aiming for, and you'll get a personalised plan by email.",
+      link,
+      "Happy to go through the results with you on a quick call.",
+      "Best regards,",
+    ].join("\n\n");
+
+    const out = await deliverCrmEmail(req, { record: lead, relatedToType: "lead", subject: "Your free Skills Gap analysis", body });
+    if (out.status >= 400) return res.status(out.status).json(out.json);
+    res.json({ success: true, data: { link, emailed: true }, message: out.json.message });
+  } catch (err) {
+    sendCrmError(res, err, "Failed to prepare the Skills Gap link");
   }
 };
 
