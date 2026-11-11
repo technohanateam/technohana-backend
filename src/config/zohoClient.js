@@ -118,16 +118,17 @@ export function clearAccessCache(connection) {
 }
 
 // service: "mail" | "meeting". Returns parsed JSON; throws with `.status` on HTTP errors.
-export async function zohoFetch(connection, service, path, { method = "GET", body } = {}) {
+// `form` (a FormData) sends multipart; fetch sets the boundary header itself.
+export async function zohoFetch(connection, service, path, { method = "GET", body, form } = {}) {
   const token = await getAccessToken(connection);
   const res = await fetch(`${zohoHosts()[service]}${path}`, {
     method,
     headers: {
       Authorization: `Zoho-oauthtoken ${token}`,
       Accept: "application/json",
-      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(body && !form ? { "Content-Type": "application/json" } : {}),
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: form || (body ? JSON.stringify(body) : undefined),
   });
   const json = await res.json().catch(() => ({}));
   if (res.status === 401) {

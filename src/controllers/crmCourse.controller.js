@@ -27,6 +27,8 @@ export const logStatusChange = (leadId, from, to, performedBy, why) =>
     relatedToType: "lead", relatedToId: leadId, performedBy, metadata: { from, to },
   }).catch((e) => console.error("Activity log failed:", e.message));
 
+const pdfFilename = (course) => `technohana-${(course.courseSlug || course.id || "course").replace(/[^a-z0-9-_]/gi, "-")}.pdf`;
+
 // GET /courses/:id/pdf — brochure without pricing.
 export const getCoursePdf = async (req, res) => {
   try {
@@ -35,10 +37,9 @@ export const getCoursePdf = async (req, res) => {
     if (!course) return res.status(404).json({ success: false, message: "Course not found" });
 
     const pdf = await generateCoursePdf(course, { siteUrl: SITE });
-    const safeName = (course.courseSlug || course.id || "course").replace(/[^a-z0-9-_]/gi, "-");
     res.set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="technohana-${safeName}.pdf"`,
+      "Content-Disposition": `attachment; filename="${pdfFilename(course)}"`,
       "Content-Length": pdf.length,
     });
     res.send(pdf);
@@ -190,6 +191,7 @@ export const draftRecommendationEmail = async (req, res) => {
       success: true,
       data: {
         ...draft, to: lead.email || null, leadName: lead.name, leadStatus: lead.status,
+        attachmentName: pdfFilename(course),
         from: zoho?.zohoMailAccountId ? zoho.emailAddress : null,
       },
       message: "Email draft ready for review",
@@ -215,6 +217,17 @@ export const recommendCourse = async (req, res) => {
       return res.status(400).json({ success: false, message: "Add a subject and a message before sending" });
     }
 
+    // Built before anything is saved, so a PDF failure sends nothing and changes nothing.
+    let attachments = [];
+    if (wantsEmail && req.body.attachPdf === true) {
+      try {
+        attachments = [{ filename: pdfFilename(course), content: await generateCoursePdf(course, { siteUrl: SITE }) }];
+      } catch (err) {
+        console.error("Course PDF generation failed:", err.message);
+        return res.status(500).json({ success: false, message: "Couldn't create the syllabus PDF. Try again, or send without it." });
+      }
+    }
+
     const entry = { courseId: course.id, courseTitle: course.courseTitle, reason: str(req.body.reason, 300) || undefined };
     // Conditional push: two reps recommending at once can't overwrite each other or double-add.
     const saved = await CRMLead.updateOne(
@@ -234,7 +247,7 @@ export const recommendCourse = async (req, res) => {
       return res.json({ success: true, data: { added, status, emailed: false }, message: added ? `Recommended to ${lead.name}` : `Already recommended to ${lead.name}` });
     }
 
-    const out = await deliverCrmEmail(req, { record: lead, relatedToType: "lead", subject, body, requireZoho: true });
+    const out = await deliverCrmEmail(req, { record: lead, relatedToType: "lead", subject, body, requireZoho: true, attachments });
     if (out.status >= 400) {
       return res.status(out.status).json({
         success: false,
