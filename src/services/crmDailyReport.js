@@ -5,6 +5,7 @@ import CRMActivity from "../models/crm/crmActivity.model.js";
 import CrmUser from "../models/crmUser.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { crmDailyReportEmail } from "../utils/emailTemplate.js";
+import { generateReportNarrative } from "./crmReportNarrative.js";
 
 // All CRM reporting days are IST calendar days (no DST, fixed +05:30 offset).
 export const REPORT_TZ = "Asia/Kolkata";
@@ -144,6 +145,8 @@ export async function getDailyReportRecipients() {
 export async function sendDailyReportEmail({ from = istDateStr(), to = from, recipients } = {}) {
   const report = await buildDailyReport({ from, to });
   if (report.error) throw new Error(report.error);
+  const { start, end } = resolveRange(from, to);
+  const narrative = await generateReportNarrative({ report, start, end });
 
   const sendTo = recipients?.length ? recipients : await getDailyReportRecipients();
   if (!sendTo.length) return { sent: 0, report };
@@ -154,7 +157,7 @@ export async function sendDailyReportEmail({ from = istDateStr(), to = from, rec
     from: fromAddresses.sales,
     to: sendTo,
     subject: `CRM ${report.from === report.to ? "Daily" : "Activity"} Report — ${dateLabel}`,
-    html: crmDailyReportEmail({ report, dashboardUrl: `${dashboardUrl}/analytics` }),
+    html: crmDailyReportEmail({ report, narrative, dashboardUrl: `${dashboardUrl}/analytics` }),
   });
   return { sent: sendTo.length, report };
 }

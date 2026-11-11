@@ -1,5 +1,6 @@
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
+import { generateReportNarrative } from "../services/crmReportNarrative.js";
 import { buildDailyReport, sendDailyReportEmail, resolveRange, istDateStr, istMonthStart, REPORT_TZ } from "../services/crmDailyReport.js";
 import { ownerFilter } from "../utils/crmQuery.js";
 
@@ -196,6 +197,31 @@ export const getDailyReport = async (req, res) => {
   } catch (err) {
     console.error("getDailyReport error:", err);
     res.status(500).json({ success: false, message: "Failed to load daily report" });
+  }
+};
+
+// On-demand plain-English summary (team overview + per-rep narrative). Same
+// access rule as getDailyReport: non-admins only ever get their own summary.
+export const getDailyReportSummary = async (req, res) => {
+  try {
+    const role = req.crmRole || req.admin.role;
+    const repId = CRM_ADMIN_ROLES.includes(role) ? null : req.admin._id;
+    const range = resolveRange(req.query.from, req.query.to);
+    if (range.error) return res.status(400).json({ success: false, message: range.error });
+    const report = await buildDailyReport({ from: range.from, to: range.to, repId });
+    if (report.error) return res.status(400).json({ success: false, message: report.error });
+    const narrative = await generateReportNarrative({
+      report,
+      start: range.start,
+      end: range.end,
+      includeOverview: !repId,
+      cacheKey: `${range.from}|${range.to}|${repId ? String(repId) : "all"}`,
+    });
+    if (!narrative) return res.status(503).json({ success: false, message: "AI summary is unavailable right now. The numbers above are still accurate." });
+    res.json({ success: true, data: narrative, message: "Summary generated" });
+  } catch (err) {
+    console.error("getDailyReportSummary error:", err);
+    res.status(500).json({ success: false, message: "Failed to generate summary" });
   }
 };
 

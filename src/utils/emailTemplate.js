@@ -1145,7 +1145,7 @@ export function generateBlogPostEmail({ title, excerpt, img, slug }) {
 
 // ─── CRM DAILY REPORT (admins) ───────────────────────────────────────────────
 
-export function crmDailyReportEmail({ report, dashboardUrl }) {
+export function crmDailyReportEmail({ report, narrative, dashboardUrl }) {
   const { totals: t, reps, sources, from, to } = report;
   const inr = (n) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`;
   const dateLabel = from === to ? from : `${from} → ${to}`;
@@ -1159,14 +1159,30 @@ export function crmDailyReportEmail({ report, dashboardUrl }) {
   const th = (s) => `<th style="padding:8px 6px;font-size:11px;text-align:right;color:#64748b;background:#f8fafc;border-bottom:1px solid #e2e8f0;">${s}</th>`;
   const td = (s, bold) => `<td style="padding:8px 6px;font-size:12px;text-align:right;color:#1e293b;border-bottom:1px solid #f1f5f9;${bold ? 'font-weight:700;' : ''}">${s}</td>`;
 
-  const repRows = reps.map((r) => `<tr>
+  const bullets = (items) => (items && items.length
+    ? `<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:#b45309;line-height:1.5;">${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>`
+    : '');
+
+  const repRows = reps.map((r) => {
+    const n = narrative?.reps?.[r.repId];
+    return `<tr>
     <td style="padding:8px 6px;font-size:12px;color:#1e293b;border-bottom:1px solid #f1f5f9;">${escapeHtml(r.repName)}</td>
     ${td(r.leadsCreated)}${td(r.calls)}${td(r.emails + r.whatsapp)}${td(r.meetings)}${td(r.dealsWon)}${td(inr(r.revenueWon))}${td(r.tasksCompleted)}
-  </tr>`).join('');
+  </tr>${n ? `<tr><td colspan="8" style="padding:2px 6px 12px;font-size:12px;color:#475569;line-height:1.6;border-bottom:1px solid #f1f5f9;">${escapeHtml(n.summary)}${bullets(n.attention)}</td></tr>` : ''}`;
+  }).join('');
+
+  const overviewBlock = narrative?.overview
+    ? `<div style="background:#f5f3ff;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:700;color:#4C1D95;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Summary</div>
+      <div style="font-size:14px;color:#1e293b;line-height:1.6;">${escapeHtml(narrative.overview.overview)}</div>
+      ${narrative.overview.actions?.length ? `<div style="font-size:12px;font-weight:700;color:#b45309;margin-top:10px;">Needs attention</div>${bullets(narrative.overview.actions)}` : ''}
+    </div>`
+    : '';
 
   const body = `
     <h2 style="margin:0 0 6px;font-size:20px;color:#0f172a;">CRM Daily Report</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#64748b;">${dateLabel} (IST)</p>
+    ${overviewBlock}
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;"><tr>
       ${tile('New leads', t.leadsCreated)}${tile('Activities', t.activityTotal)}${tile('Deals won', t.dealsWon)}${tile('Revenue won', inr(t.revenueWon))}
     </tr><tr>

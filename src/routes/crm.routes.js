@@ -12,7 +12,7 @@ import {
 import { execSummary, execTrend, execDrilldown } from "../controllers/crmExec.controller.js";
 import { getKpis, createKpi, updateKpi } from "../controllers/crmKpi.controller.js";
 import { getAdPerformanceHandler } from "../controllers/adPerformance.controller.js";
-import { getRevenueTrend, getRepStats, getConversionStats, getDailyReport, emailDailyReportToMe } from "../controllers/crmAnalytics.controller.js";
+import { getRevenueTrend, getRepStats, getConversionStats, getDailyReport, getDailyReportSummary, emailDailyReportToMe } from "../controllers/crmAnalytics.controller.js";
 import {
   getLeads, getLead, createLead, updateLead, deleteLead,
   bulkLeadAction, mergeLead, addNote, getLeadActivities,
@@ -116,6 +116,7 @@ router.get("/analytics/revenue-trend", crmRead("dashboard"), getRevenueTrend);
 router.get("/analytics/rep-stats",     crmRead("dashboard"), getRepStats);
 router.get("/analytics/conversions",   crmRead("dashboard"), getConversionStats);
 router.get("/analytics/daily-report",  crmRead("dashboard"), getDailyReport);
+router.get("/analytics/daily-report/summary", crmRead("dashboard"), getDailyReportSummary);
 router.get("/ads/performance",         crmRead("ads"),       getAdPerformanceHandler);
 
 // ── Instagram comment-to-DM triggers ──────────────────────────────────────────
