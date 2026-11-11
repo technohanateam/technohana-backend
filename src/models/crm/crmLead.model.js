@@ -108,6 +108,10 @@ const crmLeadSchema = new mongoose.Schema(
     // LinkedIn Lead Gen Form response id — same idempotency role for the LinkedIn poller.
     linkedinLeadId: { type: String },
 
+    // Unguessable token embedded in links sent to this lead (e.g. the Skills Gap page),
+    // so a public form submission can be attached back to the lead.
+    publicToken: { type: String },
+
     // Dedup
     isDuplicate: { type: Boolean, default: false },
     mergedInto: { type: mongoose.Schema.Types.ObjectId, ref: "CRMLead" },
@@ -137,6 +141,7 @@ crmLeadSchema.index({ email: 1 });
 crmLeadSchema.index({ phoneNormalized: 1 });
 crmLeadSchema.index({ metaLeadgenId: 1 }, { unique: true, sparse: true });
 crmLeadSchema.index({ linkedinLeadId: 1 }, { unique: true, sparse: true });
+crmLeadSchema.index({ publicToken: 1 }, { unique: true, sparse: true });
 crmLeadSchema.index({ assignedTo: 1 });
 crmLeadSchema.index({ pipeline: 1 });
 crmLeadSchema.index({ createdAt: -1 });

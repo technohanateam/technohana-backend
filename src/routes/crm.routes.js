@@ -4,7 +4,7 @@ import { crmRead, crmWrite, crmDelete, crmBulk, crmImport, crmExport } from "../
 import Course from "../models/course.model.js";
 import { crmInputGuard } from "../middleware/crmInputGuard.js";
 import { crmAudit } from "../middleware/crmAudit.js";
-import { getCoursePdf, runSkillsGap, draftRecommendationEmail, recommendCourse } from "../controllers/crmCourse.controller.js";
+import { getCoursePdf, runSkillsGap, sendSkillsGapLink, draftRecommendationEmail, recommendCourse } from "../controllers/crmCourse.controller.js";
 
 import {
   getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents, getSearch, getNotifications,
@@ -134,6 +134,7 @@ router.get("/leads",                crmRead("leads"),         getLeads);
 router.post("/leads",               crmWrite("leads"),        createLead);
 router.get("/leads/:id",            crmRead("leads"),         getLead);
 router.post("/leads/:id/skills-gap",                   crmWrite("leads"), aiLimiter, runSkillsGap);
+router.post("/leads/:id/skills-gap-link",              crmWrite("leads"), emailLimiter, sendSkillsGapLink);
 router.post("/leads/:id/recommend-course/draft",       crmWrite("leads"), draftRecommendationEmail);
 router.post("/leads/:id/recommend-course",             crmWrite("leads"), emailLimiter, recommendCourse);
 router.put("/leads/:id",            crmWrite("leads"),        updateLead);

@@ -1,3 +1,5 @@
+import Course from "../models/course.model.js";
+import { generateCoursePdf, coursePdfFilename } from "../utils/generateCoursePdf.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMTag from "../models/crm/crmTag.model.js";
 import CRMLead from "../models/crm/crmLead.model.js";
@@ -128,7 +130,20 @@ export const sendCrmEmail = async (req, res) => {
     }
     if (!record) return res.status(404).json({ success: false, message: "Recipient not found" });
 
-    const out = await deliverCrmEmail(req, { record, relatedToType, subject, body });
+    // Optional course syllabus PDF, built before anything is logged or sent.
+    let attachments = [];
+    if (typeof req.body.attachCourseId === "string" && req.body.attachCourseId.trim()) {
+      const course = await Course.findOne({ id: req.body.attachCourseId.trim().slice(0, 50) }).lean();
+      if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+      try {
+        attachments = [{ filename: coursePdfFilename(course), content: await generateCoursePdf(course) }];
+      } catch (err) {
+        console.error("Course PDF generation failed:", err.message);
+        return res.status(500).json({ success: false, message: "Couldn't create the syllabus PDF. Try again, or send without it." });
+      }
+    }
+
+    const out = await deliverCrmEmail(req, { record, relatedToType, subject, body, attachments });
     res.status(out.status).json(out.json);
   } catch (err) {
     sendCrmError(res, err, "Failed to send email");
@@ -138,7 +153,8 @@ export const sendCrmEmail = async (req, res) => {
 // Shared by POST /email/send and recommend-course: checks suppression, logs the
 // activity, then sends via the rep's Zoho mailbox (or Resend). Returns { status, json }.
 // `requireZoho`: send only from the rep's own connected Zoho mailbox, never the shared Resend address.
-export const deliverCrmEmail = async (req, { record, relatedToType, subject, body, requireZoho = false }) => {
+// `attachments`: [{ filename, content: Buffer }] — sent with the email and listed on the activity.
+export const deliverCrmEmail = async (req, { record, relatedToType, subject, body, requireZoho = false, attachments = [] }) => {
   const fail = (status, message) => ({ status, json: { success: false, message } });
   if (!record.email) return fail(400, "This record has no email address");
   if (isDoNotContact(record)) return fail(409, `${record.name} is marked do not contact — not sending.`);
@@ -165,7 +181,10 @@ export const deliverCrmEmail = async (req, { record, relatedToType, subject, bod
     relatedToType,
     relatedToId: record._id,
     performedBy: req.admin._id,
-    metadata: { to: record.email, subject: subject.trim(), status: "sending", events: [] },
+    metadata: {
+      to: record.email, subject: subject.trim(), status: "sending", events: [],
+      ...(attachments.length ? { attachments: attachments.map((a) => a.filename) } : {}),
+    },
   });
 
   // Prefer the rep's own Zoho mailbox; fall back to Resend if unconnected or Zoho fails.
@@ -175,6 +194,7 @@ export const deliverCrmEmail = async (req, { record, relatedToType, subject, bod
         to: record.email,
         subject: subject.trim(),
         html: emailLayout({ body: body.trim(), admin: req.admin }),
+        attachments,
       });
       await CRMActivity.updateOne({ _id: activity._id }, {
         "metadata.status": "sent", "metadata.provider": "zoho", "metadata.direction": "out",
@@ -200,6 +220,7 @@ export const deliverCrmEmail = async (req, { record, relatedToType, subject, bod
       html: emailLayout({ body: body.trim(), admin: req.admin }),
       text: `${body.trim()}\n\n${[req.admin.name || "Technohana Sales", req.admin.title, "Technohana", req.admin.phone, req.admin.signature].filter(Boolean).join("\n")}`,
       tags: [{ name: "source", value: "crm" }, { name: "crm_activity", value: String(activity._id) }],
+      ...(attachments.length ? { attachments } : {}),
     });
     if (result?.error) throw new Error(result.error.message || "Resend rejected the email");
   } catch (err) {
