@@ -160,6 +160,8 @@ function drawFooter(doc, pageNum, total) {
   doc.page.margins.bottom = savedBottom;
 }
 
+export const coursePdfFilename = (course) => `technohana-${String(course.courseSlug || course.id || "course").replace(/[^a-z0-9-_]/gi, "-")}.pdf`;
+
 // Course brochure. Deliberately carries NO pricing: reps share it freely and
 // quote prices separately (see the recommend-course email draft).
 export function generateCoursePdf(course, { siteUrl = "https://www.technohana.in" } = {}) {

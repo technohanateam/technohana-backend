@@ -4,7 +4,7 @@ import Course from "../models/course.model.js";
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import { leadScope, sendCrmError } from "../utils/crmQuery.js";
-import { generateCoursePdf } from "../utils/generateCoursePdf.js";
+import { generateCoursePdf, coursePdfFilename } from "../utils/generateCoursePdf.js";
 import { deliverCrmEmail } from "./crmActivity.controller.js";
 import { getActiveConnection } from "../services/zohoService.js";
 
@@ -27,8 +27,6 @@ export const logStatusChange = (leadId, from, to, performedBy, why) =>
     relatedToType: "lead", relatedToId: leadId, performedBy, metadata: { from, to },
   }).catch((e) => console.error("Activity log failed:", e.message));
 
-const pdfFilename = (course) => `technohana-${(course.courseSlug || course.id || "course").replace(/[^a-z0-9-_]/gi, "-")}.pdf`;
-
 // GET /courses/:id/pdf — brochure without pricing.
 export const getCoursePdf = async (req, res) => {
   try {
@@ -39,7 +37,7 @@ export const getCoursePdf = async (req, res) => {
     const pdf = await generateCoursePdf(course, { siteUrl: SITE });
     res.set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${pdfFilename(course)}"`,
+      "Content-Disposition": `attachment; filename="${coursePdfFilename(course)}"`,
       "Content-Length": pdf.length,
     });
     res.send(pdf);
@@ -191,7 +189,7 @@ export const draftRecommendationEmail = async (req, res) => {
       success: true,
       data: {
         ...draft, to: lead.email || null, leadName: lead.name, leadStatus: lead.status,
-        attachmentName: pdfFilename(course),
+        attachmentName: coursePdfFilename(course),
         from: zoho?.zohoMailAccountId ? zoho.emailAddress : null,
       },
       message: "Email draft ready for review",
@@ -221,7 +219,7 @@ export const recommendCourse = async (req, res) => {
     let attachments = [];
     if (wantsEmail && req.body.attachPdf === true) {
       try {
-        attachments = [{ filename: pdfFilename(course), content: await generateCoursePdf(course, { siteUrl: SITE }) }];
+        attachments = [{ filename: coursePdfFilename(course), content: await generateCoursePdf(course, { siteUrl: SITE }) }];
       } catch (err) {
         console.error("Course PDF generation failed:", err.message);
         return res.status(500).json({ success: false, message: "Couldn't create the syllabus PDF. Try again, or send without it." });

@@ -1,3 +1,5 @@
+import Course from "../models/course.model.js";
+import { generateCoursePdf, coursePdfFilename } from "../utils/generateCoursePdf.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMTag from "../models/crm/crmTag.model.js";
 import CRMLead from "../models/crm/crmLead.model.js";
@@ -128,7 +130,20 @@ export const sendCrmEmail = async (req, res) => {
     }
     if (!record) return res.status(404).json({ success: false, message: "Recipient not found" });
 
-    const out = await deliverCrmEmail(req, { record, relatedToType, subject, body });
+    // Optional course syllabus PDF, built before anything is logged or sent.
+    let attachments = [];
+    if (typeof req.body.attachCourseId === "string" && req.body.attachCourseId.trim()) {
+      const course = await Course.findOne({ id: req.body.attachCourseId.trim().slice(0, 50) }).lean();
+      if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+      try {
+        attachments = [{ filename: coursePdfFilename(course), content: await generateCoursePdf(course) }];
+      } catch (err) {
+        console.error("Course PDF generation failed:", err.message);
+        return res.status(500).json({ success: false, message: "Couldn't create the syllabus PDF. Try again, or send without it." });
+      }
+    }
+
+    const out = await deliverCrmEmail(req, { record, relatedToType, subject, body, attachments });
     res.status(out.status).json(out.json);
   } catch (err) {
     sendCrmError(res, err, "Failed to send email");
