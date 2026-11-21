@@ -7,6 +7,7 @@ import CRMCompany from "../models/crm/crmCompany.model.js";
 import { resolveRange, istMonthStart, istDateStr } from "../services/crmDailyReport.js";
 import { attachRelated, ownerFilter, createdByFilter, dealOwnerFilter, sendCrmError } from "../utils/crmQuery.js";
 import { hasCrmPermission } from "../middleware/crmPermission.js";
+import { awaitingWhatsAppReplies } from "./crmWhatsApp.controller.js";
 
 const STATUS_ORDER = [
   "new", "discovery", "needs_analysis", "skill_gap_assessed",
@@ -336,21 +337,23 @@ export const getNotifications = async (req, res) => {
     const none = Promise.resolve([]);
     const zero = Promise.resolve(0);
 
-    const [overdueTasks, dueTodayTasks, followUps, overdueCount, dueTodayCount, followUpCount] = await Promise.all([
+    const [overdueTasks, dueTodayTasks, followUps, overdueCount, dueTodayCount, followUpCount, waReplies] = await Promise.all([
       canTasks ? CRMTask.find(overdueQ).sort({ dueDate: 1 }).limit(10).select("title dueDate priority").lean() : none,
       canTasks ? CRMTask.find(todayQ).sort({ dueDate: 1 }).limit(10).select("title dueDate priority").lean() : none,
       canLeads ? CRMLead.find(followUpQ).sort({ nextFollowUp: 1 }).limit(10).select("name company nextFollowUp").lean() : none,
       canTasks ? CRMTask.countDocuments(overdueQ) : zero,
       canTasks ? CRMTask.countDocuments(todayQ) : zero,
       canLeads ? CRMLead.countDocuments(followUpQ) : zero,
+      canLeads ? awaitingWhatsAppReplies(me) : none,
     ]);
 
     res.json({
       success: true,
       data: {
         overdueTasks, dueTodayTasks, followUps,
-        counts: { overdue: overdueCount, dueToday: dueTodayCount, followUps: followUpCount },
-        total: overdueCount + dueTodayCount + followUpCount,
+        whatsappReplies: waReplies.slice(0, 10),
+        counts: { overdue: overdueCount, dueToday: dueTodayCount, followUps: followUpCount, whatsappReplies: waReplies.length },
+        total: overdueCount + dueTodayCount + followUpCount + waReplies.length,
       },
     });
   } catch (err) {

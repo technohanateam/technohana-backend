@@ -49,6 +49,9 @@ import {
   listIgTriggers, createIgTrigger, updateIgTrigger, deleteIgTrigger, sendInstagramReply,
 } from "../controllers/crmInstagram.controller.js";
 import {
+  getWhatsAppTemplates, getWhatsAppInbox, getLeadWhatsApp, sendLeadWhatsApp, getContactWhatsApp, sendContactWhatsApp,
+} from "../controllers/crmWhatsApp.controller.js";
+import {
   getInternApplications, getInternApplication, updateInternApplication,
   updateInternApplicationStatus, deleteInternApplication, emailInternApplicant,
   getInternResumeProxy,
@@ -77,6 +80,16 @@ const emailLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Daily email limit reached (100). Send the rest from your mail client and log them." },
+});
+
+// WhatsApp Cloud API messages to leads/contacts — capped per CRM user per day.
+const whatsappLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 200,
+  keyGenerator: (req) => `crm-wa:${req.admin.uid}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Daily WhatsApp limit reached (200). Contact the rest by phone or email." },
 });
 
 // Manual inbox sync hits Zoho on the rep's behalf — cap it per CRM user.
@@ -136,6 +149,8 @@ router.post("/leads/:id/convert",   crmWrite("deals"),        convertLead);
 router.post("/leads/:id/notes",     crmWrite("leads"),        addNote);
 router.get("/leads/:id/activities", crmRead("leads"),         getLeadActivities);
 router.post("/leads/:id/instagram-reply", crmWrite("activities"), sendInstagramReply);
+router.get("/leads/:id/whatsapp",         crmRead("leads"),         getLeadWhatsApp);
+router.post("/leads/:id/whatsapp",        crmWrite("activities"), whatsappLimiter, sendLeadWhatsApp);
 
 // ── AI on Leads ───────────────────────────────────────────────────────────────
 router.get("/leads/:id/ai-summary",      crmRead("ai"),  aiLimiter, aiLeadSummary);
@@ -152,6 +167,8 @@ router.put("/contacts/:id",              crmWrite("contacts"),  updateContact);
 router.delete("/contacts/:id",           crmDelete("contacts"), deleteContact);
 router.post("/contacts/:id/notes",       crmWrite("contacts"),  addContactNote);
 router.get("/contacts/:id/activities",   crmRead("contacts"),   getContactActivities);
+router.get("/contacts/:id/whatsapp",     crmRead("contacts"),   getContactWhatsApp);
+router.post("/contacts/:id/whatsapp",    crmWrite("activities"), whatsappLimiter, sendContactWhatsApp);
 
 // ── Companies ─────────────────────────────────────────────────────────────────
 router.get("/companies",              crmRead("companies"),   getCompanies);
@@ -197,6 +214,8 @@ router.get("/zoho/connect", getZohoConnectUrl);
 router.delete("/zoho/connection", disconnectZoho);
 router.post("/zoho/sync-now", crmRead("activities"), syncLimiter, syncZohoMailNow);
 
+router.get("/whatsapp/templates", crmRead("activities"), getWhatsAppTemplates);
+router.get("/whatsapp/inbox",     crmRead("activities"), getWhatsAppInbox);
 router.get("/courses", crmRead("courses"), getCourses);
 router.post("/meetings", crmWrite("activities"), scheduleMeeting);
 

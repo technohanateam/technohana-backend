@@ -1,4 +1,5 @@
 import WhatsAppMessage from "../models/whatsappMessage.model.js";
+import CRMActivity from "../models/crm/crmActivity.model.js";
 import { normalizePhone } from "../utils/phone.js";
 import { findDuplicateLead, upsertCrmLead } from "./crmLeadIntake.js";
 import { cancelOutreach } from "./crmOutreach.js";
@@ -7,10 +8,10 @@ const GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v21.0";
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const OPT_OUT_WORDS = new Set(["stop", "unsubscribe", "cancel", "optout", "opt out"]);
 
-export const isWhatsAppConfigured = () => !!(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
-
 // Cloud API wants digits only (no "+").
-const toWaId = (phone, country) => normalizePhone(phone, country)?.replace(/^\+/, "");
+export const toWhatsAppId = (phone, country) => normalizePhone(phone, country)?.replace(/^\+/, "");
+
+export const isWhatsAppConfigured = () => !!(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
 
 async function graphPost(body) {
   const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
@@ -22,10 +23,13 @@ async function graphPost(body) {
   if (!res.ok) {
     const err = new Error(json?.error?.message || `WhatsApp API ${res.status}`);
     err.code = json?.error?.code;
+    err.status = 502;
     throw err;
   }
   return json;
 }
+
+const fail = (message, status) => Object.assign(new Error(message), { status });
 
 const hasOptedOut = (waId) => WhatsAppMessage.exists({ phone: waId, direction: "in", type: "opt_out" });
 
@@ -36,10 +40,10 @@ export async function isInServiceWindow(waId) {
 }
 
 async function send({ phone, country, payload, record }) {
-  if (!isWhatsAppConfigured()) throw new Error("WhatsApp is not configured");
-  const waId = toWaId(phone, country);
-  if (!waId) throw new Error("Invalid phone number");
-  if (await hasOptedOut(waId)) throw new Error("Recipient has opted out of WhatsApp messages");
+  if (!isWhatsAppConfigured()) throw fail("WhatsApp is not configured", 503);
+  const waId = toWhatsAppId(phone, country);
+  if (!waId) throw fail("Invalid phone number", 400);
+  if (await hasOptedOut(waId)) throw fail("Recipient has opted out of WhatsApp messages", 409);
 
   const msg = await WhatsAppMessage.create({ direction: "out", phone: waId, status: "queued", ...record });
   try {
@@ -79,8 +83,8 @@ export const sendLoginCode = ({ phone, code }) =>
   });
 
 export async function sendText({ phone, country, body, ...link }) {
-  const waId = toWaId(phone, country);
-  if (!waId || !(await isInServiceWindow(waId))) throw new Error("Outside the 24h reply window — send an approved template instead");
+  const waId = toWhatsAppId(phone, country);
+  if (!waId || !(await isInServiceWindow(waId))) throw fail("Outside the 24h reply window — send an approved template instead", 409);
   return send({ phone, country, payload: { type: "text", text: { body } }, record: { type: "text", body, ...link } });
 }
 
@@ -148,14 +152,28 @@ export async function recordInbound(m) {
   const text = m.text?.body || m.button?.text || m.interactive?.button_reply?.title || "";
   const isOptOut = m.type === "text" && OPT_OUT_WORDS.has(text.trim().toLowerCase());
   const startsConversation = !(await isInServiceWindow(String(m.from)));
-  await WhatsAppMessage.create({
+  const msg = await WhatsAppMessage.create({
     direction: "in", phone: String(m.from), waMessageId: m.id,
     type: isOptOut ? "opt_out" : m.type, body: text, status: "received",
   });
   if (isOptOut) {
     const lead = await findDuplicateLead({ phone: `+${m.from}` });
     if (lead) await cancelOutreach(lead._id);
-  } else if (startsConversation) {
-    await captureWhatsAppLead(m, text);
+    return;
   }
+  if (startsConversation) await captureWhatsAppLead(m, text);
+
+  // Tie the message to the lead (possibly just created above) so the rep's thread and timeline show it.
+  const lead = await findDuplicateLead({ phone: `+${m.from}` });
+  if (!lead) return;
+  msg.relatedToType = "lead";
+  msg.relatedToId = lead._id;
+  await Promise.all([
+    msg.save(),
+    CRMActivity.create({
+      type: "whatsapp", title: "WhatsApp received", body: text || `(${m.type})`,
+      relatedToType: "lead", relatedToId: lead._id,
+      metadata: { direction: "in", waMessageId: m.id },
+    }),
+  ]);
 }
