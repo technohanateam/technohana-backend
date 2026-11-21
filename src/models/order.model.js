@@ -13,6 +13,13 @@ const InstalmentSchema = new mongoose.Schema({
   invoiceNumber: { type: String },
   // Which reminder emails have gone out ("before", "due", "hold"), so each is sent once.
   remindersSent: { type: [String], default: [] },
+  // Manual changes an admin made to this instalment (marked paid by hand, due date extended).
+  adminLog: { type: [new mongoose.Schema({
+    action: { type: String },
+    by: { type: String },
+    note: { type: String },
+    at: { type: Date },
+  }, { _id: false })], default: undefined },
 }, { _id: false });
 
 const OrderSchema = new mongoose.Schema({

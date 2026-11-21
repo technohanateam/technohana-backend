@@ -23,6 +23,7 @@ import { enqueueSitemapSubmit } from "../services/seoIntelQueue.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { refreshPriceCatalog } from "../utils/pricing.js";
+import { listInstalmentBalances, markInstalmentPaidManually, extendInstalmentDue } from "../services/instalments.js";
 import { contentFactoryAiLimiter } from "../middleware/contentFactoryAiLimiter.js";
 import { generateCourseFromUrls } from "../controllers/contentFactory/courseUrlImport.controller.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
@@ -279,6 +280,50 @@ router.get("/enrollments", authenticateAdmin, requirePage("enrollments"), adminD
     return res.json({ success: true, data, total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     console.error("Admin enrollments error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ── Interest-free instalments: balances still owed ───────────────────────────
+// Reading is open to anyone who can see enrollments; changing a balance is admin-only.
+const INSTALMENT_ORDER_ID = /^ord_[a-z0-9]{1,40}$/i;
+const adminActor = (req) => req.admin?.uid || req.admin?.email || "admin";
+
+// GET /admin/instalments?view=open|paid
+router.get("/instalments", authenticateAdmin, requirePage("enrollments"), adminDataLimiter, async (req, res) => {
+  try {
+    const view = req.query.view === "paid" ? "paid" : "open";
+    return res.json({ success: true, data: await listInstalmentBalances({ view }) });
+  } catch (err) {
+    console.error("Admin instalments error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/instalments/:orderId/mark-paid  { reference, note }
+router.post("/instalments/:orderId/mark-paid", authenticateAdmin, requirePage("enrollments"), requireAdmin, async (req, res) => {
+  try {
+    if (!INSTALMENT_ORDER_ID.test(req.params.orderId)) return res.status(400).json({ message: "Invalid order id." });
+    const result = await markInstalmentPaidManually({ orderId: req.params.orderId, reference: req.body?.reference, note: req.body?.note, by: adminActor(req) });
+    if (result.error) return res.status(result.status).json({ message: result.error });
+    console.log(`[instalments] ${req.params.orderId} marked paid by hand by ${adminActor(req)}`);
+    return res.json({ success: true, message: "Balance marked as paid." });
+  } catch (err) {
+    console.error("Admin mark instalment paid error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/instalments/:orderId/extend  { dueAt, note }
+router.post("/instalments/:orderId/extend", authenticateAdmin, requirePage("enrollments"), requireAdmin, async (req, res) => {
+  try {
+    if (!INSTALMENT_ORDER_ID.test(req.params.orderId)) return res.status(400).json({ message: "Invalid order id." });
+    const result = await extendInstalmentDue({ orderId: req.params.orderId, dueAt: req.body?.dueAt, note: req.body?.note, by: adminActor(req) });
+    if (result.error) return res.status(result.status).json({ message: result.error });
+    console.log(`[instalments] ${req.params.orderId} due date extended by ${adminActor(req)}`);
+    return res.json({ success: true, message: "Due date extended and any access hold lifted.", data: { dueAt: result.dueAt } });
+  } catch (err) {
+    console.error("Admin extend instalment error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });

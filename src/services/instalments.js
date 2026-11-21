@@ -109,7 +109,8 @@ const notify = async (order, kind, link) => {
 };
 
 // Marks the balance paid. Safe to call more than once for the same payment (webhook retries).
-export async function markInstalmentPaid({ orderId, paymentId, amountMinor, paidAtMs = Date.now() }) {
+// markedBy/note are set only when an admin does it by hand, and are kept on the instalment as an audit trail.
+export async function markInstalmentPaid({ orderId, paymentId, amountMinor, paidAtMs = Date.now(), markedBy, note }) {
   const order = await Order.findOne({ orderId }).lean();
   const second = secondInstalment(order);
   if (!second) return { updated: false, reason: "no-instalment" };
@@ -127,12 +128,108 @@ export async function markInstalmentPaid({ orderId, paymentId, amountMinor, paid
       "instalments.$.invoiceNumber": `${order.invoiceNumber}-2`,
       status: "paid",
       amountPaidMinor: order.expectedTotalMinor,
-    } },
+    },
+    ...(markedBy && { $push: { "instalments.$.adminLog": { action: "mark_paid", by: markedBy, note: note || "", at: new Date() } } }) },
   );
   if (!claim.modifiedCount) return { updated: false, reason: "already-paid" };
   await User.updateMany({ orderId }, { $set: { accessHold: false }, $unset: { holdSince: "" } });
   try { await notify(order, "paid"); } catch (err) { console.error(`[instalments] paid email for ${orderId} failed:`, err.message); }
   return { updated: true };
+}
+
+// ── Admin: balances still owed ───────────────────────────────────────────────
+const OPEN_BALANCE = { status: "partially_paid", instalments: { $elemMatch: { seq: 2, status: { $ne: "paid" } } } };
+const SOON_MS = 7 * DAY_MS;
+const STATE_ORDER = { on_hold: 0, overdue: 1, due_soon: 2, upcoming: 3, paid: 4 };
+
+// Rows for the admin "Instalment balances" page. view "open" = balances still owed; "paid" = settled in the last 30 days.
+export async function listInstalmentBalances({ view = "open", now = new Date(), env = process.env } = {}) {
+  const query = view === "paid"
+    ? { paymentPlan: "two_instalment", status: "paid", instalments: { $elemMatch: { seq: 2, status: "paid", paidAt: { $gte: new Date(now.getTime() - 30 * DAY_MS) } } } }
+    : OPEN_BALANCE;
+  const orders = await Order.find(query).limit(500).lean();
+  const users = orders.length
+    ? await User.find({ orderId: { $in: orders.map((o) => o.orderId) } }).select("orderId accessHold holdSince").lean()
+    : [];
+  const byOrder = new Map(users.map((u) => [u.orderId, u]));
+  const grace = graceDays(env);
+
+  const rows = orders.map((o) => {
+    const second = secondInstalment(o);
+    const user = byOrder.get(o.orderId);
+    const due = second.dueAt ? new Date(second.dueAt).getTime() : null;
+    let state = "upcoming";
+    if (second.status === "paid") state = "paid";
+    else if (user?.accessHold) state = "on_hold";
+    else if (due !== null && now.getTime() >= due) state = "overdue";
+    else if (due !== null && due - now.getTime() <= SOON_MS) state = "due_soon";
+    return {
+      orderId: o.orderId,
+      learner: { fullName: o.learner?.fullName || "", email: o.learner?.email || "", phone: o.learner?.phone || "" },
+      courseTitle: o.courseInfo?.title || o.courseId || "",
+      currency: String(o.currency || "INR").toUpperCase(),
+      totalMinor: o.expectedTotalMinor,
+      paidMinor: o.amountPaidMinor ?? 0,
+      balanceMinor: second.amountMinor,
+      dueAt: second.dueAt || null,
+      graceEndsAt: due !== null ? new Date(due + grace * DAY_MS) : null,
+      state,
+      accessHold: !!user?.accessHold,
+      holdSince: user?.holdSince || null,
+      paymentLinkUrl: second.paymentLinkUrl || null,
+      paidAt: second.paidAt || null,
+      paidManually: String(second.razorpayPaymentId || "").startsWith("manual:"),
+      invoiceNumber: second.invoiceNumber || null,
+    };
+  }).sort((a, b) => (STATE_ORDER[a.state] - STATE_ORDER[b.state])
+    || (a.state === "paid" ? new Date(b.paidAt) - new Date(a.paidAt) : new Date(a.dueAt || 0) - new Date(b.dueAt || 0)));
+
+  const outstanding = new Map();
+  const counts = { on_hold: 0, overdue: 0, due_soon: 0, upcoming: 0, paid: 0 };
+  for (const r of rows) {
+    counts[r.state] += 1;
+    if (r.state === "paid") continue;
+    const o = outstanding.get(r.currency) || { currency: r.currency, amountMinor: 0, count: 0 };
+    o.amountMinor += r.balanceMinor; o.count += 1;
+    outstanding.set(r.currency, o);
+  }
+  return { rows, summary: { counts, outstanding: [...outstanding.values()] } };
+}
+
+// An admin records a balance that was paid outside the website (bank transfer, cash, a link that never reported back).
+export async function markInstalmentPaidManually({ orderId, reference, note, by }) {
+  const ref = String(reference || "").trim().slice(0, 100);
+  if (!ref) return { error: "Enter the payment reference (UTR, receipt or transaction id)", status: 400 };
+  const order = await Order.findOne({ orderId }).lean();
+  const second = secondInstalment(order);
+  if (!second) return { error: "This order has no instalment balance", status: 404 };
+  const result = await markInstalmentPaid({
+    orderId, paymentId: `manual:${ref}`, amountMinor: second.amountMinor, markedBy: by || "admin", note: String(note || "").slice(0, 300),
+  });
+  if (!result.updated) return { error: result.reason === "already-paid" ? "This balance is already paid" : "Could not mark the balance paid", status: 409 };
+  return { updated: true };
+}
+
+// Gives a learner more time: new due date, notices reset, and any access hold lifted (no fee, ever).
+export async function extendInstalmentDue({ orderId, dueAt, by, note }, now = new Date()) {
+  const due = new Date(dueAt);
+  if (Number.isNaN(due.getTime())) return { error: "Enter a valid date", status: 400 };
+  if (due.getTime() <= now.getTime()) return { error: "The new due date must be in the future", status: 400 };
+  if (due.getTime() - now.getTime() > 120 * DAY_MS) return { error: "The new due date can be at most 120 days away", status: 400 };
+  const order = await Order.findOne({ orderId }).lean();
+  const second = secondInstalment(order);
+  if (!second) return { error: "This order has no instalment balance", status: 404 };
+  if (second.status === "paid") return { error: "This balance is already paid", status: 409 };
+  const res = await Order.updateOne(
+    { orderId, instalments: { $elemMatch: { seq: 2, status: { $ne: "paid" } } } },
+    {
+      $set: { "instalments.$.dueAt": due, "instalments.$.status": "due", "instalments.$.remindersSent": [] },
+      $push: { "instalments.$.adminLog": { action: "extend_due", by: by || "admin", note: String(note || "").slice(0, 300), at: new Date() } },
+    },
+  );
+  if (!res.modifiedCount) return { error: "This balance was paid just now", status: 409 };
+  await User.updateMany({ orderId }, { $set: { accessHold: false }, $unset: { holdSince: "" } });
+  return { updated: true, dueAt: due };
 }
 
 // Razorpay webhook: POST /razorpay/webhook (raw body). Handles payment_link.paid for the balance.

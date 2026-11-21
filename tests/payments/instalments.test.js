@@ -18,8 +18,11 @@ const matches = (el, cond) => Object.entries(cond).every(([k, v]) => {
 });
 
 const fakeOrder = {
-  findOne: () => ({ select: () => ({ lean: async () => order }), lean: async () => order }),
-  find: () => ({ limit: () => ({ lean: async () => (order && order.status === "partially_paid" ? [order] : []) }) }),
+  findOne: (q) => {
+    const found = order && (!q?.orderId || q.orderId === order.orderId) ? order : null;
+    return { select: () => ({ lean: async () => found }), lean: async () => found };
+  },
+  find: (q) => ({ limit: () => ({ lean: async () => (order && (!q?.status || q.status === order.status) ? [order] : []) }) }),
   updateOne: async (filter, update) => {
     if (!order || filter.orderId !== order.orderId) return { modifiedCount: 0 };
     let el;
@@ -34,6 +37,10 @@ const fakeOrder = {
       else order[k] = v;
     }
     for (const [k, v] of Object.entries(update.$addToSet || {})) {
+      const f = k.slice("instalments.$.".length);
+      el[f] = [...(el[f] || []), v];
+    }
+    for (const [k, v] of Object.entries(update.$push || {})) {
       const f = k.slice("instalments.$.".length);
       el[f] = [...(el[f] || []), v];
     }
@@ -64,6 +71,7 @@ mock.module("../../src/config/emailService.js", {
 const {
   midpointDueAt, initialDueAt, markInstalmentPaid, handleRazorpayWebhook, runInstalmentChecks,
   ensureSecondInstalmentLink, recomputeDueForEnrollments,
+  listInstalmentBalances, markInstalmentPaidManually, extendInstalmentDue,
 } = await import("../../src/services/instalments.js");
 const { instalmentEligible, splitInstalments, INSTALMENT_MIN_INR_MINOR } = await import("../../src/utils/pricing.js");
 
@@ -244,4 +252,83 @@ test("attaching a learner to a batch moves their balance to the batch midpoint",
   const expected = Math.max(new Date("2027-01-04T12:00:00Z").getTime(), first + 7 * DAY);
   assert.equal(new Date(order.instalments[1].dueAt).getTime(), expected);
   assert.equal(await recomputeDueForEnrollments(["u1"], { startDate: null, endDate: null }), 0);
+});
+
+// ── Admin: balances still owed ───────────────────────────────────────────────
+
+test("the admin list shows each open balance with its state, newest problems first", async () => {
+  userDocs = [];
+  let res = await listInstalmentBalances({ now: NOW });
+  assert.equal(res.rows.length, 1);
+  assert.equal(res.rows[0].state, "due_soon", "due in 3 days");
+  assert.equal(res.rows[0].balanceMinor, 1000000);
+  assert.equal(res.rows[0].paidMinor, undefined === res.rows[0].paidMinor ? 0 : res.rows[0].paidMinor);
+  assert.deepEqual(res.summary.outstanding, [{ currency: "INR", amountMinor: 1000000, count: 1 }]);
+
+  order.instalments[1].dueAt = new Date(NOW.getTime() + 20 * DAY);
+  assert.equal((await listInstalmentBalances({ now: NOW })).rows[0].state, "upcoming");
+
+  order.instalments[1].dueAt = new Date(NOW.getTime() - 1 * DAY);
+  assert.equal((await listInstalmentBalances({ now: NOW })).rows[0].state, "overdue");
+
+  userDocs = [{ orderId: "ord_1", accessHold: true, holdSince: NOW }];
+  res = await listInstalmentBalances({ now: NOW });
+  assert.equal(res.rows[0].state, "on_hold");
+  assert.equal(res.rows[0].accessHold, true);
+  assert.equal(res.summary.counts.on_hold, 1);
+});
+
+test("the paid view lists balances settled recently and flags those marked by hand", async () => {
+  order.status = "paid";
+  order.instalments[1] = { ...order.instalments[1], status: "paid", paidAt: NOW, razorpayPaymentId: "manual:UTR123" };
+  const res = await listInstalmentBalances({ view: "paid", now: NOW });
+  assert.equal(res.rows.length, 1);
+  assert.equal(res.rows[0].state, "paid");
+  assert.equal(res.rows[0].paidManually, true);
+  assert.deepEqual(res.summary.outstanding, []);
+  assert.equal((await listInstalmentBalances({ view: "open", now: NOW })).rows.length, 0, "a paid order is not an open balance");
+});
+
+test("an admin can record a balance paid outside the site; it is audited and lifts the hold", async () => {
+  const res = await markInstalmentPaidManually({ orderId: "ord_1", reference: "UTR123", note: "bank transfer", by: "admin-1" });
+  assert.equal(res.updated, true);
+  assert.equal(order.status, "paid");
+  assert.equal(order.amountPaidMinor, 2000000);
+  assert.equal(order.instalments[1].razorpayPaymentId, "manual:UTR123");
+  assert.deepEqual(order.instalments[1].adminLog.map((l) => [l.action, l.by, l.note]), [["mark_paid", "admin-1", "bank transfer"]]);
+  assert.deepEqual(userCalls[0].update, { $set: { accessHold: false }, $unset: { holdSince: "" } });
+});
+
+test("marking paid needs a reference and cannot be done twice", async () => {
+  assert.equal((await markInstalmentPaidManually({ orderId: "ord_1", reference: "  ", by: "a" })).status, 400);
+  assert.equal(order.status, "partially_paid");
+  await markInstalmentPaidManually({ orderId: "ord_1", reference: "UTR1", by: "a" });
+  const again = await markInstalmentPaidManually({ orderId: "ord_1", reference: "UTR2", by: "a" });
+  assert.equal(again.status, 409);
+  assert.equal(order.instalments[1].adminLog.length, 1);
+});
+
+test("extending a due date resets the notices, lifts the hold and is audited", async () => {
+  order.instalments[1].status = "overdue";
+  order.instalments[1].dueAt = new Date(NOW.getTime() - 9 * DAY);
+  order.instalments[1].remindersSent = ["before", "due", "hold"];
+  const newDue = new Date(NOW.getTime() + 14 * DAY);
+  const res = await extendInstalmentDue({ orderId: "ord_1", dueAt: newDue.toISOString(), by: "admin-1", note: "asked for time" }, NOW);
+  assert.equal(res.updated, true);
+  const second = order.instalments[1];
+  assert.equal(second.status, "due");
+  assert.equal(new Date(second.dueAt).getTime(), newDue.getTime());
+  assert.deepEqual(second.remindersSent, []);
+  assert.equal(second.adminLog[0].action, "extend_due");
+  assert.deepEqual(userCalls[0].update, { $set: { accessHold: false }, $unset: { holdSince: "" } });
+});
+
+test("a due date must be in the future, no more than 120 days out, on an unpaid balance", async () => {
+  const at = (days) => new Date(NOW.getTime() + days * DAY).toISOString();
+  assert.equal((await extendInstalmentDue({ orderId: "ord_1", dueAt: "not a date" }, NOW)).status, 400);
+  assert.equal((await extendInstalmentDue({ orderId: "ord_1", dueAt: at(-1) }, NOW)).status, 400);
+  assert.equal((await extendInstalmentDue({ orderId: "ord_1", dueAt: at(121) }, NOW)).status, 400);
+  assert.equal((await extendInstalmentDue({ orderId: "nope", dueAt: at(5) }, NOW)).status, 404);
+  order.instalments[1].status = "paid";
+  assert.equal((await extendInstalmentDue({ orderId: "ord_1", dueAt: at(5) }, NOW)).status, 409);
 });
