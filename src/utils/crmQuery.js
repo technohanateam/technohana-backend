@@ -29,6 +29,15 @@ export const isOwnerScoped = (req) => CRM_OWNER_SCOPED_ROLES.includes(crmRoleOf(
 // Ids whose assigned work this user may see: themselves, plus their pool when they lead one.
 export const ownedIds = (req) => [req.admin._id, ...(req.admin.teamIds || [])];
 
+// Admins may assign to anyone; a pool lead only to themselves or their own pool.
+export const canAssignLeadTo = (req, assigneeId) => isCrmAdmin(req)
+  || (!!req.admin?.poolLead && ownedIds(req).some((id) => String(id) === String(assigneeId)));
+
+// Owner-scoped users see only admins and their own pool in team pickers, never other reps.
+export const userOptionsFilter = (req) => (!isOwnerScoped(req)
+  ? { active: true }
+  : { active: true, $or: [{ crmRole: { $in: CRM_ADMIN_ROLES } }, { _id: { $in: ownedIds(req) } }] });
+
 export const ownerFilter = (req, field = "assignedTo") => {
   if (!isOwnerScoped(req)) return {};
   const ids = field === "assignedTo" ? ownedIds(req) : [req.admin._id];

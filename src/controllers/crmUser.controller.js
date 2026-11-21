@@ -5,7 +5,7 @@ import CrmUser, { CRM_ROLES } from "../models/crmUser.model.js";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { escapeHtml } from "../utils/emailTemplate.js";
-import { isValidId } from "../utils/crmQuery.js";
+import { isValidId, isCrmAdmin, userOptionsFilter } from "../utils/crmQuery.js";
 import { isPushConfigured } from "../services/crmLeadNotify.js";
 
 const TOKEN_EXPIRY = "8h";
@@ -301,8 +301,8 @@ export const listCrmUsers = async (req, res) => {
 // GET /api/crm/team/options — id + name of active users, for assignee dropdowns
 export const listCrmUserOptions = async (req, res) => {
   try {
-    const users = await CrmUser.find({ active: true }).select("name email crmRole").sort({ name: 1 }).lean();
-    return res.json({ success: true, data: users });
+    const users = await CrmUser.find(userOptionsFilter(req)).select("name email crmRole").sort({ name: 1 }).lean();
+    return res.json({ success: true, data: users, canAssign: isCrmAdmin(req) || !!req.admin?.poolLead });
   } catch (error) {
     console.error("List CRM user options error:", error);
     return res.status(500).json({ success: false, message: "Failed to fetch users." });
