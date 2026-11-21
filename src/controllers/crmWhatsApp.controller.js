@@ -3,7 +3,7 @@ import CRMContact from "../models/crm/crmContact.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMTag from "../models/crm/crmTag.model.js";
 import WhatsAppMessage from "../models/whatsappMessage.model.js";
-import { createdByFilter, isOwnerScoped, isValidId, leadScope, sendCrmError } from "../utils/crmQuery.js";
+import { createdByFilter, isOwnerScoped, isValidId, leadScope, ownerFilter, sendCrmError } from "../utils/crmQuery.js";
 import { isWhatsAppConfigured, sendTemplate, sendText, toWhatsAppId } from "../services/whatsapp.js";
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -28,6 +28,24 @@ export const WA_TEMPLATES = {
     body: "Congratulations, {{1}}! Your enrollment in {{2}} is confirmed. Our team will reach out with onboarding details shortly. Welcome to Technohana!",
   },
 };
+
+// Template parameters can't hold newlines, tabs or runs of spaces (Meta error 132018).
+const cleanParam = (value, fallback) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, 100) || fallback;
+
+// A lead may be reached on `phone` or on a separate WhatsApp number — match either.
+const waIdsOf = (lead) => [lead.phoneNormalized, lead.whatsAppNormalized].filter(Boolean).map((p) => p.replace(/^\+/, ""));
+const leadsByWaIds = (waIds) => {
+  const plus = waIds.map((id) => `+${id}`);
+  return { $or: [{ phoneNormalized: { $in: plus } }, { whatsAppNormalized: { $in: plus } }] };
+};
+function indexLeadsByWaId(leads) {
+  const index = new Map();
+  for (const lead of leads) {
+    for (const id of waIdsOf(lead)) index.set(id, [...(index.get(id) || []), lead]);
+  }
+  return index;
+}
+const LEAD_FIELDS = "name status phoneNormalized whatsAppNormalized updatedAt";
 
 const fillTemplate = (body, params) => body.replace(/\{\{(\d)\}\}/g, (_, i) => params[Number(i) - 1] ?? "");
 
@@ -55,6 +73,21 @@ async function loadRecord(req, type) {
 
 const recordWaId = (r) => toWhatsAppId(r.whatsApp || r.phone, r.country);
 
+// Messages are keyed by phone, so two records can share a number. A rep only gets messages that are
+// unlinked, belong to this record, or belong to a lead they may see — never another rep's chat.
+async function threadFilter(req, type, record, waId) {
+  if (!isOwnerScoped(req)) return { phone: waId };
+  const visible = await CRMLead.distinct("_id", { isDeleted: false, ...ownerFilter(req), ...leadsByWaIds([waId]) });
+  return {
+    phone: waId,
+    $or: [
+      { relatedToId: null },
+      { relatedToType: type, relatedToId: record._id },
+      { relatedToType: "lead", relatedToId: { $in: visible } },
+    ],
+  };
+}
+
 async function windowState(waId) {
   const [lastInbound, optedOut] = await Promise.all([
     WhatsAppMessage.findOne({ phone: waId, direction: "in" }).sort({ createdAt: -1 }).select("createdAt").lean(),
@@ -80,10 +113,18 @@ const threadHandler = (type) => async (req, res) => {
     if (!record) return res.status(404).json({ success: false, message: "Record not found" });
 
     const waId = recordWaId(record);
-    if (!waId) return res.json({ success: true, data: { configured: isWhatsAppConfigured(), phone: null, messages: [] } });
+    if (!waId) {
+      return res.json({
+        success: true,
+        data: {
+          configured: isWhatsAppConfigured(), phone: null, invalidPhone: true, blocked: false,
+          windowOpen: false, windowClosesAt: null, optedOut: false, messages: [],
+        },
+      });
+    }
 
     const [messages, state] = await Promise.all([
-      WhatsAppMessage.find({ phone: waId })
+      WhatsAppMessage.find(await threadFilter(req, type, record, waId))
         .sort({ createdAt: -1 }).limit(200)
         .select("direction type body templateName status error createdAt sentBy")
         .populate("sentBy", "name")
@@ -126,11 +167,13 @@ const sendHandler = (type) => async (req, res) => {
     const phone = record.whatsApp || record.phone;
     let msg;
     if (tpl) {
-      const first = (record.name || "").trim().split(/\s+/)[0] || "there";
-      const params = [first, record.interest || "our AI training programs"];
+      const params = [
+        cleanParam((record.name || "").trim().split(/\s+/)[0], "there"),
+        cleanParam(record.interest, "our AI training programs"),
+      ];
       msg = await sendTemplate({
         phone, country: record.country, name: tplKey, ...link,
-        components: [{ type: "body", parameters: params.map((p) => ({ type: "text", text: String(p).slice(0, 100) })) }],
+        components: [{ type: "body", parameters: params.map((text) => ({ type: "text", text })) }],
         body: fillTemplate(tpl.body, params),
       });
     } else {
@@ -155,14 +198,18 @@ export const getContactWhatsApp = threadHandler("contact");
 export const sendLeadWhatsApp = sendHandler("lead");
 export const sendContactWhatsApp = sendHandler("contact");
 
-// Conversations the caller may see, newest first. A rep only sees chats with their own leads.
+// Conversations the caller may see, newest first. A rep sees chats with leads in their own scope (including their pool).
 export const getWhatsAppInbox = async (req, res) => {
   try {
-    const mine = !isOwnerScoped(req) ? null : await CRMLead.find({
-      assignedTo: req.admin._id, isDeleted: false, phoneNormalized: { $exists: true, $ne: null },
-    }).select("name status phoneNormalized").lean();
+    let leads = null;
+    if (isOwnerScoped(req)) {
+      leads = await CRMLead.find({
+        isDeleted: false, ...ownerFilter(req),
+        $or: [{ phoneNormalized: { $ne: null } }, { whatsAppNormalized: { $ne: null } }],
+      }).sort({ updatedAt: -1 }).limit(2000).select(LEAD_FIELDS).lean();
+    }
 
-    const match = mine ? { phone: { $in: mine.map((l) => l.phoneNormalized.replace(/^\+/, "")) } } : {};
+    const match = leads ? { phone: { $in: [...new Set(leads.flatMap(waIdsOf))] } } : {};
     const groups = await WhatsAppMessage.aggregate([
       { $match: match },
       { $sort: { createdAt: -1 } },
@@ -171,15 +218,14 @@ export const getWhatsAppInbox = async (req, res) => {
       { $limit: 100 },
     ]);
 
-    const leads = mine || await CRMLead.find({
-      isDeleted: false, phoneNormalized: { $in: groups.map((g) => `+${g._id}`) },
-    }).select("name status phoneNormalized").lean();
-    const byPhone = new Map(leads.map((l) => [l.phoneNormalized.replace(/^\+/, ""), l]));
+    leads ||= await CRMLead.find({ isDeleted: false, ...leadsByWaIds(groups.map((g) => g._id)) })
+      .sort({ updatedAt: -1 }).select(LEAD_FIELDS).lean();
+    const index = indexLeadsByWaId(leads);
 
     res.json({
       success: true,
       data: groups.map((g) => {
-        const lead = byPhone.get(g._id);
+        const lead = index.get(g._id)?.[0];
         return {
           phone: `+${g._id}`,
           leadId: lead?._id || null,
@@ -197,20 +243,29 @@ export const getWhatsAppInbox = async (req, res) => {
   }
 };
 
-// Open leads of one rep whose latest WhatsApp message is from the lead and still unanswered.
-export async function awaitingWhatsAppReplies(adminId) {
-  const leads = await CRMLead.find({
-    assignedTo: adminId, isDeleted: false, status: { $nin: ["won", "lost", "junk"] }, phoneNormalized: { $exists: true, $ne: null },
-  }).select("name phoneNormalized").lean();
-  if (!leads.length) return [];
+// Reps (and their pool) see replies on their leads; admins only on leads assigned to themselves.
+export const waNotifyScope = (req) => (isOwnerScoped(req) ? ownerFilter(req) : { assignedTo: req.admin._id });
 
+// Open leads in `leadFilter` whose latest WhatsApp message (last 30 days) is from the lead and unanswered.
+// Starts from the messages, so the cost doesn't grow with how many leads someone owns.
+export async function awaitingWhatsAppReplies(leadFilter) {
   const groups = await WhatsAppMessage.aggregate([
-    { $match: { phone: { $in: leads.map((l) => l.phoneNormalized.replace(/^\+/, "")) } } },
+    { $match: { createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
     { $sort: { createdAt: -1 } },
     { $group: { _id: "$phone", last: { $first: "$$ROOT" } } },
     { $match: { "last.direction": "in", "last.type": { $ne: "opt_out" } } },
     { $sort: { "last.createdAt": -1 } },
+    { $limit: 300 },
   ]);
-  const byPhone = new Map(leads.map((l) => [l.phoneNormalized.replace(/^\+/, ""), l]));
-  return groups.map((g) => ({ _id: byPhone.get(g._id)._id, name: byPhone.get(g._id).name, lastAt: g.last.createdAt }));
+  if (!groups.length) return [];
+
+  const leads = await CRMLead.find({
+    ...leadFilter, isDeleted: false, status: { $nin: ["won", "lost", "junk"] }, ...leadsByWaIds(groups.map((g) => g._id)),
+  }).sort({ updatedAt: -1 }).limit(300).select(LEAD_FIELDS).lean();
+  const index = indexLeadsByWaId(leads);
+
+  const seen = new Set();
+  return groups.flatMap((g) => (index.get(g._id) || [])
+    .filter((l) => !seen.has(String(l._id)) && seen.add(String(l._id)))
+    .map((l) => ({ _id: l._id, name: l.name, lastAt: g.last.createdAt })));
 }
