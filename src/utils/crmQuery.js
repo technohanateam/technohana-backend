@@ -26,8 +26,14 @@ export const crmRoleOf = (req) => req.crmRole || req.admin?.crmRole || req.admin
 export const isCrmAdmin = (req) => CRM_ADMIN_ROLES.includes(crmRoleOf(req));
 export const isOwnerScoped = (req) => CRM_OWNER_SCOPED_ROLES.includes(crmRoleOf(req));
 
-export const ownerFilter = (req, field = "assignedTo") =>
-  (isOwnerScoped(req) ? { [field]: req.admin._id } : {});
+// Ids whose assigned work this user may see: themselves, plus their pool when they lead one.
+export const ownedIds = (req) => [req.admin._id, ...(req.admin.teamIds || [])];
+
+export const ownerFilter = (req, field = "assignedTo") => {
+  if (!isOwnerScoped(req)) return {};
+  const ids = field === "assignedTo" ? ownedIds(req) : [req.admin._id];
+  return { [field]: ids.length > 1 ? { $in: ids } : req.admin._id };
+};
 
 // Contacts and companies have no assignee, so their owner is whoever created them.
 export const createdByFilter = (req) => ownerFilter(req, "createdBy");
@@ -39,12 +45,13 @@ export const leadScope = (req, id) =>
 // A rep sees deals assigned to them or attached to one of their leads.
 export async function dealOwnerFilter(req) {
   if (!isOwnerScoped(req)) return {};
-  const myLeads = await CRMLead.distinct("_id", { assignedTo: req.admin._id, isDeleted: false });
-  return { $or: [{ assignedTo: req.admin._id }, { lead: { $in: myLeads } }] };
+  const ids = ownedIds(req);
+  const myLeads = await CRMLead.distinct("_id", { assignedTo: { $in: ids }, isDeleted: false });
+  return { $or: [{ assignedTo: { $in: ids } }, { lead: { $in: myLeads } }] };
 }
 
 export const taskOwnerFilter = (req) =>
-  (isOwnerScoped(req) ? { $or: [{ assignedTo: req.admin._id }, { createdBy: req.admin._id }] } : {});
+  (isOwnerScoped(req) ? { $or: [{ assignedTo: { $in: ownedIds(req) } }, { createdBy: req.admin._id }] } : {});
 
 const RELATED = {
   lead:    { model: CRMLead,    fields: "name",               label: (d) => d.name },

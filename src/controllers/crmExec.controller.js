@@ -1,4 +1,5 @@
 import { getExecSummary, getExecTrend, getExecDrilldown } from "../services/metricsService.js";
+import { getSettlementReport, setCourseCost } from "../services/settlementService.js";
 import { isValidId, parsePaging, sendCrmError } from "../utils/crmQuery.js";
 
 const str = (v) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
@@ -32,6 +33,25 @@ export const execTrend = async (req, res) => {
     respond(res, await getExecTrend(readParams(req.query)), "Revenue trend loaded");
   } catch (err) {
     sendCrmError(res, err, "Failed to load revenue trend");
+  }
+};
+
+export const execSettlement = async (req, res) => {
+  try {
+    respond(res, await getSettlementReport({ from: str(req.query.from), to: str(req.query.to) }), "Settlement report loaded");
+  } catch (err) {
+    sendCrmError(res, err, "Failed to load settlement report");
+  }
+};
+
+export const execSetCourseCost = async (req, res) => {
+  try {
+    const { currency, courseTitle, costPerLearner } = req.body || {};
+    const result = await setCourseCost({ courseId: req.params.courseId, currency: str(currency), courseTitle: str(courseTitle), costPerLearner }, req.admin._id);
+    if (result.error) return res.status(400).json({ success: false, message: result.error });
+    res.json({ success: true, data: result.data, message: "Course cost saved" });
+  } catch (err) {
+    sendCrmError(res, err, "Failed to save course cost");
   }
 };
 

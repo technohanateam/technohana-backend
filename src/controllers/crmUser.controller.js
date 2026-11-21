@@ -312,7 +312,7 @@ export const listCrmUserOptions = async (req, res) => {
 // POST /api/crm/team
 export const createCrmUser = async (req, res) => {
   try {
-    const { email, name, password, crmRole } = req.body;
+    const { email, name, password, crmRole, leadPool, poolLead } = req.body;
     if (typeof email !== "string" || typeof name !== "string" || typeof password !== "string" || !email || !name || !crmRole) {
       return res.status(400).json({ success: false, message: "Email, name, password and role are required." });
     }
@@ -320,6 +320,9 @@ export const createCrmUser = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid CRM role." });
     }
     if (crmRole === "super_admin" && !isOwner(req)) return ownerOnly(res);
+    if (leadPool !== undefined && !["direct", "ads"].includes(leadPool)) {
+      return res.status(400).json({ success: false, message: "Invalid lead pool." });
+    }
     if (password.length < 8) {
       return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
     }
@@ -331,6 +334,8 @@ export const createCrmUser = async (req, res) => {
       email: normalizedEmail,
       name,
       crmRole,
+      leadPool: leadPool || "direct",
+      poolLead: crmRole === "sales" && poolLead === true,
       passwordHash: await bcrypt.hash(password, BCRYPT_COST),
     });
     return res.status(201).json({ success: true, data: sanitize(user), message: "User created." });
@@ -356,9 +361,17 @@ const findTarget = async (req, res) => {
 // PUT /api/crm/team/:id
 export const updateCrmUser = async (req, res) => {
   try {
-    const { name, crmRole } = req.body;
+    const { name, crmRole, leadPool, poolLead } = req.body;
     const user = await findTarget(req, res);
     if (!user) return;
+
+    if (leadPool !== undefined) {
+      if (!["direct", "ads"].includes(leadPool)) {
+        return res.status(400).json({ success: false, message: "Invalid lead pool." });
+      }
+      user.leadPool = leadPool;
+    }
+    if (poolLead !== undefined) user.poolLead = poolLead === true;
 
     if (crmRole !== undefined && crmRole !== user.crmRole) {
       if (!CRM_ROLES.includes(crmRole)) {
@@ -375,6 +388,7 @@ export const updateCrmUser = async (req, res) => {
       user.tokenVersion = (user.tokenVersion || 0) + 1;
     }
     if (typeof name === "string" && name.trim()) user.name = name.trim();
+    if (user.crmRole !== "sales") user.poolLead = false;
 
     await user.save();
     return res.json({ success: true, data: sanitize(user), message: "User updated." });

@@ -72,6 +72,7 @@ const CRM_PERMISSIONS = {
   // Executive dashboard: cross-business-unit revenue and pipeline.
   exec: {
     read:   ["super_admin", "admin"],
+    write:  ["super_admin", "admin"],
   },
   // KPI targets: everyone who works a number can see it, only admins change it.
   kpi: {
