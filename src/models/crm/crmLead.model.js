@@ -86,6 +86,8 @@ const crmLeadSchema = new mongoose.Schema(
     // Assignments
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "CrmUser" },
     nextFollowUp: { type: Date },
+    // Set once when the "no contact yet" alert for a paid-ad lead has gone out.
+    slaAlertedAt: { type: Date, default: null },
 
     // Related CRM entities (set as lead progresses)
     contactId: { type: mongoose.Schema.Types.ObjectId, ref: "CRMContact" },

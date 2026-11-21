@@ -9,32 +9,54 @@ import { notifyLeadAssigned } from "./crmLeadNotify.js";
 
 const CLOSED_STATUSES = ["won", "lost", "junk"];
 
-// Returns next() → the least-loaded active sales rep (ties broken at random),
-// counting each pick so a batch spreads evenly. Owners/admins are the fallback
-// so a lead is never left invisible.
+const AD_SOURCES = ["meta_ads", "google_ads", "linkedin_ads"];
+const AD_SOCIAL_UTM = /^(instagram|ig|facebook|fb|meta)\b/i;
+
+// Paid-ad leads, including Instagram comment/DM leads (source "social" with an Instagram/Meta utm_source).
+export const isAdPoolLead = ({ source, utm } = {}) =>
+  AD_SOURCES.includes(source) || (source === "social" && AD_SOCIAL_UTM.test(String(utm?.utm_source || "")));
+
+// The same rule as a Mongo filter, for jobs that scan leads.
+export const AD_POOL_QUERY = {
+  $or: [{ source: { $in: AD_SOURCES } }, { source: "social", "utm.utm_source": AD_SOCIAL_UTM }],
+};
+
+// Returns next(fields) → the least-loaded rep of the right pool (ties broken at random), counting
+// each pick so a batch spreads evenly. Paid-ad leads go to the ads pool lead, then the rest of the ads
+// pool; everything else goes to direct-pool reps. Owners/admins are the last fallback so a lead is
+// never left invisible.
 export async function createAssigner() {
-  for (const roles of [["sales"], ["super_admin", "admin"]]) {
-    const users = await CrmUser.find({ active: true, crmRole: { $in: roles } }).select("_id").lean();
-    if (!users.length) continue;
-    const ids = users.map((u) => u._id);
-    const loads = await CRMLead.aggregate([
-      { $match: { assignedTo: { $in: ids }, isDeleted: false, status: { $nin: CLOSED_STATUSES } } },
-      { $group: { _id: "$assignedTo", open: { $sum: 1 } } },
-    ]);
-    const openBy = new Map(ids.map((id) => [String(id), 0]));
-    loads.forEach((l) => openBy.set(String(l._id), l.open));
-    return () => {
-      const min = Math.min(...openBy.values());
-      const candidates = ids.filter((id) => openBy.get(String(id)) === min);
-      const pick = candidates[Math.floor(Math.random() * candidates.length)];
-      openBy.set(String(pick), min + 1);
-      return pick;
-    };
-  }
-  return () => undefined;
+  const users = await CrmUser.find({ active: true, crmRole: { $in: ["sales", "super_admin", "admin"] } })
+    .select("_id crmRole leadPool poolLead").lean();
+  const sales = users.filter((u) => u.crmRole === "sales");
+  const adsPool = sales.filter((u) => u.leadPool === "ads");
+  const directPool = sales.filter((u) => u.leadPool !== "ads");
+  const admins = users.filter((u) => u.crmRole !== "sales");
+  const tiers = {
+    ads: [adsPool.filter((u) => u.poolLead), adsPool, directPool, admins],
+    direct: [directPool, admins],
+  };
+
+  const ids = users.map((u) => u._id);
+  const loads = ids.length ? await CRMLead.aggregate([
+    { $match: { assignedTo: { $in: ids }, isDeleted: false, status: { $nin: CLOSED_STATUSES } } },
+    { $group: { _id: "$assignedTo", open: { $sum: 1 } } },
+  ]) : [];
+  const openBy = new Map(ids.map((id) => [String(id), 0]));
+  loads.forEach((l) => openBy.set(String(l._id), l.open));
+
+  return (fields) => {
+    const group = tiers[isAdPoolLead(fields) ? "ads" : "direct"].find((g) => g.length);
+    if (!group) return undefined;
+    const min = Math.min(...group.map((u) => openBy.get(String(u._id))));
+    const candidates = group.filter((u) => openBy.get(String(u._id)) === min);
+    const pick = candidates[Math.floor(Math.random() * candidates.length)]._id;
+    openBy.set(String(pick), min + 1);
+    return pick;
+  };
 }
 
-export const pickAssignee = async () => (await createAssigner())();
+export const pickAssignee = async (fields) => (await createAssigner())(fields);
 
 // Existing (non-deleted) lead with the same email or phone, if any.
 export function findDuplicateLead({ email, phone, country }) {
@@ -75,7 +97,7 @@ export async function upsertCrmLead({
     ...fields,
     email: typeof fields.email === "string" ? fields.email.toLowerCase().trim() : undefined,
     ...(externalId && { [externalField]: externalId }),
-    assignedTo: fields.assignedTo || await pickAssignee(),
+    assignedTo: fields.assignedTo || await pickAssignee(fields),
   });
   await logIntake(lead._id, activityTitle, activityBody, metadata);
   notifyLeadAssigned({ leads: lead, assigneeId: lead.assignedTo, reason: "new" });

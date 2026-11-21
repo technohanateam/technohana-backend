@@ -12,6 +12,10 @@ const crmUserSchema = new Schema(
     phone: { type: String, default: "", trim: true, maxlength: 40 },
     signature: { type: String, default: "", maxlength: 1000 },
     active: { type: Boolean, default: true },
+    // "ads" reps work paid-ad leads (the poolLead gets them first and can hand them to the rest of the pool);
+    // everyone else is in the direct pool that gets all other leads.
+    leadPool: { type: String, enum: ["direct", "ads"], default: "direct" },
+    poolLead: { type: Boolean, default: false },
     // Where the rep hears about newly assigned leads (email + in-app bell are always on unless email is switched off).
     notifyPrefs: {
       email: { type: Boolean, default: true },
