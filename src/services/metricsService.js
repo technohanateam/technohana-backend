@@ -23,7 +23,8 @@ const istDate = (d) => new Date(d.getTime() + 5.5 * 3600e3).toISOString().slice(
 
 export const QUALIFIED_STATUSES = [
   "discovery", "needs_analysis", "skill_gap_assessed", "course_recommended",
-  "proposal_sent", "negotiation", "quotation_sent", "purchase_order", "won",
+  "demo_scheduled", "demo_done", "proposal_sent", "negotiation", "quotation_sent", "purchase_order",
+  "payment_pending", "won", "enrolled",
 ];
 
 // Not computable yet because the underlying records don't exist. Reported as unavailable

@@ -1,3 +1,5 @@
+import Course from "../models/course.model.js";
+import { generateCoursePdf, coursePdfFilename } from "../utils/generateCoursePdf.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMTag from "../models/crm/crmTag.model.js";
 import CRMLead from "../models/crm/crmLead.model.js";
@@ -10,6 +12,7 @@ import { sendEmail, fromAddresses, crmCopyAddress } from "../config/emailService
 import { buildSignatureHtml } from "./crmUser.controller.js";
 import { escapeHtml } from "../utils/emailTemplate.js";
 import { getActiveConnection, sendZohoMail } from "../services/zohoService.js";
+import { isDoNotContact } from "../services/emailSuppression.js";
 
 // System events (deal_won, stage_change, …) are written by the server; people log these.
 const LOGGABLE_TYPES = ["note", "call", "email", "meeting", "whatsapp"];
@@ -118,87 +121,121 @@ export const sendCrmEmail = async (req, res) => {
     if (leadId) {
       relatedToType = "lead";
       record = await CRMLead.findOne({ _id: isValidId(String(leadId)) ? leadId : null, isDeleted: false, ...ownerFilter(req) })
-        .select("name email").lean();
+        .select("name email tags").populate("tags", "name").lean();
     } else if (contactId) {
       relatedToType = "contact";
       record = isValidId(String(contactId)) && await CRMContact.findOne({ _id: contactId, isDeleted: false, ...createdByFilter(req) })
-        .select("firstName lastName email").lean();
+        .select("firstName lastName email tags").populate("tags", "name").lean();
       if (record) record.name = [record.firstName, record.lastName].filter(Boolean).join(" ");
     }
     if (!record) return res.status(404).json({ success: false, message: "Recipient not found" });
-    if (!record.email) return res.status(400).json({ success: false, message: "This record has no email address" });
 
-    // Don't keep mailing an address that bounced or complained before. A marketing
-    // unsubscribe alone doesn't block a rep's 1:1 email.
-    const [crmBounce, siteBounce] = await Promise.all([
-      CRMActivity.exists({ type: "email", "metadata.to": record.email, "metadata.status": { $in: ["bounced", "complained"] } }),
-      Subscription.exists({ email: record.email.trim().toLowerCase(), isActive: false, unsubscribeReason: { $in: ["bounced", "complained"] } })
-        .collation({ locale: "en", strength: 2 }),
-    ]);
-    const suppressed = crmBounce || siteBounce;
-    if (suppressed) {
-      return res.status(409).json({ success: false, message: `${record.email} bounced or marked a previous email as spam — not sending.` });
-    }
-
-    const zoho = await getActiveConnection(req.admin._id);
-    const cc = crmCopyAddress(record.email, req.admin.email, zoho?.emailAddress);
-
-    // Log first so the Resend tag can point back at this activity.
-    const activity = await CRMActivity.create({
-      type: "email",
-      title: subject.trim(),
-      body: body.trim(),
-      relatedToType,
-      relatedToId: record._id,
-      performedBy: req.admin._id,
-      metadata: { to: record.email, ...(cc ? { cc } : {}), subject: subject.trim(), status: "sending", events: [] },
-    });
-
-    // Prefer the rep's own Zoho mailbox; fall back to Resend if unconnected or Zoho fails.
-    if (zoho?.zohoMailAccountId) {
+    // Optional course syllabus PDF, built before anything is logged or sent.
+    let attachments = [];
+    if (typeof req.body.attachCourseId === "string" && req.body.attachCourseId.trim()) {
+      const course = await Course.findOne({ id: req.body.attachCourseId.trim().slice(0, 50) }).lean();
+      if (!course) return res.status(404).json({ success: false, message: "Course not found" });
       try {
-        const sent = await sendZohoMail(zoho, {
-          to: record.email,
-          cc,
-          subject: subject.trim(),
-          html: emailLayout({ body: body.trim(), admin: req.admin }),
-        });
-        await CRMActivity.updateOne({ _id: activity._id }, {
-          "metadata.status": "sent", "metadata.provider": "zoho", "metadata.direction": "out",
-          "metadata.zohoMessageId": sent.messageId, "metadata.from": zoho.emailAddress, "metadata.sentAt": new Date(),
-        });
-        return res.status(201).json({ success: true, data: { activityId: activity._id }, message: `Email sent to ${record.email} from ${zoho.emailAddress}` });
+        attachments = [{ filename: coursePdfFilename(course), content: await generateCoursePdf(course) }];
       } catch (err) {
-        console.error("Zoho send failed, falling back to Resend:", err.message);
+        console.error("Course PDF generation failed:", err.message);
+        return res.status(500).json({ success: false, message: "Couldn't create the syllabus PDF. Try again, or send without it." });
       }
     }
 
-    let result;
-    try {
-      result = await sendEmail({
-        from: process.env.CRM_FROM_EMAIL || fromAddresses.sales,
-        to: record.email,
-        cc,
-        replyTo: req.admin.email,
-        subject: subject.trim(),
-        html: emailLayout({ body: body.trim(), admin: req.admin }),
-        text: `${body.trim()}\n\n${[req.admin.name || "Technohana Sales", req.admin.title, "Technohana", req.admin.phone, req.admin.signature].filter(Boolean).join("\n")}`,
-        tags: [{ name: "source", value: "crm" }, { name: "crm_activity", value: String(activity._id) }],
-      });
-      if (result?.error) throw new Error(result.error.message || "Resend rejected the email");
-    } catch (err) {
-      await CRMActivity.updateOne({ _id: activity._id }, { "metadata.status": "failed", "metadata.error": err.message });
-      console.error("CRM email send failed:", err.message);
-      return res.status(502).json({ success: false, message: "The email couldn't be sent. It's logged as failed — try again shortly." });
-    }
-
-    await CRMActivity.updateOne({ _id: activity._id }, {
-      "metadata.status": "sent", "metadata.resendId": result?.data?.id, "metadata.sentAt": new Date(),
-    });
-    res.status(201).json({ success: true, data: { activityId: activity._id, resendId: result?.data?.id }, message: `Email sent to ${record.email}` });
+    const out = await deliverCrmEmail(req, { record, relatedToType, subject, body, attachments });
+    res.status(out.status).json(out.json);
   } catch (err) {
     sendCrmError(res, err, "Failed to send email");
   }
+};
+
+// Shared by POST /email/send and recommend-course: checks suppression, logs the
+// activity, then sends via the rep's Zoho mailbox (or Resend). Returns { status, json }.
+// `requireZoho`: send only from the rep's own connected Zoho mailbox, never the shared Resend address.
+// `attachments`: [{ filename, content: Buffer }] — sent with the email and listed on the activity.
+export const deliverCrmEmail = async (req, { record, relatedToType, subject, body, requireZoho = false, attachments = [] }) => {
+  const fail = (status, message) => ({ status, json: { success: false, message } });
+  if (!record.email) return fail(400, "This record has no email address");
+  if (isDoNotContact(record)) return fail(409, `${record.name} is marked do not contact — not sending.`);
+
+  // Don't keep mailing an address that bounced or complained before. A marketing
+  // unsubscribe alone doesn't block a rep's 1:1 email.
+  const [crmBounce, siteBounce] = await Promise.all([
+    CRMActivity.exists({ type: "email", "metadata.to": record.email, "metadata.status": { $in: ["bounced", "complained"] } }),
+    Subscription.exists({ email: record.email.trim().toLowerCase(), isActive: false, unsubscribeReason: { $in: ["bounced", "complained"] } })
+      .collation({ locale: "en", strength: 2 }),
+  ]);
+  if (crmBounce || siteBounce) return fail(409, `${record.email} bounced or marked a previous email as spam — not sending.`);
+
+  const zoho = await getActiveConnection(req.admin._id);
+  if (requireZoho && !zoho?.zohoMailAccountId) {
+    return fail(409, "Connect your Zoho Mail account (Profile) to send from your own mailbox.");
+  }
+  const cc = crmCopyAddress(record.email, req.admin.email, zoho?.emailAddress);
+
+  // Log first so the Resend tag can point back at this activity.
+  const activity = await CRMActivity.create({
+    type: "email",
+    title: subject.trim(),
+    body: body.trim(),
+    relatedToType,
+    relatedToId: record._id,
+    performedBy: req.admin._id,
+    metadata: {
+      to: record.email, ...(cc ? { cc } : {}), subject: subject.trim(), status: "sending", events: [],
+      ...(attachments.length ? { attachments: attachments.map((a) => a.filename) } : {}),
+    },
+  });
+
+  // Prefer the rep's own Zoho mailbox; fall back to Resend if unconnected or Zoho fails.
+  if (zoho?.zohoMailAccountId) {
+    try {
+      const sent = await sendZohoMail(zoho, {
+        to: record.email,
+        cc,
+        subject: subject.trim(),
+        html: emailLayout({ body: body.trim(), admin: req.admin }),
+        attachments,
+      });
+      await CRMActivity.updateOne({ _id: activity._id }, {
+        "metadata.status": "sent", "metadata.provider": "zoho", "metadata.direction": "out",
+        "metadata.zohoMessageId": sent.messageId, "metadata.from": zoho.emailAddress, "metadata.sentAt": new Date(),
+      });
+      return { status: 201, json: { success: true, data: { activityId: activity._id }, message: `Email sent to ${record.email} from ${zoho.emailAddress}` } };
+    } catch (err) {
+      console.error(requireZoho ? "Zoho send failed:" : "Zoho send failed, falling back to Resend:", err.message);
+      if (requireZoho) {
+        await CRMActivity.updateOne({ _id: activity._id }, { "metadata.status": "failed", "metadata.error": err.message });
+        return fail(502, "Zoho couldn't send the email. Reconnect your Zoho account in Profile and try again.");
+      }
+    }
+  }
+
+  let result;
+  try {
+    result = await sendEmail({
+      from: process.env.CRM_FROM_EMAIL || fromAddresses.sales,
+      to: record.email,
+      cc,
+      replyTo: req.admin.email,
+      subject: subject.trim(),
+      html: emailLayout({ body: body.trim(), admin: req.admin }),
+      text: `${body.trim()}\n\n${[req.admin.name || "Technohana Sales", req.admin.title, "Technohana", req.admin.phone, req.admin.signature].filter(Boolean).join("\n")}`,
+      tags: [{ name: "source", value: "crm" }, { name: "crm_activity", value: String(activity._id) }],
+      ...(attachments.length ? { attachments } : {}),
+    });
+    if (result?.error) throw new Error(result.error.message || "Resend rejected the email");
+  } catch (err) {
+    await CRMActivity.updateOne({ _id: activity._id }, { "metadata.status": "failed", "metadata.error": err.message });
+    console.error("CRM email send failed:", err.message);
+    return fail(502, "The email couldn't be sent. It's logged as failed — try again shortly.");
+  }
+
+  await CRMActivity.updateOne({ _id: activity._id }, {
+    "metadata.status": "sent", "metadata.resendId": result?.data?.id, "metadata.sentAt": new Date(),
+  });
+  return { status: 201, json: { success: true, data: { activityId: activity._id, resendId: result?.data?.id }, message: `Email sent to ${record.email}` } };
 };
 
 // ── Tags ─────────────────────────────────────────────────────────────────────
