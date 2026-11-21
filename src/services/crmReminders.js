@@ -6,17 +6,17 @@ import { escapeHtml } from "../utils/emailTemplate.js";
 import { resolveRange, istDateStr } from "./crmDailyReport.js";
 
 const OPEN_TASK = { isDeleted: false, status: { $in: ["open", "in_progress"] } };
-const CRM_URL = () => process.env.CRM_FRONTEND_URL || "https://crm.technohana.in";
+export const CRM_URL = () => process.env.CRM_FRONTEND_URL || "https://crm.technohana.in";
 // Reminders older than this are skipped, so the first run after deploy doesn't
 // email every past-due reminder in the database at once.
 const REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const fmtIst = (d) => new Date(d).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
 
-const shell = (title, body) => `<div style="font-family:'Plus Jakarta Sans',Arial,sans-serif;max-width:560px;margin:0 auto;color:#1e293b">
+export const shell = (title, body, { href = CRM_URL(), cta = "Open the CRM" } = {}) => `<div style="font-family:'Plus Jakarta Sans',Arial,sans-serif;max-width:560px;margin:0 auto;color:#1e293b">
   <div style="background:#7C3AED;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0;font-weight:700">${title}</div>
   <div style="border:1px solid #e2e8f0;border-top:0;padding:20px;border-radius:0 0 12px 12px;font-size:14px;line-height:1.5">${body}
-    <p style="margin-top:20px"><a href="${CRM_URL()}" style="background:#7C3AED;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Open the CRM</a></p>
+    <p style="margin-top:20px"><a href="${href}" style="background:#7C3AED;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">${cta}</a></p>
   </div></div>`;
 
 // Every 15 min: email the assignee of each task whose reminder time has passed.

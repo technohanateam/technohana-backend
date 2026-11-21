@@ -39,7 +39,7 @@ const crmLeadSchema = new mongoose.Schema(
       enum: [
         "meta_ads", "google_ads", "linkedin_ads", "outbound_email", "outbound_linkedin", "cold_call",
         "referral", "event", "campaign", "social", "partner", "other",
-        "website", "chat", "enquiry_form",
+        "website", "chat", "enquiry_form", "promo_modal", "website_enquiry",
       ],
       default: "other",
     },

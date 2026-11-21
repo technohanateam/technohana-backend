@@ -1,13 +1,12 @@
 import express, { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { crmRead, crmWrite, crmDelete, crmBulk, crmImport, crmExport } from "../middleware/crmPermission.js";
-import Course from "../models/course.model.js";
 import { crmInputGuard } from "../middleware/crmInputGuard.js";
 import { crmAudit } from "../middleware/crmAudit.js";
-import { getCoursePdf, runSkillsGap, sendSkillsGapLink, draftRecommendationEmail, recommendCourse } from "../controllers/crmCourse.controller.js";
+import { getCourses, getCoursePdf, runSkillsGap, sendSkillsGapLink, draftRecommendationEmail, recommendCourse } from "../controllers/crmCourse.controller.js";
 
 import {
-  getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents, getSearch, getNotifications,
+  getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents, getSearch, getNotifications, markNotificationsRead,
 } from "../controllers/crmDashboard.controller.js";
 import { execSummary, execTrend, execDrilldown } from "../controllers/crmExec.controller.js";
 import { getKpis, createKpi, updateKpi } from "../controllers/crmKpi.controller.js";
@@ -42,13 +41,16 @@ import {
   listCrmUsers, listCrmUserOptions, createCrmUser, updateCrmUser,
   resetCrmUserPassword, setCrmUserActive, deleteCrmUser,
 } from "../controllers/crmUser.controller.js";
-import { getZohoStatus, getZohoConnectUrl, disconnectZoho, scheduleMeeting } from "../controllers/crmZoho.controller.js";
+import { getZohoStatus, getZohoConnectUrl, disconnectZoho, scheduleMeeting, syncZohoMailNow } from "../controllers/crmZoho.controller.js";
 import {
   getLinkedinStatus, getLinkedinConnectUrl, getLinkedinAdAccounts, selectLinkedinAdAccount, disconnectLinkedin,
 } from "../controllers/crmLinkedin.controller.js";
 import {
   listIgTriggers, createIgTrigger, updateIgTrigger, deleteIgTrigger, sendInstagramReply,
 } from "../controllers/crmInstagram.controller.js";
+import {
+  getWhatsAppTemplates, getWhatsAppInbox, getLeadWhatsApp, sendLeadWhatsApp, getContactWhatsApp, sendContactWhatsApp,
+} from "../controllers/crmWhatsApp.controller.js";
 import {
   getInternApplications, getInternApplication, updateInternApplication,
   updateInternApplicationStatus, deleteInternApplication, emailInternApplicant,
@@ -80,6 +82,26 @@ const emailLimiter = rateLimit({
   message: { success: false, message: "Daily email limit reached (100). Send the rest from your mail client and log them." },
 });
 
+// WhatsApp Cloud API messages to leads/contacts — capped per CRM user per day.
+const whatsappLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 200,
+  keyGenerator: (req) => `crm-wa:${req.admin.uid}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Daily WhatsApp limit reached (200). Contact the rest by phone or email." },
+});
+
+// Manual inbox sync hits Zoho on the rep's behalf — cap it per CRM user.
+const syncLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 6,
+  keyGenerator: (req) => `crm-sync:${req.admin.uid}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Syncing too often — wait a minute and try again." },
+});
+
 // ── Executive dashboard ───────────────────────────────────────────────────────
 router.get("/exec/summary",   crmRead("exec"), execSummary);
 router.get("/exec/trend",     crmRead("exec"), execTrend);
@@ -96,20 +118,9 @@ router.get("/dashboard/sources", crmRead("dashboard"),  getLeadSourcesBreakdown)
 router.get("/analytics",         crmRead("dashboard"),  getAnalytics);
 router.get("/calendar",          crmRead("dashboard"),  getCalendarEvents);
 router.get("/search",            crmRead("dashboard"),  getSearch);
-router.get("/courses", crmRead("courses"), async (req, res) => {
-  try {
-    const data = await Course.find({})
-      .select("id courseTitle courseSlug category difficulty courseDays")
-      .sort({ category: 1, id: 1 })
-      .lean();
-    return res.json({ success: true, data });
-  } catch (err) {
-    console.error("CRM courses error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
-  }
-});
 router.get("/courses/:id/pdf", crmRead("courses"), getCoursePdf);
 router.get("/notifications",     crmRead("dashboard"),  getNotifications);
+router.post("/notifications/read", crmRead("dashboard"), markNotificationsRead);
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 router.get("/analytics/revenue-trend", crmRead("dashboard"), getRevenueTrend);
@@ -144,6 +155,8 @@ router.post("/leads/:id/convert",   crmWrite("deals"),        convertLead);
 router.post("/leads/:id/notes",     crmWrite("leads"),        addNote);
 router.get("/leads/:id/activities", crmRead("leads"),         getLeadActivities);
 router.post("/leads/:id/instagram-reply", crmWrite("activities"), sendInstagramReply);
+router.get("/leads/:id/whatsapp",         crmRead("leads"),         getLeadWhatsApp);
+router.post("/leads/:id/whatsapp",        crmWrite("activities"), whatsappLimiter, sendLeadWhatsApp);
 
 // ── AI on Leads ───────────────────────────────────────────────────────────────
 router.get("/leads/:id/ai-summary",      crmRead("ai"),  aiLimiter, aiLeadSummary);
@@ -160,6 +173,8 @@ router.put("/contacts/:id",              crmWrite("contacts"),  updateContact);
 router.delete("/contacts/:id",           crmDelete("contacts"), deleteContact);
 router.post("/contacts/:id/notes",       crmWrite("contacts"),  addContactNote);
 router.get("/contacts/:id/activities",   crmRead("contacts"),   getContactActivities);
+router.get("/contacts/:id/whatsapp",     crmRead("contacts"),   getContactWhatsApp);
+router.post("/contacts/:id/whatsapp",    crmWrite("activities"), whatsappLimiter, sendContactWhatsApp);
 
 // ── Companies ─────────────────────────────────────────────────────────────────
 router.get("/companies",              crmRead("companies"),   getCompanies);
@@ -203,6 +218,11 @@ router.post("/email/send", crmWrite("activities"), emailLimiter, sendCrmEmail);
 router.get("/zoho/status", getZohoStatus);
 router.get("/zoho/connect", getZohoConnectUrl);
 router.delete("/zoho/connection", disconnectZoho);
+router.post("/zoho/sync-now", crmRead("activities"), syncLimiter, syncZohoMailNow);
+
+router.get("/whatsapp/templates", crmRead("activities"), getWhatsAppTemplates);
+router.get("/whatsapp/inbox",     crmRead("activities"), getWhatsAppInbox);
+router.get("/courses", crmRead("courses"), getCourses);
 router.post("/meetings", crmWrite("activities"), scheduleMeeting);
 
 // ── LinkedIn Ads (org-wide connection) ───────────────────────────────────────

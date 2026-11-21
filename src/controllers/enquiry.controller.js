@@ -5,8 +5,27 @@ import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContact
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import { routeAdLead } from "../services/adLeadRouter.js";
 import { validateEmail, validateName } from "../utils/inputValidator.js";
-import { splitSubmission } from "../utils/enquirySubmission.js";
+import { splitSubmission, normalizeEnquiryType } from "../utils/enquirySubmission.js";
 import { sendMetaLead } from "../services/metaConversions.js";
+
+const LOW_INTENT_TYPES = new Set(["Syllabus Download", "Practice Test Request", "Hana Chat", "Skills Gap"]);
+const HIGH_INTENT_TYPES = new Set(["Corporate Training", "Hire From Us", "Training Partner", "Quote Request"]);
+
+// Every site enquiry becomes an assigned CRM lead; a paid-ad UTM still decides the source when present.
+// The enquiry is already saved, so a failure here only logs.
+const routeEnquiryToCrm = async (enquiry, { enquiryType, ...lead }) => {
+  try {
+    const crmLead = await routeAdLead({
+      ...lead,
+      fallbackSource: enquiryType === "Promo Modal Enquiry" ? "promo_modal" : "website_enquiry",
+      priority: LOW_INTENT_TYPES.has(enquiryType) ? "low" : HIGH_INTENT_TYPES.has(enquiryType) ? "high" : undefined,
+      extra: { ...lead.extra, enquiryType },
+    });
+    if (crmLead) await Enquiry.updateOne({ _id: enquiry._id }, { crmLeadId: crmLead._id });
+  } catch (err) {
+    console.error("Enquiry → CRM routing failed (enquiry already saved):", err.message);
+  }
+};
 
 export const createEnquiry = async (req, res) => {
   try {
@@ -17,6 +36,7 @@ export const createEnquiry = async (req, res) => {
     if (raw.organization && !raw.company)    raw.company      = raw.organization;
     if (raw.courseInterest && !raw.courseTitle) raw.courseTitle = raw.courseInterest;
     delete raw.message; delete raw.type; delete raw.organization; delete raw.courseInterest;
+    raw.enquiryType = normalizeEnquiryType(raw.enquiryType);
     const { fields, details } = splitSubmission(raw);
     const body = Object.keys(details).length ? { ...fields, details } : fields;
 
@@ -46,12 +66,12 @@ export const createEnquiry = async (req, res) => {
       contentName: courseTitle || body.description || enquiryType, contentCategory: enquiryType,
     });
 
-    // Paid-ad and outbound-outreach submissions also become CRM leads (organic ones stay in the admin panel only)
-    routeAdLead({
+    routeEnquiryToCrm(enquiry, {
+      enquiryType,
       name, email, phone: body.phone, company: body.company,
       interest: [courseTitle, body.description].filter(Boolean).join(" — ") || undefined,
       teamSize: body.teamSize, utm: body.utm, origin: "enquiry", originId: enquiry._id,
-      extra: { ...details, enquiryType, trainingType: body.trainingType, landingPage: body.landingPage },
+      extra: { ...details, trainingType: body.trainingType, landingPage: body.landingPage },
     });
 
     let subject;
@@ -71,7 +91,7 @@ export const createEnquiry = async (req, res) => {
       case "Masterclass Registration":
         subject = `New Masterclass Registration${courseTitle ? ` — ${courseTitle}` : ""}`;
         break;
-      case "Request a Callback":
+      case "Call Back Request":
         subject = `New Callback Request${name ? ` — ${name}` : ""}`;
         break;
       case "General Enquiry":
@@ -134,9 +154,10 @@ export const contactUs = async (req, res) => {
 
     sendMetaLead({ req, user: { name, email, phone }, contentName: subject, contentCategory: "Contact Us" });
 
-    routeAdLead({
+    routeEnquiryToCrm(enquiry, {
+      enquiryType: "Contact Us",
       name, email, phone, interest: [subject, message].filter(Boolean).join(" — "),
-      utm, origin: "contact_us", originId: enquiry._id, extra: { enquiryType: "Contact Us" },
+      utm, origin: "contact_us", originId: enquiry._id,
     });
 
     sendEmail({

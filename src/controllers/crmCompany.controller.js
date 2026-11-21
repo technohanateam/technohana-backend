@@ -3,7 +3,7 @@ import CRMContact from "../models/crm/crmContact.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
-import { parsePaging, isValidId, pick, ownerFilter, dealOwnerFilter, findMissingRef, sendCrmError } from "../utils/crmQuery.js";
+import { parsePaging, isValidId, pick, ownerFilter, createdByFilter, dealOwnerFilter, findMissingRef, sendCrmError } from "../utils/crmQuery.js";
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -19,7 +19,7 @@ export const getCompanies = async (req, res) => {
     const { page, limit, skip } = parsePaging(req.query);
 
     const { search, industry, country } = req.query;
-    const filter = { isDeleted: false };
+    const filter = { isDeleted: false, ...createdByFilter(req) };
     if (industry) filter.industry = industry;
     if (country)  filter["address.country"] = country;
     if (search) {
@@ -67,14 +67,14 @@ export const getCompanies = async (req, res) => {
 export const getCompany = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return notFound(res);
-    const company = await CRMCompany.findOne({ _id: req.params.id, isDeleted: false })
+    const company = await CRMCompany.findOne({ _id: req.params.id, isDeleted: false, ...createdByFilter(req) })
       .populate("primaryContact", "firstName lastName email phone designation")
       .populate("tags", "name color")
       .lean();
     if (!company) return res.status(404).json({ success: false, message: "Company not found" });
 
     const [contacts, deals, leads, activities] = await Promise.all([
-      CRMContact.find({ company: company._id, isDeleted: false })
+      CRMContact.find({ company: company._id, isDeleted: false, ...createdByFilter(req) })
         .select("firstName lastName email phone designation isDecisionMaker").lean(),
       CRMDeal.find({ company: company._id, isDeleted: false, ...(await dealOwnerFilter(req)) })
         .select("title value currency status stageKey expectedCloseDate").limit(200).lean(),
@@ -111,7 +111,7 @@ export const createCompany = async (req, res) => {
 
 export const updateCompany = async (req, res) => {
   try {
-    const company = isValidId(req.params.id) && await CRMCompany.findOne({ _id: req.params.id, isDeleted: false });
+    const company = isValidId(req.params.id) && await CRMCompany.findOne({ _id: req.params.id, isDeleted: false, ...createdByFilter(req) });
     if (!company) return notFound(res);
 
     const fields = pick(req.body, COMPANY_FIELDS);
@@ -146,7 +146,7 @@ export const addCompanyNote = async (req, res) => {
   try {
     const { body } = req.body;
     if (!body?.trim()) return res.status(400).json({ success: false, message: "Note body required" });
-    const company = await CRMCompany.findOne({ _id: req.params.id, isDeleted: false });
+    const company = isValidId(req.params.id) && await CRMCompany.findOne({ _id: req.params.id, isDeleted: false, ...createdByFilter(req) });
     if (!company) return res.status(404).json({ success: false, message: "Company not found" });
     company.notes.push({ body: body.trim(), createdBy: req.admin._id });
     await company.save();

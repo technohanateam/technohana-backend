@@ -15,6 +15,12 @@ zohoMailSyncQueue.on("failed", (job, err) => console.error(`[zoho-mail-sync] job
 zohoMailSyncQueue.on("error", (err) => console.error("[zoho-mail-sync] connection error:", err.message));
 
 // Bull dedupes repeatables by cron+data, so calling this on every boot is safe.
+const SYNC_CRON = "* * * * *";
+
 export async function scheduleZohoMailSyncRepeatable() {
-  await zohoMailSyncQueue.add({}, { repeat: { cron: "*/2 * * * *" }, attempts: 1, removeOnComplete: true, removeOnFail: 20 });
+  // A cron change leaves the old schedule in Redis, so drop any other one first.
+  for (const job of await zohoMailSyncQueue.getRepeatableJobs()) {
+    if (job.cron !== SYNC_CRON) await zohoMailSyncQueue.removeRepeatableByKey(job.key);
+  }
+  await zohoMailSyncQueue.add({}, { repeat: { cron: SYNC_CRON }, attempts: 1, removeOnComplete: true, removeOnFail: 20 });
 }

@@ -7,8 +7,8 @@ import CRMDeal from "../models/crm/crmDeal.model.js";
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMCompany from "../models/crm/crmCompany.model.js";
 import Subscription from "../models/subscription.model.js";
-import { parsePaging, attachRelated, isValidId, isOwnerScoped, ownerFilter, canAccessRelated, sendCrmError } from "../utils/crmQuery.js";
-import { sendEmail, fromAddresses } from "../config/emailService.js";
+import { parsePaging, attachRelated, isValidId, isOwnerScoped, ownerFilter, createdByFilter, canAccessRelated, sendCrmError } from "../utils/crmQuery.js";
+import { sendEmail, fromAddresses, crmCopyAddress } from "../config/emailService.js";
 import { buildSignatureHtml } from "./crmUser.controller.js";
 import { escapeHtml } from "../utils/emailTemplate.js";
 import { getActiveConnection, sendZohoMail } from "../services/zohoService.js";
@@ -124,7 +124,7 @@ export const sendCrmEmail = async (req, res) => {
         .select("name email tags").populate("tags", "name").lean();
     } else if (contactId) {
       relatedToType = "contact";
-      record = isValidId(String(contactId)) && await CRMContact.findOne({ _id: contactId, isDeleted: false })
+      record = isValidId(String(contactId)) && await CRMContact.findOne({ _id: contactId, isDeleted: false, ...createdByFilter(req) })
         .select("firstName lastName email tags").populate("tags", "name").lean();
       if (record) record.name = [record.firstName, record.lastName].filter(Boolean).join(" ");
     }
@@ -172,6 +172,7 @@ export const deliverCrmEmail = async (req, { record, relatedToType, subject, bod
   if (requireZoho && !zoho?.zohoMailAccountId) {
     return fail(409, "Connect your Zoho Mail account (Profile) to send from your own mailbox.");
   }
+  const cc = crmCopyAddress(record.email, req.admin.email, zoho?.emailAddress);
 
   // Log first so the Resend tag can point back at this activity.
   const activity = await CRMActivity.create({
@@ -182,7 +183,7 @@ export const deliverCrmEmail = async (req, { record, relatedToType, subject, bod
     relatedToId: record._id,
     performedBy: req.admin._id,
     metadata: {
-      to: record.email, subject: subject.trim(), status: "sending", events: [],
+      to: record.email, ...(cc ? { cc } : {}), subject: subject.trim(), status: "sending", events: [],
       ...(attachments.length ? { attachments: attachments.map((a) => a.filename) } : {}),
     },
   });
@@ -192,6 +193,7 @@ export const deliverCrmEmail = async (req, { record, relatedToType, subject, bod
     try {
       const sent = await sendZohoMail(zoho, {
         to: record.email,
+        cc,
         subject: subject.trim(),
         html: emailLayout({ body: body.trim(), admin: req.admin }),
         attachments,
@@ -215,6 +217,7 @@ export const deliverCrmEmail = async (req, { record, relatedToType, subject, bod
     result = await sendEmail({
       from: process.env.CRM_FROM_EMAIL || fromAddresses.sales,
       to: record.email,
+      cc,
       replyTo: req.admin.email,
       subject: subject.trim(),
       html: emailLayout({ body: body.trim(), admin: req.admin }),

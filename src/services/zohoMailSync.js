@@ -3,6 +3,8 @@ import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMContact from "../models/crm/crmContact.model.js";
 import { zohoFetch, ZohoAuthError } from "../config/zohoClient.js";
+import { sendEmail, fromAddresses, crmCopyAddress } from "../config/emailService.js";
+import { escapeHtml } from "../utils/emailTemplate.js";
 
 const PAGE_SIZE = 50;
 const MAX_PAGES = 4;
@@ -32,6 +34,28 @@ async function findRecord(email, repId) {
   const contact = await CRMContact.findOne({ email, isDeleted: false }).select("_id").lean();
   if (contact) return { relatedToType: "contact", relatedToId: contact._id };
   return null;
+}
+
+// Sends the CRM copy of a newly imported reply; a failure here must never fail the sync.
+async function copyReply({ record, from, ownAddress, subject, snippet }) {
+  const to = crmCopyAddress(from, ownAddress);
+  if (!to) return;
+  try {
+    const base = (process.env.CRM_FRONTEND_URL || "").replace(/\/$/, "");
+    const link = base ? `${base}/${record.relatedToType === "lead" ? "leads" : "contacts"}/${record.relatedToId}` : "";
+    await sendEmail({
+      from: fromAddresses.sales,
+      to,
+      subject: `[Reply] ${subject} (${from} → ${ownAddress})`,
+      html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#1e293b">
+        <p><strong>${escapeHtml(from)}</strong> replied to <strong>${escapeHtml(ownAddress)}</strong></p>
+        <p><strong>${escapeHtml(subject)}</strong></p>
+        <p style="white-space:pre-wrap">${escapeHtml(snippet || "(no preview)")}</p>
+        ${link ? `<p><a href="${escapeHtml(link)}">Open in CRM</a></p>` : ""}</div>`,
+    });
+  } catch (err) {
+    console.warn(`[zoho-mail-sync] reply copy to ${to} failed:`, err.message);
+  }
 }
 
 export async function syncMailForConnection(connection) {
@@ -65,10 +89,12 @@ export async function syncMailForConnection(connection) {
         const record = await findRecord(from, connection.crmUserId);
         if (!record) continue;
 
+        const subject = stripHtml(msg.subject) || "(no subject)";
+        const snippet = stripHtml(msg.summary).slice(0, 2000);
         await CRMActivity.create({
           type: "email",
-          title: stripHtml(msg.subject) || "(no subject)",
-          body: stripHtml(msg.summary).slice(0, 2000) || undefined,
+          title: subject,
+          body: snippet || undefined,
           ...record,
           performedBy: connection.crmUserId,
           createdAt: receivedAt ? new Date(receivedAt) : undefined,
@@ -78,6 +104,7 @@ export async function syncMailForConnection(connection) {
           },
         });
         imported++;
+        await copyReply({ record, from, ownAddress, subject, snippet });
       }
       if (messages.length < PAGE_SIZE) break;
     }
