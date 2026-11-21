@@ -4,6 +4,7 @@ import CRMTask from "../models/crm/crmTask.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMContact from "../models/crm/crmContact.model.js";
 import CRMCompany from "../models/crm/crmCompany.model.js";
+import CrmNotification from "../models/crm/crmNotification.model.js";
 import { resolveRange, istMonthStart, istDateStr } from "../services/crmDailyReport.js";
 import { attachRelated, ownerFilter, createdByFilter, dealOwnerFilter, sendCrmError } from "../utils/crmQuery.js";
 import { hasCrmPermission } from "../middleware/crmPermission.js";
@@ -337,7 +338,9 @@ export const getNotifications = async (req, res) => {
     const none = Promise.resolve([]);
     const zero = Promise.resolve(0);
 
-    const [overdueTasks, dueTodayTasks, followUps, overdueCount, dueTodayCount, followUpCount, waReplies] = await Promise.all([
+    const newLeadQ = { user: me, type: "lead_assigned", readAt: null };
+
+    const [overdueTasks, dueTodayTasks, followUps, overdueCount, dueTodayCount, followUpCount, waReplies, newLeads, newLeadCount] = await Promise.all([
       canTasks ? CRMTask.find(overdueQ).sort({ dueDate: 1 }).limit(10).select("title dueDate priority").lean() : none,
       canTasks ? CRMTask.find(todayQ).sort({ dueDate: 1 }).limit(10).select("title dueDate priority").lean() : none,
       canLeads ? CRMLead.find(followUpQ).sort({ nextFollowUp: 1 }).limit(10).select("name company nextFollowUp").lean() : none,
@@ -345,18 +348,32 @@ export const getNotifications = async (req, res) => {
       canTasks ? CRMTask.countDocuments(todayQ) : zero,
       canLeads ? CRMLead.countDocuments(followUpQ) : zero,
       canLeads ? awaitingWhatsAppReplies(me) : none,
+      canLeads ? CrmNotification.find(newLeadQ).sort({ createdAt: -1 }).limit(10).select("title body lead count createdAt").lean() : none,
+      canLeads ? CrmNotification.countDocuments(newLeadQ) : zero,
     ]);
 
     res.json({
       success: true,
       data: {
-        overdueTasks, dueTodayTasks, followUps,
+        overdueTasks, dueTodayTasks, followUps, newLeads,
         whatsappReplies: waReplies.slice(0, 10),
-        counts: { overdue: overdueCount, dueToday: dueTodayCount, followUps: followUpCount, whatsappReplies: waReplies.length },
-        total: overdueCount + dueTodayCount + followUpCount + waReplies.length,
+        counts: { overdue: overdueCount, dueToday: dueTodayCount, followUps: followUpCount, whatsappReplies: waReplies.length, newLeads: newLeadCount },
+        total: overdueCount + dueTodayCount + followUpCount + waReplies.length + newLeadCount,
       },
     });
   } catch (err) {
     sendCrmError(res, err, "Failed to load notifications");
+  }
+};
+
+// POST /notifications/read — marks the caller's unread new-lead alerts as read (all, or just `ids`).
+export const markNotificationsRead = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter((id) => typeof id === "string" && /^[a-f\d]{24}$/i.test(id)) : null;
+    const filter = { user: req.admin._id, readAt: null, ...(ids ? { _id: { $in: ids } } : {}) };
+    const result = await CrmNotification.updateMany(filter, { readAt: new Date() });
+    res.json({ success: true, data: { marked: result.modifiedCount } });
+  } catch (err) {
+    sendCrmError(res, err, "Failed to update notifications");
   }
 };

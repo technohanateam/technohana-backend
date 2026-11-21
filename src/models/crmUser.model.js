@@ -12,6 +12,22 @@ const crmUserSchema = new Schema(
     phone: { type: String, default: "", trim: true, maxlength: 40 },
     signature: { type: String, default: "", maxlength: 1000 },
     active: { type: Boolean, default: true },
+    // Where the rep hears about newly assigned leads (email + in-app bell are always on unless email is switched off).
+    notifyPrefs: {
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true },
+      whatsapp: { type: Boolean, default: false },
+    },
+    pushSubscriptions: {
+      type: [{
+        endpoint: { type: String, required: true },
+        keys: { p256dh: { type: String, required: true }, auth: { type: String, required: true } },
+        userAgent: { type: String, default: "" },
+        createdAt: { type: Date, default: Date.now },
+      }],
+      default: [],
+      select: false,
+    },
     lastLoginAt: { type: Date, default: null },
     resetTokenHash: { type: String, default: null },
     resetTokenExpiry: { type: Date, default: null },

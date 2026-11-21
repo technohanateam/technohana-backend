@@ -4,6 +4,7 @@ import { authenticateCrm } from "../middleware/authenticateCrm.js";
 import { crmInputGuard } from "../middleware/crmInputGuard.js";
 import {
   crmLogin, setupCrmOwner, crmMe, updateCrmProfile, forgotCrmPassword, resetCrmPasswordViaToken,
+  getNotifySettings, updateNotifySettings, addPushSubscription, removePushSubscription,
 } from "../controllers/crmUser.controller.js";
 
 const router = Router();
@@ -31,5 +32,9 @@ router.post("/forgot-password", passwordLimiter, forgotCrmPassword);
 router.post("/reset-password", passwordLimiter, resetCrmPasswordViaToken);
 router.get("/me", authenticateCrm, crmMe);
 router.patch("/profile", authenticateCrm, updateCrmProfile);
+router.get("/notify-settings", authenticateCrm, getNotifySettings);
+router.put("/notify-settings", authenticateCrm, updateNotifySettings);
+router.post("/push-subscription", authenticateCrm, addPushSubscription);
+router.delete("/push-subscription", authenticateCrm, removePushSubscription);
 
 export default router;

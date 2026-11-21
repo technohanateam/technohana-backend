@@ -5,6 +5,7 @@ import CRMLead from "../models/crm/crmLead.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 import CrmUser from "../models/crmUser.model.js";
 import { normalizePhone } from "../utils/phone.js";
+import { notifyLeadAssigned } from "./crmLeadNotify.js";
 
 const CLOSED_STATUSES = ["won", "lost", "junk"];
 
@@ -65,6 +66,7 @@ export async function upsertCrmLead({
   const existing = await findDuplicateLead(fields);
   if (existing) {
     await logIntake(existing._id, repeatTitle || "Submitted again", activityBody, metadata);
+    notifyLeadAssigned({ leads: existing, assigneeId: existing.assignedTo, reason: "repeat" });
     return { lead: existing, created: false };
   }
 
@@ -76,6 +78,7 @@ export async function upsertCrmLead({
     assignedTo: fields.assignedTo || await pickAssignee(),
   });
   await logIntake(lead._id, activityTitle, activityBody, metadata);
+  notifyLeadAssigned({ leads: lead, assigneeId: lead.assignedTo, reason: "new" });
   return { lead, created: true };
 }
 

@@ -5,7 +5,7 @@ import { crmInputGuard } from "../middleware/crmInputGuard.js";
 import { crmAudit } from "../middleware/crmAudit.js";
 
 import {
-  getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents, getSearch, getNotifications,
+  getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents, getSearch, getNotifications, markNotificationsRead,
 } from "../controllers/crmDashboard.controller.js";
 import { execSummary, execTrend, execDrilldown } from "../controllers/crmExec.controller.js";
 import { getKpis, createKpi, updateKpi } from "../controllers/crmKpi.controller.js";
@@ -119,6 +119,7 @@ router.get("/analytics",         crmRead("dashboard"),  getAnalytics);
 router.get("/calendar",          crmRead("dashboard"),  getCalendarEvents);
 router.get("/search",            crmRead("dashboard"),  getSearch);
 router.get("/notifications",     crmRead("dashboard"),  getNotifications);
+router.post("/notifications/read", crmRead("dashboard"), markNotificationsRead);
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 router.get("/analytics/revenue-trend", crmRead("dashboard"), getRevenueTrend);

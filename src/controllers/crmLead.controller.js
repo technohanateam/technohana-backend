@@ -12,6 +12,7 @@ import {
   findMissingRef, activeUserExists, sendCrmError,
 } from "../utils/crmQuery.js";
 import { pickAssignee, createAssigner } from "../services/crmLeadIntake.js";
+import { notifyLeadAssigned } from "../services/crmLeadNotify.js";
 import { stageForLeadStatus, syncDealFromLead } from "../services/crmLifecycle.js";
 import { startOutreach, cancelOutreach, reassignOutreach } from "../services/crmOutreach.js";
 import { resolveRange } from "../services/crmDailyReport.js";
@@ -204,6 +205,7 @@ export const createLead = async (req, res) => {
 
     await logActivity(lead._id, "created", "Lead created", `${lead.name} was added to the CRM`, req.admin._id);
     if (lead.notes.length) await logActivity(lead._id, "note", "Note added", lead.notes[0].body, req.admin._id);
+    notifyLeadAssigned({ leads: lead, assigneeId: lead.assignedTo, reason: "reassigned", actorId: req.admin._id });
 
     res.status(201).json({ success: true, data: lead, message: "Lead created" });
   } catch (err) {
@@ -259,7 +261,10 @@ export const updateLead = async (req, res) => {
     if (updates.assignedTo !== undefined && String(updates.assignedTo || "") !== String(prevOwner || "")) {
       await logActivity(lead._id, "assigned", "Lead reassigned", "Lead owner changed",
         req.admin._id, { from: prevOwner, to: updates.assignedTo || null });
-      if (updates.assignedTo) await reassignOutreach(lead._id, updates.assignedTo);
+      if (updates.assignedTo) {
+        await reassignOutreach(lead._id, updates.assignedTo);
+        notifyLeadAssigned({ leads: lead, assigneeId: updates.assignedTo, reason: "reassigned", actorId: req.admin._id });
+      }
     }
 
     res.json({ success: true, data: lead, message: "Lead updated" });
@@ -312,7 +317,7 @@ export const bulkLeadAction = async (req, res) => {
       if (!(await activeUserExists(payload?.assignedTo))) {
         return res.status(400).json({ success: false, message: "Invalid assignee" });
       }
-      const moving = await CRMLead.find({ ...inScope, assignedTo: { $ne: payload.assignedTo } }).select("assignedTo").lean();
+      const moving = await CRMLead.find({ ...inScope, assignedTo: { $ne: payload.assignedTo } }).select("assignedTo name email phone company interest source priority").lean();
       if (moving.length) {
         await CRMLead.updateMany({ _id: { $in: moving.map((l) => l._id) } }, { assignedTo: payload.assignedTo });
         await reassignOutreach(moving.map((l) => l._id), payload.assignedTo);
@@ -325,6 +330,7 @@ export const bulkLeadAction = async (req, res) => {
           performedBy: req.admin._id,
           metadata: { from: l.assignedTo || null, to: payload.assignedTo, bulk: true },
         })));
+        notifyLeadAssigned({ leads: moving, assigneeId: payload.assignedTo, reason: "reassigned", actorId: req.admin._id });
       }
       return res.json({ success: true, message: `${moving.length} leads reassigned` });
     }

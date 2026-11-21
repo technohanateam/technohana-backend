@@ -70,6 +70,15 @@ export const sendTemplate = ({ phone, country, name, language = "en", components
     record: { type: "template", templateName: name, ...link },
   });
 
+// Alerts to our own staff (e.g. a new lead was assigned). Sent through the API but not recorded,
+// so they never show up as conversations in the CRM WhatsApp inbox.
+export async function sendStaffTemplate({ phone, name, language = "en", components = [] }) {
+  if (!isWhatsAppConfigured()) throw new Error("WhatsApp is not configured");
+  const waId = toWhatsAppId(phone);
+  if (!waId) throw new Error("Invalid phone number");
+  return graphPost({ to: waId, type: "template", template: { name, language: { code: language }, components } });
+}
+
 // Approved Authentication template with a copy-code button; the code goes in both the body and the button.
 export const sendLoginCode = ({ phone, code }) =>
   sendTemplate({

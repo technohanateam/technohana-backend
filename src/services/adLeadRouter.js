@@ -10,7 +10,11 @@ const PLATFORM_BY_SOURCE = [
 const PLATFORM_BY_CLICK_ID = [["gclid", "google_ads"]];
 const PAID_MEDIUM = /^(paid|cpc|ppc|paid[_-]?social|paidsocial|sponsored|display|ads?)$/i;
 const OUTREACH_MEDIUM = /^(outreach|outbound)$/i;
-const PLATFORM_LABEL = { meta_ads: "Meta (Instagram/Facebook)", google_ads: "Google", linkedin_ads: "LinkedIn", campaign: "outbound outreach" };
+const PLATFORM_LABEL = {
+  meta_ads: "Meta (Instagram/Facebook)", google_ads: "Google", linkedin_ads: "LinkedIn", campaign: "outbound outreach",
+  promo_modal: "the website promo popup", website_enquiry: "a website form",
+};
+const NO_AD_SUFFIX = new Set(["campaign", "promo_modal", "website_enquiry"]);
 
 // Organic links (utm_medium=social/organic/email) are not ad leads. Outbound outreach (our own
 // WhatsApp/call lists) is a CRM source too, so people we message and who sign up are tracked.
@@ -28,16 +32,21 @@ export const adSourceFromUtm = (utm) => {
 };
 
 /**
- * Creates a CRM lead for a site form submission that came from a paid ad.
- * Returns null for organic traffic. Never throws — the submission is already saved.
+ * Creates a CRM lead for a site form submission. A paid-ad / outreach UTM wins; otherwise the
+ * caller's `fallbackSource` (organic website forms) is used, and with neither it returns null.
+ * Never throws — the submission is already saved.
  */
-export const routeAdLead = async ({ name, email, phone, company, interest, teamSize, utm, origin, originId, extra = {} }) => {
+export const routeAdLead = async ({
+  name, email, phone, company, interest, teamSize, utm, origin, originId, extra = {},
+  fallbackSource, priority,
+}) => {
   try {
-    const source = adSourceFromUtm(utm);
+    const source = adSourceFromUtm(utm) || fallbackSource;
     if (!source || !name || (!email && !phone)) return null;
 
     const label = PLATFORM_LABEL[source];
-    const campaign = utm.utm_campaign || "(no campaign)";
+    const suffix = NO_AD_SUFFIX.has(source) ? "" : " ad";
+    const campaign = utm?.utm_campaign || "(no campaign)";
     const size = parseInt(teamSize, 10);
 
     const { lead } = await upsertCrmLead({
@@ -49,13 +58,13 @@ export const routeAdLead = async ({ name, email, phone, company, interest, teamS
         interest,
         teamSize: Number.isFinite(size) ? size : undefined,
         source,
-        utm,
-        priority: size >= 10 ? "high" : "medium",
+        utm: utm && typeof utm === "object" ? utm : {},
+        priority: size >= 10 ? "high" : priority || "medium",
         customFields: { origin, originId: originId ? String(originId) : undefined, ...extra },
       },
-      activityTitle: `Lead captured from ${label}${source === "campaign" ? "" : " ad"}`,
-      activityBody: `Campaign: ${campaign} · content: ${utm.utm_content || "-"} · via ${origin}`,
-      repeatTitle: `Submitted again from ${label}${source === "campaign" ? "" : " ad"}`,
+      activityTitle: `Lead captured from ${label}${suffix}`,
+      activityBody: `${extra.enquiryType ? `${extra.enquiryType} · ` : ""}Campaign: ${campaign} · content: ${utm?.utm_content || "-"} · via ${origin}`,
+      repeatTitle: `Submitted again from ${label}${suffix}`,
       metadata: { utm },
     });
     return lead;

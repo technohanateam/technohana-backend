@@ -7,6 +7,20 @@ const STAFF_ONLY_FIELDS = new Set([
   "aiScore", "aiScoreBand", "aiReasoning", "aiDraftReply", "aiSuggestedFollowUp", "aiScoredAt",
   "createdAt", "crmLeadId",
 ]);
+// Forms send these under different spellings; the admin type filter is an exact match.
+const ENQUIRY_TYPE_ALIASES = {
+  "request a callback": "Call Back Request",
+  "corporate-training": "Corporate Training",
+  "hire-from-us": "Hire From Us",
+  "training-partner": "Training Partner",
+  "career-path-finder": "Career Path Finder",
+  "learning-path-consultation": "Learning Path Consultation",
+};
+export const normalizeEnquiryType = (type) => {
+  const trimmed = typeof type === "string" ? type.trim() : "";
+  return ENQUIRY_TYPE_ALIASES[trimmed.toLowerCase()] || trimmed || "Website Enquiry";
+};
+
 export const MAX_DETAILS = 30;
 export const MAX_DETAIL_LENGTH = 2000;
 

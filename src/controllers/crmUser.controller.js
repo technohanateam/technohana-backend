@@ -6,6 +6,7 @@ import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { escapeHtml } from "../utils/emailTemplate.js";
 import { isValidId } from "../utils/crmQuery.js";
+import { isPushConfigured } from "../services/crmLeadNotify.js";
 
 const TOKEN_EXPIRY = "8h";
 const BCRYPT_COST = 12;
@@ -149,6 +150,84 @@ export const updateCrmProfile = async (req, res) => {
   } catch (error) {
     console.error("CRM profile update error:", error);
     res.status(500).json({ success: false, message: "Couldn't save your profile." });
+  }
+};
+
+// GET /api/crm/auth/notify-settings — how this rep hears about newly assigned leads.
+export const getNotifySettings = async (req, res) => {
+  try {
+    const user = await CrmUser.findById(req.admin._id).select("notifyPrefs +pushSubscriptions").lean();
+    res.json({
+      success: true,
+      data: {
+        pushAvailable: isPushConfigured(),
+        publicKey: isPushConfigured() ? process.env.VAPID_PUBLIC_KEY : null,
+        whatsappAvailable: !!(process.env.WHATSAPP_NEW_LEAD_TEMPLATE && process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID),
+        subscriptions: user?.pushSubscriptions?.length || 0,
+        prefs: { email: true, push: true, whatsapp: false, ...(user?.notifyPrefs || {}) },
+      },
+    });
+  } catch (error) {
+    console.error("CRM notify settings error:", error);
+    res.status(500).json({ success: false, message: "Couldn't load notification settings." });
+  }
+};
+
+// PUT /api/crm/auth/notify-settings
+export const updateNotifySettings = async (req, res) => {
+  const prefs = req.body?.prefs;
+  const keys = ["email", "push", "whatsapp"];
+  if (!prefs || typeof prefs !== "object" || keys.some((k) => prefs[k] !== undefined && typeof prefs[k] !== "boolean")) {
+    return res.status(400).json({ success: false, message: "Invalid notification settings." });
+  }
+  try {
+    const $set = Object.fromEntries(keys.filter((k) => prefs[k] !== undefined).map((k) => [`notifyPrefs.${k}`, prefs[k]]));
+    if (Object.keys($set).length) await CrmUser.updateOne({ _id: req.admin._id }, { $set });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("CRM notify settings error:", error);
+    res.status(500).json({ success: false, message: "Couldn't save notification settings." });
+  }
+};
+
+// The server POSTs to the stored endpoint, so only the browsers' own push services are accepted (no SSRF to internal hosts).
+const PUSH_HOSTS = ["fcm.googleapis.com", "updates.push.services.mozilla.com", "push.services.mozilla.com", "notify.windows.com", "push.apple.com"];
+const isKnownPushHost = (endpoint) => {
+  try {
+    const url = new URL(endpoint);
+    return url.protocol === "https:" && !url.port && PUSH_HOSTS.some((h) => url.hostname === h || url.hostname.endsWith(`.${h}`));
+  } catch {
+    return false;
+  }
+};
+
+// POST /api/crm/auth/push-subscription — registers this browser/device for web push.
+export const addPushSubscription = async (req, res) => {
+  const { endpoint, keys } = req.body?.subscription || {};
+  const valid = typeof endpoint === "string" && isKnownPushHost(endpoint) && endpoint.length <= 1000
+    && typeof keys?.p256dh === "string" && typeof keys?.auth === "string" && keys.p256dh.length <= 200 && keys.auth.length <= 100;
+  if (!valid) return res.status(400).json({ success: false, message: "Invalid push subscription." });
+  try {
+    const entry = { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth }, userAgent: String(req.headers["user-agent"] || "").slice(0, 200), createdAt: new Date() };
+    await CrmUser.updateOne({ _id: req.admin._id }, { $pull: { pushSubscriptions: { endpoint } } });
+    await CrmUser.updateOne({ _id: req.admin._id }, { $push: { pushSubscriptions: { $each: [entry], $slice: -10 } } });
+    res.status(201).json({ success: true });
+  } catch (error) {
+    console.error("CRM push subscribe error:", error);
+    res.status(500).json({ success: false, message: "Couldn't enable push notifications." });
+  }
+};
+
+// DELETE /api/crm/auth/push-subscription
+export const removePushSubscription = async (req, res) => {
+  const endpoint = req.body?.endpoint;
+  if (typeof endpoint !== "string") return res.status(400).json({ success: false, message: "endpoint is required." });
+  try {
+    await CrmUser.updateOne({ _id: req.admin._id }, { $pull: { pushSubscriptions: { endpoint } } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("CRM push unsubscribe error:", error);
+    res.status(500).json({ success: false, message: "Couldn't disable push notifications." });
   }
 };
 
