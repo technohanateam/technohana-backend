@@ -1,7 +1,7 @@
 import Enquiry from "../models/enquiry.model.js";
 import AiRiskReport from "../models/aiRiskReport.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
-import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContactUsEmail, generateAiRiskReportEmail, generateMasterclassConfirmationEmail } from "../utils/emailTemplate.js";
+import { generateEnquiryTable, generateEnquiryConfirmationEmail, generateContactUsEmail, generateAiRiskReportEmail, generateMasterclassConfirmationEmail, escapeHtml } from "../utils/emailTemplate.js";
 import { scoreEnquiry } from "../services/leadScoringAgent.js";
 import { routeAdLead } from "../services/adLeadRouter.js";
 import { validateEmail, validateName } from "../utils/inputValidator.js";
@@ -187,15 +187,17 @@ export const handleAIRiskReportRequest = async (req, res) => {
     const report = new AiRiskReport({ name, email, phone: phone || "", jobRole: jobRole || "", experience: experience || "", industry: industry || "", source, score, band, explanation, answers });
     await report.save();
 
-    // 2. Build email content
+    // 2. Build email content. Everything the visitor typed is escaped before it goes into HTML:
+    // the admin email is read by staff, and the visitor email goes to whatever address was entered.
+    const esc = (value) => escapeHtml(String(value ?? ""));
     const bandColor = band === 'High Risk' ? '#dc2626' : band === 'Medium Risk' ? '#d97706' : '#059669';
     const bandBg = band === 'High Risk' ? '#fef2f2' : band === 'Medium Risk' ? '#fffbeb' : '#f0fdf4';
     const answerRows = Object.entries(answers).map(([questionId, answer], i) => {
       const bg = i % 2 === 1 ? '#f0f7ff' : '#ffffff';
       return `<tr>
-        <td style="padding:8px 12px;background:${bg};border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;color:#475569;">${questionId}</td>
-        <td style="padding:8px 12px;background:${bg};border-bottom:1px solid #e2e8f0;font-size:12px;color:#1e293b;">${answer.label}</td>
-        <td style="padding:8px 12px;background:${bg};border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b;">${answer.risk} Risk · ${answer.points} pts</td>
+        <td style="padding:8px 12px;background:${bg};border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;color:#475569;">${esc(questionId)}</td>
+        <td style="padding:8px 12px;background:${bg};border-bottom:1px solid #e2e8f0;font-size:12px;color:#1e293b;">${esc(answer?.label)}</td>
+        <td style="padding:8px 12px;background:${bg};border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b;">${esc(answer?.risk)} Risk · ${esc(answer?.points)} pts</td>
       </tr>`;
     }).join('');
 
@@ -224,25 +226,25 @@ export const handleAIRiskReportRequest = async (req, res) => {
               <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:20px;">
                 <tr>
                   <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;width:40%;font-size:13px;font-weight:600;color:#475569;">Name</td>
-                  <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${name}</td>
+                  <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${esc(name)}</td>
                 </tr>
                 <tr>
                   <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:600;color:#475569;">Email</td>
-                  <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${email}</td>
+                  <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${esc(email)}</td>
                 </tr>
                 <tr>
                   <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:600;color:#475569;">Phone</td>
-                  <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${phone || '—'}</td>
+                  <td style="padding:10px 12px;background:#ffffff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${esc(phone) || '—'}</td>
                 </tr>
                 <tr>
                   <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:600;color:#475569;">Source</td>
-                  <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${source}</td>
+                  <td style="padding:10px 12px;background:#f0f7ff;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${esc(source)}</td>
                 </tr>
                 <tr>
                   <td style="padding:10px 12px;background:#ffffff;font-size:13px;font-weight:600;color:#475569;">Risk Band</td>
                   <td style="padding:10px 12px;background:#ffffff;font-size:13px;">
-                    <span style="display:inline-block;background:${bandBg};color:${bandColor};font-size:12px;font-weight:700;padding:3px 12px;border-radius:12px;">${band}</span>
-                    &nbsp;<span style="font-size:13px;color:#1e293b;font-weight:600;">${score} / 18</span>
+                    <span style="display:inline-block;background:${bandBg};color:${bandColor};font-size:12px;font-weight:700;padding:3px 12px;border-radius:12px;">${esc(band)}</span>
+                    &nbsp;<span style="font-size:13px;color:#1e293b;font-weight:600;">${esc(score)} / 18</span>
                   </td>
                 </tr>
               </table>
@@ -270,7 +272,7 @@ export const handleAIRiskReportRequest = async (req, res) => {
 </body>
 </html>`;
 
-    const userEmailHtml = generateAiRiskReportEmail({ name, score, band, explanation });
+    const userEmailHtml = generateAiRiskReportEmail({ name: esc(name), score: esc(score), band, explanation: esc(explanation) });
 
     // 3. Send emails (non-blocking for the response — log failures but don't fail the request)
     Promise.all([
@@ -283,7 +285,7 @@ export const handleAIRiskReportRequest = async (req, res) => {
       sendEmail({
         from: fromAddresses.connect,
         to: email,
-        subject: `${name}, your AI Career Risk Score is ${score}/18 — here's your roadmap`,
+        subject: `${String(name).replace(/[\r\n]+/g, " ")}, your AI Career Risk Score is ${score}/18 — here's your roadmap`,
         html: userEmailHtml,
       }),
     ]).catch((err) => {
