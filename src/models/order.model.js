@@ -1,5 +1,20 @@
 import mongoose from 'mongoose';
 
+const InstalmentSchema = new mongoose.Schema({
+  seq: { type: Number, required: true },
+  amountMinor: { type: Number, required: true },
+  dueAt: { type: Date },
+  status: { type: String, enum: ['paid', 'due', 'overdue'], default: 'due' },
+  paidAt: { type: Date },
+  razorpayPaymentId: { type: String },
+  paymentLinkId: { type: String },
+  paymentLinkUrl: { type: String },
+  paymentLinkExpiresAt: { type: Date },
+  invoiceNumber: { type: String },
+  // Which reminder emails have gone out ("before", "due", "hold"), so each is sent once.
+  remindersSent: { type: [String], default: [] },
+}, { _id: false });
+
 const OrderSchema = new mongoose.Schema({
   orderId: { type: String, required: true, unique: true, index: true },
   invoiceNumber: { type: String, required: true, unique: true },
@@ -19,7 +34,13 @@ const OrderSchema = new mongoose.Schema({
   referralCode: { type: String },
   referralDiscountPercent: { type: Number },
   totalDiscountPercent: { type: Number },
+  // "paid" or, for a two-instalment plan with a balance outstanding, "partially_paid".
   status: { type: String, default: 'paid' },
+  // Interest-free two-instalment plan. expectedTotalMinor stays the full price; amountPaidMinor is
+  // what has actually been collected (unset on ordinary orders, which are paid in full).
+  paymentPlan: { type: String, enum: ['full', 'two_instalment'], default: 'full' },
+  amountPaidMinor: { type: Number },
+  instalments: { type: [InstalmentSchema], default: undefined },
   businessUnit: { type: String, enum: ['b2c', 'b2b', 'ai'], default: 'b2c' },
   paidAt: { type: Number },
   razorpayPaymentId: { type: String },

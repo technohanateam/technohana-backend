@@ -104,7 +104,8 @@ import Enquiry from "./models/enquiry.model.js";
 import { authenticateAdmin, requirePage } from "./middleware/authenticateAdmin.js";
 import { authenticateJWT } from "./middleware/authenticateJWT.js";
 import { Order } from "./models/order.model.js";
-import { computeQuote, refreshPriceCatalog } from './utils/pricing.js';
+import { computeQuote, refreshPriceCatalog, instalmentEligible, splitInstalments } from './utils/pricing.js';
+import { handleRazorpayWebhook, initialDueAt } from './services/instalments.js';
 
 const app = express();
 app.set('trust proxy', 1); // trust first proxy (Render/Railway/Vercel reverse proxy)
@@ -141,6 +142,7 @@ const noOriginRequiredPaths = [
   '/webhooks/resend',
   '/webhooks/meta-leads',
   '/webhooks/whatsapp',
+  '/razorpay/webhook',
   '/admin/content-factory-external/import/external-trend',
   '/api/coupons/public', // Hana Agent's server-to-server coupon lookup (public, read-only)
 ];
@@ -208,7 +210,7 @@ app.use(cors(corsOptionsDelegate));
 // Meta webhook needs the raw bytes to check its signature.
 // Security headers. CORP is cross-origin so the sites can still embed media served from this API.
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-const RAW_BODY_PATHS = new Set(['/webhooks/resend', '/webhooks/meta-leads', '/webhooks/whatsapp', '/api/crm/leads/import']);
+const RAW_BODY_PATHS = new Set(['/webhooks/resend', '/webhooks/meta-leads', '/webhooks/whatsapp', '/razorpay/webhook', '/api/crm/leads/import']);
 app.use((req, res, next) => {
   if (RAW_BODY_PATHS.has(req.path)) {
     return next();
@@ -229,6 +231,11 @@ const PendingOrderSchema = new mongoose.Schema({
   unitAmountMinor: { type: Number },
   quantity: { type: Number },
   expectedTotalMinor: { type: Number },
+  // Interest-free two-instalment plan: expectedTotalMinor stays the full price, firstInstalmentMinor is
+  // what this checkout collects and secondInstalmentMinor is the balance paid later.
+  paymentPlan: { type: String, enum: ['full', 'two_instalment'], default: 'full' },
+  firstInstalmentMinor: { type: Number },
+  secondInstalmentMinor: { type: Number },
   enrollmentDiscountPercent: { type: Number },
   couponApplied: { type: Boolean },
   couponCode: { type: String },
@@ -530,7 +537,7 @@ app.post('/stripe/checkout', checkoutLimiter, async (req, res) => {
 // Razorpay - Create order
 app.post('/razorpay/checkout', checkoutLimiter, async (req, res) => {
   try {
-    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode, utm } = req.body || {};
+    const { courseId, enrollmentType, participants, couponCode, currency, baseMajor, clientCalculatedTotal, clientCalculatedCouponDiscount, learner, courseInfo, referralCode, utm, paymentPlan } = req.body || {};
 
     if (!courseId || !enrollmentType) {
       return res.status(400).json({ error: 'Missing required fields: courseId, enrollmentType' });
@@ -548,6 +555,21 @@ app.post('/razorpay/checkout', checkoutLimiter, async (req, res) => {
     }
 
     const quote = await computeQuote({ courseId, enrollmentType, participants, currency, couponCode, baseMajor, referralDiscountRate });
+
+    // Interest-free two-instalment plan: same total, half now and half later. Eligibility is decided here
+    // from the server's own quote, never from what the browser says.
+    let plan = 'full';
+    let payNowMinor = quote.expectedTotalMinor;
+    let balanceMinor = 0;
+    if (paymentPlan === 'two_instalment') {
+      if (!instalmentEligible({ currency: quote.currency, enrollmentType: quote.enrollmentType, participants: quote.participants, totalMinor: quote.expectedTotalMinor })) {
+        return res.status(400).json({ error: 'Instalments are not available for this enrolment' });
+      }
+      const split = splitInstalments(quote.expectedTotalMinor);
+      plan = 'two_instalment';
+      payNowMinor = split.first;
+      balanceMinor = split.second;
+    }
 
     const backendTotalMinor = quote.expectedTotalMinor;
     const clientTotalMinor = clientCalculatedTotal ? Math.round(Number(clientCalculatedTotal) * 100) : backendTotalMinor;
@@ -567,7 +589,7 @@ app.post('/razorpay/checkout', checkoutLimiter, async (req, res) => {
     const orderId = generateOrderId();
 
     const razorpayOrder = await razorpay.orders.create({
-      amount: quote.expectedTotalMinor,
+      amount: payNowMinor,
       currency: quote.currency.toUpperCase(),
       receipt: orderId,
       notes: {
@@ -575,6 +597,7 @@ app.post('/razorpay/checkout', checkoutLimiter, async (req, res) => {
         enrollmentType,
         learnerEmail: learner?.email || '',
         learnerName: learner?.fullName || '',
+        paymentPlan: plan,
       },
     });
 
@@ -590,6 +613,8 @@ app.post('/razorpay/checkout', checkoutLimiter, async (req, res) => {
       unitAmountMinor: quote.unitAmountMinor,
       quantity: quote.quantity,
       expectedTotalMinor: quote.expectedTotalMinor,
+      paymentPlan: plan,
+      ...(plan === 'two_instalment' && { firstInstalmentMinor: payNowMinor, secondInstalmentMinor: balanceMinor }),
       enrollmentDiscountPercent: quote.discountPercent,
       couponApplied: quote.couponApplied,
       couponCode: quote.couponCode || null,
@@ -633,7 +658,10 @@ app.post('/razorpay/checkout', checkoutLimiter, async (req, res) => {
     return res.json({
       orderId,
       razorpayOrderId: razorpayOrder.id,
-      amount: quote.expectedTotalMinor,
+      amount: payNowMinor,
+      paymentPlan: plan,
+      balanceMinor,
+      totalMinor: quote.expectedTotalMinor,
       currency: quote.currency.toUpperCase(),
       keyId: process.env.RAZORPAY_KEY_ID,
     });
@@ -861,6 +889,18 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
+    // Two-instalment plan: this payment must be exactly the first half. The amount is read back from
+    // Razorpay, because the signature only proves the payment exists, not how much it was for.
+    const isPlan = order.paymentPlan === 'two_instalment';
+    if (isPlan && order.status !== 'paid') {
+      const payment = await razorpay.payments.fetch(razorpay_payment_id);
+      if (Number(payment.amount) !== order.firstInstalmentMinor) {
+        console.error(`Instalment payment amount mismatch for ${orderId}: paid ${payment.amount}, expected ${order.firstInstalmentMinor}`);
+        return res.status(400).json({ error: 'Payment amount does not match the first instalment' });
+      }
+    }
+    const paidNowMinor = isPlan ? order.firstInstalmentMinor : order.expectedTotalMinor;
+
     let invoiceNumber = '';
     if (order.status !== 'paid') {
       const paidAt = Date.now();
@@ -868,14 +908,24 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
 
       // Archive to permanent Order collection
       invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${orderId.slice(-6).toUpperCase()}`;
+      const dueAt = isPlan ? initialDueAt(paidAt) : null;
       try {
-        await Order.create({ ...order, _id: undefined, invoiceNumber, status: 'paid', paidAt, razorpayPaymentId: razorpay_payment_id });
+        await Order.create({
+          ...order, _id: undefined, invoiceNumber, status: isPlan ? 'partially_paid' : 'paid', paidAt, razorpayPaymentId: razorpay_payment_id,
+          ...(isPlan && {
+            amountPaidMinor: order.firstInstalmentMinor,
+            instalments: [
+              { seq: 1, amountMinor: order.firstInstalmentMinor, status: 'paid', paidAt: new Date(paidAt), razorpayPaymentId: razorpay_payment_id, invoiceNumber },
+              { seq: 2, amountMinor: order.secondInstalmentMinor, status: 'due', dueAt },
+            ],
+          }),
+        });
       } catch (archiveErr) {
         console.error('Failed to archive Order:', archiveErr);
       }
       syncCrmOnOrderPaidSafely(order);
       sendMetaPurchase({
-        req, eventId: orderId, valueMinor: order.expectedTotalMinor, currency: order.currency,
+        req, eventId: orderId, valueMinor: paidNowMinor, currency: order.currency,
         contentIds: [order.courseId], numItems: 1,
         user: { name: order.learner?.fullName, email: order.learner?.email, phone: order.learner?.phone, country: order.learner?.country },
       });
@@ -891,11 +941,13 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
       const amountMajorStr = Number.isFinite(Number(order.expectedTotalMinor))
         ? (Number(order.expectedTotalMinor) / 100).toFixed(2)
         : '';
+      // What this payment actually collected (the first half on an instalment plan), for receipts and events.
+      const paidNowMajorStr = (Number(paidNowMinor) / 100).toFixed(2);
 
       try {
         const updated = await User.findOneAndUpdate(
           { orderId },
-          { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date() },
+          { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date(), paymentPlan: isPlan ? 'two_instalment' : 'full' },
           { new: true }
         );
         if (!updated) {
@@ -912,6 +964,7 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
             status: 'enrolled',
             enrollmentToken,
             enrolledAt: new Date(),
+            paymentPlan: isPlan ? 'two_instalment' : 'full',
           });
         }
       } catch (dbErr) {
@@ -927,23 +980,27 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
             html: generatePaymentSuccessEmail({
               name: order.learner.fullName,
               courseTitle: order.courseInfo?.title,
-              amountMajor: amountMajorStr,
+              amountMajor: paidNowMajorStr,
               currency: order.currency,
               enrollmentType: order.enrollmentType,
               participants: order.participants,
               trainingLocation: order.learner.trainingLocation,
+              ...(isPlan && {
+                balanceMajor: (Number(order.secondInstalmentMinor) / 100).toFixed(2),
+                balanceDueDate: new Date(dueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }),
+              }),
             }),
           });
         }
         await sendEmail({
           from: fromAddresses.sales,
           to: process.env.MAIL_TO,
-          subject: `New Paid Enrollment - ${order.courseInfo?.title || order.courseId}`,
+          subject: `New Paid Enrollment - ${order.courseInfo?.title || order.courseId}${isPlan ? ' (instalment 1 of 2)' : ''}`,
           html: generateEnrollmentDetailsForSales({
             orderId,
             learner: order.learner,
             courseInfo: order.courseInfo,
-            amountMinor: order.expectedTotalMinor,
+            amountMinor: paidNowMinor,
             currency: order.currency,
             enrollmentType: order.enrollmentType,
             participants: order.participants,
@@ -959,7 +1016,7 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
           email: order.learner.email,
           name: order.learner.fullName,
           courseTitle: order.courseInfo?.title,
-          amount: amountMajorStr,
+          amount: paidNowMajorStr,
           currency: order.currency,
         });
         // Also emit enrollment complete event
@@ -1204,6 +1261,9 @@ app.get('/payments/order/:orderId', authenticateJWT, async (req, res) => {
       referralDiscountPercent: order.referralDiscountPercent,
       totalDiscountPercent: order.totalDiscountPercent,
       status: order.status,
+      paymentPlan: order.paymentPlan || 'full',
+      amountPaidMinor: order.amountPaidMinor,
+      instalments: order.instalments,
       createdAt: order.createdAt,
       paidAt: order.paidAt,
     });
@@ -1235,6 +1295,10 @@ app.get('/payments/my-orders', authenticateJWT, async (req, res) => {
       referralDiscountPercent: o.referralDiscountPercent,
       totalDiscountPercent: o.totalDiscountPercent,
       learner: o.learner,
+      status: o.status,
+      paymentPlan: o.paymentPlan || 'full',
+      amountPaidMinor: o.amountPaidMinor,
+      instalments: o.instalments?.map((i) => ({ seq: i.seq, amountMinor: i.amountMinor, dueAt: i.dueAt, status: i.status, paidAt: i.paidAt, invoiceNumber: i.invoiceNumber })),
       paidAt: o.paidAt,
       createdAt: o.createdAt,
     })));
@@ -1470,6 +1534,10 @@ app.use("/api/crm", authenticateCrm, crmRoutes);
 
 // ─── Campaign Automation ───────────────────────────────────────────────────────
 
+// POST /razorpay/webhook - Razorpay payment_link.paid for the second instalment. Raw body is needed to
+// verify the x-razorpay-signature (see handleRazorpayWebhook).
+app.post('/razorpay/webhook', express.raw({ type: 'application/json' }), handleRazorpayWebhook);
+
 // POST /webhooks/resend - Webhook for Resend email events (opened, clicked, bounced, etc.)
 // Raw body required for svix signature verification inside handleResendWebhook.
 app.post("/webhooks/resend", express.raw({ type: "application/json" }), handleResendWebhook);
@@ -1535,6 +1603,11 @@ import("./services/linkedinLeadQueue.js")
 import("./services/crmReminderQueue.js")
   .then(({ scheduleCrmReminders }) => scheduleCrmReminders())
   .catch((err) => console.error("[CRM Reminder Queue] failed to schedule repeatables:", err.message));
+
+// Interest-free instalments (9am IST): remind before and on the due date, hold access after the grace period.
+import("./services/instalmentQueue.js")
+  .then(({ scheduleInstalmentChecks }) => scheduleInstalmentChecks())
+  .catch((err) => console.error("[Instalment Queue] failed to schedule repeatables:", err.message));
 
 // Trainer attendance reminder (10am IST): sessions ended 12h+ ago with no attendance.
 import("./services/trainerReminderQueue.js")

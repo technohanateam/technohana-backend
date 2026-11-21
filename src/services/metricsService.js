@@ -57,7 +57,8 @@ export function buildFilters({ range, businessUnit, owner, source, currency }) {
   const dealCur = cur ? { currency: cur.toUpperCase() } : {};
   const orderCur = cur ? { currency: { $in: [cur.toLowerCase(), cur.toUpperCase()] } } : {};
   return {
-    order: { status: "paid", paidAt: { $gte: s, $lt: e }, ...unit, ...orderCur },
+    // A two-instalment order counts for what has actually been collected (amountPaidMinor) until it is paid in full.
+    order: { status: { $in: ["paid", "partially_paid"] }, paidAt: { $gte: s, $lt: e }, ...unit, ...orderCur },
     dealWon: { isDeleted: false, status: "won", wonAt: { $gte: range.start, $lt: range.end }, ...unit, ...ownerF, ...dealCur },
     dealOpen: { isDeleted: false, status: "open", ...unit, ...ownerF, ...dealCur },
     lead: {
@@ -88,7 +89,7 @@ const orderRevenue = async (match) => {
     { $match: match },
     { $group: {
       _id: curOf("$currency"),
-      amountMinor: { $sum: { $ifNull: ["$expectedTotalMinor", 0] } },
+      amountMinor: { $sum: { $ifNull: ["$amountPaidMinor", { $ifNull: ["$expectedTotalMinor", 0] }] } },
       orders: { $sum: 1 },
       enrolments: { $sum: { $ifNull: ["$participants", 1] } },
       customers: { $addToSet: { $toLower: { $ifNull: ["$learner.email", ""] } } },
@@ -248,7 +249,7 @@ export async function getExecTrend(params) {
         { $match: f.order },
         { $group: {
           _id: { month: { $dateToString: { format: "%Y-%m", date: { $toDate: "$paidAt" }, timezone: tz } }, currency: curOf("$currency") },
-          amountMinor: { $sum: { $ifNull: ["$expectedTotalMinor", 0] } },
+          amountMinor: { $sum: { $ifNull: ["$amountPaidMinor", { $ifNull: ["$expectedTotalMinor", 0] }] } },
         } },
       ])
       : [],

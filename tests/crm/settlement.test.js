@@ -146,6 +146,35 @@ test("cost lands in the delivery month, not the payment month", async () => {
   assert.equal(m.costMinor, 200000, "delivered this month");
 });
 
+test("an instalment order counts each paid half when its own refund window ends", async () => {
+  leads = [lead("a@example.com", "meta_ads", day("02", "10"))];
+  const o = order("a@example.com", 2000000, "01");
+  o.paidAt = day("20", "10").getTime();
+  o.instalments = [
+    { seq: 1, amountMinor: 1000000, status: "paid", paidAt: day("20", "10") }, // clears Oct 27: not this month
+    { seq: 2, amountMinor: 1000000, status: "paid", paidAt: day("10") }, // clears Nov 17: this month
+  ];
+  orders = [o];
+  const m = row(await run(NOV), "meta");
+  assert.equal(m.collectedMinor, 1000000);
+  assert.equal(m.orders, 0, "the order itself was counted when its first half cleared");
+});
+
+test("a first instalment still inside the refund window is holding, and an unpaid balance is not revenue", async () => {
+  leads = [lead("a@example.com", "meta_ads", day("02"))];
+  const o = order("a@example.com", 2000000, "01");
+  o.paidAt = day("28").getTime();
+  o.instalments = [
+    { seq: 1, amountMinor: 1000000, status: "paid", paidAt: day("28") },
+    { seq: 2, amountMinor: 1000000, status: "due", dueAt: day("20", "12") },
+  ];
+  orders = [o];
+  const m = row(await run(NOV), "meta");
+  assert.equal(m.collectedMinor, 0);
+  assert.equal(m.holdingMinor, 1000000);
+  assert.equal(m.holdingOrders, 1);
+});
+
 test("learners without a delivered batch are pending, with the expected cost shown separately", async () => {
   leads = [lead("a@example.com", "meta_ads", day("02")), lead("b@example.com", "meta_ads", day("02"))];
   const a = order("a@example.com", 500000, "10");

@@ -536,7 +536,7 @@ export function generateAiRiskReportEmail({ name, score, band, explanation }) {
 
 // ─── PAYMENT SUCCESS (learner) ────────────────────────────────────────────────
 
-export function generatePaymentSuccessEmail({ name, courseTitle, amountMajor, currency, enrollmentType, participants, trainingLocation, batchDate, batchTime, trainingPeriod }) {
+export function generatePaymentSuccessEmail({ name, courseTitle, amountMajor, currency, enrollmentType, participants, trainingLocation, batchDate, batchTime, trainingPeriod, balanceMajor, balanceDueDate }) {
   const prettyCurrency = String(currency || '').toUpperCase();
   const formattedBatchDate = batchDate ? (() => { try { return new Date(batchDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); } catch { return null; } })() : null;
 
@@ -558,7 +558,10 @@ export function generatePaymentSuccessEmail({ name, courseTitle, amountMajor, cu
       ${formattedBatchDate ? dataRow('Batch Start Date', formattedBatchDate, true) : ''}
       ${batchTime ? dataRow('Batch Time', batchTime, formattedBatchDate ? false : true) : ''}
       ${trainingPeriod ? dataRow('Training Period', trainingPeriod, batchTime ? true : false) : ''}
+      ${balanceMajor ? dataRow('Balance (second instalment)', `${balanceMajor} ${prettyCurrency}`, true) : ''}
+      ${balanceMajor && balanceDueDate ? dataRow('Balance due about', balanceDueDate, false) : ''}
     </table>
+    ${balanceMajor ? `<p style="margin:16px 0 0;font-size:13px;color:#64748b;">You chose to pay in two instalments. The total price is unchanged: there is no interest, fee or extra charge. We will email you a payment link before the balance is due.</p>` : ''}
     ${ctaButton('View My Dashboard', `${process.env.FRONTEND_URL || 'https://www.technohana.in'}/dashboard`)}`;
 
   return emailShell({ label: 'Payment Confirmation', body });
@@ -1144,6 +1147,28 @@ export function generateBlogPostEmail({ title, excerpt, img, slug }) {
 }
 
 // ─── CRM DAILY REPORT (admins) ───────────────────────────────────────────────
+
+// ─── INTEREST-FREE INSTALMENT NOTICES ────────────────────────────────────────
+// kind: "reminder" (a few days before), "due" (on the due date), "hold" (grace period over) or "paid".
+export function generateInstalmentEmail({ kind, name, courseTitle, amountMajor, currency, dueDate, link }) {
+  const prettyCurrency = String(currency || '').toUpperCase();
+  const copy = {
+    reminder: { label: 'Instalment Reminder', title: 'Your second instalment is coming up', lead: `The second half of your payment for ${courseTitle || 'your course'} is due on ${dueDate}.` },
+    due: { label: 'Instalment Due', title: 'Your second instalment is due', lead: `The second half of your payment for ${courseTitle || 'your course'} is due today.` },
+    hold: { label: 'Instalment Overdue', title: 'Your access is on hold', lead: `Your second instalment for ${courseTitle || 'your course'} has not been received, so access to the classroom is on hold. Nothing extra is charged: pay the balance and your access returns straight away.` },
+    paid: { label: 'Instalment Received', title: 'Thank you, your balance is paid', lead: `We received your second instalment for ${courseTitle || 'your course'}. Your course is now paid in full.` },
+  }[kind];
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:22px;color:#0f172a;">${copy.title}${name ? `, ${escapeHtml(name)}` : ''}</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">${copy.lead}</p>
+    <div style="background:#f0f7ff;border-radius:10px;padding:20px 24px;text-align:center;margin-bottom:20px;">
+      <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:1px;">${kind === 'paid' ? 'Amount Received' : 'Balance To Pay'}</p>
+      <p style="margin:0;font-size:32px;font-weight:800;color:#153C85;">${amountMajor} <span style="font-size:18px;font-weight:500;">${prettyCurrency}</span></p>
+    </div>
+    ${kind === 'paid' ? '' : '<p style="margin:0 0 8px;font-size:13px;color:#64748b;">There is no interest, late fee or extra charge on this balance.</p>'}
+    ${kind === 'paid' ? ctaButton('View My Dashboard', `${process.env.FRONTEND_URL || 'https://www.technohana.in'}/dashboard`) : ctaButton('Pay the balance', link)}`;
+  return emailShell({ label: copy.label, body });
+}
 
 export function crmDailyReportEmail({ report, dashboardUrl }) {
   const { totals: t, reps, sources, from, to } = report;
