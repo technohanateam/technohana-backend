@@ -174,12 +174,27 @@ export const contactUs = async (req, res) => {
   }
 };
 
+// Answers are stored in a Mongoose Map, which throws on keys containing "." or starting with "$".
+// Reject those (and nonsense shapes) with a 400 up front instead of letting them surface as a 500.
+const MAX_ANSWERS = 50;
+const MAX_ANSWER_KEY_LENGTH = 100;
+const areValidAnswers = (answers) => {
+  if (!answers || typeof answers !== "object" || Array.isArray(answers)) return false;
+  const entries = Object.entries(answers);
+  return entries.length > 0 && entries.length <= MAX_ANSWERS && entries.every(([key, answer]) =>
+    key.length <= MAX_ANSWER_KEY_LENGTH && !key.includes(".") && !key.startsWith("$")
+    && answer && typeof answer === "object" && !Array.isArray(answer));
+};
+
 export const handleAIRiskReportRequest = async (req, res) => {
   const { name, email, phone, jobRole, experience, industry, source, score, band, explanation, answers } = req.body;
 
   // Validate required fields (use != null to safely handle score = 0)
   if (!name || !email || !source || score == null || !band || !explanation || !answers || !validateEmail(email)) {
     return res.status(400).json({ error: "All fields are required." });
+  }
+  if (!areValidAnswers(answers)) {
+    return res.status(400).json({ error: "Answers are invalid." });
   }
 
   try {
@@ -294,6 +309,10 @@ export const handleAIRiskReportRequest = async (req, res) => {
 
     res.status(200).json({ message: "Report saved successfully." });
   } catch (error) {
+    // Bad band / score / risk / points are the visitor's input, not a server fault.
+    if (error?.name === "ValidationError") {
+      return res.status(400).json({ error: "Some answers or scores are invalid." });
+    }
     console.error("Error saving AI risk report:", error);
     res.status(500).json({ error: "Failed to save report. Please try again later." });
   }
