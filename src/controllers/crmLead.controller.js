@@ -9,7 +9,7 @@ import CrmUser from "../models/crmUser.model.js";
 import { hasCrmPermission } from "../middleware/crmPermission.js";
 import {
   parsePaging, isValidId, pick, isCrmAdmin, isOwnerScoped, crmRoleOf, ownerFilter, leadScope,
-  findMissingRef, activeUserExists, sendCrmError,
+  findMissingRef, activeUserExists, sendCrmError, canAssignLeadTo,
 } from "../utils/crmQuery.js";
 import { pickAssignee, createAssigner } from "../services/crmLeadIntake.js";
 import { notifyLeadAssigned } from "../services/crmLeadNotify.js";
@@ -186,7 +186,7 @@ export const createLead = async (req, res) => {
     let owner = req.admin._id;
     if (isCrmAdmin(req) && assignedTo === "auto") {
       owner = (await pickAssignee(req.body)) || req.admin._id;
-    } else if (isCrmAdmin(req) && assignedTo) {
+    } else if (assignedTo && canAssignLeadTo(req, assignedTo)) {
       if (!(await activeUserExists(assignedTo))) return res.status(400).json({ success: false, message: "Invalid assignee" });
       owner = assignedTo;
     }
@@ -228,9 +228,7 @@ export const updateLead = async (req, res) => {
     const updates = pick(req.body, EDITABLE_FIELDS);
     if (!isCrmAdmin(req) && updates.assignedTo !== undefined) {
       // A pool lead may hand a lead to someone else in their own pool; no one else reassigns.
-      const target = String(updates.assignedTo || "");
-      const inPool = req.admin.poolLead && [req.admin._id, ...(req.admin.teamIds || [])].some((id) => String(id) === target);
-      if (!inPool) delete updates.assignedTo;
+      if (!canAssignLeadTo(req, updates.assignedTo || "")) delete updates.assignedTo;
     }
     if (updates.email !== undefined) updates.email = normEmail(updates.email);
 
@@ -321,7 +319,9 @@ export const bulkLeadAction = async (req, res) => {
     }
 
     if (action === "assign") {
-      if (!isCrmAdmin(req)) return res.status(403).json({ success: false, message: "Only admins can reassign leads." });
+      if (!canAssignLeadTo(req, payload?.assignedTo)) {
+        return res.status(403).json({ success: false, message: "You can only assign leads to yourself or your own team." });
+      }
       if (!(await activeUserExists(payload?.assignedTo))) {
         return res.status(400).json({ success: false, message: "Invalid assignee" });
       }
