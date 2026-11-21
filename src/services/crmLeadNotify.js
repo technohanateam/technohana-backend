@@ -71,13 +71,14 @@ async function sendEmailAlert(user, msg, reason) {
   if (result?.error) throw new Error(result.error.message || "send failed");
 }
 
-async function sendPush(user, msg, tag) {
+// "high" urgency wakes an Android phone in Doze straight away; "normal" pushes can be held back for minutes.
+async function sendPush(user, msg, tag, urgency) {
   if (!isPushConfigured() || !user.pushSubscriptions?.length) return;
   ensureVapid();
   const payload = JSON.stringify({ title: msg.title, body: msg.body, url: msg.url, tag });
   await Promise.all(user.pushSubscriptions.map(async (sub) => {
     try {
-      await webpush.sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, payload, { TTL: 60 * 60 });
+      await webpush.sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, payload, { TTL: 60 * 60, urgency });
     } catch (err) {
       if (err.statusCode === 404 || err.statusCode === 410) {
         await CrmUser.updateOne({ _id: user._id }, { $pull: { pushSubscriptions: { endpoint: sub.endpoint } } });
@@ -136,7 +137,7 @@ export function notifyLeadAssigned({ leads, assigneeId, reason = "new", actorId,
       user: user._id, lead: msg.lead, title: msg.title, body: msg.body, count: list.length,
     }));
     if (prefs.email !== false && user.email) await attempt("email", () => sendEmailAlert(user, msg, reason));
-    if (prefs.push !== false) await attempt("push", () => sendPush(user, msg, `lead-${msg.lead || "bulk"}`));
+    if (prefs.push !== false) await attempt("push", () => sendPush(user, msg, `lead-${msg.lead || "bulk"}`, reason === "repeat" ? "normal" : "high"));
     if (prefs.whatsapp === true && reason !== "repeat" && reason !== "untouched") await attempt("whatsapp", () => sendWhatsAppAlert(user, list));
   })().catch((err) => console.error("[crm-notify] failed:", err.message));
 }
