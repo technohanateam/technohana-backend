@@ -89,8 +89,8 @@ export async function getSettlementReport(params = {}, { adPerformance = getAdPe
   }
 
   // Ad-lead orders paid up to the end of the period (earlier ones can still have cost landing now).
-  const allOrders = await Order.find({ status: "paid", paidAt: { $lt: end } })
-    .select("orderId courseId courseInfo.title currency expectedTotalMinor participants learner.email paidAt").lean();
+  const allOrders = await Order.find({ status: { $in: ["paid", "partially_paid"] }, paidAt: { $lt: end } })
+    .select("orderId courseId courseInfo.title currency expectedTotalMinor participants learner.email paidAt instalments").lean();
   const adOrders = [];
   for (const o of allOrders) {
     const email = String(o.learner?.email || "").toLowerCase().trim();
@@ -134,14 +134,20 @@ export async function getSettlementReport(params = {}, { adPerformance = getAdPe
     courses.set(key, course);
 
     paidEmails.add(o.email);
-    const clearsAt = o.paidAt + REFUND_WINDOW_MS;
-    if (clearsAt >= start && clearsAt < end) {
-      row.orders += 1;
-      row.enrolments += o.learners;
-      row.collectedMinor += o.expectedTotalMinor || 0;
-    } else if (clearsAt >= end) {
-      row.holdingOrders += 1;
-      row.holdingMinor += o.expectedTotalMinor || 0;
+    // Each payment is its own revenue event with its own 7-day window: an ordinary order is one payment,
+    // a two-instalment order is two (only the instalments actually paid so far).
+    const payments = o.instalments?.length
+      ? o.instalments.filter((i) => i.status === "paid" && i.paidAt).map((i) => ({ minor: i.amountMinor, at: new Date(i.paidAt).getTime(), first: i.seq === 1 }))
+      : [{ minor: o.expectedTotalMinor || 0, at: o.paidAt, first: true }];
+    for (const p of payments) {
+      const clearsAt = p.at + REFUND_WINDOW_MS;
+      if (clearsAt >= start && clearsAt < end) {
+        if (p.first) { row.orders += 1; row.enrolments += o.learners; }
+        row.collectedMinor += p.minor;
+      } else if (clearsAt >= end && p.at < end) {
+        if (p.first) row.holdingOrders += 1;
+        row.holdingMinor += p.minor;
+      }
     }
 
     // Cost: recognised when the learner's batch is completed, by its end date.

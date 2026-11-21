@@ -13,6 +13,8 @@ import InstructorReview, { recomputeInstructorRating } from "../models/instructo
 import { generateEnrollmentConfirmationEmail, generateEnquiryTable } from "../utils/emailTemplate.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { validateEnrollmentForm, sanitizeString } from "../utils/inputValidator.js";
+import { Order } from "../models/order.model.js";
+import { ensureSecondInstalmentLink, secondInstalment } from "../services/instalments.js";
 
 export const enrollUser = async (req, res) => {
     try {
@@ -86,10 +88,40 @@ export const getMyEnrollments = async (req, res) => {
             courseTitle: { $exists: true, $ne: null }
         }).sort({ _id: -1 }).lean();
 
-        return res.status(200).json({ success: true, data: enrollments });
+        // Learners on the interest-free two-instalment plan also see what is still owed and when.
+        const planOrderIds = enrollments.filter((e) => e.paymentPlan === "two_instalment" && e.orderId).map((e) => e.orderId);
+        const orders = planOrderIds.length
+            ? await Order.find({ orderId: { $in: planOrderIds } }).select("orderId currency instalments").lean()
+            : [];
+        const byOrder = new Map(orders.map((o) => [o.orderId, o]));
+        const data = enrollments.map((e) => {
+            const second = secondInstalment(byOrder.get(e.orderId));
+            if (!second || second.status === "paid") return e;
+            return { ...e, instalment: { balanceMinor: second.amountMinor, currency: byOrder.get(e.orderId).currency, dueAt: second.dueAt, overdue: second.status === "overdue" } };
+        });
+
+        return res.status(200).json({ success: true, data });
     } catch (error) {
         console.log(error);
         return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+// POST /enrollments/:enrollmentId/instalment-link — a payment link for the learner's own balance.
+export const getInstalmentLink = async (req, res) => {
+    try {
+        const { enrollmentId } = req.params;
+        if (!mongoose.isValidObjectId(enrollmentId)) return res.status(400).json({ success: false, message: "Malformed enrollment id" });
+        const enrollment = await User.findOne({ _id: enrollmentId, email: req.user.email }).select("orderId paymentPlan").lean();
+        if (!enrollment || enrollment.paymentPlan !== "two_instalment" || !enrollment.orderId) {
+            return res.status(404).json({ success: false, message: "No instalment balance on this enrollment" });
+        }
+        const link = await ensureSecondInstalmentLink(enrollment.orderId);
+        if (link.error) return res.status(404).json({ success: false, message: link.error });
+        return res.json({ success: true, data: { url: link.url, amountMinor: link.amountMinor, currency: link.currency } });
+    } catch (error) {
+        console.error("Instalment link failed:", error);
+        return res.status(500).json({ success: false, message: "Could not create the payment link. Please try again." });
     }
 };
 
@@ -235,6 +267,9 @@ export const issueCertificate = async (req, res) => {
         const enrollment = await User.findOne({ _id: enrollmentId, email });
         if (!enrollment) {
             return res.status(404).json({ success: false, message: "Enrollment not found" });
+        }
+        if (enrollment.accessHold) {
+            return res.status(403).json({ success: false, message: INSTALMENT_HOLD_MESSAGE });
         }
 
         if (enrollment.status !== 'completed' && enrollment.progress !== 100) {
@@ -394,14 +429,17 @@ const safeHttps = (url) => {
 };
 
 // Resolves an enrollment owned by the signed-in learner and the batch it is in.
+const INSTALMENT_HOLD_MESSAGE = "Your second instalment is overdue, so classroom access is on hold. There is no extra charge: pay the balance and access returns straight away.";
+
 const loadLearnerBatch = async (req) => {
     const { enrollmentId } = req.params;
     if (!mongoose.isValidObjectId(enrollmentId)) return { error: [400, "Malformed enrollment id"] };
 
     const enrollment = await User.findOne({ _id: enrollmentId, email: req.user.email })
-        .select("batchId status courseTitle")
+        .select("batchId status courseTitle accessHold")
         .lean();
     if (!enrollment) return { error: [404, "Enrollment not found"] };
+    if (enrollment.accessHold) return { error: [403, INSTALMENT_HOLD_MESSAGE] };
     if (!enrollment.batchId || enrollment.status === "rejected") return { enrollment, batch: null };
 
     const batch = await Batch.findById(enrollment.batchId)

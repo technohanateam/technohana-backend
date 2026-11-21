@@ -146,6 +146,25 @@ export async function computeQuote({ courseId, enrollmentType, participants, cur
   };
 }
 
+// ── Interest-free two-instalment plan ────────────────────────────────────────
+// Same total price, no extra charge: half at enrollment, half later. Only for single-learner
+// INR enrolments at or above the minimum. Keep INSTALMENT_MIN_INR_MINOR in step with
+// technohana-frontend-master/src/utils/enrollmentPricing.js.
+export const INSTALMENT_MIN_INR_MINOR = 1_000_000;
+
+export function instalmentEligible({ currency, enrollmentType, participants, totalMinor }) {
+  return String(currency).toLowerCase() === 'inr'
+    && enrollmentType === 'individual'
+    && Number(participants) === 1
+    && Number(totalMinor) >= INSTALMENT_MIN_INR_MINOR;
+}
+
+// The two parts always add up to the total exactly.
+export function splitInstalments(totalMinor) {
+  const first = Math.ceil(Number(totalMinor) / 2);
+  return { first, second: Number(totalMinor) - first };
+}
+
 // Applies an additional manual discount on top of the standard chain.
 // Cap: requested 0–25%, combined total capped at 50% (floor = 50% of original price).
 export function applyManualDiscount(quote, manualDiscountPercent) {
