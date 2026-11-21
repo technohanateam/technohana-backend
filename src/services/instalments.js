@@ -168,8 +168,9 @@ export async function handleRazorpayWebhook(req, res) {
 
 // Daily: remind before the due date and on it, mark overdue, and after the grace period hold access.
 // Each notice is claimed (remindersSent) before sending so overlapping runs cannot double-send.
-export async function runInstalmentChecks(now = new Date(), { ensureLink = ensureSecondInstalmentLink, env = process.env } = {}) {
+export async function runInstalmentChecks(now = new Date(), { ensureLink = ensureSecondInstalmentLink, env = process.env, orderId } = {}) {
   const orders = await Order.find({
+    ...(orderId && { orderId }), // optional: check a single order (used by the manual test script)
     status: "partially_paid",
     instalments: { $elemMatch: { seq: 2, status: { $ne: "paid" } } },
   }).limit(500).lean();
