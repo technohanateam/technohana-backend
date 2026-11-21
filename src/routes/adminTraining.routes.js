@@ -10,6 +10,7 @@ import Course from "../models/course.model.js";
 import Instructor from "../models/instructor.js";
 import InstructorReview from "../models/instructorReview.model.js";
 import { User } from "../models/user.model.js";
+import { recomputeDueForEnrollments } from "../services/instalments.js";
 import { planSessions } from "../utils/sessionGenerator.js";
 import {
   notifyBatchAssigned,
@@ -359,6 +360,8 @@ router.post("/batches/:id/enrollments", canWrite, async (req, res) => {
         { _id: { $in: toAttach } },
         { batchId: batch._id, assignedToBatchAt: new Date() }
       );
+      // Learners on the interest-free instalment plan owe their balance at the batch midpoint.
+      await recomputeDueForEnrollments(toAttach, batch).catch((err) => console.error("Instalment due-date update failed:", err.message));
     }
 
     return res.json({ data: { attached: toAttach.length, ...(await recount(batch._id)) } });

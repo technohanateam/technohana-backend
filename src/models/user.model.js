@@ -184,6 +184,12 @@ const userSchema = new Schema({
     // Attendance can only be marked for enrollments that have a batchId.
     batchId: { type: mongoose.Schema.Types.ObjectId, ref: "Batch", sparse: true },
     assignedToBatchAt: { type: Date },
+    // Interest-free two-instalment plan. accessHold is set when the second instalment is more than the
+    // grace period overdue and cleared when it is paid; no fee is ever charged. It is a flag, not a
+    // status, because many queries filter on enrolled / in-progress / completed.
+    paymentPlan: { type: String, enum: ["full", "two_instalment"], default: "full" },
+    accessHold: { type: Boolean, default: false },
+    holdSince: { type: Date },
     createdAt: { type: Date, default: Date.now },
 })
 

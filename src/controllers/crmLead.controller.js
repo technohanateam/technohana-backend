@@ -185,7 +185,7 @@ export const createLead = async (req, res) => {
     // Only admins choose the owner ("auto" = least-loaded rep); everyone else creates leads for themselves.
     let owner = req.admin._id;
     if (isCrmAdmin(req) && assignedTo === "auto") {
-      owner = (await pickAssignee()) || req.admin._id;
+      owner = (await pickAssignee(req.body)) || req.admin._id;
     } else if (isCrmAdmin(req) && assignedTo) {
       if (!(await activeUserExists(assignedTo))) return res.status(400).json({ success: false, message: "Invalid assignee" });
       owner = assignedTo;
@@ -226,7 +226,12 @@ export const updateLead = async (req, res) => {
     }
 
     const updates = pick(req.body, EDITABLE_FIELDS);
-    if (!isCrmAdmin(req)) delete updates.assignedTo;
+    if (!isCrmAdmin(req) && updates.assignedTo !== undefined) {
+      // A pool lead may hand a lead to someone else in their own pool; no one else reassigns.
+      const target = String(updates.assignedTo || "");
+      const inPool = req.admin.poolLead && [req.admin._id, ...(req.admin.teamIds || [])].some((id) => String(id) === target);
+      if (!inPool) delete updates.assignedTo;
+    }
     if (updates.email !== undefined) updates.email = normEmail(updates.email);
 
     if (updates.assignedTo && String(updates.assignedTo) !== String(lead.assignedTo) && !(await activeUserExists(updates.assignedTo))) {
@@ -681,7 +686,7 @@ export const importLeads = async (req, res) => {
         results.errors.push({ row, reason: `Unknown owner email: ${ownerEmail}` });
         continue;
       }
-      const assignedTo = owners.get(ownerEmail) || (nextOwner ? nextOwner() || req.admin._id : req.admin._id);
+      const assignedTo = owners.get(ownerEmail) || (nextOwner ? nextOwner(fields) || req.admin._id : req.admin._id);
 
       const doc = new CRMLead({ ...fields, assignedTo, createdBy: req.admin._id });
       const invalid = doc.validateSync();

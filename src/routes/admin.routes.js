@@ -221,12 +221,12 @@ router.get("/stats", authenticateAdmin, requirePage("overview"), async (req, res
 router.get("/revenue-by-course", authenticateAdmin, requirePage("overview", "sales-dashboard"), async (req, res) => {
   try {
     const rows = await Order.aggregate([
-      { $match: { status: "paid" } },
+      { $match: { status: { $in: ["paid", "partially_paid"] } } },
       {
         $group: {
           _id: "$courseId",
           courseTitle: { $first: { $ifNull: ["$courseInfo.title", "$courseTitle"] } },
-          totalMinor: { $sum: "$expectedTotalMinor" },
+          totalMinor: { $sum: { $ifNull: ["$amountPaidMinor", "$expectedTotalMinor"] } },
           currency: { $first: "$currency" },
           orders: { $sum: 1 },
         },

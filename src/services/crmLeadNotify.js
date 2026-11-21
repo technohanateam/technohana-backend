@@ -16,7 +16,9 @@ function ensureVapid() {
 
 const label = (key) => String(key || "other").replace(/_/g, " ");
 
-function compose(list, reason) {
+const waitedLabel = (min) => (min >= 120 ? `${Math.round(min / 60)} hours` : `${min} minutes`);
+
+function compose(list, reason, waitedMinutes) {
   const first = list[0];
   if (list.length > 1) {
     return {
@@ -31,6 +33,7 @@ function compose(list, reason) {
     new: `New lead: ${first.name}`,
     repeat: `${first.name} submitted again`,
     reassigned: `Lead assigned to you: ${first.name}`,
+    untouched: `No contact yet: ${first.name}`,
   }[reason] || `New lead: ${first.name}`;
   const rows = [
     ["Contact", [first.phone, first.email].filter(Boolean).join(" · ")],
@@ -39,9 +42,10 @@ function compose(list, reason) {
     ["Source", first.source && label(first.source)],
     ["Priority", first.priority],
   ].filter(([, v]) => v);
+  const waiting = reason === "untouched" && waitedMinutes ? `Waiting ${waitedLabel(waitedMinutes)}` : null;
   return {
     title,
-    body: [first.interest, first.company, first.phone].filter(Boolean).join(" · ").slice(0, 200),
+    body: [waiting, first.interest, first.company, first.phone].filter(Boolean).join(" · ").slice(0, 200),
     url: `${CRM_URL()}/leads/${first._id}`,
     lead: first._id,
     rows,
@@ -49,7 +53,10 @@ function compose(list, reason) {
 }
 
 async function sendEmailAlert(user, msg, reason) {
-  const intro = reason === "repeat" ? "A lead you own just submitted another enquiry." : "A lead was just assigned to you — the sooner you reach out, the better the chance of conversion.";
+  const intro = {
+    repeat: "A lead you own just submitted another enquiry.",
+    untouched: "This paid-ad lead has no call, email or WhatsApp logged yet. Ad leads cool quickly, so please reach out now.",
+  }[reason] || "A lead was just assigned to you — the sooner you reach out, the better the chance of conversion.";
   const details = msg.rows.length
     ? `<table style="border-collapse:collapse;margin:12px 0">${msg.rows.map(([k, v]) => `<tr><td style="padding:4px 14px 4px 0;color:#64748b">${escapeHtml(k)}</td><td style="padding:4px 0"><strong>${escapeHtml(String(v))}</strong></td></tr>`).join("")}</table>`
     : `<p style="color:#475569">${escapeHtml(msg.body)}</p>`;
@@ -104,10 +111,11 @@ const attempt = async (channel, fn) => {
 
 /**
  * Tells a rep that leads were assigned to them (email, in-app bell, web push, WhatsApp per their prefs).
- * `leads` may be one lead or several (bulk assign → one alert). `reason`: "new" | "repeat" | "reassigned".
+ * `leads` may be one lead or several (bulk assign → one alert). `reason`: "new" | "repeat" | "reassigned" |
+ * "untouched" (a paid-ad lead nobody has contacted; `waitedMinutes` says for how long).
  * Fire-and-forget: never throws and never blocks the action that triggered it.
  */
-export function notifyLeadAssigned({ leads, assigneeId, reason = "new", actorId }) {
+export function notifyLeadAssigned({ leads, assigneeId, reason = "new", actorId, waitedMinutes }) {
   const list = (Array.isArray(leads) ? leads : [leads]).filter(Boolean);
   if (!assigneeId || !list.length) return;
   if (actorId && String(actorId) === String(assigneeId)) return;
@@ -122,7 +130,7 @@ export function notifyLeadAssigned({ leads, assigneeId, reason = "new", actorId 
       user: user._id, lead: list[0]._id, createdAt: { $gt: new Date(Date.now() - 6 * 60 * 60 * 1000) },
     })) return;
 
-    const msg = compose(list, reason);
+    const msg = compose(list, reason, waitedMinutes);
     const prefs = user.notifyPrefs || {};
 
     await attempt("in-app", () => CrmNotification.create({
@@ -130,6 +138,6 @@ export function notifyLeadAssigned({ leads, assigneeId, reason = "new", actorId 
     }));
     if (prefs.email !== false && user.email) await attempt("email", () => sendEmailAlert(user, msg, reason));
     if (prefs.push !== false) await attempt("push", () => sendPush(user, msg, `lead-${msg.lead || "bulk"}`, reason === "repeat" ? "normal" : "high"));
-    if (prefs.whatsapp === true && reason !== "repeat") await attempt("whatsapp", () => sendWhatsAppAlert(user, list));
+    if (prefs.whatsapp === true && reason !== "repeat" && reason !== "untouched") await attempt("whatsapp", () => sendWhatsAppAlert(user, list));
   })().catch((err) => console.error("[crm-notify] failed:", err.message));
 }

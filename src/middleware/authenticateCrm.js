@@ -11,7 +11,7 @@ export const authenticateCrm = async (req, res, next) => {
   try {
     const payload = jwt.verify(authHeader.split(" ")[1], process.env.CRM_JWT_SECRET, { algorithms: ["HS256"] });
 
-    const account = await CrmUser.findById(payload.uid).select("active crmRole name email title phone signature tokenVersion").lean();
+    const account = await CrmUser.findById(payload.uid).select("active crmRole name email title phone signature tokenVersion leadPool poolLead").lean();
     if (!account || !account.active) {
       return res.status(401).json({ message: "Account deactivated" });
     }
@@ -31,7 +31,14 @@ export const authenticateCrm = async (req, res, next) => {
       signature: account.signature || "",
       crmRole: account.crmRole,
       role: account.crmRole,
+      leadPool: account.leadPool || "direct",
+      poolLead: !!account.poolLead,
     };
+    // A pool lead also sees the leads, deals and tasks assigned to the rest of their pool.
+    if (req.admin.poolLead && account.crmRole === "sales") {
+      const mates = await CrmUser.find({ active: true, crmRole: "sales", leadPool: account.leadPool, _id: { $ne: account._id } }).select("_id").lean();
+      req.admin.teamIds = mates.map((u) => u._id);
+    }
     next();
   } catch {
     return res.status(401).json({ message: "Invalid or expired CRM token" });

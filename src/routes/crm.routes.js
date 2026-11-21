@@ -8,7 +8,7 @@ import { getCourses, getCoursePdf, runSkillsGap, sendSkillsGapLink, draftRecomme
 import {
   getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents, getSearch, getNotifications, markNotificationsRead,
 } from "../controllers/crmDashboard.controller.js";
-import { execSummary, execTrend, execDrilldown } from "../controllers/crmExec.controller.js";
+import { execSummary, execTrend, execDrilldown, execSettlement, execSetCourseCost } from "../controllers/crmExec.controller.js";
 import { getKpis, createKpi, updateKpi } from "../controllers/crmKpi.controller.js";
 import { getAdPerformanceHandler } from "../controllers/adPerformance.controller.js";
 import { getRevenueTrend, getRepStats, getConversionStats, getDailyReport, emailDailyReportToMe } from "../controllers/crmAnalytics.controller.js";
@@ -106,6 +106,8 @@ const syncLimiter = rateLimit({
 router.get("/exec/summary",   crmRead("exec"), execSummary);
 router.get("/exec/trend",     crmRead("exec"), execTrend);
 router.get("/exec/drilldown", crmRead("exec"), execDrilldown);
+router.get("/exec/settlement", crmRead("exec"), execSettlement);
+router.put("/exec/settlement/course-costs/:courseId", crmWrite("exec"), execSetCourseCost);
 
 router.get("/kpis",      crmRead("kpi"),  getKpis);
 router.post("/kpis",     crmWrite("kpi"), createKpi);
