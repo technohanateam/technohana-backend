@@ -34,7 +34,7 @@ The repo root `railway.json` starts the main backend, and config-as-code overrid
 - Source: this repo, branch `master`. Root Directory stays empty (the code imports `../src/...`).
 - Settings -> Config-as-code path: `/public-mcp-server/railway.json`. It sets the build command (`npm ci --prefix public-mcp-server`), start command (`node public-mcp-server/server.js`), healthcheck (`/health`) and watch paths (this folder plus `src/utils/pricing.js` and the Course/Coupon models it imports).
 - Env: `MONGO_DB_READONLY` (required). `PORT` is injected by Railway. Optional `NODE_VERSION=22`. Nothing else; no JWT, Stripe, CRM or admin secrets.
-- Networking: generate a domain; the MCP endpoint is `https://<domain>/mcp`.
+- Networking: generate a domain; the MCP endpoint is `https://<domain>/mcp`. The public endpoint is `https://mcp.technohana.in/mcp`: a Railway custom domain (set its port to the one the service listens on, otherwise it returns 502) with a `CNAME mcp` plus the `_railway-verify.mcp` TXT record in the Vercel DNS for technohana.in. The `*.up.railway.app` address keeps working for existing connectors.
 - Mongo user: Atlas custom role with only the `find` action on the `courses` and `coupons` collections. Put the database name explicitly in the connection string. The server connects with `autoIndex` and `autoCreate` off. `search_courses` needs the text index that the main backend already creates.
 
 ## Limits
