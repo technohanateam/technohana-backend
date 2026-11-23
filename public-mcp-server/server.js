@@ -11,8 +11,13 @@ if (!uri) {
 
 // autoIndex/autoCreate off: this process connects with a read-only user and
 // must never try to create collections or indexes.
-await mongoose.connect(uri, { autoIndex: false, autoCreate: false, maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
-await refreshPriceCatalog();
+try {
+  await mongoose.connect(uri, { autoIndex: false, autoCreate: false, maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
+  await refreshPriceCatalog();
+} catch (err) {
+  console.error(`[public-mcp] startup failed (${err?.name}): ${err?.message}. Check MONGO_DB_READONLY (user exists, password URL-encoded, db name in URI, Atlas network access).`);
+  process.exit(1);
+}
 setInterval(() => refreshPriceCatalog().catch((err) => console.error('[public-mcp] catalog refresh failed:', err?.name)), 5 * 60 * 1000).unref();
 
 const port = Number(process.env.PORT) || 3400;
