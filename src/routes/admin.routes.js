@@ -1311,17 +1311,31 @@ router.post("/blogs/auto-schedule", authenticateAdmin, requirePage("blogs"), req
 
 // ─── Courses ──────────────────────────────────────────────────────────────────
 
+// Bulk imports make dozens of writes in a row; one Vercel build per write
+// floods the deploy queue and can stall production. Trailing debounce: the hook
+// fires once, after writes have been quiet for the delay. The timer is in
+// memory, so a restart inside the window drops the pending rebuild.
+const DEPLOY_HOOK_DEBOUNCE_MS = Number(process.env.VERCEL_DEPLOY_DEBOUNCE_MS) || 5 * 60 * 1000;
+let deployHookTimer = null;
+
+function scheduleDeployHook(hookUrl) {
+  clearTimeout(deployHookTimer);
+  deployHookTimer = setTimeout(() => {
+    deployHookTimer = null;
+    fetch(hookUrl, { method: "POST" }).catch((err) => console.error("Vercel deploy hook failed:", err));
+  }, DEPLOY_HOOK_DEBOUNCE_MS);
+  deployHookTimer.unref();
+}
+
 // Refreshes the in-memory checkout price catalog from Mongo, and triggers a
-// Vercel rebuild so the frontend's public/data/courses.json fallback (and
+// (debounced) Vercel rebuild so the frontend's public/data/courses.json fallback (and
 // prerendered course pages) pick up the edit too. Fire-and-forget — an admin
 // write should not fail or slow down because the deploy hook is unreachable.
 function syncCourseCatalog() {
   refreshPriceCatalog().catch((err) => console.error("Price catalog refresh failed:", err));
 
   const hookUrl = process.env.VERCEL_DEPLOY_HOOK_URL;
-  if (hookUrl) {
-    fetch(hookUrl, { method: "POST" }).catch((err) => console.error("Vercel deploy hook failed:", err));
-  }
+  if (hookUrl) scheduleDeployHook(hookUrl);
 
   const chatApiUrl = process.env.CHAT_API_URL;
   const hanaAdminToken = process.env.HANA_ADMIN_TOKEN;

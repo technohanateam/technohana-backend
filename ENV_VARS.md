@@ -40,7 +40,8 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `CONTENT_FACTORY_SERVICE_KEY` | `src/middleware/requireContentFactoryServiceKey.js` | API key for the unattended weekly trend-research routine (no admin login). Unset → that one route 503s |
 | `HANA_ADMIN_TOKEN` | `src/routes/admin.routes.js` | Server-side token for calling the Hana agent's admin API (course refresh + the `/admin/hana/*` prompt-editor proxy). Must match the Hana service's own `HANA_ADMIN_TOKEN`. Never expose it to the frontend (no `VITE_` copy) |
 | `CHAT_API_URL` | `src/routes/admin.routes.js` | Hana agent origin, used to refresh its course cache after a catalog write, and by the CRM lead Skills Gap analysis (`src/controllers/crmCourse.controller.js`, calls `/api/skills-gap`). Needs `HANA_ADMIN_TOKEN` too — if either is missing the refresh is skipped |
-| `VERCEL_DEPLOY_HOOK_URL` | `src/routes/admin.routes.js` | Fire-and-forget frontend rebuild after a course-catalog write. Optional; failures are logged, never blocking |
+| `VERCEL_DEPLOY_HOOK_URL` | `src/routes/admin.routes.js` | Fire-and-forget frontend rebuild after a course-catalog write, debounced so a burst of writes triggers one build (see `VERCEL_DEPLOY_DEBOUNCE_MS`). Optional; failures are logged, never blocking |
+| `VERCEL_DEPLOY_DEBOUNCE_MS` | `src/routes/admin.routes.js` | Quiet period before the deploy hook fires after the last course write. Default 300000 (5 min) |
 | `TTS_PROVIDER` / `TTS_VOICE` | `src/services/courseFactory/ttsService.js` | Course Factory lesson audio. Fall back to the per-course setting, then `"openai"` / `"alloy"` |
 
 ## CRM integrations (optional)
