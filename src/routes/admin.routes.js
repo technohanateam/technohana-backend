@@ -1333,8 +1333,43 @@ function syncCourseCatalog() {
   }
 }
 
+// Hana prompt-editor proxy: the Hana admin token stays server-side (a VITE_ token
+// would ship in the public bundle). Upstream 401/5xx-config errors are mapped to 502
+// so the browser's admin session isn't treated as expired.
+const hanaProxy = (method, hanaPath) => async (req, res) => {
+  const chatApiUrl = process.env.CHAT_API_URL;
+  const hanaAdminToken = process.env.HANA_ADMIN_TOKEN;
+  if (!chatApiUrl || !hanaAdminToken) {
+    return res.status(503).json({ message: "Hana agent is not configured (CHAT_API_URL / HANA_ADMIN_TOKEN)" });
+  }
+  try {
+    const upstream = await fetch(`${chatApiUrl.replace(/\/$/, "")}${hanaPath}`, {
+      method,
+      headers: { "x-admin-token": hanaAdminToken, "Content-Type": "application/json" },
+      body: method === "GET" ? undefined : JSON.stringify(req.body ?? {}),
+      signal: AbortSignal.timeout(60000),
+    });
+    const data = await upstream.json().catch(() => ({}));
+    if (upstream.status === 401 || upstream.status === 403) {
+      return res.status(502).json({ message: "Hana agent rejected the server token — check HANA_ADMIN_TOKEN matches on both services" });
+    }
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ message: data.detail || `Hana API error ${upstream.status}` });
+    }
+    res.json(data);
+  } catch (err) {
+    console.error("Hana proxy failed:", hanaPath, err?.name);
+    res.status(502).json({ message: "Could not reach the Hana agent" });
+  }
+};
+
+router.get("/hana/prompt-config", authenticateAdmin, requireAdmin, requirePage("prompt-editor"), hanaProxy("GET", "/admin/prompt-config"));
+router.put("/hana/prompt-config", authenticateAdmin, requireAdmin, requirePage("prompt-editor"), hanaProxy("PUT", "/admin/prompt-config"));
+router.get("/hana/prompt-history", authenticateAdmin, requireAdmin, requirePage("prompt-editor"), hanaProxy("GET", "/admin/prompt-history"));
+router.post("/hana/prompt-test", authenticateAdmin, requireAdmin, requirePage("prompt-editor"), hanaProxy("POST", "/admin/prompt-test"));
+
 // GET /admin/courses?category=&search=&page=1&limit=20
-router.get("/courses", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), async (req, res) => {
+router.get("/courses",authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), async (req, res) => {
   try {
     const { category, search, page = 1, limit = 20 } = req.query;
     const query = {};
