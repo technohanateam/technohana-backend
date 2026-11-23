@@ -8,7 +8,7 @@ import CrmNotification from "../models/crm/crmNotification.model.js";
 import { resolveRange, istMonthStart, istDateStr } from "../services/crmDailyReport.js";
 import { attachRelated, ownerFilter, createdByFilter, dealOwnerFilter, sendCrmError } from "../utils/crmQuery.js";
 import { hasCrmPermission } from "../middleware/crmPermission.js";
-import { awaitingWhatsAppReplies } from "./crmWhatsApp.controller.js";
+import { awaitingWhatsAppReplies, waNotifyScope } from "./crmWhatsApp.controller.js";
 
 const STATUS_ORDER = [
   "new", "contacted", "discovery", "needs_analysis", "skill_gap_assessed",
@@ -335,6 +335,7 @@ export const getNotifications = async (req, res) => {
     const followUpQ = { isDeleted: false, assignedTo: me, status: { $nin: ["won", "lost", "junk"] }, nextFollowUp: { $lt: end } };
     const canTasks = hasCrmPermission(role, "tasks");
     const canLeads = hasCrmPermission(role, "leads");
+    const canActivities = hasCrmPermission(role, "activities");
     const none = Promise.resolve([]);
     const zero = Promise.resolve(0);
 
@@ -347,7 +348,8 @@ export const getNotifications = async (req, res) => {
       canTasks ? CRMTask.countDocuments(overdueQ) : zero,
       canTasks ? CRMTask.countDocuments(todayQ) : zero,
       canLeads ? CRMLead.countDocuments(followUpQ) : zero,
-      canLeads ? awaitingWhatsAppReplies(me) : none,
+      // A WhatsApp lookup problem must not take the tasks and follow-ups down with it.
+      canLeads && canActivities ? awaitingWhatsAppReplies(waNotifyScope(req)).catch(() => []) : none,
       canLeads ? CrmNotification.find(newLeadQ).sort({ createdAt: -1 }).limit(10).select("title body lead count createdAt").lean() : none,
       canLeads ? CrmNotification.countDocuments(newLeadQ) : zero,
     ]);

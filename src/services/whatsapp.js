@@ -1,7 +1,8 @@
 import WhatsAppMessage from "../models/whatsappMessage.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
+import CRMLead from "../models/crm/crmLead.model.js";
 import { normalizePhone } from "../utils/phone.js";
-import { findDuplicateLead, upsertCrmLead } from "./crmLeadIntake.js";
+import { upsertCrmLead } from "./crmLeadIntake.js";
 import { cancelOutreach } from "./crmOutreach.js";
 
 const GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v21.0";
@@ -130,30 +131,48 @@ export async function applyStatus(s) {
   await msg.save();
 }
 
+// The lead that owns a WhatsApp id, matched on either its phone or its separate WhatsApp number.
+const findLeadByWaId = (waId) => CRMLead.findOne({
+  isDeleted: false,
+  $or: [{ phoneNormalized: `+${waId}` }, { whatsAppNormalized: `+${waId}` }],
+}).sort({ updatedAt: -1 }).select("_id name assignedTo");
+
 // A chat that starts from a Click-to-WhatsApp ad carries `referral`. Those chats become CRM leads;
-// any other inbound message only logs an activity if the sender is already a lead (e.g. a reply to outreach).
+// any other inbound message only matters if the sender is already a lead (e.g. a reply to outreach).
+// Returns true when it created a lead and logged the first message itself.
 async function captureWhatsAppLead(m, text) {
   const phone = `+${m.from}`;
   const ad = m.referral;
-  if (!ad && !(await findDuplicateLead({ phone }))) return;
-
   const adLabel = ad?.headline || ad?.source_id || "-";
-  const { lead, created } = await upsertCrmLead({
+  const existing = await findLeadByWaId(m.from);
+
+  if (existing) {
+    await cancelOutreach(existing._id); // they answered, so the scheduled nudges stop
+    if (ad) {
+      await CRMActivity.create({
+        type: "created", title: "Messaged again from WhatsApp ad", body: `Ad: ${adLabel}`,
+        relatedToType: "lead", relatedToId: existing._id, metadata: { waMessageId: m.id },
+      });
+    }
+    return false;
+  }
+  if (!ad) return false;
+
+  const { created } = await upsertCrmLead({
     fields: {
       name: m.profileName || `WhatsApp ${phone}`,
       phone,
       whatsApp: phone,
       source: "meta_ads",
-      interest: ad ? `WhatsApp ad enquiry: ${adLabel}` : undefined,
-      customFields: ad ? { origin: "whatsapp_ad", adId: ad.source_id, adUrl: ad.source_url, ctwaClid: ad.ctwa_clid } : undefined,
+      interest: `WhatsApp ad enquiry: ${adLabel}`,
+      customFields: { origin: "whatsapp_ad", adId: ad.source_id, adUrl: ad.source_url, ctwaClid: ad.ctwa_clid },
     },
     activityTitle: "Lead captured from WhatsApp ad",
     activityBody: `Ad: ${adLabel} · first message: ${text.slice(0, 200) || `(${m.type})`}`,
-    repeatTitle: ad ? "Messaged again from WhatsApp ad" : "Replied on WhatsApp",
+    repeatTitle: "Messaged again from WhatsApp ad",
     metadata: { waMessageId: m.id },
   });
-  // They answered, so the scheduled nudges stop.
-  if (!created) await cancelOutreach(lead._id);
+  return created;
 }
 
 export async function recordInbound(m) {
@@ -166,20 +185,20 @@ export async function recordInbound(m) {
     type: isOptOut ? "opt_out" : m.type, body: text, status: "received",
   });
   if (isOptOut) {
-    const lead = await findDuplicateLead({ phone: `+${m.from}` });
+    const lead = await findLeadByWaId(m.from);
     if (lead) await cancelOutreach(lead._id);
     return;
   }
-  if (startsConversation) await captureWhatsAppLead(m, text);
+  const loggedByIntake = startsConversation ? await captureWhatsAppLead(m, text) : false;
 
   // Tie the message to the lead (possibly just created above) so the rep's thread and timeline show it.
-  const lead = await findDuplicateLead({ phone: `+${m.from}` });
+  const lead = await findLeadByWaId(m.from);
   if (!lead) return;
   msg.relatedToType = "lead";
   msg.relatedToId = lead._id;
   await Promise.all([
     msg.save(),
-    CRMActivity.create({
+    loggedByIntake ? null : CRMActivity.create({
       type: "whatsapp", title: "WhatsApp received", body: text || `(${m.type})`,
       relatedToType: "lead", relatedToId: lead._id,
       metadata: { direction: "in", waMessageId: m.id },

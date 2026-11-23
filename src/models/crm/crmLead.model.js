@@ -24,6 +24,8 @@ const crmLeadSchema = new mongoose.Schema(
     phone: { type: String, trim: true },
     // "+<digits>" form of phone, kept in sync below — used for duplicate detection.
     phoneNormalized: { type: String },
+    // Same for the separate WhatsApp number, so chats can be matched to the lead that owns it.
+    whatsAppNormalized: { type: String },
     whatsApp: { type: String, trim: true },
     designation: { type: String, trim: true },
     company: { type: String, trim: true },
@@ -135,12 +137,16 @@ crmLeadSchema.pre("validate", function syncPhoneNormalized(next) {
   if (this.isModified("phone") || this.isModified("country") || this.isNew) {
     this.phoneNormalized = normalizePhone(this.phone, this.country);
   }
+  if (this.isModified("whatsApp") || this.isModified("country") || this.isNew) {
+    this.whatsAppNormalized = normalizePhone(this.whatsApp, this.country);
+  }
   next();
 });
 
 crmLeadSchema.index({ businessUnit: 1, createdAt: -1 });
 crmLeadSchema.index({ email: 1 });
 crmLeadSchema.index({ phoneNormalized: 1 });
+crmLeadSchema.index({ whatsAppNormalized: 1 });
 crmLeadSchema.index({ metaLeadgenId: 1 }, { unique: true, sparse: true });
 crmLeadSchema.index({ linkedinLeadId: 1 }, { unique: true, sparse: true });
 crmLeadSchema.index({ publicToken: 1 }, { unique: true, sparse: true });

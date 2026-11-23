@@ -23,5 +23,6 @@ const whatsappMessageSchema = new mongoose.Schema(
 
 whatsappMessageSchema.index({ relatedToType: 1, relatedToId: 1, createdAt: -1 });
 whatsappMessageSchema.index({ phone: 1, direction: 1, createdAt: -1 });
+whatsappMessageSchema.index({ createdAt: -1 });
 
 export default mongoose.model("WhatsAppMessage", whatsappMessageSchema);
