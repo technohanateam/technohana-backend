@@ -41,6 +41,12 @@ The repo root `railway.json` starts the main backend, and config-as-code overrid
 
 60 requests/min per IP overall; requests that include a coupon code are limited to 10 per 15 minutes per IP. Request bodies are capped at 16 KB.
 
-## Not yet verified
+## Verification status
 
-Not run against a real MongoDB, MCP Inspector, or Claude as a custom connector. Tests use an in-memory emulation of the two models.
+Verified 2026-11-23 against the production MongoDB with a read-only Atlas user (`read` on `courses` and `coupons` only): `/health`, `tools/list`, `search_courses`, `get_course_details`, `get_group_quote` and `get_price_quote` (with and without a valid coupon). Also called live through the claude.ai custom connector.
+
+Not yet verified: MCP Inspector, and the claude.ai connector directory submission. Unit tests still use an in-memory emulation of the two models.
+
+If `mongodb+srv://` fails locally with `querySrv ECONNREFUSED`, your DNS is blocking SRV lookups; use the standard `mongodb://host1,host2,host3/...` form (same hosts and `replicaSet`/`authSource` params as the main backend's `MONGO_DB`). Railway resolves SRV normally.
+
+Coupons are read from the database, so an expired or disabled code returns "could not be applied" even when `isActive` is true.
