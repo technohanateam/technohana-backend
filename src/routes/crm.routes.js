@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import { crmRead, crmWrite, crmDelete, crmBulk, crmImport, crmExport } from "../middleware/crmPermission.js";
 import { crmInputGuard } from "../middleware/crmInputGuard.js";
 import { crmAudit } from "../middleware/crmAudit.js";
+import { getCourses, getCoursePdf, runSkillsGap, sendSkillsGapLink, draftRecommendationEmail, recommendCourse } from "../controllers/crmCourse.controller.js";
 
 import {
   getDashboardStats, getFunnelData, getLeadSourcesBreakdown, getAnalytics, getCalendarEvents, getSearch, getNotifications, markNotificationsRead,
@@ -41,7 +42,6 @@ import {
   resetCrmUserPassword, setCrmUserActive, deleteCrmUser,
 } from "../controllers/crmUser.controller.js";
 import { getZohoStatus, getZohoConnectUrl, disconnectZoho, scheduleMeeting, syncZohoMailNow } from "../controllers/crmZoho.controller.js";
-import { getCourses } from "../controllers/crmCourse.controller.js";
 import {
   getLinkedinStatus, getLinkedinConnectUrl, getLinkedinAdAccounts, selectLinkedinAdAccount, disconnectLinkedin,
 } from "../controllers/crmLinkedin.controller.js";
@@ -120,6 +120,7 @@ router.get("/dashboard/sources", crmRead("dashboard"),  getLeadSourcesBreakdown)
 router.get("/analytics",         crmRead("dashboard"),  getAnalytics);
 router.get("/calendar",          crmRead("dashboard"),  getCalendarEvents);
 router.get("/search",            crmRead("dashboard"),  getSearch);
+router.get("/courses/:id/pdf", crmRead("courses"), getCoursePdf);
 router.get("/notifications",     crmRead("dashboard"),  getNotifications);
 router.post("/notifications/read", crmRead("dashboard"), markNotificationsRead);
 
@@ -145,6 +146,10 @@ router.post("/leads/bulk",          crmBulk("leads"),         bulkLeadAction);
 router.get("/leads",                crmRead("leads"),         getLeads);
 router.post("/leads",               crmWrite("leads"),        createLead);
 router.get("/leads/:id",            crmRead("leads"),         getLead);
+router.post("/leads/:id/skills-gap",                   crmWrite("leads"), aiLimiter, runSkillsGap);
+router.post("/leads/:id/skills-gap-link",              crmWrite("leads"), emailLimiter, sendSkillsGapLink);
+router.post("/leads/:id/recommend-course/draft",       crmWrite("leads"), draftRecommendationEmail);
+router.post("/leads/:id/recommend-course",             crmWrite("leads"), emailLimiter, recommendCourse);
 router.put("/leads/:id",            crmWrite("leads"),        updateLead);
 router.delete("/leads/:id",         crmDelete("leads"),       deleteLead);
 router.post("/leads/:id/merge",     crmWrite("leads"),        mergeLead);

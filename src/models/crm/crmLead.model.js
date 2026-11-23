@@ -69,8 +69,9 @@ const crmLeadSchema = new mongoose.Schema(
     // CRM State — this is the spine field connecting all lifecycle stages
     status: {
       type: String,
-      enum: ["new", "discovery", "needs_analysis", "skill_gap_assessed", "course_recommended",
-             "proposal_sent", "negotiation", "quotation_sent", "purchase_order", "won", "lost", "junk"],
+      enum: ["new", "contacted", "discovery", "needs_analysis", "skill_gap_assessed", "course_recommended",
+             "demo_scheduled", "demo_done", "proposal_sent", "negotiation", "quotation_sent", "purchase_order",
+             "payment_pending", "won", "enrolled", "lost", "junk"],
       default: "new",
     },
     lostReason: { type: String, trim: true },
@@ -109,6 +110,10 @@ const crmLeadSchema = new mongoose.Schema(
     // LinkedIn Lead Gen Form response id — same idempotency role for the LinkedIn poller.
     linkedinLeadId: { type: String },
 
+    // Unguessable token embedded in links sent to this lead (e.g. the Skills Gap page),
+    // so a public form submission can be attached back to the lead.
+    publicToken: { type: String },
+
     // Dedup
     isDuplicate: { type: Boolean, default: false },
     mergedInto: { type: mongoose.Schema.Types.ObjectId, ref: "CRMLead" },
@@ -138,6 +143,7 @@ crmLeadSchema.index({ email: 1 });
 crmLeadSchema.index({ phoneNormalized: 1 });
 crmLeadSchema.index({ metaLeadgenId: 1 }, { unique: true, sparse: true });
 crmLeadSchema.index({ linkedinLeadId: 1 }, { unique: true, sparse: true });
+crmLeadSchema.index({ publicToken: 1 }, { unique: true, sparse: true });
 crmLeadSchema.index({ assignedTo: 1 });
 crmLeadSchema.index({ pipeline: 1 });
 crmLeadSchema.index({ createdAt: -1 });

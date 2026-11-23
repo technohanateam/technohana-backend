@@ -8873,131 +8873,6 @@
     "categoryGroup": "Cloud"
   },
   {
-    "id": "AWS-DAS-C01",
-    "courseSlug": "aws-data-analytics-specialty-certification-training",
-    "logo": "course_thumb01.jpg",
-    "category": "Amazon Web Services",
-    "catdesc": "Master Amazon Web Services to build scalable, reliable, and cost-effective cloud solutions. These courses prepare you for AWS certifications and equip you with hands-on skills for real-world cloud architecture and DevOps practices.",
-    "catcls": "cat-nine",
-    "courseTitle": "AWS Data Analytics Specialty Certification Training",
-    "courseDays": "03 Days",
-    "courseTime": "24 Hours",
-    "courseModules": "07 Modules",
-    "noStudents": "12",
-    "instructor": "Industry Experts",
-    "price": 47999,
-    "language": "English",
-    "difficulty": "Advanced",
-    "rating": "4.5",
-    "overview": "The AWS Data Analytics Specialty course provides deep expertise in designing and building analytics solutions on AWS. Participants will work with data collection, storage, processing, visualisation, and governance services \u2014 covering the full analytics pipeline from raw data ingestion to actionable business insights, aligned with the AWS Certified Data Analytics \u2013 Specialty (DAS-C01) exam.",
-    "courseObjective": "Participants will gain hands-on experience with AWS analytics services including Kinesis, Glue, EMR, Redshift, Athena, QuickSight, and Lake Formation to design scalable, cost-effective, and secure data analytics architectures.",
-    "courseOutcomes": "Upon completion, participants will be able to architect end-to-end data analytics pipelines on AWS, implement data lake solutions, process streaming and batch data, build BI visualisations, and pass the AWS DAS-C01 exam.",
-    "prerequisites": "AWS associate-level certification or equivalent hands-on experience. Familiarity with SQL and basic data engineering concepts. Experience with AWS storage and compute services.",
-    "labs": "Hands-on labs covering Kinesis Data Streams ingestion, Glue ETL workflows, EMR Spark jobs, Redshift query optimisation, Athena federated queries, Lake Formation permissions, and QuickSight dashboards.",
-    "whatWillYouLearn": [
-      "Real-time data ingestion with Kinesis Data Streams and Kinesis Firehose",
-      "Batch data processing with AWS Glue and Apache Spark on EMR",
-      "Data warehousing and query optimisation with Amazon Redshift",
-      "Serverless analytics with Amazon Athena and AWS Glue Data Catalog",
-      "Building data lake architectures with S3 and AWS Lake Formation",
-      "BI dashboards and visualisations with Amazon QuickSight",
-      "Data governance, access control, and compliance with Lake Formation",
-      "Streaming analytics with Kinesis Data Analytics (Apache Flink)"
-    ],
-    "requirements": [
-      "AWS associate certification or equivalent experience",
-      "SQL proficiency and basic data engineering knowledge",
-      "Familiarity with Python or Scala for data processing is beneficial"
-    ],
-    "targetAudience": [
-      "Data Engineers building AWS data pipelines",
-      "Data Architects designing analytics solutions",
-      "BI Developers and Analytics Engineers",
-      "Data Scientists requiring production-grade data pipelines",
-      "IT professionals preparing for AWS DAS-C01 certification"
-    ],
-    "modules": [
-      {
-        "moduleTitle": "Module 1: Data Collection",
-        "content": [
-          "Amazon Kinesis Data Streams: shards, consumers, and enhanced fan-out",
-          "Amazon Kinesis Data Firehose: destinations and transformations",
-          "AWS Database Migration Service (DMS) for continuous replication",
-          "AWS DataSync and Storage Gateway for hybrid data ingestion",
-          "Amazon MSK (Managed Streaming for Apache Kafka)"
-        ]
-      },
-      {
-        "moduleTitle": "Module 2: Data Storage",
-        "content": [
-          "Amazon S3 storage classes, lifecycle policies, and Intelligent Tiering",
-          "Amazon DynamoDB for fast key-value and document storage",
-          "Amazon Redshift architecture: nodes, slices, and distribution styles",
-          "Amazon Elasticsearch/OpenSearch Service",
-          "Amazon RDS and Aurora for transactional workloads"
-        ]
-      },
-      {
-        "moduleTitle": "Module 3: Data Processing \u2014 Batch",
-        "content": [
-          "AWS Glue crawlers, job bookmarks, and Glue Studio",
-          "Amazon EMR: Hadoop, Spark, Hive, and HBase",
-          "EMR cluster configurations and instance fleet optimisation",
-          "AWS Batch for large-scale job scheduling",
-          "Lambda and Step Functions for lightweight transformations"
-        ]
-      },
-      {
-        "moduleTitle": "Module 4: Data Processing \u2014 Streaming",
-        "content": [
-          "Kinesis Data Analytics for Apache Flink",
-          "Tumbling, sliding, and session windows in stream processing",
-          "Exactly-once processing semantics",
-          "Lambda for real-time Kinesis stream processing",
-          "EMR Streaming with Spark Structured Streaming"
-        ]
-      },
-      {
-        "moduleTitle": "Module 5: Data Analysis and Query",
-        "content": [
-          "Amazon Athena: DDL, partitioning, and federated queries",
-          "Redshift query tuning: sort keys, distribution keys, and VACUUM",
-          "Redshift Spectrum for querying S3 data lakes",
-          "Amazon OpenSearch Service for log analytics and full-text search",
-          "AWS Glue Data Catalog as central metadata repository"
-        ]
-      },
-      {
-        "moduleTitle": "Module 6: Data Visualisation and Governance",
-        "content": [
-          "Amazon QuickSight datasets, SPICE engine, and dashboards",
-          "QuickSight ML Insights: anomaly detection and forecasting",
-          "AWS Lake Formation: data lake setup, permissions, and tag-based access",
-          "AWS Macie for sensitive data classification in S3",
-          "AWS Glue Data Quality and data lineage"
-        ]
-      },
-      {
-        "moduleTitle": "Module 7: Security, Cost Optimisation, and Exam Prep",
-        "content": [
-          "Encryption at rest and in transit for analytics services",
-          "VPC endpoints for analytics service isolation",
-          "Cost optimisation: Redshift Reserved Nodes, EMR Spot, S3 lifecycle",
-          "Monitoring analytics pipelines with CloudWatch",
-          "DAS-C01 exam review and practice questions"
-        ]
-      }
-    ],
-    "prices": {
-      "inr": 47999,
-      "usd": 629,
-      "aed": 2669,
-      "gbp": 559,
-      "eur": 659
-    },
-    "categoryGroup": "Cloud"
-  },
-  {
     "id": "AWS-ANS-C01",
     "courseSlug": "aws-networking-specialty-certification-training",
     "logo": "course_thumb01.jpg",
@@ -10450,130 +10325,6 @@
           "Azure Site Recovery for AVD disaster recovery",
           "Cross-region replication of custom images",
           "AZ-140 exam review and practice questions"
-        ]
-      }
-    ],
-    "prices": {
-      "inr": 63999,
-      "usd": 839,
-      "aed": 3559,
-      "gbp": 739,
-      "eur": 879
-    },
-    "categoryGroup": "Microsoft"
-  },
-  {
-    "id": "AZ-220",
-    "courseSlug": "microsoft-azure-iot-developer",
-    "logo": "course_thumb01.jpg",
-    "category": "Microsoft Azure",
-    "catdesc": "Learn how to use Microsoft Azure to make your projects better! This course will teach you how to use the cloud to store data, work on big projects, and share your work with others. With easy lessons and simple steps, you'll understand how to use this powerful tool in no time.",
-    "catcls": "cat-seven",
-    "courseTitle": "AZ-220: Microsoft Azure IoT Developer",
-    "courseDays": "04 Days",
-    "courseTime": "32 Hours",
-    "courseModules": "07 Modules",
-    "noStudents": "15",
-    "instructor": "Azure Experts",
-    "price": 63999,
-    "language": "English",
-    "difficulty": "Intermediate",
-    "rating": "4.5",
-    "overview": "The AZ-220 course trains participants to design, implement, and maintain IoT solutions on Microsoft Azure. Participants will work with IoT Hub, Device Provisioning Service, IoT Edge, Azure Stream Analytics, and Azure Digital Twins \u2014 preparing them for the Microsoft Certified: Azure IoT Developer Specialty exam.",
-    "courseObjective": "Participants will gain hands-on experience implementing device connectivity, data processing pipelines, edge intelligence, security, and monitoring for enterprise IoT solutions on Azure.",
-    "courseOutcomes": "Upon completion, participants will be able to connect and manage IoT devices at scale, implement IoT Edge workloads, build real-time data pipelines, monitor device health, and pass the AZ-220 exam.",
-    "prerequisites": [
-      "Experience with Azure services and Azure CLI",
-      "Familiarity with cloud computing concepts and Azure IoT services",
-      "Programming experience in C#, Python, or Node.js"
-    ],
-    "labs": "Hands-on labs covering IoT Hub device management, DPS auto-provisioning, IoT Edge module deployment, Stream Analytics jobs, Azure Digital Twins, and Defender for IoT.",
-    "whatWillYouLearn": [
-      "Set up and manage Azure IoT Hub for device connectivity",
-      "Implement device provisioning with Azure Device Provisioning Service (DPS)",
-      "Deploy and manage IoT Edge devices and custom modules",
-      "Process IoT data streams with Azure Stream Analytics",
-      "Integrate IoT data with Azure services: Event Hubs, Service Bus, and Blob Storage",
-      "Model physical environments with Azure Digital Twins",
-      "Implement IoT security with Azure Defender for IoT",
-      "Monitor and troubleshoot IoT solutions with Azure Monitor"
-    ],
-    "requirements": [
-      "Azure administration or developer experience",
-      "Programming skills in C#, Python, or Node.js",
-      "Access to Microsoft Azure subscription"
-    ],
-    "targetAudience": [
-      "IoT Developers building Azure-based IoT solutions",
-      "Embedded Engineers extending to cloud IoT",
-      "Solution Architects designing IoT platforms",
-      "IT professionals preparing for the AZ-220 exam"
-    ],
-    "modules": [
-      {
-        "moduleTitle": "Module 1: Introduction to Azure IoT Solutions",
-        "content": [
-          "Azure IoT solution architecture overview",
-          "Azure IoT Hub: tiers, pricing, and capabilities",
-          "IoT solution patterns: connected devices, predictive maintenance, remote monitoring",
-          "Azure IoT SDKs and device client libraries"
-        ]
-      },
-      {
-        "moduleTitle": "Module 2: Device Implementation and Management",
-        "content": [
-          "Device identity and authentication with SAS tokens and X.509 certificates",
-          "Azure Device Provisioning Service (DPS) auto-provisioning",
-          "Device twins, desired properties, and reported properties",
-          "Direct methods and cloud-to-device messaging",
-          "IoT Hub device management at scale: bulk operations and jobs"
-        ]
-      },
-      {
-        "moduleTitle": "Module 3: Azure IoT Edge",
-        "content": [
-          "IoT Edge architecture: modules, runtime, and hub",
-          "Deploying IoT Edge devices and module manifests",
-          "Developing custom IoT Edge modules",
-          "IoT Edge offline and intermittent connectivity patterns",
-          "Azure IoT Edge at scale with layered deployments"
-        ]
-      },
-      {
-        "moduleTitle": "Module 4: Data Processing and Analytics",
-        "content": [
-          "Azure Event Hubs for high-throughput telemetry ingestion",
-          "Azure Stream Analytics: queries, windows, and outputs",
-          "Azure Time Series Insights for IoT data exploration",
-          "Routing IoT Hub messages to Azure services",
-          "Azure Data Explorer for IoT telemetry analytics"
-        ]
-      },
-      {
-        "moduleTitle": "Module 5: Azure Digital Twins",
-        "content": [
-          "Digital Twins Definition Language (DTDL) modelling",
-          "Creating and querying Azure Digital Twins instances",
-          "Connecting IoT Hub telemetry to Digital Twins",
-          "3D Scenes Studio for spatial visualisation"
-        ]
-      },
-      {
-        "moduleTitle": "Module 6: Security and Compliance",
-        "content": [
-          "Microsoft Defender for IoT: agentless and agent-based monitoring",
-          "Device authentication: X.509 CA certificates and TPM",
-          "Azure Private Endpoint for IoT Hub",
-          "Securing IoT Edge with certificate authorities"
-        ]
-      },
-      {
-        "moduleTitle": "Module 7: Monitoring, Troubleshooting, and Exam Prep",
-        "content": [
-          "Azure Monitor metrics and diagnostic logs for IoT Hub",
-          "IoT Hub health monitoring and alerts",
-          "Troubleshooting device connectivity and message routing",
-          "AZ-220 exam review and practice questions"
         ]
       }
     ],
@@ -43111,5 +42862,238 @@
       "eur": 639
     },
     "categoryGroup": "Cloud"
+  },
+  {
+    "id": "AI-103",
+    "courseSlug": "developing-ai-apps-agents-azure",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "AI-103: Developing AI Apps and Agents on Azure",
+    "category": "Microsoft AI",
+    "catcls": "cat-six",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "06 Modules",
+    "price": 63999,
+    "rating": "4.5",
+    "noStudents": "25+",
+    "instructor": "Microsoft AI Experts",
+    "language": "English",
+    "difficulty": "Intermediate",
+    "overview": "AI-103 prepares you for the Microsoft Certified: Azure AI Apps and Agents Developer Associate certification. You will build, deploy and manage generative AI applications and agents with Microsoft Foundry, covering RAG, multi-agent orchestration, computer vision, text and speech analysis, and information extraction with Azure Content Understanding and Azure AI Search.",
+    "courseObjective": "To equip Azure AI engineers with the skills to plan and manage AI solutions in Microsoft Foundry, build generative and agentic applications in Python, and implement vision, text analysis and information extraction solutions responsibly and at scale.",
+    "courseOutcomes": "Participants will be able to choose and deploy models in Foundry, build RAG applications and orchestrated agents, implement image, video, speech and document-understanding solutions, apply responsible AI guardrails, and monitor and secure AI workloads in production.",
+    "prerequisites": [
+      "Experience developing applications in Python",
+      "Familiarity with general AI and generative AI concepts",
+      "Working knowledge of core Azure services"
+    ],
+    "labs": "Hands-on labs with Microsoft Foundry, Azure OpenAI, Azure AI Search, Azure Content Understanding, Azure AI Speech and Translator, and the Foundry SDKs in Python.",
+    "toc": "AI-103-Developing-AI-Apps-and-Agents-on-Azure.pdf",
+    "whatWillYouLearn": [
+      "Choose and deploy the right models and Foundry services for each task",
+      "Build RAG applications with vector, hybrid and semantic search",
+      "Build single and multi-agent solutions with tools, memory and approval flows",
+      "Implement image and video generation and multimodal understanding",
+      "Implement speech, translation and text analysis solutions",
+      "Apply guardrails, evaluators, tracing and security to AI systems"
+    ],
+    "requirements": [
+      "Azure subscription with Microsoft Foundry access",
+      "Python 3 and VS Code installed",
+      "Basic understanding of REST APIs and JSON"
+    ],
+    "targetAudience": [
+      "Azure AI engineers and software developers building AI apps",
+      "Developers moving from AI-102 to agent-based solutions",
+      "Solution architects designing Foundry-based AI systems",
+      "Professionals preparing for the AI-103 exam"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: Plan and Manage an Azure AI Solution",
+        "content": [
+          "Choosing LLMs, small language models, multimodal models and Foundry tools",
+          "Designing Azure infrastructure and deployment options for AI apps and agents",
+          "Configuring model and agent deployments; CI/CD for Foundry projects",
+          "Managing quotas, scaling, rate limits and cost",
+          "Security: managed identity, private networking, keyless credentials, role policies"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: Build Generative AI Applications with Foundry",
+        "content": [
+          "Deploying and consuming LLMs, code models and multimodal models",
+          "Implementing retrieval-augmented generation (RAG)",
+          "Workflows, tool-augmented flows and multistep reasoning pipelines",
+          "Evaluating apps for groundedness, relevance, quality and safety",
+          "Connecting apps to Foundry projects with the Foundry SDKs"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Build Agents with Foundry",
+        "content": [
+          "Defining agent roles, goals, conversation tracking and tool schemas",
+          "Function calling, retrieval and conversation memory",
+          "Integrating APIs, search, knowledge stores and Content Understanding",
+          "Orchestrated multi-agent solutions",
+          "Autonomous workflows with safeguards, approvals, monitoring and error analysis"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: Optimize, Operationalize and Govern AI Systems",
+        "content": [
+          "Prompt engineering and model parameter tuning",
+          "Reflection, self-critique loops and chain-of-thought evaluation",
+          "Observability: tracing, token analytics, safety signals, latency",
+          "Safety filters, guardrails, risk detection and content moderation",
+          "Auditing, provenance and governing agent behavior"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Implement Computer Vision Solutions",
+        "content": [
+          "Text-to-image and text-to-video generation, inpainting and editing workflows",
+          "Multimodal image understanding, captions, alt-text and visual Q&A",
+          "Video analysis and Content Understanding pipelines",
+          "Detecting objects and regions in images and video",
+          "Responsible AI for multimodal content, including image-based prompt injection"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Text Analysis, Speech and Information Extraction",
+        "content": [
+          "Entity, topic, summary and structured JSON extraction; sentiment and safety detection",
+          "Translation with Azure Translator and LLM-powered flows",
+          "Speech-to-text, text-to-speech and speech as an agent modality",
+          "Ingesting and indexing content; semantic, hybrid and vector search",
+          "Document extraction with OCR, layout analysis and Content Understanding analyzers"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "categoryGroup": "Microsoft"
+  },
+  {
+    "id": "DP-700",
+    "courseSlug": "fabric-data-engineer-associate-dp-700",
+    "logo": "course_thumb01.jpg",
+    "courseTitle": "DP-700: Implementing Data Engineering Solutions Using Microsoft Fabric",
+    "category": "Microsoft Azure",
+    "catdesc": "Build and manage data engineering solutions on Microsoft Fabric: lakehouses, warehouses, pipelines, Spark and real-time analytics.",
+    "catcls": "cat-seven",
+    "courseDays": "04 Days",
+    "courseTime": "32 Hours",
+    "courseModules": "06 Modules",
+    "price": 63999,
+    "rating": "4.5",
+    "noStudents": "25+",
+    "instructor": "Azure Experts",
+    "language": "English",
+    "difficulty": "Intermediate",
+    "overview": "DP-700 prepares you for the Microsoft Certified: Fabric Data Engineer Associate certification. You will design and implement loading patterns, ingest and transform batch and streaming data with PySpark, SQL and KQL, secure and govern Fabric items, and monitor and optimize analytics solutions end to end.",
+    "courseObjective": "To equip data engineers with the skills to implement and manage analytics solutions in Microsoft Fabric, ingest and transform batch and streaming data, and monitor, troubleshoot and optimize performance.",
+    "courseOutcomes": "Participants will be able to configure Fabric workspaces and lifecycle management, orchestrate pipelines and notebooks, implement full and incremental loads, process streaming data with Eventstream and Spark, apply security controls, and tune Lakehouse, warehouse and Spark workloads.",
+    "prerequisites": [
+      "Experience with SQL, PySpark and basic KQL",
+      "Understanding of data loading patterns and data architectures",
+      "Familiarity with data engineering concepts such as ETL/ELT"
+    ],
+    "labs": "Hands-on labs in Microsoft Fabric: Lakehouse, Data Warehouse, Data Factory pipelines, Dataflows Gen2, notebooks, Eventstream, Eventhouse and deployment pipelines.",
+    "toc": "DP-700-Fabric-Data-Engineer.pdf",
+    "whatWillYouLearn": [
+      "Configure Fabric workspaces, version control and deployment pipelines",
+      "Implement workspace, item, row, column and OneLake security with masking and labels",
+      "Choose between Dataflows Gen2, pipelines and notebooks for orchestration",
+      "Implement full, incremental and streaming loading patterns",
+      "Transform data with PySpark, T-SQL and KQL",
+      "Monitor, troubleshoot and optimize Fabric items"
+    ],
+    "requirements": [
+      "Access to a Microsoft Fabric capacity or trial",
+      "Basic SQL and Python knowledge",
+      "Microsoft Entra / Microsoft 365 account"
+    ],
+    "targetAudience": [
+      "Data engineers moving to Microsoft Fabric",
+      "Azure data engineers upgrading from DP-203",
+      "Analytics engineers and BI developers handling data pipelines",
+      "Professionals preparing for the DP-700 exam"
+    ],
+    "modules": [
+      {
+        "moduleTitle": "Module 01: Configure and Manage a Fabric Analytics Solution",
+        "content": [
+          "Spark, domain, OneLake and Apache Airflow workspace settings",
+          "Version control and database projects",
+          "Deployment pipelines and lifecycle management",
+          "Choosing Lakehouse, Warehouse or Eventhouse",
+          "Capacity and workspace planning"
+        ]
+      },
+      {
+        "moduleTitle": "Module 02: Security and Governance in Fabric",
+        "content": [
+          "Workspace-level and item-level access controls",
+          "Row-level, column-level, object-level and file-level security",
+          "Dynamic data masking and sensitivity labels",
+          "OneLake security and item endorsement",
+          "Audit logs in Microsoft Fabric"
+        ]
+      },
+      {
+        "moduleTitle": "Module 03: Orchestrate Data Processes",
+        "content": [
+          "Choosing Dataflows Gen2, pipelines or notebooks",
+          "Schedules and event-based triggers",
+          "Orchestration with parameters and dynamic expressions",
+          "Notebook and pipeline orchestration patterns",
+          "Apache Airflow jobs in Fabric"
+        ]
+      },
+      {
+        "moduleTitle": "Module 04: Loading Patterns and Batch Ingestion",
+        "content": [
+          "Full and incremental loads",
+          "Preparing data for a dimensional model",
+          "OneLake shortcuts and mirroring",
+          "Ingesting with pipelines and Dataflows Gen2",
+          "Choosing the right data store"
+        ]
+      },
+      {
+        "moduleTitle": "Module 05: Transform Batch and Streaming Data",
+        "content": [
+          "Transforming with PySpark, T-SQL and KQL",
+          "Denormalizing, grouping and aggregating data",
+          "Handling duplicate, missing and late-arriving data",
+          "Eventstream, Spark structured streaming and KQL",
+          "Windowing functions and Real-Time Intelligence shortcuts"
+        ]
+      },
+      {
+        "moduleTitle": "Module 06: Monitor, Troubleshoot and Optimize",
+        "content": [
+          "Monitoring ingestion, transformation and semantic model refresh",
+          "Configuring alerts",
+          "Resolving pipeline, Dataflow, notebook, Eventhouse and Eventstream errors",
+          "Resolving T-SQL and OneLake shortcut errors",
+          "Optimizing Lakehouse tables, warehouses, Spark and queries"
+        ]
+      }
+    ],
+    "prices": {
+      "inr": 63999,
+      "usd": 839,
+      "aed": 3559,
+      "gbp": 739,
+      "eur": 879
+    },
+    "categoryGroup": "Microsoft"
   }
 ]

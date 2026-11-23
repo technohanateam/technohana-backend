@@ -11,6 +11,11 @@ import Subscription from "../models/subscription.model.js";
 const CASE_INSENSITIVE = { locale: "en", strength: 2 };
 const UNSUBSCRIBE_MAILTO = "<mailto:unsubscribe@technohana.in?subject=unsubscribe>";
 
+// CRM hold: a lead or contact with this tag is never emailed or put into outreach
+// from the CRM. Callers must populate the record's tags with their names.
+export const DO_NOT_CONTACT_TAG = "do-not-contact";
+export const isDoNotContact = (record) => !!record.tags?.some((tag) => tag?.name === DO_NOT_CONTACT_TAG);
+
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 
 const signEmail = (email) =>

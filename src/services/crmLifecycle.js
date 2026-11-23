@@ -6,17 +6,19 @@ import CRMPipeline from "../models/crm/crmPipeline.model.js";
 import CRMActivity from "../models/crm/crmActivity.model.js";
 
 const STATUS_TO_STAGE = {
-  new: "lead", discovery: "discovery", needs_analysis: "needs_analysis",
+  new: "lead", contacted: "contacted", discovery: "discovery", needs_analysis: "needs_analysis",
   skill_gap_assessed: "skill_gap", course_recommended: "course_recommended",
+  demo_scheduled: "demo_scheduled", demo_done: "demo_done",
   proposal_sent: "proposal_sent", negotiation: "negotiation", quotation_sent: "quotation_sent",
-  purchase_order: "purchase_order", won: "won", lost: "lost",
+  purchase_order: "purchase_order", payment_pending: "payment_pending", won: "won", lost: "lost",
 };
+// "enrolled" is deliberately unmapped: it follows "won" on the lead only, so the deal stays won.
 const STAGE_TO_STATUS = Object.fromEntries(Object.entries(STATUS_TO_STAGE).map(([status, stage]) => [stage, status]));
 
 // The stage of `pipeline` that matches a lead status, falling back to the first stage.
 export function stageForLeadStatus(pipeline, status) {
   const stages = pipeline.stages.slice().sort((a, b) => a.order - b.order);
-  if (status === "won") return stages.find((s) => s.isWon) || stages[0];
+  if (status === "won" || status === "enrolled") return stages.find((s) => s.isWon) || stages[0];
   if (status === "lost" || status === "junk") return stages.find((s) => s.isLost) || stages[0];
   return stages.find((s) => s.key === STATUS_TO_STAGE[status]) || stages[0];
 }

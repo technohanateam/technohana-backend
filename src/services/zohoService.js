@@ -16,7 +16,28 @@ export async function fetchMailAccount(connection) {
   };
 }
 
-export async function sendZohoMail(connection, { to, subject, html, cc }) {
+// Zoho attachments are two steps: upload the file to Zoho's store, then reference the
+// returned storeName / attachmentName / attachmentPath in the send call.
+// NOTE: the multipart field name ("file") and the response keys are taken from Zoho's
+// docs as summarised by search results, not verified against a live account. Test with a
+// connected mailbox. Missing keys fail loudly here instead of sending without the file.
+async function uploadZohoAttachment(connection, { filename, content, contentType = "application/pdf" }) {
+  const form = new FormData();
+  form.append("file", new Blob([content], { type: contentType }), filename);
+  const json = await zohoFetch(connection, "mail",
+    `/api/accounts/${connection.zohoMailAccountId}/messages/attachments?uploadType=multipart`, { method: "POST", form });
+  const item = [].concat(json?.data ?? [])[0];
+  const { storeName, attachmentName, attachmentPath } = item || {};
+  if (!storeName || !attachmentName || !attachmentPath) {
+    throw new Error("Zoho did not return the uploaded attachment details");
+  }
+  return { storeName, attachmentName, attachmentPath };
+}
+
+export async function sendZohoMail(connection, { to, subject, html, cc, attachments = [] }) {
+  const uploaded = [];
+  for (const file of attachments) uploaded.push(await uploadZohoAttachment(connection, file));
+
   const json = await zohoFetch(connection, "mail", `/api/accounts/${connection.zohoMailAccountId}/messages`, {
     method: "POST",
     body: {
@@ -26,6 +47,7 @@ export async function sendZohoMail(connection, { to, subject, html, cc }) {
       subject,
       content: html,
       mailFormat: "html",
+      ...(uploaded.length ? { attachments: uploaded } : {}),
     },
   });
   return { messageId: json?.data?.messageId ? String(json.data.messageId) : undefined };
