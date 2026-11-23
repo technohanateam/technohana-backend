@@ -1,12 +1,9 @@
 import express from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import mongoose from "mongoose";
-import fs from "fs";
-import path from "path";
 import multer from "multer";
 import xss from "xss";
 import { v2 as cloudinary } from "cloudinary";
-import { fileURLToPath } from "url";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
 import { parseModelJson } from "../utils/parseModelJson.js";
 import { User } from "../models/user.model.js";
@@ -59,8 +56,6 @@ import { decryptToken } from "../utils/tokenCrypto.js";
 import crypto from "crypto";
 import { generateResetToken, verifyResetToken } from "../utils/resetTokenUtil.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
@@ -1380,73 +1375,6 @@ router.delete("/courses/clear", authenticateAdmin, requirePage("courses", "quote
     return res.json({ message: "Cleared all courses", deleted: result.deletedCount });
   } catch (err) {
     console.error("Admin clear courses error:", err);
-    return res.status(500).json({ message: "Server error", detail: err.message });
-  }
-});
-
-// POST /admin/courses/seed — sync from src/data/courses.json
-// force=true: upsert all (updates existing courses including prices)
-// force=false (default): additive only (insert missing courses)
-router.post("/courses/seed", authenticateAdmin, requirePage("courses", "quote-generator", "proposal-builder"), requireAdmin, async (req, res) => {
-  try {
-    const { force } = req.body || {};
-    const dataPath = path.join(__dirname, "../data/courses.json");
-    const playbookDataPath = path.join(__dirname, "../data/playbook-courses.json");
-    const comptiaDataPath = path.join(__dirname, "../data/comptia-courses.json");
-    const courses = JSON.parse(fs.readFileSync(dataPath, "utf-8"))
-      .concat(JSON.parse(fs.readFileSync(playbookDataPath, "utf-8")))
-      .concat(JSON.parse(fs.readFileSync(comptiaDataPath, "utf-8")));
-
-    if (force) {
-      const ops = courses
-        .filter(c => c.id)
-        .map(c => ({
-          updateOne: {
-            filter: { id: c.id },
-            update: { $set: c },
-            upsert: true,
-          },
-        }));
-      const result = await Course.bulkWrite(ops, { ordered: false });
-      const total = await Course.countDocuments();
-      syncCourseCatalog();
-      return res.json({
-        message: `Reseeded ${ops.length} courses (upsert)`,
-        upserted: result.upsertedCount,
-        modified: result.modifiedCount,
-        total,
-      });
-    }
-
-    const existingIds = new Set(
-      (await Course.find({}, { id: 1, _id: 0 })).map(c => c.id)
-    );
-    const toInsert = courses.filter(c => c.id && !existingIds.has(c.id));
-
-    if (toInsert.length === 0) {
-      const total = await Course.countDocuments();
-      return res.json({ message: `All courses already in DB`, count: total });
-    }
-
-    const result = await Course.insertMany(toInsert, { ordered: false });
-    const total = await Course.countDocuments();
-    syncCourseCatalog();
-    return res.status(201).json({
-      message: `Seeded ${result.length} new courses successfully`,
-      inserted: result.length,
-      total,
-    });
-  } catch (err) {
-    console.error("Admin seed courses error:", err);
-    if (err.writeErrors?.length > 0) {
-      const total = await Course.countDocuments();
-      return res.status(207).json({
-        message: "Partial seed - some courses failed",
-        detail: err.writeErrors.map(e => e.err.errmsg),
-        errors: err.writeErrors.length,
-        total,
-      });
-    }
     return res.status(500).json({ message: "Server error", detail: err.message });
   }
 });
