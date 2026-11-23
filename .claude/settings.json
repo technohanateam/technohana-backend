@@ -4,7 +4,6 @@
       "Bash(npm run start)",
       "Bash(npm run sync-prices)",
       "Bash(node seed-coupons.js)",
-      "Bash(node seed-courses.js)",
       "Bash(node --check:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
