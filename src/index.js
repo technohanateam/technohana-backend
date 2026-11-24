@@ -1616,6 +1616,10 @@ import("./services/trainerReminderQueue.js")
   .then(({ scheduleTrainerReminderRepeatable }) => scheduleTrainerReminderRepeatable())
   .catch((err) => console.error("[Trainer Reminder Queue] failed to schedule repeatable:", err.message));
 
+import("./services/linkedinPublish.js")
+  .then(({ startSocialPublishScheduler }) => startSocialPublishScheduler())
+  .catch((err) => console.error("[SocialFactory] failed to start scheduler:", err.message));
+
 // ─── Automated Email Sequences ────────────────────────────────────────────────
 
 // Abandoned cart: check every 30 minutes, send re-engagement email after 2h
