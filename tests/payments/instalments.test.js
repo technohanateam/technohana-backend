@@ -94,7 +94,7 @@ const makeOrder = (over = {}) => ({
   ...over,
 });
 
-beforeEach(() => { order = makeOrder(); crmCalls = []; userCalls = []; emails = []; userDocs = []; delete process.env.RAZORPAY_WEBHOOK_SECRET; });
+beforeEach(() => { order = makeOrder(); crmCalls = []; userCalls = []; emails = []; userDocs = []; delete process.env.RAZORPAY_WEBHOOK_SECRET; delete process.env.RAZORPAY_WEBHOOK_SECRET_TEST; });
 
 test("instalments are for single INR learners at or above the minimum only", () => {
   const ok = { currency: "INR", enrollmentType: "individual", participants: 1, totalMinor: INSTALMENT_MIN_INR_MINOR };
@@ -172,6 +172,41 @@ test("the webhook rejects a bad signature and an unconfigured secret", async () 
   await handleRazorpayWebhook(webhookReq(paidEvent(), "other-secret"), bad);
   assert.equal(bad.code, 400);
   assert.equal(order.status, "partially_paid");
+});
+
+test("a Test-mode webhook signed with its own secret is accepted when RAZORPAY_WEBHOOK_SECRET_TEST is set", async () => {
+  process.env.RAZORPAY_WEBHOOK_SECRET = "live-secret";
+  process.env.RAZORPAY_WEBHOOK_SECRET_TEST = "test-secret";
+
+  const testSigned = fakeRes();
+  await handleRazorpayWebhook(webhookReq(paidEvent(), "test-secret"), testSigned);
+  assert.equal(testSigned.code, 200);
+  assert.equal(order.status, "paid");
+
+  order = makeOrder();
+  const liveSigned = fakeRes();
+  await handleRazorpayWebhook(webhookReq(paidEvent(), "live-secret"), liveSigned);
+  assert.equal(liveSigned.code, 200);
+  assert.equal(order.status, "paid");
+
+  order = makeOrder();
+  const wrong = fakeRes();
+  await handleRazorpayWebhook(webhookReq(paidEvent(), "someone-elses"), wrong);
+  assert.equal(wrong.code, 400);
+  assert.equal(order.status, "partially_paid");
+});
+
+test("the Test secret alone is enough to configure the webhook, and without it a Test-signed event is refused", async () => {
+  process.env.RAZORPAY_WEBHOOK_SECRET = "live-secret";
+  const refused = fakeRes();
+  await handleRazorpayWebhook(webhookReq(paidEvent(), "test-secret"), refused);
+  assert.equal(refused.code, 400, "the Test secret is not trusted unless it is configured");
+
+  delete process.env.RAZORPAY_WEBHOOK_SECRET;
+  process.env.RAZORPAY_WEBHOOK_SECRET_TEST = "test-secret";
+  const accepted = fakeRes();
+  await handleRazorpayWebhook(webhookReq(paidEvent(), "test-secret"), accepted);
+  assert.equal(accepted.code, 200);
 });
 
 test("a signed payment_link.paid webhook marks the balance paid; other events are ignored", async () => {
