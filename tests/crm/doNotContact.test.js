@@ -32,6 +32,7 @@ mock.module("../../src/config/emailService.js", {
   namedExports: {
     sendEmail: async (message) => { sends.push(message); return { data: { id: "resend1" } }; },
     fromAddresses: { sales: "sales@test.local" },
+    crmCopyAddress: () => undefined,
   },
 });
 mock.module("../../src/services/zohoService.js", {

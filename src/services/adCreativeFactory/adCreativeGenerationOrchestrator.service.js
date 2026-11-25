@@ -293,10 +293,11 @@ export async function runGenerationPipeline(opportunityId, jobId, { briefMode, s
     } else {
       job.status = "RUNNING";
     }
+    job.skipBrandVoice = skipBrandVoice === true;
     ensureSteps(job);
     await job.save();
 
-    return runSteps({ opportunity, job, fromIndex: 0, briefMode, skipBrandVoice });
+    return runSteps({ opportunity, job, fromIndex: 0, briefMode, skipBrandVoice: job.skipBrandVoice });
   } catch (err) {
     console.error(`[ad-creative-factory] generation setup failed for opportunity ${opportunity._id}:`, err.message);
     opportunity.status = "FAILED";
@@ -375,7 +376,7 @@ export async function resumeStep(jobId, { responses, skipBrandVoice } = {}) {
   job.pendingKind = null;
   await job.save();
 
-  return runSteps({ opportunity, job, fromIndex, brief, creativeDraft, resume });
+  return runSteps({ opportunity, job, fromIndex, brief, creativeDraft, resume, skipBrandVoice: job.skipBrandVoice === true });
 }
 
 // Re-runs only from the failed step onward.
@@ -424,6 +425,7 @@ export async function retryFromStep(jobId, stepName) {
       fromIndex,
       brief: opportunity.brief?.toObject ? opportunity.brief.toObject() : opportunity.brief,
       creativeDraft: opportunity.creativeDraft?.toObject ? opportunity.creativeDraft.toObject() : opportunity.creativeDraft,
+      skipBrandVoice: job.skipBrandVoice === true,
     });
   } catch (err) {
     console.error(`[ad-creative-factory] retry setup failed for opportunity ${opportunity._id}:`, err.message);
