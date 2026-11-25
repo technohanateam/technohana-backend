@@ -2,7 +2,8 @@ import { Resend } from "resend";
 
 let resend = null;
 
-function getResend() {
+// Created on first use, so a server without RESEND_API_KEY still starts (sending then fails per call).
+export function getResend() {
   if (!resend) {
     resend = new Resend(process.env.RESEND_API_KEY);
   }

@@ -7,7 +7,11 @@ import { User } from "../models/user.model.js";
 
 dotenv.config();
 
-passport.use(
+// Google login is optional: without a client id and secret the strategy is not registered (the strategy
+// constructor throws, which used to stop the whole server from starting) and the Google routes answer 503.
+export const isGoogleLoginConfigured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+
+if (isGoogleLoginConfigured()) passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,

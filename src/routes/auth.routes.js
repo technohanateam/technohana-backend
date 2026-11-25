@@ -12,6 +12,7 @@ import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateMagicLinkEmail } from "../utils/emailTemplate.js";
 import { normalizePhone } from "../utils/phone.js";
 import { sendLoginCode, isWhatsAppConfigured } from "../services/whatsapp.js";
+import { isGoogleLoginConfigured } from "../config/passport.js";
 
 const router = express.Router();
 
@@ -48,13 +49,17 @@ const refreshLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const requireGoogleLogin = (_req, res, next) =>
+  isGoogleLoginConfigured() ? next() : res.status(503).json({ message: "Google sign-in is not configured" });
+
 // The initial call to Google
 router.get(
   "/api/auth/google",
+  requireGoogleLogin,
   passport.authenticate("google", { scope: ["profile", "email"], session: false }) // Tell passport not to create a session
 );
 
-router.get("/api/auth/google/callback", (req, res, next) => {
+router.get("/api/auth/google/callback", requireGoogleLogin, (req, res, next) => {
   const frontendUrl = getFrontendUrl();
 
   // Custom callback (rather than the failureRedirect option) so both an auth error

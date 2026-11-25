@@ -1,12 +1,10 @@
-import { fromAddresses} from "../config/emailService.js"
+import { fromAddresses, getResend } from "../config/emailService.js";
 import { generateResumeAcknowledgementEmail } from "../utils/emailTemplate.js";
 import Instructor from "../models/instructor.js";
 import Course from "../models/course.model.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
-import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sendEmail = async(to,subject,html,attachment = null)=>{
     try{
@@ -22,7 +20,7 @@ const sendEmail = async(to,subject,html,attachment = null)=>{
             emailData.attachments = [attachment];
         }
 
-        const data = await resend.emails.send(emailData);
+        const data = await getResend().emails.send(emailData);
         console.log(to,subject);
         return data;
     } catch(err){

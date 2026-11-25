@@ -20,7 +20,7 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | Variable | Used by | Notes |
 |---|---|---|
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | `src/index.js` | India/INR payments; Razorpay-specific endpoints will fail without them, rest of the app is unaffected |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `BASE_URL` | `src/config/passport.js` | Google OAuth login |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `BASE_URL` | `src/config/passport.js` | Google OAuth login. Both id and secret must be set to enable it; if either is missing the strategy is not registered and `/api/auth/google*` answer 503 (the server still starts) |
 | `SEO_GOOGLE_CLIENT_ID` / `SEO_GOOGLE_CLIENT_SECRET` / `SEO_GOOGLE_REDIRECT_URI` | `src/config/googleSeoOAuth.js` | Search Console/GA4 OAuth connect flow (SEO Intelligence admin) |
 | `GA4_PROPERTY_ID` / `GOOGLE_SERVICE_ACCOUNT_KEY` | `src/config/googleAnalytics.js` | GA4 Key Events admin panel |
 | `RESEND_API_KEY` | `src/config/emailService.js` and callers | Transactional email; sends will fail silently-per-call without it |

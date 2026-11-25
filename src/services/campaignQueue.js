@@ -1,12 +1,11 @@
 import Bull from "bull";
 import Campaign from "../models/campaign.model.js";
 import { getSegmentedUsers } from "../utils/segmentationEngine.js";
-import { Resend } from "resend";
 import { redisConfig } from "../config/redis.js";
 import { personalizeForRecipient } from "./emailMarketing/campaignPersonalizer.js";
 import { filterSuppressed, isSuppressed, withUnsubscribe } from "./emailSuppression.js";
+import { getResend } from "../config/emailService.js";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Create queue instance (connects to Redis)
 const campaignQueue = new Bull("campaigns", {
@@ -101,7 +100,7 @@ campaignQueue.process(async (job) => {
             // campaign/recipient identification for open/click tracking must go
             // through `tags` (returned in the webhook payload) and the email id.
             const { html, headers: unsubscribeHeaders } = withUnsubscribe(emailContent, user.email);
-            const response = await resend.emails.send({
+            const response = await getResend().emails.send({
               from: `${campaign.fromName} <${campaign.fromEmail}>`,
               to: user.email,
               subject: emailSubject,
@@ -185,7 +184,7 @@ eventQueue.process(async (job) => {
 
     // Send email
     const { html, headers: unsubscribeHeaders } = withUnsubscribe(campaign.htmlContent, userEmail);
-    const response = await resend.emails.send({
+    const response = await getResend().emails.send({
       from: `${campaign.fromName} <${campaign.fromEmail}>`,
       to: userEmail,
       subject: campaign.subject,
@@ -355,7 +354,7 @@ dripQueue.process(async (job) => {
   }
 
   const { html, headers: unsubscribeHeaders } = withUnsubscribe(htmlContent, userEmail);
-  await resend.emails.send({
+  await getResend().emails.send({
     from: `${fromName} <${fromEmail}>`,
     to: userEmail,
     subject,
