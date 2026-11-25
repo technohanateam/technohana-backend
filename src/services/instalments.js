@@ -284,17 +284,30 @@ export async function extendInstalmentDue({ orderId, dueAt, by, note }, now = ne
   return { updated: true, dueAt: due };
 }
 
+// Razorpay gives Test and Live webhooks different secrets. The live one is RAZORPAY_WEBHOOK_SECRET; set
+// RAZORPAY_WEBHOOK_SECRET_TEST as well to accept events from a Test-mode webhook pointed at the same URL.
+export const webhookSecrets = (env = process.env) =>
+  [env.RAZORPAY_WEBHOOK_SECRET, env.RAZORPAY_WEBHOOK_SECRET_TEST].filter(Boolean);
+
+// Every secret is checked (no early exit), each with a constant-time compare.
+export function webhookSignatureValid(raw, signature, secrets) {
+  const given = Buffer.from(String(signature), "utf8");
+  return secrets
+    .map((secret) => {
+      const expected = Buffer.from(crypto.createHmac("sha256", secret).update(raw).digest("hex"), "utf8");
+      return given.length === expected.length && crypto.timingSafeEqual(given, expected);
+    })
+    .some(Boolean);
+}
+
 // Razorpay webhook: POST /razorpay/webhook (raw body). payment_link.paid settles the balance; order.paid settles a
 // checkout whose browser never came back to verify (settleOrder is supplied by index.js, which owns the checkout models).
 export async function handleRazorpayWebhook(req, res, { settleOrder } = {}) {
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
-  if (!secret) return res.status(503).json({ error: "Webhook is not configured" });
+  const secrets = webhookSecrets();
+  if (!secrets.length) return res.status(503).json({ error: "Webhook is not configured" });
   const raw = req.body;
   const signature = String(req.headers["x-razorpay-signature"] || "");
-  const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
-  const a = Buffer.from(signature, "utf8");
-  const b = Buffer.from(expected, "utf8");
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(400).json({ error: "Invalid signature" });
+  if (!webhookSignatureValid(raw, signature, secrets)) return res.status(400).json({ error: "Invalid signature" });
 
   let event;
   try { event = JSON.parse(raw.toString("utf8")); } catch { return res.status(400).json({ error: "Invalid payload" }); }
