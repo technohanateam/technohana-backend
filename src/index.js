@@ -805,61 +805,279 @@ app.post('/razorpay/cart-checkout', checkoutLimiter, async (req, res) => {
   }
 });
 
+// ---- RAZORPAY VERIFY / SETTLE ----
+
+const razorpaySignatureMatches = (razorpayOrderId, paymentId, signature) => {
+  const expected = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(`${razorpayOrderId}|${paymentId}`).digest('hex');
+  const a = Buffer.from(expected, 'utf8');
+  const b = Buffer.from(String(signature), 'utf8');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+};
+
+// The signature only proves that some real payment exists. Read the payment back from Razorpay to
+// confirm it belongs to this Razorpay order, went through, and was for the amount we expect.
+async function razorpayPaymentMatches(paymentId, { razorpayOrderId, amountMinor }) {
+  const payment = await razorpay.payments.fetch(paymentId);
+  return payment.order_id === razorpayOrderId
+    && ['captured', 'authorized'].includes(payment.status)
+    && Number(payment.amount) === Number(amountMinor);
+}
+
+const expectedPayNowMinor = (order) =>
+  order.paymentPlan === 'two_instalment' ? order.firstInstalmentMinor : order.expectedTotalMinor;
+
+// Webhook-driven settles have no browser request: Meta then gets no client IP or cookies, only the order id.
+const SERVER_SIDE_REQ = { headers: {}, body: {} };
+
+// Archives one paid order, enrols the learner and sends receipts. Called by the browser verify and by the
+// order.paid webhook, so the first to arrive wins the atomic claim and the other becomes a no-op.
+async function finalizeRazorpayOrder(order, paymentId, req) {
+  const orderId = order.orderId;
+  const isPlan = order.paymentPlan === 'two_instalment';
+  const paidNowMinor = expectedPayNowMinor(order);
+  const paidAt = Date.now();
+
+  const claim = await PendingOrder.updateOne(
+    { orderId, status: { $ne: 'paid' } },
+    { $set: { status: 'paid', paidAt, razorpayPaymentId: paymentId } },
+  );
+  if (!claim.modifiedCount) return { invoiceNumber: '', alreadyPaid: true };
+
+  // Archive to permanent Order collection
+  const invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${orderId.slice(-6).toUpperCase()}`;
+  const dueAt = isPlan ? initialDueAt(paidAt) : null;
+  try {
+    await Order.create({
+      ...order, _id: undefined, invoiceNumber, status: isPlan ? 'partially_paid' : 'paid', paidAt, razorpayPaymentId: paymentId,
+      ...(isPlan && {
+        amountPaidMinor: order.firstInstalmentMinor,
+        instalments: [
+          { seq: 1, amountMinor: order.firstInstalmentMinor, status: 'paid', paidAt: new Date(paidAt), razorpayPaymentId: paymentId, invoiceNumber },
+          { seq: 2, amountMinor: order.secondInstalmentMinor, status: 'due', dueAt },
+        ],
+      }),
+    });
+  } catch (archiveErr) {
+    console.error('Failed to archive Order:', archiveErr);
+  }
+  syncCrmOnOrderPaidSafely(order);
+  sendMetaPurchase({
+    req, eventId: orderId, valueMinor: paidNowMinor, currency: order.currency,
+    contentIds: [order.courseId], numItems: 1,
+    user: { name: order.learner?.fullName, email: order.learner?.email, phone: order.learner?.phone, country: order.learner?.country },
+  });
+
+  // Increment coupon usage if a coupon was applied
+  if (order.couponCode) {
+    await incrementCouponUsage(order.couponCode).catch(err =>
+      console.error('Failed to increment coupon usage:', err)
+    );
+  }
+
+  const enrollmentToken = encryptToken({ orderId, email: order.learner.email, timestamp: Date.now() });
+  const amountMajorStr = Number.isFinite(Number(order.expectedTotalMinor))
+    ? (Number(order.expectedTotalMinor) / 100).toFixed(2)
+    : '';
+  // What this payment actually collected (the first half on an instalment plan), for receipts and events.
+  const paidNowMajorStr = (Number(paidNowMinor) / 100).toFixed(2);
+
+  try {
+    const updated = await User.findOneAndUpdate(
+      { orderId },
+      { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date(), paymentPlan: isPlan ? 'two_instalment' : 'full' },
+      { new: true }
+    );
+    if (!updated) {
+      await User.create({
+        name: order.learner.fullName,
+        email: order.learner.email,
+        phone: order.learner.phone,
+        courseTitle: order.courseInfo.title,
+        trainingLocation: order.learner.trainingLocation,
+        trainingType: order.enrollmentType,
+        price: amountMajorStr,
+        currency: order.currency?.toUpperCase(),
+        orderId,
+        status: 'enrolled',
+        enrollmentToken,
+        enrolledAt: new Date(),
+        paymentPlan: isPlan ? 'two_instalment' : 'full',
+      });
+    }
+  } catch (dbErr) {
+    console.error('Failed to update enrollment in DB:', dbErr);
+  }
+
+  try {
+    if (order.learner?.email) {
+      await sendEmail({
+        from: fromAddresses.sales,
+        to: order.learner.email,
+        subject: `Payment Received - ${order.courseInfo?.title || 'Technohana Course'}`,
+        html: generatePaymentSuccessEmail({
+          name: order.learner.fullName,
+          courseTitle: order.courseInfo?.title,
+          amountMajor: paidNowMajorStr,
+          currency: order.currency,
+          enrollmentType: order.enrollmentType,
+          participants: order.participants,
+          trainingLocation: order.learner.trainingLocation,
+          ...(isPlan && {
+            balanceMajor: (Number(order.secondInstalmentMinor) / 100).toFixed(2),
+            balanceDueDate: new Date(dueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }),
+          }),
+        }),
+      });
+    }
+    await sendEmail({
+      from: fromAddresses.sales,
+      to: process.env.MAIL_TO,
+      subject: `New Paid Enrollment - ${order.courseInfo?.title || order.courseId}${isPlan ? ' (instalment 1 of 2)' : ''}`,
+      html: generateEnrollmentDetailsForSales({
+        orderId,
+        learner: order.learner,
+        courseInfo: order.courseInfo,
+        amountMinor: paidNowMinor,
+        currency: order.currency,
+        enrollmentType: order.enrollmentType,
+        participants: order.participants,
+      }),
+    });
+  } catch (mailErr) {
+    console.error('Email send failed after Razorpay payment:', mailErr);
+  }
+
+  // Emit campaign event for automation (welcome emails, etc.)
+  try {
+    emitCampaignEvent(CAMPAIGN_EVENTS.PAYMENT_RECEIVED, {
+      email: order.learner.email,
+      name: order.learner.fullName,
+      courseTitle: order.courseInfo?.title,
+      amount: paidNowMajorStr,
+      currency: order.currency,
+    });
+    // Also emit enrollment complete event
+    emitCampaignEvent(CAMPAIGN_EVENTS.ENROLLMENT_COMPLETE, {
+      email: order.learner.email,
+      name: order.learner.fullName,
+      courseTitle: order.courseInfo?.title,
+      enrolledAt: new Date(),
+    });
+  } catch (eventErr) {
+    console.error('Failed to emit payment event:', eventErr);
+    // Non-blocking — payment is confirmed regardless of event emission
+  }
+
+  return { invoiceNumber };
+}
+
+// Same as finalizeRazorpayOrder for a multi-course cart: one Razorpay payment settles every cart order.
+async function finalizeRazorpayCart(cartOrders, primaryOrderId, paymentId, req) {
+  const paidAt = Date.now();
+  const cartPurchase = { valueMinor: 0, contentIds: [], currency: null, learner: null };
+  for (const order of cartOrders) {
+    const orderId = order.orderId;
+    const claim = await PendingOrder.updateOne(
+      { orderId, status: { $ne: 'paid' } },
+      { $set: { status: 'paid', paidAt, razorpayPaymentId: paymentId } },
+    );
+    if (!claim.modifiedCount) continue;
+    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${orderId.slice(-6).toUpperCase()}`;
+    try {
+      await Order.create({ ...order, _id: undefined, invoiceNumber, status: 'paid', paidAt, razorpayPaymentId: paymentId });
+    } catch { /* duplicate, skip */ }
+    syncCrmOnOrderPaidSafely(order);
+    cartPurchase.valueMinor += Number(order.expectedTotalMinor) || 0;
+    cartPurchase.contentIds.push(order.courseId);
+    cartPurchase.currency ||= order.currency;
+    cartPurchase.learner ||= order.learner;
+    if (order.couponCode) await incrementCouponUsage(order.couponCode).catch(() => {});
+    const enrollmentToken = encryptToken({ orderId, email: order.learner.email, paidAt });
+    const amountMajorStr = (order.expectedTotalMinor / 100).toFixed(2);
+    try {
+      const updated = await User.findOneAndUpdate({ orderId }, { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date() }, { new: true });
+      if (!updated) {
+        await User.create({ name: order.learner.fullName, email: order.learner.email, phone: order.learner.phone, courseTitle: order.courseInfo.title, trainingLocation: order.learner.trainingLocation, trainingType: order.enrollmentType, price: amountMajorStr, currency: order.currency?.toUpperCase(), orderId, status: 'enrolled', enrollmentToken, enrolledAt: new Date() });
+      }
+    } catch { /* non-blocking */ }
+    if (order.learner?.email) {
+      try {
+        await sendEmail({ from: fromAddresses.sales, to: order.learner.email, subject: `Payment Received - ${order.courseInfo?.title || 'Technohana Course'}`, html: generatePaymentSuccessEmail({ name: order.learner.fullName, courseTitle: order.courseInfo?.title, amountMajor: amountMajorStr, currency: order.currency, enrollmentType: order.enrollmentType, participants: order.participants, trainingLocation: order.learner.trainingLocation }) });
+      } catch { /* non-blocking */ }
+    }
+  }
+
+  if (cartPurchase.contentIds.length) {
+    sendMetaPurchase({
+      req, eventId: primaryOrderId, valueMinor: cartPurchase.valueMinor, currency: cartPurchase.currency,
+      contentIds: cartPurchase.contentIds, numItems: cartPurchase.contentIds.length,
+      user: { name: cartPurchase.learner?.fullName, email: cartPurchase.learner?.email, phone: cartPurchase.learner?.phone, country: cartPurchase.learner?.country },
+    });
+  }
+}
+
+// Loads the cart that a Razorpay order pays for. The server's own record decides which orders are in the
+// cart and what they cost; whatever order ids the browser sends are never trusted for either.
+async function loadRazorpayCart(razorpayOrderId, primaryOrderId) {
+  const primary = await PendingOrder.findOne({ orderId: primaryOrderId, razorpayOrderId }).lean();
+  if (!primary?.cartOrderIds?.length) return null;
+  const orders = await PendingOrder.find({ orderId: { $in: primary.cartOrderIds } }).lean();
+  if (orders.length !== primary.cartOrderIds.length) return null;
+  return { orders, totalMinor: orders.reduce((sum, o) => sum + (Number(o.expectedTotalMinor) || 0), 0) };
+}
+
+// Called by the order.paid webhook (see handleRazorpayWebhook): settles whatever the Razorpay order paid for,
+// so a learner who paid and then closed the tab is still enrolled. Orders it does not know are ignored.
+async function settleRazorpayOrderPaid({ razorpayOrderId, paymentId, amountMinor }) {
+  const order = await PendingOrder.findOne({ razorpayOrderId }).lean();
+  if (!order) return { settled: false, reason: 'unknown-order' };
+
+  if (order.cartOrderIds?.length) {
+    const cart = await loadRazorpayCart(razorpayOrderId, order.orderId);
+    if (!cart) return { settled: false, reason: 'unknown-cart' };
+    if (cart.totalMinor !== Number(amountMinor)) {
+      console.error(`[razorpay-webhook] cart ${order.orderId}: paid ${amountMinor} but the cart is ${cart.totalMinor}; not settled`);
+      return { settled: false, reason: 'amount-mismatch' };
+    }
+    await finalizeRazorpayCart(cart.orders, order.orderId, paymentId, SERVER_SIDE_REQ);
+    return { settled: true };
+  }
+
+  if (expectedPayNowMinor(order) !== Number(amountMinor)) {
+    console.error(`[razorpay-webhook] ${order.orderId}: paid ${amountMinor} but expected ${expectedPayNowMinor(order)}; not settled`);
+    return { settled: false, reason: 'amount-mismatch' };
+  }
+  await finalizeRazorpayOrder(order, paymentId, SERVER_SIDE_REQ);
+  return { settled: true };
+}
+
 // Razorpay: verify cart payment — marks all cart orders paid
 app.post('/razorpay/cart-verify', checkoutLimiter, async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderIds, primaryOrderId } = req.body || {};
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderIds } = req.body || {};
+    // The first id is the primary order (see /razorpay/cart-checkout); loadRazorpayCart checks it against the Razorpay order.
+    const primaryOrderId = String(req.body?.primaryOrderId || orderIds?.[0] || '');
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !orderIds?.length) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');
-    if (expectedSignature !== razorpay_signature) {
+    if (!razorpaySignatureMatches(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
       return res.status(400).json({ error: 'Invalid payment signature' });
     }
 
-    const paidAt = Date.now();
-    let firstOrderId = primaryOrderId || orderIds[0];
-    const cartPurchase = { valueMinor: 0, contentIds: [], currency: null, learner: null };
-    for (const orderId of orderIds) {
-      const order = await PendingOrder.findOne({ orderId }).lean();
-      if (!order || order.status === 'paid') continue;
-      await PendingOrder.updateOne({ orderId }, { $set: { status: 'paid', paidAt, razorpayPaymentId: razorpay_payment_id } });
-      const invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${orderId.slice(-6).toUpperCase()}`;
-      try {
-        await Order.create({ ...order, _id: undefined, invoiceNumber, status: 'paid', paidAt, razorpayPaymentId: razorpay_payment_id });
-      } catch { /* duplicate, skip */ }
-      syncCrmOnOrderPaidSafely(order);
-      cartPurchase.valueMinor += Number(order.expectedTotalMinor) || 0;
-      cartPurchase.contentIds.push(order.courseId);
-      cartPurchase.currency ||= order.currency;
-      cartPurchase.learner ||= order.learner;
-      if (order.couponCode) await incrementCouponUsage(order.couponCode).catch(() => {});
-      const enrollmentToken = encryptToken({ orderId, email: order.learner.email, paidAt });
-      const amountMajorStr = (order.expectedTotalMinor / 100).toFixed(2);
-      try {
-        const updated = await User.findOneAndUpdate({ orderId }, { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date() }, { new: true });
-        if (!updated) {
-          await User.create({ name: order.learner.fullName, email: order.learner.email, phone: order.learner.phone, courseTitle: order.courseInfo.title, trainingLocation: order.learner.trainingLocation, trainingType: order.enrollmentType, price: amountMajorStr, currency: order.currency?.toUpperCase(), orderId, status: 'enrolled', enrollmentToken, enrolledAt: new Date() });
-        }
-      } catch { /* non-blocking */ }
-      if (order.learner?.email) {
-        try {
-          await sendEmail({ from: fromAddresses.sales, to: order.learner.email, subject: `Payment Received - ${order.courseInfo?.title || 'Technohana Course'}`, html: generatePaymentSuccessEmail({ name: order.learner.fullName, courseTitle: order.courseInfo?.title, amountMajor: amountMajorStr, currency: order.currency, enrollmentType: order.enrollmentType, participants: order.participants, trainingLocation: order.learner.trainingLocation }) });
-        } catch { /* non-blocking */ }
+    const cart = await loadRazorpayCart(razorpay_order_id, primaryOrderId);
+    if (!cart) return res.status(404).json({ error: 'Cart order not found' });
+
+    if (cart.orders.some((o) => o.status !== 'paid')) {
+      const ok = await razorpayPaymentMatches(razorpay_payment_id, { razorpayOrderId: razorpay_order_id, amountMinor: cart.totalMinor });
+      if (!ok) {
+        console.error(`Cart payment mismatch for ${primaryOrderId}: payment ${razorpay_payment_id} does not match order ${razorpay_order_id} / ${cart.totalMinor}`);
+        return res.status(400).json({ error: 'Payment does not match this cart' });
       }
+      await finalizeRazorpayCart(cart.orders, primaryOrderId, razorpay_payment_id, req);
     }
 
-    if (cartPurchase.contentIds.length) {
-      sendMetaPurchase({
-        req, eventId: firstOrderId, valueMinor: cartPurchase.valueMinor, currency: cartPurchase.currency,
-        contentIds: cartPurchase.contentIds, numItems: cartPurchase.contentIds.length,
-        user: { name: cartPurchase.learner?.fullName, email: cartPurchase.learner?.email, phone: cartPurchase.learner?.phone, country: cartPurchase.learner?.country },
-      });
-    }
-
-    return res.json({ success: true, primaryOrderId: firstOrderId });
+    return res.json({ success: true, primaryOrderId });
   } catch (err) {
     console.error('Razorpay cart-verify error:', err);
     return res.status(500).json({ error: 'Cart payment verification failed' });
@@ -877,12 +1095,7 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Missing required payment verification fields' });
     }
 
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest('hex');
-
-    if (expectedSignature !== razorpay_signature) {
+    if (!razorpaySignatureMatches(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
       return res.status(400).json({ error: 'Invalid payment signature' });
     }
 
@@ -890,148 +1103,21 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
-
-    // Two-instalment plan: this payment must be exactly the first half. The amount is read back from
-    // Razorpay, because the signature only proves the payment exists, not how much it was for.
-    const isPlan = order.paymentPlan === 'two_instalment';
-    if (isPlan && order.status !== 'paid') {
-      const payment = await razorpay.payments.fetch(razorpay_payment_id);
-      if (Number(payment.amount) !== order.firstInstalmentMinor) {
-        console.error(`Instalment payment amount mismatch for ${orderId}: paid ${payment.amount}, expected ${order.firstInstalmentMinor}`);
-        return res.status(400).json({ error: 'Payment amount does not match the first instalment' });
-      }
+    // A valid signature on someone else's Razorpay order must not settle this one.
+    if (order.razorpayOrderId !== razorpay_order_id) {
+      console.error(`Razorpay order mismatch for ${orderId}: got ${razorpay_order_id}, expected ${order.razorpayOrderId}`);
+      return res.status(400).json({ error: 'Payment does not belong to this order' });
     }
-    const paidNowMinor = isPlan ? order.firstInstalmentMinor : order.expectedTotalMinor;
 
     let invoiceNumber = '';
     if (order.status !== 'paid') {
-      const paidAt = Date.now();
-      await PendingOrder.updateOne({ orderId }, { $set: { status: 'paid', paidAt, razorpayPaymentId: razorpay_payment_id } });
-
-      // Archive to permanent Order collection
-      invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${orderId.slice(-6).toUpperCase()}`;
-      const dueAt = isPlan ? initialDueAt(paidAt) : null;
-      try {
-        await Order.create({
-          ...order, _id: undefined, invoiceNumber, status: isPlan ? 'partially_paid' : 'paid', paidAt, razorpayPaymentId: razorpay_payment_id,
-          ...(isPlan && {
-            amountPaidMinor: order.firstInstalmentMinor,
-            instalments: [
-              { seq: 1, amountMinor: order.firstInstalmentMinor, status: 'paid', paidAt: new Date(paidAt), razorpayPaymentId: razorpay_payment_id, invoiceNumber },
-              { seq: 2, amountMinor: order.secondInstalmentMinor, status: 'due', dueAt },
-            ],
-          }),
-        });
-      } catch (archiveErr) {
-        console.error('Failed to archive Order:', archiveErr);
+      // The amount is read back from Razorpay: the signature does not say how much was paid.
+      const ok = await razorpayPaymentMatches(razorpay_payment_id, { razorpayOrderId: razorpay_order_id, amountMinor: expectedPayNowMinor(order) });
+      if (!ok) {
+        console.error(`Payment mismatch for ${orderId}: payment ${razorpay_payment_id} does not match order ${razorpay_order_id} / ${expectedPayNowMinor(order)}`);
+        return res.status(400).json({ error: 'Payment amount does not match this order' });
       }
-      syncCrmOnOrderPaidSafely(order);
-      sendMetaPurchase({
-        req, eventId: orderId, valueMinor: paidNowMinor, currency: order.currency,
-        contentIds: [order.courseId], numItems: 1,
-        user: { name: order.learner?.fullName, email: order.learner?.email, phone: order.learner?.phone, country: order.learner?.country },
-      });
-
-      // Increment coupon usage if a coupon was applied
-      if (order.couponCode) {
-        await incrementCouponUsage(order.couponCode).catch(err =>
-          console.error('Failed to increment coupon usage:', err)
-        );
-      }
-
-      const enrollmentToken = encryptToken({ orderId, email: order.learner.email, timestamp: Date.now() });
-      const amountMajorStr = Number.isFinite(Number(order.expectedTotalMinor))
-        ? (Number(order.expectedTotalMinor) / 100).toFixed(2)
-        : '';
-      // What this payment actually collected (the first half on an instalment plan), for receipts and events.
-      const paidNowMajorStr = (Number(paidNowMinor) / 100).toFixed(2);
-
-      try {
-        const updated = await User.findOneAndUpdate(
-          { orderId },
-          { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date(), paymentPlan: isPlan ? 'two_instalment' : 'full' },
-          { new: true }
-        );
-        if (!updated) {
-          await User.create({
-            name: order.learner.fullName,
-            email: order.learner.email,
-            phone: order.learner.phone,
-            courseTitle: order.courseInfo.title,
-            trainingLocation: order.learner.trainingLocation,
-            trainingType: order.enrollmentType,
-            price: amountMajorStr,
-            currency: order.currency?.toUpperCase(),
-            orderId,
-            status: 'enrolled',
-            enrollmentToken,
-            enrolledAt: new Date(),
-            paymentPlan: isPlan ? 'two_instalment' : 'full',
-          });
-        }
-      } catch (dbErr) {
-        console.error('Failed to update enrollment in DB:', dbErr);
-      }
-
-      try {
-        if (order.learner?.email) {
-          await sendEmail({
-            from: fromAddresses.sales,
-            to: order.learner.email,
-            subject: `Payment Received - ${order.courseInfo?.title || 'Technohana Course'}`,
-            html: generatePaymentSuccessEmail({
-              name: order.learner.fullName,
-              courseTitle: order.courseInfo?.title,
-              amountMajor: paidNowMajorStr,
-              currency: order.currency,
-              enrollmentType: order.enrollmentType,
-              participants: order.participants,
-              trainingLocation: order.learner.trainingLocation,
-              ...(isPlan && {
-                balanceMajor: (Number(order.secondInstalmentMinor) / 100).toFixed(2),
-                balanceDueDate: new Date(dueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }),
-              }),
-            }),
-          });
-        }
-        await sendEmail({
-          from: fromAddresses.sales,
-          to: process.env.MAIL_TO,
-          subject: `New Paid Enrollment - ${order.courseInfo?.title || order.courseId}${isPlan ? ' (instalment 1 of 2)' : ''}`,
-          html: generateEnrollmentDetailsForSales({
-            orderId,
-            learner: order.learner,
-            courseInfo: order.courseInfo,
-            amountMinor: paidNowMinor,
-            currency: order.currency,
-            enrollmentType: order.enrollmentType,
-            participants: order.participants,
-          }),
-        });
-      } catch (mailErr) {
-        console.error('Email send failed after Razorpay payment:', mailErr);
-      }
-
-      // Emit campaign event for automation (welcome emails, etc.)
-      try {
-        emitCampaignEvent(CAMPAIGN_EVENTS.PAYMENT_RECEIVED, {
-          email: order.learner.email,
-          name: order.learner.fullName,
-          courseTitle: order.courseInfo?.title,
-          amount: paidNowMajorStr,
-          currency: order.currency,
-        });
-        // Also emit enrollment complete event
-        emitCampaignEvent(CAMPAIGN_EVENTS.ENROLLMENT_COMPLETE, {
-          email: order.learner.email,
-          name: order.learner.fullName,
-          courseTitle: order.courseInfo?.title,
-          enrolledAt: new Date(),
-        });
-      } catch (eventErr) {
-        console.error('Failed to emit payment event:', eventErr);
-        // Non-blocking — payment is confirmed regardless of event emission
-      }
+      ({ invoiceNumber } = await finalizeRazorpayOrder(order, razorpay_payment_id, req));
     }
 
     return res.json({ success: true, orderId, invoiceNumber });
@@ -1538,7 +1624,7 @@ app.use("/api/crm", authenticateCrm, crmRoutes);
 
 // POST /razorpay/webhook - Razorpay payment_link.paid for the second instalment. Raw body is needed to
 // verify the x-razorpay-signature (see handleRazorpayWebhook).
-app.post('/razorpay/webhook', express.raw({ type: 'application/json' }), handleRazorpayWebhook);
+app.post('/razorpay/webhook', express.raw({ type: 'application/json' }), (req, res) => handleRazorpayWebhook(req, res, { settleOrder: settleRazorpayOrderPaid }));
 
 // POST /webhooks/resend - Webhook for Resend email events (opened, clicked, bounced, etc.)
 // Raw body required for svix signature verification inside handleResendWebhook.
