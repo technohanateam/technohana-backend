@@ -1,14 +1,13 @@
 import Campaign from "../models/campaign.model.js";
 import { Blogs } from "../models/blogs.model.js";
-import { Resend } from "resend";
 import { getSegmentedUsers } from "../utils/segmentationEngine.js";
 import { scheduleCampaignJob, getQueueStats } from "../services/campaignQueue.js";
 import { buildRegexQuery } from "../utils/escapeRegex.js";
 import { personalizeForRecipient } from "../services/emailMarketing/campaignPersonalizer.js";
 import { generateBlogPostEmail } from "../utils/emailTemplate.js";
 import { filterSuppressed, isSuppressed, withUnsubscribe } from "../services/emailSuppression.js";
+import { getResend } from "../config/emailService.js";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 const EDITABLE_CAMPAIGN_FIELDS = [
   "name",
@@ -314,7 +313,7 @@ export const sendCampaignTest = async (req, res) => {
 
     const { html, headers } = withUnsubscribe(campaign.htmlContent, email);
     // Resend's SDK reports API failures in `error` rather than throwing.
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: `${campaign.fromName} <${campaign.fromEmail}>`,
       to: email,
       subject: `[TEST] ${campaign.subject}`,
@@ -410,7 +409,7 @@ export const sendCampaignNow = async (req, res) => {
             }
 
             const { html, headers: unsubscribeHeaders } = withUnsubscribe(emailContent, user.email);
-            const response = await resend.emails.send({
+            const response = await getResend().emails.send({
               from: `${campaign.fromName} <${campaign.fromEmail}>`,
               to: user.email,
               subject: emailSubject,
