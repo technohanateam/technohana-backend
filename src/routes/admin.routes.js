@@ -20,7 +20,7 @@ import { enqueueSitemapSubmit } from "../services/seoIntelQueue.js";
 import Course from "../models/course.model.js";
 import { CourseView } from "../models/courseView.model.js";
 import { refreshPriceCatalog } from "../utils/pricing.js";
-import { listInstalmentBalances, markInstalmentPaidManually, extendInstalmentDue } from "../services/instalments.js";
+import { listInstalmentBalances, markInstalmentPaidManually, extendInstalmentDue, ensureSecondInstalmentLink, ensureSecondInstalmentQr } from "../services/instalments.js";
 import { contentFactoryAiLimiter } from "../middleware/contentFactoryAiLimiter.js";
 import { generateCourseFromUrls } from "../controllers/contentFactory/courseUrlImport.controller.js";
 import { authenticateAdmin, requireAdmin, requireMarketing, requirePage } from "../middleware/authenticateAdmin.js";
@@ -320,6 +320,32 @@ router.post("/instalments/:orderId/extend", authenticateAdmin, requirePage("enro
   } catch (err) {
     console.error("Admin extend instalment error:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /admin/instalments/:orderId/link  -> a payment link for the balance (reused until it nears expiry)
+router.post("/instalments/:orderId/link", authenticateAdmin, requirePage("enrollments"), requireAdmin, async (req, res) => {
+  try {
+    if (!INSTALMENT_ORDER_ID.test(req.params.orderId)) return res.status(400).json({ message: "Invalid order id." });
+    const result = await ensureSecondInstalmentLink(req.params.orderId);
+    if (result.error) return res.status(409).json({ message: result.error });
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    console.error("Admin instalment link error:", err);
+    return res.status(500).json({ message: "Could not create the payment link" });
+  }
+});
+
+// POST /admin/instalments/:orderId/qr  -> a UPI QR for the balance
+router.post("/instalments/:orderId/qr", authenticateAdmin, requirePage("enrollments"), requireAdmin, async (req, res) => {
+  try {
+    if (!INSTALMENT_ORDER_ID.test(req.params.orderId)) return res.status(400).json({ message: "Invalid order id." });
+    const result = await ensureSecondInstalmentQr(req.params.orderId);
+    if (result.error) return res.status(409).json({ message: result.error });
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    console.error("Admin instalment QR error:", err);
+    return res.status(500).json({ message: "Could not create the QR code" });
   }
 });
 

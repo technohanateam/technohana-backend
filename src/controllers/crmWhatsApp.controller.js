@@ -4,7 +4,8 @@ import CRMActivity from "../models/crm/crmActivity.model.js";
 import CRMTag from "../models/crm/crmTag.model.js";
 import WhatsAppMessage from "../models/whatsappMessage.model.js";
 import { createdByFilter, isOwnerScoped, isValidId, leadScope, ownerFilter, sendCrmError } from "../utils/crmQuery.js";
-import { isWhatsAppConfigured, sendTemplate, sendText, toWhatsAppId } from "../services/whatsapp.js";
+import { isInServiceWindow, isWhatsAppConfigured, sendTemplate, sendText, toWhatsAppId } from "../services/whatsapp.js";
+import { createCrmPaymentLink } from "../services/instalments.js";
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -193,10 +194,73 @@ const sendHandler = (type) => async (req, res) => {
   }
 };
 
+const PAYMENT_LINK_MAX_INR = 1000000;
+// Stages a payment link must not pull a lead back from.
+const PAST_PAYMENT_PENDING = ["payment_pending", "won", "enrolled", "lost", "junk"];
+
+// POST /leads/:id/payment-link and /contacts/:id/payment-link  { amount (INR), description }
+// Creates a Razorpay payment link and sends it on WhatsApp: as plain text inside the 24h reply window, otherwise
+// through the approved template named in WHATSAPP_PAYMENT_LINK_TEMPLATE (body vars: first name, description, link).
+const paymentLinkHandler = (type) => async (req, res) => {
+  try {
+    const amount = Number(req.body?.amount);
+    const description = cleanParam(req.body?.description, "");
+    if (!Number.isFinite(amount) || amount < 1 || amount > PAYMENT_LINK_MAX_INR) {
+      return res.status(400).json({ success: false, message: `Amount must be between 1 and ${PAYMENT_LINK_MAX_INR} INR` });
+    }
+    if (!description) return res.status(400).json({ success: false, message: "Add what the payment is for" });
+
+    const record = await loadRecord(req, type);
+    if (!record) return res.status(404).json({ success: false, message: "Record not found" });
+    if (!record.whatsApp && !record.phone) return res.status(400).json({ success: false, message: "This record has no phone number" });
+    if (await isDoNotContact(record)) {
+      return res.status(409).json({ success: false, message: "This record is tagged do-not-contact — messaging is blocked." });
+    }
+
+    const waId = recordWaId(record);
+    const templateName = process.env.WHATSAPP_PAYMENT_LINK_TEMPLATE;
+    const inWindow = !!waId && await isInServiceWindow(waId);
+    if (!inWindow && !templateName) {
+      return res.status(409).json({ success: false, message: "Outside the 24h reply window and no payment-link template is set up. Ask the contact to reply first." });
+    }
+
+    const phone = record.whatsApp || record.phone;
+    const first = cleanParam((record.name || "").trim().split(/\s+/)[0], "there");
+    const amountMinor = Math.round(amount * 100);
+    const link = await createCrmPaymentLink({ recordType: type, recordId: record._id, name: record.name, phone: waId && `+${waId}`, amountMinor, description });
+
+    const body = `Hi ${first}, here is your secure payment link for ${description} (INR ${amount.toFixed(2)}): ${link.url}`;
+    const waLink = { relatedToType: type, relatedToId: record._id, sentBy: req.admin._id };
+    const msg = inWindow
+      ? await sendText({ phone, country: record.country, body, ...waLink })
+      : await sendTemplate({
+        phone, country: record.country, name: templateName, language: process.env.WHATSAPP_PAYMENT_LINK_LANG || "en", ...waLink,
+        components: [{ type: "body", parameters: [first, description, link.url].map((text) => ({ type: "text", text })) }],
+        body,
+      });
+
+    if (type === "lead") {
+      await CRMLead.updateOne({ _id: record._id, status: { $nin: PAST_PAYMENT_PENDING } }, { $set: { status: "payment_pending" } });
+    }
+    await CRMActivity.create({
+      type: "whatsapp",
+      title: "Payment link sent",
+      body: `INR ${amount.toFixed(2)} for ${description}`,
+      relatedToType: type, relatedToId: record._id, performedBy: req.admin._id,
+      metadata: { direction: "out", waMessageId: msg.waMessageId, paymentLinkId: link.id, amountMinor, linkExpiresAt: link.expiresAt },
+    });
+    res.status(201).json({ success: true, data: { message: msg, url: link.url, expiresAt: link.expiresAt } });
+  } catch (err) {
+    fail(res, err, "Could not send the payment link");
+  }
+};
+
 export const getLeadWhatsApp = threadHandler("lead");
 export const getContactWhatsApp = threadHandler("contact");
 export const sendLeadWhatsApp = sendHandler("lead");
 export const sendContactWhatsApp = sendHandler("contact");
+export const sendLeadPaymentLink = paymentLinkHandler("lead");
+export const sendContactPaymentLink = paymentLinkHandler("contact");
 
 // Conversations the caller may see, newest first. A rep sees chats with leads in their own scope (including their pool).
 export const getWhatsAppInbox = async (req, res) => {

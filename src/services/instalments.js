@@ -8,10 +8,13 @@ import { Order } from "../models/order.model.js";
 import { User } from "../models/user.model.js";
 import { sendEmail, fromAddresses } from "../config/emailService.js";
 import { generateInstalmentEmail } from "../utils/emailTemplate.js";
+import { logCrmBalancePaidSafely, syncCrmOnPaymentLinkPaid } from "./crmOrderSync.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REMIND_DAYS_BEFORE = 5;
 const LINK_LIFETIME_DAYS = 60;
+const CRM_LINK_LIFETIME_DAYS = 7;
+const QR_LIFETIME_DAYS = 7;
 
 const positive = (v, fallback) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : fallback);
 export const graceDays = (env = process.env) => positive(env.INSTALMENT_GRACE_DAYS, 7);
@@ -93,6 +96,54 @@ export async function ensureSecondInstalmentLink(orderId, { razorpay = getRazorp
   return { url: link.short_url, amountMinor: second.amountMinor, currency: order.currency };
 }
 
+// A UPI QR for the balance, for a learner who would rather scan than open a link. Single-use, fixed amount,
+// reused until it is close to expiring. Paid QRs reach us as qr_code.credited (see handleRazorpayWebhook).
+export async function ensureSecondInstalmentQr(orderId, { razorpay = getRazorpay(), now = new Date() } = {}) {
+  const order = await Order.findOne({ orderId }).lean();
+  const second = secondInstalment(order);
+  if (!second || second.status === "paid") return { error: "No balance is due on this order" };
+  if (second.qrImageUrl && second.qrExpiresAt && new Date(second.qrExpiresAt) > new Date(now.getTime() + DAY_MS)) {
+    return { imageUrl: second.qrImageUrl, amountMinor: second.amountMinor, currency: order.currency, expiresAt: second.qrExpiresAt };
+  }
+  const expiresAt = new Date(now.getTime() + QR_LIFETIME_DAYS * DAY_MS);
+  const qr = await razorpay.qrCode.create({
+    type: "upi_qr",
+    name: `Balance ${order.orderId}`.slice(0, 40),
+    usage: "single_use",
+    fixed_amount: true,
+    payment_amount: second.amountMinor,
+    description: `Second instalment: ${order.courseInfo?.title || order.courseId}`.slice(0, 250),
+    close_by: Math.floor(expiresAt.getTime() / 1000),
+    notes: { orderId: order.orderId, instalment: "2" },
+  });
+  await Order.updateOne(
+    { orderId, "instalments.seq": 2 },
+    { $set: { "instalments.$.qrCodeId": qr.id, "instalments.$.qrImageUrl": qr.image_url, "instalments.$.qrExpiresAt": expiresAt } },
+  );
+  return { imageUrl: qr.image_url, amountMinor: second.amountMinor, currency: order.currency, expiresAt };
+}
+
+// A payment link a CRM rep sends to a lead or contact (not tied to an order). The paid event comes back through
+// handleRazorpayWebhook, carrying the CRM id in notes.
+export async function createCrmPaymentLink({ recordType, recordId, name, phone, email, amountMinor, description }, { razorpay = getRazorpay(), now = new Date() } = {}) {
+  const expiresAt = new Date(now.getTime() + CRM_LINK_LIFETIME_DAYS * DAY_MS);
+  const link = await razorpay.paymentLink.create({
+    amount: amountMinor,
+    currency: "INR",
+    accept_partial: false,
+    reference_id: `crm-${recordId}-${Math.floor(now.getTime() / 1000)}`,
+    description,
+    customer: { name: name || undefined, email: email || undefined, contact: phone || undefined },
+    notify: { sms: false, email: false },
+    reminder_enable: false,
+    expire_by: Math.floor(expiresAt.getTime() / 1000),
+    callback_url: `${frontendUrl()}/dashboard`,
+    callback_method: "get",
+    notes: { [recordType === "lead" ? "crmLeadId" : "crmContactId"]: String(recordId) },
+  });
+  return { url: link.short_url, id: link.id, expiresAt };
+}
+
 const notify = async (order, kind, link) => {
   if (!order.learner?.email) return;
   const second = secondInstalment(order);
@@ -133,6 +184,7 @@ export async function markInstalmentPaid({ orderId, paymentId, amountMinor, paid
   );
   if (!claim.modifiedCount) return { updated: false, reason: "already-paid" };
   await User.updateMany({ orderId }, { $set: { accessHold: false }, $unset: { holdSince: "" } });
+  logCrmBalancePaidSafely(order, { paymentId, amountMinor });
   try { await notify(order, "paid"); } catch (err) { console.error(`[instalments] paid email for ${orderId} failed:`, err.message); }
   return { updated: true };
 }
@@ -232,8 +284,9 @@ export async function extendInstalmentDue({ orderId, dueAt, by, note }, now = ne
   return { updated: true, dueAt: due };
 }
 
-// Razorpay webhook: POST /razorpay/webhook (raw body). Handles payment_link.paid for the balance.
-export async function handleRazorpayWebhook(req, res) {
+// Razorpay webhook: POST /razorpay/webhook (raw body). payment_link.paid settles the balance; order.paid settles a
+// checkout whose browser never came back to verify (settleOrder is supplied by index.js, which owns the checkout models).
+export async function handleRazorpayWebhook(req, res, { settleOrder } = {}) {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
   if (!secret) return res.status(503).json({ error: "Webhook is not configured" });
   const raw = req.body;
@@ -245,13 +298,36 @@ export async function handleRazorpayWebhook(req, res) {
 
   let event;
   try { event = JSON.parse(raw.toString("utf8")); } catch { return res.status(400).json({ error: "Invalid payload" }); }
-  if (event.event !== "payment_link.paid") return res.json({ received: true, ignored: true });
+  if (event.event === "order.paid") {
+    const payment = event.payload?.payment?.entity;
+    if (!settleOrder || !payment?.id || !payment?.order_id) return res.json({ received: true, ignored: true });
+    try {
+      const result = await settleOrder({ razorpayOrderId: payment.order_id, paymentId: payment.id, amountMinor: payment.amount });
+      return res.json({ received: true, ...result });
+    } catch (err) {
+      console.error("[razorpay-webhook] order.paid failed:", err.message);
+      return res.status(500).json({ error: "Webhook handling failed" });
+    }
+  }
+  if (!["payment_link.paid", "qr_code.credited"].includes(event.event)) return res.json({ received: true, ignored: true });
 
   try {
     const link = event.payload?.payment_link?.entity;
+    const qr = event.payload?.qr_code?.entity;
     const payment = event.payload?.payment?.entity;
-    const orderId = link?.notes?.orderId || String(link?.reference_id || "").replace(/-2(-\d+)?$/, "");
-    if (!orderId || !payment?.id) return res.json({ received: true, ignored: true });
+    if (!payment?.id) return res.json({ received: true, ignored: true });
+
+    const crmLeadId = link?.notes?.crmLeadId;
+    const crmContactId = link?.notes?.crmContactId;
+    if (crmLeadId || crmContactId) {
+      await syncCrmOnPaymentLinkPaid({ crmLeadId, crmContactId, paymentId: payment.id, amountMinor: payment.amount, currency: payment.currency, description: link.description });
+      return res.json({ received: true, crm: true });
+    }
+
+    const orderId = event.event === "qr_code.credited"
+      ? qr?.notes?.orderId
+      : link?.notes?.orderId || String(link?.reference_id || "").replace(/-2(-\d+)?$/, "");
+    if (!orderId) return res.json({ received: true, ignored: true });
     const result = await markInstalmentPaid({
       orderId, paymentId: payment.id, amountMinor: payment.amount,
       paidAtMs: payment.created_at ? payment.created_at * 1000 : Date.now(),

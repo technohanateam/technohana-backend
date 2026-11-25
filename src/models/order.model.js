@@ -10,6 +10,9 @@ const InstalmentSchema = new mongoose.Schema({
   paymentLinkId: { type: String },
   paymentLinkUrl: { type: String },
   paymentLinkExpiresAt: { type: Date },
+  qrCodeId: { type: String },
+  qrImageUrl: { type: String },
+  qrExpiresAt: { type: Date },
   invoiceNumber: { type: String },
   // Which reminder emails have gone out ("before", "due", "hold"), so each is sent once.
   remindersSent: { type: [String], default: [] },

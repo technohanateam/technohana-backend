@@ -7,6 +7,7 @@ let order;
 let userCalls;
 let emails;
 let userDocs;
+let crmCalls;
 
 // A tiny stand-in for the bits of Mongo the instalment service uses on one order document.
 const matches = (el, cond) => Object.entries(cond).every(([k, v]) => {
@@ -61,6 +62,12 @@ mock.module("../../src/models/user.model.js", {
     },
   },
 });
+mock.module("../../src/services/crmOrderSync.js", {
+  namedExports: {
+    logCrmBalancePaidSafely: (o, p) => crmCalls.push({ fn: "balance", orderId: o.orderId, ...p }),
+    syncCrmOnPaymentLinkPaid: async (args) => { crmCalls.push({ fn: "link", ...args }); },
+  },
+});
 mock.module("../../src/config/emailService.js", {
   namedExports: {
     fromAddresses: { sales: "sales@example.com" },
@@ -70,7 +77,7 @@ mock.module("../../src/config/emailService.js", {
 
 const {
   midpointDueAt, initialDueAt, markInstalmentPaid, handleRazorpayWebhook, runInstalmentChecks,
-  ensureSecondInstalmentLink, recomputeDueForEnrollments,
+  ensureSecondInstalmentLink, ensureSecondInstalmentQr, createCrmPaymentLink, recomputeDueForEnrollments,
   listInstalmentBalances, markInstalmentPaidManually, extendInstalmentDue,
 } = await import("../../src/services/instalments.js");
 const { instalmentEligible, splitInstalments, INSTALMENT_MIN_INR_MINOR } = await import("../../src/utils/pricing.js");
@@ -87,7 +94,7 @@ const makeOrder = (over = {}) => ({
   ...over,
 });
 
-beforeEach(() => { order = makeOrder(); userCalls = []; emails = []; userDocs = []; delete process.env.RAZORPAY_WEBHOOK_SECRET; });
+beforeEach(() => { order = makeOrder(); crmCalls = []; userCalls = []; emails = []; userDocs = []; delete process.env.RAZORPAY_WEBHOOK_SECRET; });
 
 test("instalments are for single INR learners at or above the minimum only", () => {
   const ok = { currency: "INR", enrollmentType: "individual", participants: 1, totalMinor: INSTALMENT_MIN_INR_MINOR };
@@ -179,6 +186,101 @@ test("a signed payment_link.paid webhook marks the balance paid; other events ar
   await handleRazorpayWebhook(webhookReq({ event: "payment.captured", payload: {} }), ignored);
   assert.equal(ignored.body.ignored, true);
   assert.equal(order.status, "partially_paid");
+});
+
+test("paying the balance tells the CRM, once", async () => {
+  await markInstalmentPaid({ orderId: "ord_1", paymentId: "pay_2", amountMinor: 1000000 });
+  assert.deepEqual(crmCalls.map((c) => [c.fn, c.orderId, c.paymentId]), [["balance", "ord_1", "pay_2"]]);
+  await markInstalmentPaid({ orderId: "ord_1", paymentId: "pay_2", amountMinor: 1000000 });
+  assert.equal(crmCalls.length, 1);
+});
+
+const orderPaidEvent = (amount = 500000) => ({
+  event: "order.paid",
+  payload: { payment: { entity: { id: "pay_77", order_id: "order_RZP1", amount } }, order: { entity: { id: "order_RZP1" } } },
+});
+
+test("an order.paid webhook hands the Razorpay order and payment to the settler", async () => {
+  process.env.RAZORPAY_WEBHOOK_SECRET = "whsec";
+  const calls = [];
+  const settleOrder = async (args) => { calls.push(args); return { settled: true }; };
+  const res = fakeRes();
+  await handleRazorpayWebhook(webhookReq(orderPaidEvent()), res, { settleOrder });
+  assert.equal(res.code, 200);
+  assert.equal(res.body.settled, true);
+  assert.deepEqual(calls, [{ razorpayOrderId: "order_RZP1", paymentId: "pay_77", amountMinor: 500000 }]);
+});
+
+test("order.paid is ignored with no settler, answers 500 when settling fails so Razorpay retries", async () => {
+  process.env.RAZORPAY_WEBHOOK_SECRET = "whsec";
+  const none = fakeRes();
+  await handleRazorpayWebhook(webhookReq(orderPaidEvent()), none);
+  assert.equal(none.body.ignored, true);
+
+  const failing = fakeRes();
+  await handleRazorpayWebhook(webhookReq(orderPaidEvent()), failing, { settleOrder: async () => { throw new Error("db down"); } });
+  assert.equal(failing.code, 500);
+});
+
+test("a paid QR code marks the balance paid", async () => {
+  process.env.RAZORPAY_WEBHOOK_SECRET = "whsec";
+  const res = fakeRes();
+  await handleRazorpayWebhook(webhookReq({
+    event: "qr_code.credited",
+    payload: { qr_code: { entity: { notes: { orderId: "ord_1" } } }, payment: { entity: { id: "pay_qr", amount: 1000000 } } },
+  }), res);
+  assert.equal(res.code, 200);
+  assert.equal(order.status, "paid");
+  assert.equal(order.instalments[1].razorpayPaymentId, "pay_qr");
+});
+
+test("a paid CRM payment link goes to the CRM and never touches an order", async () => {
+  process.env.RAZORPAY_WEBHOOK_SECRET = "whsec";
+  const res = fakeRes();
+  await handleRazorpayWebhook(webhookReq({
+    event: "payment_link.paid",
+    payload: {
+      payment_link: { entity: { reference_id: "crm-abc-1", description: "Scrum course", notes: { crmLeadId: "abc" } } },
+      payment: { entity: { id: "pay_crm", amount: 450000, currency: "INR" } },
+    },
+  }), res);
+  assert.equal(res.body.crm, true);
+  assert.deepEqual(crmCalls, [{ fn: "link", crmLeadId: "abc", crmContactId: undefined, paymentId: "pay_crm", amountMinor: 450000, currency: "INR", description: "Scrum course" }]);
+  assert.equal(order.status, "partially_paid");
+});
+
+test("a QR is created for exactly the balance and reused until it nears expiry", async () => {
+  const created = [];
+  const razorpay = { qrCode: { create: async (body) => { created.push(body); return { id: "qr_1", image_url: "https://rzp.io/qr/1.png" }; } } };
+  const first = await ensureSecondInstalmentQr("ord_1", { razorpay, now: NOW });
+  assert.equal(first.imageUrl, "https://rzp.io/qr/1.png");
+  assert.equal(created[0].payment_amount, 1000000);
+  assert.equal(created[0].fixed_amount, true);
+  assert.equal(created[0].usage, "single_use");
+  assert.deepEqual(created[0].notes, { orderId: "ord_1", instalment: "2" });
+  await ensureSecondInstalmentQr("ord_1", { razorpay, now: NOW });
+  assert.equal(created.length, 1);
+  await ensureSecondInstalmentQr("ord_1", { razorpay, now: new Date(NOW.getTime() + 8 * DAY) });
+  assert.equal(created.length, 2, "an expired QR is replaced");
+});
+
+test("no QR when nothing is owed", async () => {
+  order.instalments[1].status = "paid";
+  assert.ok((await ensureSecondInstalmentQr("ord_1", { razorpay: {}, now: NOW })).error);
+});
+
+test("a CRM payment link is INR, carries the CRM id in its notes and sends no notification of its own", async () => {
+  const created = [];
+  const razorpay = { paymentLink: { create: async (body) => { created.push(body); return { id: "plink_c", short_url: "https://rzp.io/l/crm" }; } } };
+  const lead = await createCrmPaymentLink({ recordType: "lead", recordId: "abc", name: "Asha", phone: "+919999999999", amountMinor: 450000, description: "Scrum course" }, { razorpay, now: NOW });
+  assert.equal(lead.url, "https://rzp.io/l/crm");
+  assert.equal(created[0].amount, 450000);
+  assert.equal(created[0].currency, "INR");
+  assert.deepEqual(created[0].notes, { crmLeadId: "abc" });
+  assert.deepEqual(created[0].notify, { sms: false, email: false });
+  assert.equal(created[0].expire_by, Math.floor((NOW.getTime() + 7 * DAY) / 1000));
+  await createCrmPaymentLink({ recordType: "contact", recordId: "def", amountMinor: 100, description: "x" }, { razorpay, now: NOW });
+  assert.deepEqual(created[1].notes, { crmContactId: "def" });
 });
 
 const link = async () => ({ url: "https://rzp.io/l/test" });
