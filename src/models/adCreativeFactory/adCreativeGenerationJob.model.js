@@ -41,6 +41,8 @@ const adCreativeGenerationJobSchema = new Schema(
     pendingKind: { type: String, enum: ["BRAND_VOICE", "REVISION", "REVISION_STRONGER"], default: null },
     pendingComplianceResult: { type: Schema.Types.Mixed, default: null },
     pendingFirstRevision: { type: Schema.Types.Mixed, default: null },
+    // Chosen when the generation starts and kept for every later pause/resume/retry of this job.
+    skipBrandVoice: { type: Boolean, default: false },
 
     retryCount: { type: Number, default: 0 },
     lastAttemptAt: { type: Date, default: null },

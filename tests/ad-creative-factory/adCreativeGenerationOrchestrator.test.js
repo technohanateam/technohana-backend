@@ -138,7 +138,14 @@ const BLOCKLISTED_COPY_TEXT = JSON.stringify({
 const CLEAN_REVISION_TEXT = JSON.stringify({
   headlines: [{ text: "Land a Cloud Engineering Role", platform: "META" }],
   primaryTexts: [{ text: "Small cohorts, live mentorship, and a portfolio employers notice.", platform: "META" }],
-  descriptions: [{ text: "Seats are limited for the next batch.", platform: "META" }],
+  descriptions: [{ text: "Seats are limited.", platform: "META" }], // Meta description limit is 30
+  ctas: [{ text: "Apply Now", platform: "META" }],
+});
+// A genuine rewrite (not a synonym swap) that still makes a blocklisted claim.
+const STILL_FLAGGED_REVISION_TEXT = JSON.stringify({
+  headlines: [{ text: "Start Your Cloud Career", platform: "META" }],
+  primaryTexts: [{ text: "Join our next cohort and get 100% placement support from day one.", platform: "META" }],
+  descriptions: [{ text: "Limited seats left.", platform: "META" }],
   ctas: [{ text: "Apply Now", platform: "META" }],
 });
 const BRAND_VOICE_CLEAN_TEXT = JSON.stringify({ brandVoiceRiskScore: 10, flagReasons: [] });
@@ -199,6 +206,31 @@ test("a blocklisted phrase triggers exactly one automatic REVISION pass, never a
   assert.equal(revisionStep.status, "DONE");
 });
 
+test("a revision that is a near copy of the original asks for one stronger rewrite", async () => {
+  seedOpportunity({ status: "PLANNED" });
+
+  await runGenerationPipeline("opp123", null, { skipBrandVoice: true });
+  await resumeStep("job123", { responses: [{ label: "brief", text: CLEAN_BRIEF_TEXT }] });
+  await resumeStep("job123", { responses: [{ label: "copy", text: BLOCKLISTED_COPY_TEXT }] });
+
+  const nearCopy = await resumeStep("job123", { responses: [{ label: "revision", text: BLOCKLISTED_COPY_TEXT }] });
+  assert.equal(nearCopy.awaitingInput, true);
+  assert.equal(nearCopy.job.pendingKind, "REVISION_STRONGER");
+  assert.equal(nearCopy.opportunity.autoRevisionCount, 0, "not counted until a revision is accepted");
+
+  const afterStronger = await resumeStep("job123", { responses: [{ label: "revision", text: CLEAN_REVISION_TEXT }] });
+  assert.equal(afterStronger.opportunity.autoRevisionCount, 1);
+  assert.equal(afterStronger.opportunity.status, "HUMAN_REVIEW");
+});
+
+test("the skip-brand-voice choice is recorded on the job, and reset by a fresh run", async () => {
+  seedOpportunity({ status: "PLANNED" });
+  await runGenerationPipeline("opp123", null, { skipBrandVoice: true });
+  assert.equal(db.jobs.get("job123").skipBrandVoice, true);
+  await runGenerationPipeline("opp123", null, {});
+  assert.equal(db.jobs.get("job123").skipBrandVoice, false, "a fresh run without the flag asks for brand voice again");
+});
+
 test("if the revision is still flagged, it lands on NEEDS_REVISION rather than looping a second automatic pass", async () => {
   seedOpportunity({ status: "PLANNED" });
 
@@ -206,8 +238,8 @@ test("if the revision is still flagged, it lands on NEEDS_REVISION rather than l
   await resumeStep("job123", { responses: [{ label: "brief", text: CLEAN_BRIEF_TEXT }] });
   await resumeStep("job123", { responses: [{ label: "copy", text: BLOCKLISTED_COPY_TEXT }] });
 
-  // The "revision" still contains the blocklisted phrase — gate stays flagged.
-  const afterRevision = await resumeStep("job123", { responses: [{ label: "revision", text: BLOCKLISTED_COPY_TEXT }] });
+  // The rewrite is genuinely different but still makes a blocklisted claim — gate stays flagged.
+  const afterRevision = await resumeStep("job123", { responses: [{ label: "revision", text: STILL_FLAGGED_REVISION_TEXT }] });
 
   assert.equal(afterRevision.success, true, "runSteps completes, it doesn't error out");
   assert.equal(afterRevision.opportunity.autoRevisionCount, 1, "capped at exactly 1 — never re-enters REVISION a second time");

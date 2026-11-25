@@ -5,11 +5,16 @@ let messages;
 let existingLead;
 let upserts;
 let cancelled;
+let activities;
 
 mock.module("../../src/models/whatsappMessage.model.js", {
   defaultExport: {
     exists: async (q) => messages.some((m) => m.waMessageId === q.waMessageId),
-    create: async (doc) => { messages.push({ ...doc, createdAt: new Date() }); return doc; },
+    create: async (doc) => {
+      const stored = { ...doc, createdAt: new Date(), save: async () => stored };
+      messages.push(stored);
+      return stored;
+    },
     findOne: () => ({
       sort: () => ({
         select: () => ({
@@ -22,9 +27,14 @@ mock.module("../../src/models/whatsappMessage.model.js", {
     }),
   },
 });
+mock.module("../../src/models/crm/crmLead.model.js", {
+  defaultExport: { findOne: () => ({ sort: () => ({ select: async () => existingLead }) }) },
+});
+mock.module("../../src/models/crm/crmActivity.model.js", {
+  defaultExport: { create: async (doc) => { activities.push(doc); return doc; } },
+});
 mock.module("../../src/services/crmLeadIntake.js", {
   namedExports: {
-    findDuplicateLead: async () => existingLead,
     upsertCrmLead: async (args) => { upserts.push(args); return { lead: { _id: "lead1" }, created: !existingLead }; },
   },
 });
@@ -35,7 +45,7 @@ mock.module("../../src/services/crmOutreach.js", {
 
 const { recordInbound, eventsFrom } = await import("../../src/services/whatsapp.js");
 
-beforeEach(() => { messages = []; existingLead = null; upserts = []; cancelled = []; });
+beforeEach(() => { messages = []; existingLead = null; upserts = []; cancelled = []; activities = []; });
 
 const adMessage = (extra = {}) => ({
   id: "wamid.1", from: "919899117415", type: "text", text: { body: "Send me the session link" },
@@ -62,19 +72,23 @@ test("an unknown number without a referral does not become a lead", async () => 
   assert.equal(messages.length, 1);
 });
 
-test("a reply from an existing lead is logged as an activity", async () => {
+test("a reply from an existing lead is logged on the lead and tied to its thread", async () => {
   existingLead = { _id: "lead1" };
   await recordInbound(adMessage({ referral: undefined }));
-  assert.equal(upserts.length, 1);
-  assert.equal(upserts[0].repeatTitle, "Replied on WhatsApp");
+  assert.equal(upserts.length, 0, "no new lead is created for a known number");
+  assert.equal(activities.length, 1);
+  assert.equal(activities[0].title, "WhatsApp received");
+  assert.equal(activities[0].relatedToId, "lead1");
+  assert.equal(messages[0].relatedToId, "lead1");
 });
 
-test("later messages in the same 24h conversation do not log again", async () => {
+test("later messages in the same 24h conversation are logged but only the first cancels outreach", async () => {
   existingLead = { _id: "lead1" };
   await recordInbound(adMessage({ id: "wamid.1", referral: undefined }));
   await recordInbound(adMessage({ id: "wamid.2", referral: undefined }));
-  assert.equal(upserts.length, 1);
   assert.equal(messages.length, 2);
+  assert.equal(activities.length, 2);
+  assert.deepEqual(cancelled, ["lead1"]);
 });
 
 test("STOP is recorded as an opt-out and never creates a lead", async () => {
