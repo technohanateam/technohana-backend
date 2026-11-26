@@ -31,7 +31,7 @@ Missing any of these causes the server to fail fast on startup (see `src/index.j
 | `OPENAI_API_KEY` | `src/routes/chat.routes.js` | Alternate chat model path |
 | `REDIS_URL` (preferred) or `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | `src/config/redis.js` | Bull queues; falls back to `127.0.0.1:6379` if unset |
 | `STRIPE_WEBHOOK_SECRET` | `src/index.js` | Stripe webhook signature verification |
-| `ENROLLMENT_TOKEN_KEY` | `src/utils/tokenCrypto.js` | Enrollment recovery link token encryption |
+| `ENROLLMENT_TOKEN_KEY` | `src/utils/tokenCrypto.js` | Enrollment recovery link token encryption. If unset, a paid learner is still enrolled but gets no recovery token (an error is logged); the Stripe confirmation path still needs it |
 | `RESET_TOKEN_SECRET` | `src/utils/resetTokenUtil.js` | Password reset token pepper. Set it in production — without it the pepper is derived from `JWT_SECRET` (and an error is logged) |
 | `CONFIRM_DELETE_SECRET` | `src/utils/confirmDelete.js` | Admin destructive-action confirmation |
 | `BACKLINK_STRATEGY_DIR` | `src/controllers/seoReport.controller.js` | SEO backlink strategy file location |

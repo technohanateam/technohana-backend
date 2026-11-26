@@ -23,6 +23,15 @@ const deriveKey = (salt) => {
   return crypto.pbkdf2Sync(key, salt, 100000, keyLength, 'sha256');
 };
 
+// For steps that must not fail an already-taken payment: no token (and an error in the log) instead of a throw.
+export const tryEncryptToken = (data) => {
+  try {
+    return encryptToken(data);
+  } catch {
+    return undefined;
+  }
+};
+
 export const encryptToken = (data) => {
   try {
     const salt = crypto.randomBytes(saltLength);
