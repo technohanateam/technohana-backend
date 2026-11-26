@@ -17,7 +17,8 @@ import Stripe from "stripe";
 import Razorpay from "razorpay";
 import { sendEmail, fromAddresses } from "./config/emailService.js";
 import { generateEnrollmentDetailsForSales, generatePaymentSuccessEmail, generateAbandonedCartEmail, generateDay3Email, generateDay7Email } from "./utils/emailTemplate.js";
-import { encryptToken } from "./utils/tokenCrypto.js";
+import { encryptToken, tryEncryptToken } from "./utils/tokenCrypto.js";
+import { enrolPaidOrder, healUnenrolledPaidOrder } from "./services/orderEnrolment.js";
 import { createLogger } from "./utils/logger.js";
 const logger = createLogger("index");
 
@@ -841,7 +842,10 @@ async function finalizeRazorpayOrder(order, paymentId, req) {
     { orderId, status: { $ne: 'paid' } },
     { $set: { status: 'paid', paidAt, razorpayPaymentId: paymentId } },
   );
-  if (!claim.modifiedCount) return { invoiceNumber: '', alreadyPaid: true };
+  if (!claim.modifiedCount) {
+    await healUnenrolledPaidOrder(order, { paymentPlan: isPlan ? 'two_instalment' : 'full' });
+    return { invoiceNumber: '', alreadyPaid: true };
+  }
 
   // Archive to permanent Order collection
   const invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${orderId.slice(-6).toUpperCase()}`;
@@ -874,39 +878,10 @@ async function finalizeRazorpayOrder(order, paymentId, req) {
     );
   }
 
-  const enrollmentToken = encryptToken({ orderId, email: order.learner.email, timestamp: Date.now() });
-  const amountMajorStr = Number.isFinite(Number(order.expectedTotalMinor))
-    ? (Number(order.expectedTotalMinor) / 100).toFixed(2)
-    : '';
   // What this payment actually collected (the first half on an instalment plan), for receipts and events.
   const paidNowMajorStr = (Number(paidNowMinor) / 100).toFixed(2);
 
-  try {
-    const updated = await User.findOneAndUpdate(
-      { orderId },
-      { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date(), paymentPlan: isPlan ? 'two_instalment' : 'full' },
-      { new: true }
-    );
-    if (!updated) {
-      await User.create({
-        name: order.learner.fullName,
-        email: order.learner.email,
-        phone: order.learner.phone,
-        courseTitle: order.courseInfo.title,
-        trainingLocation: order.learner.trainingLocation,
-        trainingType: order.enrollmentType,
-        price: amountMajorStr,
-        currency: order.currency?.toUpperCase(),
-        orderId,
-        status: 'enrolled',
-        enrollmentToken,
-        enrolledAt: new Date(),
-        paymentPlan: isPlan ? 'two_instalment' : 'full',
-      });
-    }
-  } catch (dbErr) {
-    console.error('Failed to update enrollment in DB:', dbErr);
-  }
+  await enrolPaidOrder(order, { paymentPlan: isPlan ? 'two_instalment' : 'full' });
 
   try {
     if (order.learner?.email) {
@@ -981,7 +956,10 @@ async function finalizeRazorpayCart(cartOrders, primaryOrderId, paymentId, req) 
       { orderId, status: { $ne: 'paid' } },
       { $set: { status: 'paid', paidAt, razorpayPaymentId: paymentId } },
     );
-    if (!claim.modifiedCount) continue;
+    if (!claim.modifiedCount) {
+      await healUnenrolledPaidOrder(order);
+      continue;
+    }
     const invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${orderId.slice(-6).toUpperCase()}`;
     try {
       await Order.create({ ...order, _id: undefined, invoiceNumber, status: 'paid', paidAt, razorpayPaymentId: paymentId });
@@ -992,14 +970,8 @@ async function finalizeRazorpayCart(cartOrders, primaryOrderId, paymentId, req) 
     cartPurchase.currency ||= order.currency;
     cartPurchase.learner ||= order.learner;
     if (order.couponCode) await incrementCouponUsage(order.couponCode).catch(() => {});
-    const enrollmentToken = encryptToken({ orderId, email: order.learner.email, paidAt });
+    await enrolPaidOrder(order);
     const amountMajorStr = (order.expectedTotalMinor / 100).toFixed(2);
-    try {
-      const updated = await User.findOneAndUpdate({ orderId }, { status: 'enrolled', price: amountMajorStr, enrollmentToken, enrolledAt: new Date() }, { new: true });
-      if (!updated) {
-        await User.create({ name: order.learner.fullName, email: order.learner.email, phone: order.learner.phone, courseTitle: order.courseInfo.title, trainingLocation: order.learner.trainingLocation, trainingType: order.enrollmentType, price: amountMajorStr, currency: order.currency?.toUpperCase(), orderId, status: 'enrolled', enrollmentToken, enrolledAt: new Date() });
-      }
-    } catch { /* non-blocking */ }
     if (order.learner?.email) {
       try {
         await sendEmail({ from: fromAddresses.sales, to: order.learner.email, subject: `Payment Received - ${order.courseInfo?.title || 'Technohana Course'}`, html: generatePaymentSuccessEmail({ name: order.learner.fullName, courseTitle: order.courseInfo?.title, amountMajor: amountMajorStr, currency: order.currency, enrollmentType: order.enrollmentType, participants: order.participants, trainingLocation: order.learner.trainingLocation }) });
@@ -1074,8 +1046,9 @@ app.post('/razorpay/cart-verify', checkoutLimiter, async (req, res) => {
         console.error(`Cart payment mismatch for ${primaryOrderId}: payment ${razorpay_payment_id} does not match order ${razorpay_order_id} / ${cart.totalMinor}`);
         return res.status(400).json({ error: 'Payment does not match this cart' });
       }
-      await finalizeRazorpayCart(cart.orders, primaryOrderId, razorpay_payment_id, req);
     }
+    // Also runs for an already-paid cart: finalize then finishes any enrolment an earlier attempt left undone.
+    await finalizeRazorpayCart(cart.orders, primaryOrderId, razorpay_payment_id, req);
 
     return res.json({ success: true, primaryOrderId });
   } catch (err) {
@@ -1109,7 +1082,6 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Payment does not belong to this order' });
     }
 
-    let invoiceNumber = '';
     if (order.status !== 'paid') {
       // The amount is read back from Razorpay: the signature does not say how much was paid.
       const ok = await razorpayPaymentMatches(razorpay_payment_id, { razorpayOrderId: razorpay_order_id, amountMinor: expectedPayNowMinor(order) });
@@ -1117,8 +1089,9 @@ app.post('/razorpay/verify', checkoutLimiter, async (req, res) => {
         console.error(`Payment mismatch for ${orderId}: payment ${razorpay_payment_id} does not match order ${razorpay_order_id} / ${expectedPayNowMinor(order)}`);
         return res.status(400).json({ error: 'Payment amount does not match this order' });
       }
-      ({ invoiceNumber } = await finalizeRazorpayOrder(order, razorpay_payment_id, req));
     }
+    // Also runs for an already-paid order: finalize then finishes an enrolment an earlier attempt left undone.
+    const { invoiceNumber } = await finalizeRazorpayOrder(order, razorpay_payment_id, req);
 
     return res.json({ success: true, orderId, invoiceNumber });
   } catch (err) {
