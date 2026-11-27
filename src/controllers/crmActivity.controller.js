@@ -65,6 +65,47 @@ export const getActivities = async (req, res) => {
   }
 };
 
+
+// Call outcomes drive the lead: stage, lost reason and the next follow-up.
+const CALL_OUTCOMES = {
+  not_connected:  { followUpDays: 1 },
+  callback:       { followUpDays: 0 },
+  interested:     { status: "discovery", followUpDays: 1 },
+  not_interested: { status: "lost", lostReason: "Not interested" },
+  wrong_number:   { status: "junk" },
+  do_not_contact: { status: "junk", tag: "do-not-contact" },
+};
+const OPEN_STAGES = ["new", "contacted"];
+
+async function applyCallOutcome(req, activity, metadata) {
+  const rule = CALL_OUTCOMES[metadata.outcome];
+  if (!rule || activity.relatedToType !== "lead") return;
+  const lead = await CRMLead.findOne({ _id: activity.relatedToId, isDeleted: false, ...ownerFilter(req) }).select("status nextFollowUp");
+  if (!lead) return;
+  const set = {};
+  const when = new Date(metadata.followUpAt);
+  if (!Number.isNaN(when.getTime()) && when > new Date()) set.nextFollowUp = when;
+  else if (rule.followUpDays) set.nextFollowUp = new Date(Date.now() + rule.followUpDays * 86400000);
+  const terminal = ["won", "enrolled"].includes(lead.status);
+  if (rule.status && !terminal && (OPEN_STAGES.includes(lead.status) || ["lost", "junk"].includes(rule.status))) {
+    set.status = rule.status;
+    if (rule.status === "lost") { set.lostReason = rule.lostReason; set.lostAt = new Date(); }
+    set.nextFollowUp = null;
+  }
+  const update = { $set: set };
+  if (rule.tag) {
+    const tag = await CRMTag.findOneAndUpdate({ name: rule.tag }, { $setOnInsert: { name: rule.tag } }, { upsert: true, new: true });
+    update.$addToSet = { tags: tag._id };
+  }
+  await CRMLead.updateOne({ _id: lead._id }, update);
+  if (set.status && set.status !== lead.status) {
+    await CRMActivity.create({
+      type: "status_change", title: `Status: ${lead.status} → ${set.status}`, relatedToType: "lead",
+      relatedToId: lead._id, metadata: { from: lead.status, to: set.status, via: "call_outcome" }, performedBy: req.admin._id,
+    });
+  }
+}
+
 export const logActivity = async (req, res) => {
   try {
     const { type, title, body, relatedToType, relatedToId, metadata } = req.body;
@@ -85,6 +126,7 @@ export const logActivity = async (req, res) => {
       metadata: plainObject(metadata),
       performedBy: req.admin._id,
     });
+    if (type === "call") await applyCallOutcome(req, activity, activity.metadata || {});
 
     res.status(201).json({ success: true, data: activity, message: "Activity logged" });
   } catch (err) {

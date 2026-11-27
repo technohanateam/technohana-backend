@@ -11,7 +11,7 @@ import {
 import { execSummary, execTrend, execDrilldown, execSettlement, execSetCourseCost } from "../controllers/crmExec.controller.js";
 import { getKpis, createKpi, updateKpi } from "../controllers/crmKpi.controller.js";
 import { getAdPerformanceHandler } from "../controllers/adPerformance.controller.js";
-import { getRevenueTrend, getRepStats, getConversionStats, getDailyReport, emailDailyReportToMe } from "../controllers/crmAnalytics.controller.js";
+import { getRevenueTrend, getRepStats, getConversionStats, getDailyReport, getCallSummary, emailDailyReportToMe } from "../controllers/crmAnalytics.controller.js";
 import {
   getLeads, getLead, createLead, updateLead, deleteLead,
   bulkLeadAction, mergeLead, addNote, getLeadActivities,
@@ -50,7 +50,6 @@ import {
 } from "../controllers/crmInstagram.controller.js";
 import {
   getWhatsAppTemplates, getWhatsAppInbox, getLeadWhatsApp, sendLeadWhatsApp, getContactWhatsApp, sendContactWhatsApp,
-  sendLeadPaymentLink, sendContactPaymentLink,
 } from "../controllers/crmWhatsApp.controller.js";
 import {
   getInternApplications, getInternApplication, updateInternApplication,
@@ -130,6 +129,7 @@ router.get("/analytics/revenue-trend", crmRead("dashboard"), getRevenueTrend);
 router.get("/analytics/rep-stats",     crmRead("dashboard"), getRepStats);
 router.get("/analytics/conversions",   crmRead("dashboard"), getConversionStats);
 router.get("/analytics/daily-report",  crmRead("dashboard"), getDailyReport);
+router.get("/analytics/call-summary",  crmRead("dashboard"), getCallSummary);
 router.get("/ads/performance",         crmRead("ads"),       getAdPerformanceHandler);
 
 // ── Instagram comment-to-DM triggers ──────────────────────────────────────────
@@ -160,7 +160,6 @@ router.get("/leads/:id/activities", crmRead("leads"),         getLeadActivities)
 router.post("/leads/:id/instagram-reply", crmWrite("activities"), sendInstagramReply);
 router.get("/leads/:id/whatsapp",         crmRead("leads"),         getLeadWhatsApp);
 router.post("/leads/:id/whatsapp",        crmWrite("activities"), whatsappLimiter, sendLeadWhatsApp);
-router.post("/leads/:id/payment-link",    crmWrite("activities"), whatsappLimiter, sendLeadPaymentLink);
 
 // ── AI on Leads ───────────────────────────────────────────────────────────────
 router.get("/leads/:id/ai-summary",      crmRead("ai"),  aiLimiter, aiLeadSummary);
@@ -179,7 +178,6 @@ router.post("/contacts/:id/notes",       crmWrite("contacts"),  addContactNote);
 router.get("/contacts/:id/activities",   crmRead("contacts"),   getContactActivities);
 router.get("/contacts/:id/whatsapp",     crmRead("contacts"),   getContactWhatsApp);
 router.post("/contacts/:id/whatsapp",    crmWrite("activities"), whatsappLimiter, sendContactWhatsApp);
-router.post("/contacts/:id/payment-link", crmWrite("activities"), whatsappLimiter, sendContactPaymentLink);
 
 // ── Companies ─────────────────────────────────────────────────────────────────
 router.get("/companies",              crmRead("companies"),   getCompanies);

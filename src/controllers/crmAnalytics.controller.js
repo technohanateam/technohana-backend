@@ -1,7 +1,11 @@
 import CRMLead from "../models/crm/crmLead.model.js";
 import CRMDeal from "../models/crm/crmDeal.model.js";
+import CRMActivity from "../models/crm/crmActivity.model.js";
+import CRMTask from "../models/crm/crmTask.model.js";
+import "../models/crm/crmTag.model.js";
+import CrmUser from "../models/crmUser.model.js";
 import { buildDailyReport, sendDailyReportEmail, resolveRange, istDateStr, istMonthStart, REPORT_TZ } from "../services/crmDailyReport.js";
-import { ownerFilter } from "../utils/crmQuery.js";
+import { ownerFilter, isValidId } from "../utils/crmQuery.js";
 
 const wonAtPart = (op) => ({ [op]: { date: "$wonAt", timezone: REPORT_TZ } });
 
@@ -208,5 +212,73 @@ export const emailDailyReportToMe = async (req, res) => {
   } catch (err) {
     console.error("emailDailyReportToMe error:", err);
     res.status(500).json({ success: false, message: "Failed to send report" });
+  }
+};
+
+// Read-only call review for one rep: every call note in the range with its lead's
+// stage and follow-up, open tasks, and assigned leads not yet called.
+export const getCallSummary = async (req, res) => {
+  try {
+    const role = req.crmRole || req.admin.role;
+    const { user, from, to } = req.query;
+    const repId = CRM_ADMIN_ROLES.includes(role) ? user : String(req.admin._id);
+    if (!isValidId(repId)) return res.status(400).json({ success: false, message: "user (rep id) is required" });
+    const range = resolveRange(from, to);
+    if (range.error) return res.status(400).json({ success: false, message: range.error });
+
+    const rep = await CrmUser.findById(repId).select("name email crmRole active").lean();
+    if (!rep) return res.status(404).json({ success: false, message: "Rep not found" });
+
+    const calls = await CRMActivity.find({ type: "call", performedBy: repId, createdAt: { $gte: range.start, $lt: range.end } })
+      .sort({ createdAt: -1 }).limit(2000).select("title body metadata relatedToType relatedToId createdAt").lean();
+    const stageChanges = await CRMActivity.find({ type: { $in: ["stage_change", "status_change"] }, performedBy: repId, createdAt: { $gte: range.start, $lt: range.end } })
+      .select("relatedToId metadata createdAt").sort({ createdAt: 1 }).lean();
+
+    const leadIds = [...new Set(calls.filter((c) => c.relatedToType === "lead").map((c) => String(c.relatedToId)))];
+    const [leads, tasks, assigned] = await Promise.all([
+      CRMLead.find({ _id: { $in: leadIds } }).populate("tags", "name").select("name phone status nextFollowUp source tags").lean(),
+      CRMTask.find({ isDeleted: false, assignedTo: repId, status: { $in: ["open", "in_progress"] } })
+        .sort({ dueDate: 1 }).limit(500).select("title type priority dueDate relatedToType relatedToId").lean(),
+      CRMLead.find({ isDeleted: false, assignedTo: repId, status: { $nin: ["won", "enrolled", "lost", "junk"] } })
+        .populate("tags", "name").select("name phone status source nextFollowUp tags createdAt").lean(),
+    ]);
+
+    const leadMap = new Map(leads.map((l) => [String(l._id), l]));
+    const flags = (l) => (l.tags || []).map((t) => t.name).filter((n) => ["do-not-contact", "bad-email"].includes(n));
+    const stagesByLead = {};
+    stageChanges.forEach((s) => { (stagesByLead[String(s.relatedToId)] ||= []).push({ from: s.metadata?.from, to: s.metadata?.to, at: s.createdAt }); });
+
+    const callRows = calls.map((c) => {
+      const l = leadMap.get(String(c.relatedToId));
+      return {
+        at: c.createdAt, lead: l?.name || null, leadId: String(c.relatedToId), phone: l?.phone || null,
+        title: c.title, note: c.body, outcome: c.metadata?.outcome ?? null, duration: c.metadata?.duration ?? null,
+        stageNow: l?.status || null, nextFollowUp: l?.nextFollowUp || null, flags: l ? flags(l) : [],
+        stageChanges: stagesByLead[String(c.relatedToId)] || [],
+      };
+    });
+
+    const called = new Set(leadIds);
+    const byOutcome = {};
+    callRows.forEach((r) => { const k = r.outcome || "unspecified"; byOutcome[k] = (byOutcome[k] || 0) + 1; });
+    const now = new Date();
+
+    res.json({
+      success: true,
+      data: {
+        rep, range: { from: range.from, to: range.to },
+        totals: { calls: callRows.length, leadsCalled: called.size, byOutcome },
+        calls: callRows,
+        openTasks: tasks.map((t) => ({ ...t, overdue: !!t.dueDate && t.dueDate < now })),
+        followUpsDue: assigned.filter((l) => l.nextFollowUp && l.nextFollowUp <= now)
+          .map((l) => ({ id: l._id, name: l.name, phone: l.phone, status: l.status, nextFollowUp: l.nextFollowUp, flags: flags(l) })),
+        notYetCalled: assigned.filter((l) => !called.has(String(l._id)))
+          .map((l) => ({ id: l._id, name: l.name, phone: l.phone, status: l.status, source: l.source, createdAt: l.createdAt, flags: flags(l) })),
+      },
+      message: "Call summary loaded",
+    });
+  } catch (err) {
+    console.error("getCallSummary error:", err);
+    res.status(500).json({ success: false, message: "Failed to load call summary" });
   }
 };
