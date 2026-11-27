@@ -69,7 +69,7 @@ export const getActivities = async (req, res) => {
 // Call outcomes drive the lead: stage, lost reason and the next follow-up.
 const CALL_OUTCOMES = {
   not_connected:  { followUpDays: 1 },
-  callback:       { followUpDays: 0 },
+  callback:       { followUpHours: 4 },
   interested:     { status: "discovery", followUpDays: 1 },
   not_interested: { status: "lost", lostReason: "Not interested" },
   wrong_number:   { status: "junk" },
@@ -85,7 +85,7 @@ async function applyCallOutcome(req, activity, metadata) {
   const set = {};
   const when = new Date(metadata.followUpAt);
   if (!Number.isNaN(when.getTime()) && when > new Date()) set.nextFollowUp = when;
-  else if (rule.followUpDays) set.nextFollowUp = new Date(Date.now() + rule.followUpDays * 86400000);
+  else if (rule.followUpDays || rule.followUpHours) set.nextFollowUp = new Date(Date.now() + (rule.followUpDays || 0) * 86400000 + (rule.followUpHours || 0) * 3600000);
   const terminal = ["won", "enrolled"].includes(lead.status);
   if (rule.status && !terminal && (OPEN_STAGES.includes(lead.status) || ["lost", "junk"].includes(rule.status))) {
     set.status = rule.status;
@@ -126,7 +126,13 @@ export const logActivity = async (req, res) => {
       metadata: plainObject(metadata),
       performedBy: req.admin._id,
     });
-    if (type === "call") await applyCallOutcome(req, activity, activity.metadata || {});
+    if (type === "call") {
+      try {
+        await applyCallOutcome(req, activity, activity.metadata || {});
+      } catch (outcomeErr) {
+        console.error("applyCallOutcome error (call already logged):", outcomeErr);
+      }
+    }
 
     res.status(201).json({ success: true, data: activity, message: "Activity logged" });
   } catch (err) {
